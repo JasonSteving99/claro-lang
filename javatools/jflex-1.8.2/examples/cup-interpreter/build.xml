@@ -1,0 +1,18 @@
+<project name="AS-language-interpreter" default="test">
+
+  <import file="../common/include.xml"/>
+
+  <property name="main.class" value="Main" />
+  <property name="test.input" value="src/test/data/example.as" />
+  <property name="test.class" value="CalcTest" />
+
+  <target name="scanner">
+    <jflex file="src/main/jflex/scanner.flex" destdir="${ant.build}"/>
+  </target>
+
+  <target name="parser" depends="define-cup">
+    <cup srcfile="src/main/cup/parser.cup"
+         locations="no" interface="yes" destdir="${ant.build}"/>
+  </target>
+
+</project>

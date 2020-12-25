@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.flex.examples</groupId>
+  <artifactId>pom</artifactId>
+  <version>1.0</version>
+  <name>JFlex example collection</name>
+  <description>
+    Examples on how to use JFlex and jflex-maven-plugin
+  </description>
+  <packaging>pom</packaging>
+  <modules>
+    <module>cup-interpreter</module>
+    <module>cup-java</module>
+    <module>cup-lcalc</module>
+    <module>simple</module>
+    <module>standalone</module>
+    <module>zero-reader</module>
+  </modules>
+</project>

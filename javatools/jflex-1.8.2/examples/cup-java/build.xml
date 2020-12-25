@@ -1,0 +1,21 @@
+<project name="java-1.2-parser" default="test">
+
+  <import file="../common/include.xml"/>
+
+  <property name="main.class" value="TestLexer" />
+  <property name="test.input" value="src/main/java/TestLexer.java" />
+  <property name="test.class" value="JavaParserTest" />
+
+  <target name="scanner">
+    <jflex file="src/main/jflex/java.flex" destdir="${ant.build}"
+           encoding="utf-8"/>
+    <jflex file="src/main/jflex/unicode.flex" destdir="${ant.build}"
+           encoding="utf-8"/>
+  </target>
+
+  <target name="parser" depends="define-cup">
+    <cup srcfile="src/main/cup/java12.cup"
+          locations="no" interface="yes" destdir="${ant.build}"/>
+  </target>
+
+</project>

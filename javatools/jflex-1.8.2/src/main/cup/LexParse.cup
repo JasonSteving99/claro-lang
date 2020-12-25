@@ -1,0 +1,835 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * JFlex 1.8.2                                                             *
+ * Copyright (C) 1998-2018  Gerwin Klein <lsf@jflex.de>                    *
+ * All rights reserved.                                                    *
+ *                                                                         *
+ * License: BSD                                                            *
+ *                                                                         *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+package jflex.core;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import jflex.chars.Interval;
+import jflex.core.unicode.CharClasses;
+import jflex.core.unicode.IntCharSet;
+import jflex.core.unicode.UnicodeProperties;
+import jflex.exceptions.GeneratorException;
+import jflex.l10n.ErrorMessages;
+import jflex.logging.Out;
+import jflex.option.Options;
+import jflex.performance.Timer;
+import jflex.scanner.ScannerException;
+import java_cup.runtime.Symbol;
+
+/* customizing code */
+
+action code {:
+
+  LexScan     scanner;
+  CharClasses charClasses;
+  RegExps     regExps     = new RegExps();
+  Macros      macros      = new Macros();
+  Integer     stateNumber;
+  Timer       t           = new Timer();
+  EOFActions  eofActions  = new EOFActions();
+  Map<Integer,IntCharSet> preclassCache = new HashMap<Integer,IntCharSet>();
+
+  void fatalError(ErrorMessages.ErrorMessage message, int line, int col) {
+    syntaxError(message, line, col);
+    throw new GeneratorException();
+  }
+
+  void fatalError(ErrorMessages.ErrorMessage message) {
+    fatalError(message, scanner.lexLine(), -1);
+    throw new GeneratorException();
+  }
+
+  void syntaxError(ErrorMessages.ErrorMessage message) {
+    Out.error(scanner.file, message, scanner.lexLine(), -1);
+  }
+
+  void syntaxError(ErrorMessages.ErrorMessage message, int line) {
+    Out.error(scanner.file, message, line, -1);
+  }
+
+  void syntaxError(ErrorMessages.ErrorMessage message, int line, int col) {
+    Out.error(scanner.file, message, line, col);
+  }
+
+  void warning(ErrorMessages.ErrorMessage message, int line, int col) {
+    Out.warning(scanner.file, message, line, col);
+  }
+
+  private boolean isDotOrNewlinePattern(RegExp r1, RegExp r2) {
+    return ( r1 instanceof RegExp1 && ((RegExp1)r1).isPoint && isNewline(r2) )
+        || ( r2 instanceof RegExp1 && ((RegExp1)r2).isPoint && isNewline(r1) );
+  }
+
+  private boolean isNewline(RegExp r) {
+    if ( ! (r instanceof RegExp1) || null == ((RegExp1)r).content ) {
+      return false;
+    }
+    RegExp1 r1 = (RegExp1)r;
+    switch ( r1.type ) {
+      case sym.STRING:
+      case sym.STRING_I:
+        return "\n".equals(r1.content);
+      case sym.CHAR:
+      case sym.CHAR_I:
+        return '\n' == (char)((Integer)r1.content).intValue();
+      case sym.PRIMCLASS:
+        return IntCharSet.nlChars().contains((IntCharSet) r1.content);
+      default:
+        return false;
+    }
+  }
+
+  private boolean check(int type, int c) {
+    switch (type) {
+      case sym.JLETTERCLASS:
+        return Character.isJavaIdentifierStart(c);
+
+      case sym.JLETTERDIGITCLASS:
+        return Character.isJavaIdentifierPart(c);
+
+      default: return false;
+    }
+  }
+
+  private IntCharSet getPreClass(int type) {
+    IntCharSet result = preclassCache.get(type);
+    if (null == result) {
+      UnicodeProperties unicodeProperties = scanner.getUnicodeProperties();
+      switch (type) {
+        case sym.LETTERCLASS:
+          result = unicodeProperties.getIntCharSet("L");
+          preclassCache.put(type, result);
+          break;
+
+        case sym.DIGITCLASS:
+          result = unicodeProperties.getIntCharSet("Nd");
+          preclassCache.put(type, result);
+          break;
+
+        case sym.DIGITCLASSNOT:
+          IntCharSet digits = unicodeProperties.getIntCharSet("Nd");
+          result = IntCharSet.ofCharacterRange(0,  unicodeProperties.getMaximumCodePoint());
+          result.sub(digits);
+          preclassCache.put(type, result);
+          break;
+
+        case sym.UPPERCLASS:
+          // "Uppercase" is more than Uppercase_Letter, but older Unicode
+          // versions don't have this definition - check for "Uppercase",
+          // then fall back to Uppercase_Letter (Lu) if it does not exist.
+          result = unicodeProperties.getIntCharSet("Uppercase");
+          if (null == result) {
+            result = unicodeProperties.getIntCharSet("Lu");
+          }
+          preclassCache.put(type, result);
+          break;
+
+        case sym.LOWERCLASS:
+          // "Lowercase" is more than Lowercase_Letter, but older Unicode
+          // versions don't have this definition - check for "Lowercase",
+          // then fall back to Lowercase_Letter (Ll) if it does not exist.
+          result = unicodeProperties.getIntCharSet("Lowercase");
+          if (null == result) {
+            result = unicodeProperties.getIntCharSet("Ll");
+          }
+          preclassCache.put(type, result);
+          break;
+
+        case sym.WHITESPACECLASS:
+          // Although later versions do, Unicode 1.1 does not have the
+          // "Whitespace" definition - check for "Whitespace", then fall back
+          // to "Space_separator" (Zs) if it does not exist.
+          result = unicodeProperties.getIntCharSet("Whitespace");
+          if (null == result) {
+            result = unicodeProperties.getIntCharSet("Zs");
+          }
+          preclassCache.put(type, result);
+          break;
+
+        case sym.WHITESPACECLASSNOT:
+          // Although later versions do, Unicode 1.1 does not have the
+          // "Whitespace" definition - check for "Whitespace", then fall back
+          // to "Space_separator" (Zs) if it does not exist.
+          IntCharSet whitespaceClass = unicodeProperties.getIntCharSet("Whitespace");
+          if (null == whitespaceClass) {
+            whitespaceClass = unicodeProperties.getIntCharSet("Zs");
+          }
+          result = IntCharSet.ofCharacterRange(0,  unicodeProperties.getMaximumCodePoint());
+          result.sub(whitespaceClass);
+          preclassCache.put(type, result);
+          break;
+
+        case sym.WORDCLASS:
+          {
+            // UTR#18: \w = [\p{alpha}\p{gc=Mark}\p{digit}\p{gc=Connector_Punctuation}]
+            IntCharSet alphaClass = unicodeProperties.getIntCharSet("Alphabetic");
+            if (null == alphaClass) {
+              // For Unicode 1.1, substitute "Letter" (L) for "Alphabetic".
+              alphaClass = unicodeProperties.getIntCharSet("L");
+            }
+            IntCharSet markClass = unicodeProperties.getIntCharSet("M");
+            IntCharSet digitClass = unicodeProperties.getIntCharSet("Nd");
+            IntCharSet connectorPunctClass = unicodeProperties.getIntCharSet("Pc");
+            if (null == connectorPunctClass) {
+              // For Unicode 1.1, substitute "_" for "Connector_Punctuation".
+              connectorPunctClass = IntCharSet.ofCharacter('_');
+            }
+            result = IntCharSet.copyOf(alphaClass);
+            result.add(markClass);
+            result.add(digitClass);
+            result.add(connectorPunctClass);
+            preclassCache.put(type, result);
+            break;
+          }
+
+        case sym.WORDCLASSNOT:
+          {
+            // UTR#18: \W = [^\p{alpha}\p{gc=Mark}\p{digit}\p{gc=Connector_Punctuation}]
+            IntCharSet alphaClass = unicodeProperties.getIntCharSet("Alphabetic");
+            if (null == alphaClass) {
+              // For Unicode 1.1, substitute "Letter" (L) for "Alphabetic".
+              alphaClass = unicodeProperties.getIntCharSet("L");
+            }
+            IntCharSet markClass = unicodeProperties.getIntCharSet("M");
+            IntCharSet digitClass = unicodeProperties.getIntCharSet("Nd");
+            IntCharSet connectorPunctClass = unicodeProperties.getIntCharSet("Pc");
+            if (null == connectorPunctClass) {
+              // For Unicode 1.1, substitute "_" for "Connector_Punctuation".
+              connectorPunctClass = IntCharSet.ofCharacter('_');
+            }
+            IntCharSet wordClass = IntCharSet.copyOf(alphaClass);
+            wordClass.add(markClass);
+            wordClass.add(digitClass);
+            wordClass.add(connectorPunctClass);
+            result = IntCharSet.ofCharacterRange(0,  unicodeProperties.getMaximumCodePoint());
+            result.sub(wordClass);
+            preclassCache.put(type, result);
+            break;
+          }
+        case sym.JLETTERCLASS:
+        case sym.JLETTERDIGITCLASS:
+        default:
+          result = new IntCharSet();
+
+          int c = 0;
+          int start = 0;
+          int last = charClasses.getMaxCharCode();
+
+          boolean prev, current;
+
+          prev = check(type, 0);
+
+          for (c = 1; c < last; c++) {
+
+            current = check(type, c);
+
+            if (!prev && current) start = c;
+            if (prev && !current) {
+              result.add(new Interval(start, c - 1));
+            }
+
+            prev = current;
+          }
+
+          // the last iteration is moved out of the loop to
+          // avoid an endless loop if last == maxCharCode and
+          // last+1 == 0
+          current = check(type, c);
+
+          if (!prev && current) result.add(new Interval(c, c));
+          if (prev && current) result.add(new Interval(start, c));
+          if (prev && !current) result.add(new Interval(start, c - 1));
+
+          preclassCache.put(type, result);
+          break;
+        }
+    }
+    return result;
+  }
+
+  private RegExp makeRepeat(RegExp r, int n1, int n2, int line, int col) {
+    if (n1 <= 0 && n2 <= 0) {
+      syntaxError(ErrorMessages.REPEAT_ZERO, line, col);
+      return null;
+    }
+
+    if (n1 > n2) {
+      syntaxError(ErrorMessages.REPEAT_GREATER, line, col);
+      return null;
+    }
+
+    int i;
+    RegExp result;
+
+    if (n1 > 0) {
+      result = r;
+      n1--; n2--; // we need one concatenation less than the number of expressions to match
+    }
+    else {
+      result = new RegExp1(sym.QUESTION,r);
+      n2--;
+    }
+
+    for (i = 0; i < n1; i++)
+      result = new RegExp2(sym.CONCAT, result, r);
+
+    n2-= n1;
+    for (i = 0; i < n2; i++)
+      result = new RegExp2(sym.CONCAT, result, new RegExp1(sym.QUESTION,r));
+
+    return result;
+  }
+
+  private RegExp makeNL() {
+    IntCharSet set = IntCharSet.nlChars();
+
+	  // assumption: line feeds are caseless
+    charClasses.makeClass(set, false);
+    charClasses.makeClass('\n', false);
+    charClasses.makeClass('\r', false);
+
+    RegExp1 c = new RegExp1(sym.PRIMCLASS, set);
+    Integer n = Integer.valueOf((int)'\n');
+    Integer r = Integer.valueOf((int)'\r');
+
+    return new RegExp2(sym.BAR,
+                       c,
+                       new RegExp2(sym.CONCAT,
+                                   new RegExp1(sym.CHAR, r),
+                                   new RegExp1(sym.CHAR, n)));
+  }
+
+  private RegExp primClass(int content) {
+    return primClass(content, content);
+  }
+
+  private RegExp primClass(int start, int end) {
+    return primClass(IntCharSet.ofCharacterRange(start, end));
+  }
+
+  private RegExp primClass(IntCharSet set) {
+    return new RegExp1(sym.PRIMCLASS, set);
+  }
+
+:};
+
+parser code {:
+   public LexScan scanner;
+
+   public LexParse(LexScan scanner) {
+     super(scanner);
+     this.scanner = scanner;
+   }
+
+   public CharClasses getCharClasses() {
+     return action_obj.charClasses;
+   }
+
+   public EOFActions getEOFActions() {
+     return action_obj.eofActions;
+   }
+
+   /**
+    * Override syntax_error to not report expected tokens, just error message.
+    */
+   public void syntax_error(Symbol cur_token) {
+     // TODO(lsf): reporting expected tokens using their actual surface syntax would
+     // be useful. Would need a reverse mapping of terminals or similar.
+
+     // JFlex reporting doesn't use the message argument.
+     report_error(null, cur_token);
+   }
+
+   /**
+    * Override lr_parser.report_error to use JFlex reporting.
+    */
+   public void report_error(String message, Object info) {
+     if (info instanceof Symbol) {
+       Symbol s = (Symbol) info;
+
+       if (s.sym == sym.EOF)
+         Out.error(ErrorMessages.UNEXPECTED_EOF);
+       else
+         Out.error(scanner.file, ErrorMessages.SYNTAX_ERROR, s.left, s.right);
+     }
+     else
+       Out.error(ErrorMessages.UNKNOWN_SYNTAX);
+   }
+
+   /**
+    * Override lr_parser.report_fatal_error to use JFlex reporting.
+    */
+   public void report_fatal_error(String message, Object info) {
+     // CUP does not produce an informative message here, so we just stop.
+     throw new GeneratorException();
+   }
+:};
+
+init with {:
+  action_obj.scanner = scanner;
+  // CharClasses.init() is delayed until UnicodeProperties.init() has been called,
+  // since the max char code won't be known until then.
+  action_obj.charClasses = scanner.getCharClasses();
+:};
+
+/* token declarations */
+
+terminal OPENBRACKET, CLOSEBRACKET, HAT, DOLLAR, OPENCLASS,
+         CLOSECLASS, DASH, DELIMITER, EQUALS, COMMA, LESSTHAN,
+         MORETHAN, LBRACE, RBRACE, REGEXPEND;
+
+terminal JLETTERCLASS, JLETTERDIGITCLASS, LETTERCLASS, DIGITCLASS,
+         DIGITCLASSNOT, UPPERCLASS, LOWERCLASS, EOFRULE, NOACTION, LOOKAHEAD,
+         WHITESPACECLASS, WHITESPACECLASSNOT, WORDCLASS, WORDCLASSNOT,
+         UNION, INTERSECTION, DIFFERENCE, SYMMETRICDIFFERENCE;
+
+terminal Action ACTION;
+terminal String IDENT, USERCODE;
+terminal Integer REPEAT;
+
+/* tokens used in RegExp parse tree */
+terminal STAR, PLUS, BAR, QUESTION, POINT, NEWLINE, BANG, TILDE;
+
+terminal Integer CHAR;
+terminal String STRING, MACROUSE;
+terminal IntCharSet UNIPROPCCLASS, UNIPROPCCLASSNOT;
+
+/* symbols *only* used in the parse tree (not in the grammar) */
+terminal CCLASS, CCLASSNOT, CCLASSOP, PRIMCLASS, CONCAT;
+terminal STRING_I, CHAR_I;  /* case insensitive strings/chars */
+
+
+non terminal            macros, macro;
+non terminal Integer    rule;
+non terminal NFA        specification;
+non terminal RegExp     series, concs, nregexp, regexp, charclass, lookahead;
+non terminal RegExp     opt_hat_content, classcontentelem;
+non terminal IntCharSet preclass;
+non terminal List<RegExp>  opt_dash_content, classcontent;
+non terminal List<Integer> states, statesOPT, rules;
+non terminal Integer    charclass_op;
+non terminal Boolean    hatOPT;
+non terminal Action     act, actions;
+
+
+/* grammar specification */
+start with specification;
+
+specification ::=  USERCODE
+                   /* delimiter is checked in lexer */
+                   macros
+                   DELIMITER
+                   rules
+                   {:
+                     scanner.t.stop();
+
+                     Out.checkErrors();
+
+                     Out.time(ErrorMessages.PARSING_TOOK, t);
+
+                     macros.expand(); // expands only inside macro definitions
+                     if (Options.unused_warning) {
+	                     for (String unusedMacro : macros.unused()) {
+	                       Out.warning(String.format(
+	                    		   "Macro \"%s\" has been declared but never used.", unusedMacro));
+	                     }
+                     }
+
+                     // expand macros + char classes in rules and lookahead rules
+                     regExps.normalise(macros);
+                     // make char class partitions (modifies charClasses)
+                     regExps.makeCCLs(charClasses, Options.jlex && scanner.caseless);
+
+                     SemCheck.check(regExps, scanner.file);
+
+                     regExps.checkActions();
+                     regExps.checkLookAheads();
+
+                     Out.checkErrors();
+
+                     charClasses.normalise();
+                     if (Options.dump) charClasses.dump();
+
+                     Out.print("Constructing NFA : ");
+
+                     t.start();
+                     int num = regExps.getNum();
+
+                     RESULT = new NFA(charClasses.getNumClasses(),
+                                      scanner, regExps, macros, charClasses);
+
+                     eofActions.setNumLexStates(scanner.states.number());
+
+                     for (int i = 0; i < num; i++) {
+                       if (regExps.isEOF(i))
+                         eofActions.add( regExps.getStates(i), regExps.getAction(i) );
+                       else
+                         RESULT.addRegExp(i);
+                     }
+
+                     if (scanner.standalone) RESULT.addStandaloneRule();
+                     t.stop();
+
+                     Out.time("");
+	                   Out.time(ErrorMessages.NFA_TOOK, t);
+
+                   :}
+                 | /* emtpy spec. error */
+                   {:
+                     fatalError(ErrorMessages.NO_LEX_SPEC);
+                   :}
+                 ;
+
+macros        ::=  /* empty, most switches & state declarations are parsed in lexer */
+                | macros macro
+                | error;
+
+macro         ::= IDENT:name EQUALS series:definition REGEXPEND
+                   {: macros.insert(name, definition); :}
+                | IDENT EQUALS:e
+                   {: syntaxError(ErrorMessages.REGEXP_EXPECTED, eleft, eright); :}
+                ;
+
+
+rules         ::=  rules:rlist rule:r
+                   {: rlist.add(r); RESULT = rlist; :}
+                |  rules:rlist1 LESSTHAN states:states MORETHAN LBRACE rules:rlist2 RBRACE
+                   {:
+                     for (Integer elem : rlist2) {
+                       // might be null for error case of "rule"
+                       if (elem != null) {
+                         regExps.addStates( elem, states );
+                       }
+                       rlist1.add( elem );
+                     }
+                     RESULT = rlist1;
+                   :}
+                |  LESSTHAN states:states MORETHAN LBRACE rules:rlist RBRACE
+                   {:
+                     for (Integer elem : rlist) {
+                       // might be null for error case of "rule"
+                       if (elem != null) {
+                         regExps.addStates( elem, states );
+                       }
+                     }
+                     RESULT = rlist;
+                   :}
+                |  rule:r
+                   {: RESULT = new ArrayList<Integer>(); RESULT.add(r); :}
+                ;
+
+rule          ::=  statesOPT:s hatOPT:bol series:r actions:a
+                   {: RESULT = regExps.insert(rleft, s, r, a, bol, null); :}
+                |  statesOPT:s hatOPT:bol series:r lookahead:l act:a
+                   {: RESULT = regExps.insert(rleft, s, r, a, bol, l); :}
+                |  statesOPT:s hatOPT:bol series:r lookahead:l NOACTION:a
+                   {: syntaxError(ErrorMessages.LOOKAHEAD_NEEDS_ACTION, aleft, aright+1); :}
+                |  statesOPT:s EOFRULE ACTION:a
+                   {: RESULT = regExps.insert(s, a); :}
+                |  statesOPT:s EOFRULE NOACTION
+                   {: RESULT = regExps.insert(s, null); :}
+                |  error
+                ;
+
+lookahead     ::=  DOLLAR
+                   {: RESULT = makeNL(); :}
+                |  LOOKAHEAD series:r
+                   {: RESULT = r; :}
+                |  LOOKAHEAD series:s DOLLAR
+                   {: RESULT = new RegExp2(sym.CONCAT, s, makeNL()); :}
+                ;
+
+act           ::=  REGEXPEND ACTION:a
+                   {: RESULT = a; :}
+				;
+
+actions       ::=  act:a
+                   {: RESULT = a; :}
+                |  NOACTION
+                ;
+
+
+statesOPT     ::=  LESSTHAN states:list MORETHAN
+                   {: RESULT = list; :}
+                |  /* empty */
+                   {: RESULT = new ArrayList<Integer>(); :}
+                ;
+
+states        ::=  IDENT:id COMMA states:list
+                   {:
+                     stateNumber = scanner.states.getNumber( id );
+                     if ( stateNumber != null )
+                       list.add( stateNumber );
+                     else {
+                       throw new ScannerException(scanner.file, ErrorMessages.LEXSTATE_UNDECL,
+                                                  idleft, idright);
+                     }
+                     RESULT = list;
+                   :}
+                |  IDENT:id
+                   {:
+                     List<Integer> list = new ArrayList<Integer>();
+                     stateNumber = scanner.states.getNumber( id );
+                     if ( stateNumber != null )
+                       list.add( stateNumber );
+                     else {
+                       throw new ScannerException(scanner.file, ErrorMessages.LEXSTATE_UNDECL,
+                                                  idleft, idright);
+                     }
+                     RESULT = list;
+                   :}
+                 | IDENT COMMA:c
+                   {: syntaxError(ErrorMessages.REGEXP_EXPECTED, cleft, cright+1); :}
+                ;
+
+hatOPT        ::=  HAT
+                   {: RESULT = true; :}
+                |  /* empty */
+                   {: RESULT = false; :}
+                ;
+
+series        ::= series:r1 BAR concs:r2
+                  {:
+                     if ( ! Options.jlex && ! Options.legacy_dot && isDotOrNewlinePattern(r1, r2) ) {
+                       warning(ErrorMessages.DOT_BAR_NEWLINE_DOES_NOT_MATCH_ALL_CHARS, r1left, r1right);
+                     }
+                     RESULT = new RegExp2(sym.BAR, r1, r2);
+                  :}
+                | concs:r
+                  {: RESULT = r; :}
+                | BAR:b
+                  {: syntaxError(ErrorMessages.REGEXP_EXPECTED, bleft, bright); :}
+                ;
+
+concs         ::= concs:r1 nregexp:r2
+                  {: RESULT = new RegExp2(sym.CONCAT, r1, r2); :}
+                | nregexp:r
+                  {: RESULT = r; :}
+                ;
+
+nregexp       ::= regexp:r
+                  {: RESULT = r; :}
+                | BANG nregexp:r
+                  {: RESULT = new RegExp1(sym.BANG, r); :}
+                | TILDE nregexp:r
+                  {: RESULT = new RegExp1(sym.TILDE, r); :}
+                ;
+
+regexp        ::=  regexp:r STAR
+                   {: RESULT = new RegExp1(sym.STAR, r); :}
+                |  regexp:r PLUS
+                   {: RESULT = new RegExp1(sym.PLUS, r); :}
+                |  regexp:r QUESTION
+                   {: RESULT = new RegExp1(sym.QUESTION, r); :}
+                |  regexp:r REPEAT:n RBRACE:b
+                   {: RESULT = makeRepeat(r, n, n, bleft, bright); :}
+                |  regexp:r REPEAT:n1 REPEAT:n2 RBRACE
+                   {: RESULT = makeRepeat(r, n1, n2, n1left, n2right); :}
+                |  OPENBRACKET series:r CLOSEBRACKET
+                   {: RESULT = r; :}
+                |  MACROUSE:ident
+                   {:
+                      if ( !scanner.macroDefinition ) {
+                        if ( ! macros.markUsed(ident) )
+                          throw new ScannerException(scanner.file, ErrorMessages.MACRO_UNDECL,
+                                                     identleft, identright);
+                      }
+                      RESULT = new RegExp1(sym.MACROUSE, ident);
+                   :}
+                |  charclass:c
+                   {: RESULT = c; :}
+                |  preclass:set
+                   {:
+                     // assumption [correct?]: preclasses are already closed under case
+                     charClasses.makeClass(set, false);
+                     RESULT = new RegExp1(sym.PRIMCLASS, set);
+                   :}
+                |  UNIPROPCCLASS:intcharset
+                   {:
+                     IntCharSet set
+                       = scanner.caseless
+                       ? intcharset.getCaseless(scanner.getUnicodeProperties())
+                       : intcharset;
+                     charClasses.makeClass(set, false);
+                     RESULT = new RegExp1(sym.PRIMCLASS, set);
+                   :}
+                |  UNIPROPCCLASSNOT:notintcharset
+                   {:
+                     IntCharSet set
+                       = scanner.caseless
+                       ? notintcharset.getCaseless(scanner.getUnicodeProperties())
+                       : notintcharset;
+                     charClasses.makeClass(set, false);
+
+                     ArrayList<RegExp> l = new ArrayList<RegExp>();
+                     l.add(new RegExp1(sym.PRIMCLASS, set));
+                     RESULT = new RegExp1(sym.CCLASSNOT, l);
+                   :}
+                |  STRING:str
+                   {:
+                     charClasses.makeClass(str, scanner.caseless);
+                     RESULT = new RegExp1(scanner.caseless ? sym.STRING_I : sym.STRING, str);
+                   :}
+                |  POINT
+                   {:
+                      IntCharSet nl;
+                      if ( Options.jlex || Options.legacy_dot ) {
+                        nl = IntCharSet.ofCharacter('\n');
+                      }
+                      else {
+                        nl = IntCharSet.nlChars();
+                      }
+                      nl.add(new Interval(Character.MIN_SURROGATE, Character.MAX_SURROGATE));
+                      // assumption: surrogate and newline chars have no uppercase variant
+                      charClasses.makeClass(nl, false);
+                      ArrayList<RegExp> l = new ArrayList<RegExp>();
+                      l.add(new RegExp1(sym.PRIMCLASS, nl));
+                      RegExp1 r = new RegExp1(sym.CCLASSNOT, l);
+                      r.isPoint = true;
+                      RESULT = r;
+                   :}
+                |  NEWLINE
+                   {: RESULT = makeNL(); :}
+                |  CHAR:c
+                   {:
+                     if ( scanner.caseless ) {
+                       charClasses.makeClass(c, true);
+                       RESULT = new RegExp1(sym.CHAR_I, c);
+                     }
+                     else {
+                       charClasses.makeClass(c, false);
+                       RESULT = new RegExp1(sym.CHAR, c);
+                     }
+                   :}
+                ;
+
+charclass     ::=  OPENCLASS CLOSECLASS
+                   {: RESULT = new RegExp1(sym.CCLASS, new ArrayList<RegExp>()); :}
+                |  OPENCLASS HAT CLOSECLASS:close
+                   {: RESULT = RegExp.anyChar(); :}
+                |  OPENCLASS opt_hat_content:ccl CLOSECLASS
+                   {: RESULT = ccl; :}
+                |  OPENCLASS opt_dash_content:cc1 charclass_op:op opt_hat_content:c2 CLOSECLASS
+                   {:
+                      RegExp c1 = new RegExp1(sym.CCLASS, cc1);
+                      RESULT = new RegExp1(sym.CCLASSOP, new RegExp2(op.intValue(), c1, c2));
+                   :}
+                |  OPENCLASS HAT opt_dash_content:cc1 charclass_op:op opt_hat_content:c2 CLOSECLASS
+                   {:
+                      RegExp c1 = new RegExp1(sym.CCLASS, cc1);
+                      List<RegExp> l = new ArrayList<>();
+                      l.add(new RegExp1(sym.CCLASSOP, new RegExp2(op.intValue(), c1, c2)));
+                      RESULT = new RegExp1(sym.CCLASSNOT, l);
+                   :}
+                ;
+
+charclass_op ::=  INTERSECTION
+                   {: RESULT = Integer.valueOf(sym.INTERSECTION); :}
+                | DIFFERENCE
+                   {: RESULT = Integer.valueOf(sym.DIFFERENCE); :}
+                | SYMMETRICDIFFERENCE
+                   {: RESULT = Integer.valueOf(sym.SYMMETRICDIFFERENCE); :}
+                ;
+
+opt_hat_content ::= opt_dash_content:c
+                    {: RESULT = new RegExp1(sym.CCLASS, c); :}
+                  | HAT opt_dash_content:c
+                    {: RESULT = new RegExp1(sym.CCLASSNOT, c); :}
+                  ;
+
+opt_dash_content ::= classcontent:c
+                     {: RESULT = c; :}
+                   | DASH classcontent:c
+                     {:
+                        c.add(primClass('-'));
+                        RESULT = c;
+                     :}
+                   ;
+
+classcontent  ::=  classcontent:list classcontentelem:elem
+                   {:
+                     list.add(elem);
+                     RESULT = list;
+                   :}
+                |  classcontentelem:elem
+                   {:
+                     RESULT = new ArrayList<RegExp>();
+                     RESULT.add(elem);
+                   :}
+                ;
+
+classcontentelem ::= CHAR:c1 DASH CHAR:c2
+                     {:
+                       if (c2 < c1) {
+                         syntaxError(ErrorMessages.IMPOSSIBLE_CHARCLASS_RANGE, c1left, c1right);
+                         c2 = c1; // avoid violating Interval invariant; error is logged.
+                       }
+                       RESULT = primClass(c1, c2);
+                     :}
+                   | CHAR:c
+                     {: RESULT = primClass(c); :}
+                   | STRING:s
+                     {:
+                        IntCharSet set = new IntCharSet();
+                        for (int i = 0; i < s.length(); ) {
+                          int ch = s.codePointAt(i);
+                          i += Character.charCount(ch);
+                          set.add(ch);
+                        }
+                        RESULT = primClass(set);
+                     :}
+                   |  preclass:set
+                     {: RESULT = primClass(set); :}
+                   |  UNIPROPCCLASS:intcharset
+                     {: RESULT = primClass(intcharset); :}
+                   |  UNIPROPCCLASSNOT:notintcharset
+                     {:
+                        List<RegExp> l = new ArrayList<RegExp>();
+                        l.add(primClass(notintcharset));
+                        RESULT = new RegExp1(sym.CCLASSNOT, l);
+                     :}
+                   |  MACROUSE:ident
+                     {:
+                        if ( !scanner.macroDefinition ) {
+                          if ( ! macros.markUsed(ident) )
+                            throw new ScannerException(scanner.file, ErrorMessages.MACRO_UNDECL,
+                                                       identleft, identright);
+                        }
+                        RESULT = new RegExp1(sym.MACROUSE, ident);
+                     :}
+                   |  charclass:regex
+                     {: RESULT = regex; :}
+                   ;
+
+preclass ::= JLETTERCLASS
+             {: RESULT = getPreClass(sym.JLETTERCLASS); :}
+           | JLETTERDIGITCLASS
+             {: RESULT = getPreClass(sym.JLETTERDIGITCLASS); :}
+           | LETTERCLASS
+             {: RESULT = getPreClass(sym.LETTERCLASS); :}
+           | DIGITCLASS
+             {: RESULT = getPreClass(sym.DIGITCLASS); :}
+           | DIGITCLASSNOT
+             {: RESULT = getPreClass(sym.DIGITCLASSNOT); :}
+           | UPPERCLASS
+             {: RESULT = getPreClass(sym.UPPERCLASS); :}
+           | LOWERCLASS
+             {: RESULT = getPreClass(sym.LOWERCLASS); :}
+           | WHITESPACECLASS
+             {: RESULT = getPreClass(sym.WHITESPACECLASS); :}
+           | WHITESPACECLASSNOT
+             {: RESULT = getPreClass(sym.WHITESPACECLASSNOT); :}
+           | WORDCLASS
+             {: RESULT = getPreClass(sym.WORDCLASS); :}
+           | WORDCLASSNOT
+             {: RESULT = getPreClass(sym.WORDCLASSNOT); :}
+           ;
