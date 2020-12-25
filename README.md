@@ -8,5 +8,5 @@ Read more detail in the in-progress [design doc](https://docs.google.com/documen
 
 Compiler implementation decisions: 
 - Scanner Generator: [JFlex](https://jflex.de/)
-    - Here's a [great example](https://tldp.org/LDP/LG/issue41/lopes/lcalc.htm#decl) of JFlex usage.
+    - Here's a [great example](https://tldp.org/LDP/LG/issue41/lopes/lcalc.htm#decl) of JFlex usage, from [this tutorial](https://tldp.org/LDP/LG/issue41/lopes/lopes.html).
 - Parser Generator: [CUP](http://www2.cs.tum.edu/projects/cup/)
