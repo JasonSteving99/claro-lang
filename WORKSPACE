@@ -39,12 +39,3 @@ load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
 
-# load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-# 
-# git_repository(
-#   name = "jflex",
-#   remote = "https://github.com/jflex-de/jflex.git",
-#   commit = "b21ffe01d3ede0fb6ee809db70b3ad6c8cf88c67",
-#   shallow_since = "1609243941 +0100",
-#   init_submodules = 1,
-# )
