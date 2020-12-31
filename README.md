@@ -6,7 +6,8 @@ likely to be forever in flux, but we'll start somewhere.
 
 Read more detail in the in-progress [design doc](https://docs.google.com/document/d/1JvRXy-UwPjEAzVTCAtmVgBzj-tIEfVwIq6bOa3xGTRk/edit).
 
-### Compiler implementation decisions 
+### Compiler implementation decisions
+#### Lexer/Parser Generator
 Note that this project depends almost entirely on the work in the [JFlex-de Bazel Rules Repo](https://github.com/jflex-de/bazel_rules):
 
 Following [this tutorial](https://tldp.org/LDP/LG/issue41/lopes/lopes.html): 
