@@ -1,0 +1,40 @@
+# Copyright 2018 Google LLC.
+# SPDX-License-Identifier: Apache-2.0
+
+package(default_visibility = ["//visibility:public"])
+
+load("@jflex_rules//jflex:jflex.bzl", "jflex")
+load("@jflex_rules//cup:cup.bzl", "cup")
+
+java_binary(
+    name = "calculator_binary",
+    srcs = [
+        ":calculator",
+    ],
+    main_class = "Calc.java",
+)
+
+java_library(
+    name = "calculator",
+    srcs = [
+        "CalculatorParserException.java",
+        ":gen_lexer",
+        ":gen_parser",
+    ],
+    deps = [
+        "@jflex_rules//third_party/cup",  # the runtime would be sufficient
+    ],
+)
+
+cup(
+    name = "gen_parser",
+    src = "calculator.cup",
+    parser = "CalculatorParser",
+    symbols = "Calc",
+)
+
+jflex(
+    name = "gen_lexer",
+    srcs = ["calculator.flex"],
+    outputs = ["CalculatorLexer.java"],
+)

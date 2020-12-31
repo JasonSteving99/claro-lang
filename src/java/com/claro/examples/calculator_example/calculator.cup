@@ -1,0 +1,75 @@
+package com.claro.examples.calculator_example;
+
+import java_cup.runtime.Symbol;
+import java.util.Vector;
+/*
+ * Copyright (C) 2018 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+/**
+ * Parser for a simple calculator.
+ *
+ * <p>The grammar defines a simple arihmetic expressions that supports the addition,
+ * the multiplication, and parentheses.
+ *
+ * @author Régis Décamps
+ */
+
+parser code {:
+:}
+
+// Terminals: () * +
+terminal LPAR, RPAR;
+terminal MULTIPLY;
+terminal PLUS;
+// A number is also a terminal, bit it's of type Integer.
+terminal Integer NUMBER;
+
+non terminal Integer expr;
+non terminal Integer multiply_expr;
+non terminal Integer term;
+
+precedence left PLUS;
+precedence left MULTIPLY;
+
+// This is where the grammar starts.
+
+// An expression is a sum of priority_expr. Because the parser needs to produce priority_expr in
+// in order to assemble expr, this effectively makes priority_expr of higher priority than
+// than expr in the computation of the result.
+// We also implement the actual computation done by the calculator. RESULT is the label that is
+// assigned automatically to the rhs, in this case 'expr' because 'expr ::= ...'.
+// Since the priority_expr is an object of type Integer, we can call intValue() to retrieve its
+// value.
+expr ::=
+    expr:a PLUS multiply_expr:b
+    {: RESULT = a.intValue() + b.intValue(); :}
+  | multiply_expr:e
+    {: RESULT = e; :}
+  ;
+multiply_expr ::=
+    multiply_expr:a MULTIPLY term:b
+    {: RESULT = a.intValue() * b.intValue(); :}
+  | term:t
+    {: RESULT = t; :}
+  ;
+// The last term closes the grammar. It's a number, or another expression in parentheses.
+// Note that local identifiers don't need to be a single letter. We use "nb" for the terminal
+// number.
+term ::=
+    LPAR expr:e RPAR {: RESULT = e; :}
+  | NUMBER:nb {: RESULT = nb; :}
+  ;
