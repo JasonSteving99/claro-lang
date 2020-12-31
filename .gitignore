@@ -1,5 +1,5 @@
 # Ignore .DS_store... it just has some garbage about mac file folder settings.
-.DS_store
+.DS_Store
 # Ignore backup files.
 *~
 # Ignore Vim swap files.
