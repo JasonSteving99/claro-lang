@@ -8,10 +8,18 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 
 java_binary(
     name = "calculator_binary",
+    main_class = "com.claro.examples.calculator_example.CalculatorMain",
+    runtime_deps = [":calculator_main"],
+)
+
+java_library(
+    name = "calculator_main",
     srcs = [
+        "CalculatorMain.java",
+    ],
+    deps = [
         ":calculator",
     ],
-    main_class = "Calc.java",
 )
 
 java_library(
