@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.StringReader;
-import java.util.Scanner;
 import java_cup.runtime.Symbol;
 import org.junit.Test;
 
