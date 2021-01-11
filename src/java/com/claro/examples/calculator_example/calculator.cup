@@ -31,10 +31,10 @@ import java.util.Vector;
 parser code {:
 :}
 
-// Terminals: () * +
+// Terminals: () * + -
 terminal LPAR, RPAR;
-terminal MULTIPLY;
-terminal PLUS;
+terminal MULTIPLY, DIVIDE;
+terminal PLUS, MINUS;
 // A number is also a terminal, bit it's of type Integer.
 terminal Integer NUMBER;
 
@@ -42,8 +42,8 @@ non terminal Integer expr;
 non terminal Integer multiply_expr;
 non terminal Integer term;
 
-precedence left PLUS;
-precedence left MULTIPLY;
+precedence left PLUS, MINUS;
+precedence left MULTIPLY, DIVIDE;
 
 // This is where the grammar starts.
 
@@ -55,14 +55,16 @@ precedence left MULTIPLY;
 // Since the priority_expr is an object of type Integer, we can call intValue() to retrieve its
 // value.
 expr ::=
-    expr:a PLUS multiply_expr:b
+  | MINUS expr:a
+    {: RESULT = -a; :}
+  | expr:a PLUS expr:b
     {: RESULT = a.intValue() + b.intValue(); :}
-  | multiply_expr:e
-    {: RESULT = e; :}
-  ;
-multiply_expr ::=
-    multiply_expr:a MULTIPLY term:b
+  | expr:a MINUS expr:b
+    {: RESULT = a.intValue() - b.intValue(); :}
+  | expr:a MULTIPLY expr:b
     {: RESULT = a.intValue() * b.intValue(); :}
+  | expr:a DIVIDE expr:b // Only support int-division right now...
+    {: RESULT = a.intValue() / b.intValue(); :}
   | term:t
     {: RESULT = t; :}
   ;
