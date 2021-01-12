@@ -49,6 +49,9 @@ import java_cup.runtime.Symbol;
 // A (integer) number is a sequence of digits.
 Integer         = [0-9]+
 
+// A (decimal) float is a real number with a decimal value.
+Float          = {Integer}\.{Integer}
+
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
 
@@ -78,7 +81,11 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
-    {Integer}           { return symbol(Calc.INTEGER, Integer.parseInt(yytext())); }
+    {Integer}           { return symbol(Calc.INTEGER, Double.parseDouble(yytext())); }
+
+    // If float is found, return the token FLOAT that represents a float and the value of
+    // the float that is held in the string yytext
+    {Float}           { return symbol(Calc.FLOAT, Double.parseDouble(yytext())); }
 
     /* Don't do anything if whitespace is found */
     {WhiteSpace}       { /* do nothing with space */ }

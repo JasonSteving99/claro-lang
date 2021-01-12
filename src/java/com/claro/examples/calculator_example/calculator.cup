@@ -36,17 +36,20 @@ terminal         LPAR, RPAR;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
-// A number is also a terminal, bit it's of type Integer.
-terminal Integer INTEGER;
+// An integer is also a terminal, bit it's of type Double.
+terminal Double INTEGER;
+// A float is also a terminal, bit it's of type Double.
+terminal Double  FLOAT;
 // The prefix "log_", of the function log_x(y), is also a terminal.
 // This is good practice for figuring out how to handle functions
 // once I get to Claro, consider this a function hard-coded into the
 // grammar.
 terminal         LOG_PREFIX;
 
-non terminal Integer expr;
-non terminal Integer multiply_expr;
-non terminal Integer term;
+// Just everything in the world will be real number doubles in this calculator, who cares.
+non terminal Double expr;
+non terminal Double multiply_expr;
+non terminal Double term;
 
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
@@ -60,23 +63,23 @@ precedence left LOG_PREFIX;
 // expr in the computation of the result.
 // We also implement the actual computation done by the calculator. RESULT is the label that is
 // assigned automatically to the rhs, in this case 'expr' because 'expr ::= ...'.
-// Since the priority_expr is an object of type Integer, we can call intValue() to retrieve its
+// Since the priority_expr is an object of type Double, we can call doubleValue() to retrieve its
 // value.
 expr ::=
-  | MINUS expr:a
+    MINUS expr:a
     {: RESULT = -a; :}
   | expr:a PLUS expr:b
-    {: RESULT = a.intValue() + b.intValue(); :}
+    {: RESULT = a.doubleValue() + b.intValue(); :}
   | expr:a MINUS expr:b
-    {: RESULT = a.intValue() - b.intValue(); :}
+    {: RESULT = a.doubleValue() - b.intValue(); :}
   | expr:a MULTIPLY expr:b
-    {: RESULT = a.intValue() * b.intValue(); :}
+    {: RESULT = a.doubleValue() * b.intValue(); :}
   | expr:a DIVIDE expr:b // Only support int-division right now...
-    {: RESULT = a.intValue() / b.intValue(); :}
+    {: RESULT = a.doubleValue() / b.intValue(); :}
   | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
-    {: RESULT = (int) Math.pow(a, b); :}
+    {: RESULT = Math.pow(a, b); :}
   | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
-    {: RESULT = (int) (Math.log(arg) / Math.log(int_base)); :}
+    {: RESULT = Math.log(arg) / Math.log(int_base); :}
   | term:t
     {: RESULT = t; :}
   ;
@@ -84,6 +87,10 @@ expr ::=
 // Note that local identifiers don't need to be a single letter. We use "nb" for the terminal
 // number.
 term ::=
-    LPAR expr:e RPAR {: RESULT = e; :}
-  | INTEGER:i {: RESULT = i; :}
+    LPAR expr:e RPAR
+    {: RESULT = e; :}
+  | FLOAT:f
+    {: RESULT = f; :}
+  | INTEGER:i
+    {: RESULT = i; :}
   ;
