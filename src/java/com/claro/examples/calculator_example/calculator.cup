@@ -31,13 +31,13 @@ import java.util.Vector;
 parser code {:
 :}
 
-// Terminals: () * + -
+// Terminals: () * + - =
 terminal         LPAR, RPAR;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
 // An integer is also a terminal, bit it's of type Double.
-terminal Double INTEGER;
+terminal Double  INTEGER;
 // A float is also a terminal, bit it's of type Double.
 terminal Double  FLOAT;
 // The prefix "log_", of the function log_x(y), is also a terminal.
@@ -45,18 +45,28 @@ terminal Double  FLOAT;
 // once I get to Claro, consider this a function hard-coded into the
 // grammar.
 terminal         LOG_PREFIX;
+terminal         EQUALS;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-non terminal Double expr;
-non terminal Double multiply_expr;
-non terminal Double term;
+nonterminal String  calculated;
+nonterminal Boolean equality;
+nonterminal Double  expr;
+nonterminal Double  multiply_expr;
+nonterminal Double  term;
 
+precedence left EQUALS;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX;
 
 // This is where the grammar starts.
+calculated ::=
+    expr:e
+    {: RESULT = e.toString(); :}
+  | equality:e
+    {: RESULT = e.toString(); :}
+  ;
 
 // An expression is a sum of priority_expr. Because the parser needs to produce priority_expr
 // in order to assemble expr, this effectively makes priority_expr of higher priority than
@@ -85,9 +95,14 @@ expr ::=
   | term:t
     {: RESULT = t; :}
   ;
+
+// This calculator can evaluate an equality check of expressions, but then it must be the topmost grammar production.
+equality ::=
+    expr:a EQUALS expr:b
+    {: RESULT = a.equals(b); :}
+    ;
+
 // The last term closes the grammar. It's a number, or another expression in parentheses.
-// Note that local identifiers don't need to be a single letter. We use "nb" for the terminal
-// number.
 term ::=
     LPAR expr:e RPAR
     {: RESULT = e; :}

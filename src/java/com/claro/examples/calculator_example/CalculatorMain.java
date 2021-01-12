@@ -5,7 +5,7 @@ import java.util.Scanner;
   
 public class CalculatorMain {
   public static void main(String[] args) throws Exception {
-    System.out.println("Enter your formula:");
+    System.out.println("Enter your expression:");
     Scanner scan = new Scanner(System.in);
     String inputFormula = scan.nextLine();
     CalculatorParser parser = createParser(inputFormula);

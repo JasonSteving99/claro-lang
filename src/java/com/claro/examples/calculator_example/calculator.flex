@@ -76,8 +76,9 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "/"                { return symbol(Calc.DIVIDE); }
     "("                { return symbol(Calc.LPAR); }
     ")"                { return symbol(Calc.RPAR); }
-
     "log_"             { return symbol(Calc.LOG_PREFIX); }
+
+    "="                { return symbol(Calc.EQUALS); }
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
