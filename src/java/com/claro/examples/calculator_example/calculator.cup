@@ -32,11 +32,17 @@ parser code {:
 :}
 
 // Terminals: () * + -
-terminal LPAR, RPAR;
-terminal MULTIPLY, DIVIDE;
-terminal PLUS, MINUS;
+terminal         LPAR, RPAR;
+terminal         EXPONENTIATE;
+terminal         MULTIPLY, DIVIDE;
+terminal         PLUS, MINUS;
 // A number is also a terminal, bit it's of type Integer.
-terminal Integer NUMBER;
+terminal Integer INTEGER;
+// The prefix "log_", of the function log_x(y), is also a terminal.
+// This is good practice for figuring out how to handle functions
+// once I get to Claro, consider this a function hard-coded into the
+// grammar.
+terminal         LOG_PREFIX;
 
 non terminal Integer expr;
 non terminal Integer multiply_expr;
@@ -44,12 +50,14 @@ non terminal Integer term;
 
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
+precedence left EXPONENTIATE;
+precedence left LOG_PREFIX;
 
 // This is where the grammar starts.
 
-// An expression is a sum of priority_expr. Because the parser needs to produce priority_expr in
+// An expression is a sum of priority_expr. Because the parser needs to produce priority_expr
 // in order to assemble expr, this effectively makes priority_expr of higher priority than
-// than expr in the computation of the result.
+// expr in the computation of the result.
 // We also implement the actual computation done by the calculator. RESULT is the label that is
 // assigned automatically to the rhs, in this case 'expr' because 'expr ::= ...'.
 // Since the priority_expr is an object of type Integer, we can call intValue() to retrieve its
@@ -65,6 +73,10 @@ expr ::=
     {: RESULT = a.intValue() * b.intValue(); :}
   | expr:a DIVIDE expr:b // Only support int-division right now...
     {: RESULT = a.intValue() / b.intValue(); :}
+  | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
+    {: RESULT = (int) Math.pow(a, b); :}
+  | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
+    {: RESULT = (int) (Math.log(arg) / Math.log(int_base)); :}
   | term:t
     {: RESULT = t; :}
   ;
@@ -73,5 +85,5 @@ expr ::=
 // number.
 term ::=
     LPAR expr:e RPAR {: RESULT = e; :}
-  | NUMBER:nb {: RESULT = nb; :}
+  | INTEGER:i {: RESULT = i; :}
   ;

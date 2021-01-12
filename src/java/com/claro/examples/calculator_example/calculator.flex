@@ -47,7 +47,7 @@ import java_cup.runtime.Symbol;
 %}
 
 // A (integer) number is a sequence of digits.
-Number         = [0-9]+
+Integer         = [0-9]+
 
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
@@ -69,13 +69,16 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "+"                { return symbol(Calc.PLUS); }
     "-"                { return symbol(Calc.MINUS); }
     "*"                { return symbol(Calc.MULTIPLY); }
+    "^"                { return symbol(Calc.EXPONENTIATE); }
     "/"                { return symbol(Calc.DIVIDE); }
     "("                { return symbol(Calc.LPAR); }
     ")"                { return symbol(Calc.RPAR); }
 
-    // If an integer is found, return the token NUMBER that represents an integer and the value of
+    "log_"             { return symbol(Calc.LOG_PREFIX); }
+
+    // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
-    {Number}           { return symbol(Calc.NUMBER, Integer.parseInt(yytext())); }
+    {Integer}           { return symbol(Calc.INTEGER, Integer.parseInt(yytext())); }
 
     /* Don't do anything if whitespace is found */
     {WhiteSpace}       { /* do nothing with space */ }
@@ -86,5 +89,5 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 // See http://jflex.de/manual.html#custom-symbol-interface
 <<EOF>>                { return symbol(Calc.EOF); }
 
-/* Catch-all the rest, i.e. unknow character. */
+/* Catch-all the rest, i.e. unknown character. */
 [^]  { throw new CalculatorParserException("Illegal character <" + yytext() + ">"); }
