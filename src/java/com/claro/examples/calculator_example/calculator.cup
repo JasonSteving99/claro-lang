@@ -23,7 +23,7 @@ import java.util.Vector;
  * Parser for a simple calculator.
  *
  * <p>The grammar defines a simple arihmetic expressions that supports the addition,
- * the multiplication, and parentheses.
+ * subtraction, multiplication, division, exponentiation, logarithms and parentheses.
  *
  * @author Régis Décamps
  */
@@ -69,15 +69,17 @@ expr ::=
     MINUS expr:a
     {: RESULT = -a; :}
   | expr:a PLUS expr:b
-    {: RESULT = a.doubleValue() + b.intValue(); :}
+    {: RESULT = a.doubleValue() + b.doubleValue(); :}
   | expr:a MINUS expr:b
-    {: RESULT = a.doubleValue() - b.intValue(); :}
+    {: RESULT = a.doubleValue() - b.doubleValue(); :}
   | expr:a MULTIPLY expr:b
-    {: RESULT = a.doubleValue() * b.intValue(); :}
+    {: RESULT = a.doubleValue() * b.doubleValue(); :}
   | expr:a DIVIDE expr:b // Only support int-division right now...
-    {: RESULT = a.doubleValue() / b.intValue(); :}
+    {: RESULT = a.doubleValue() / b.doubleValue(); :}
   | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
     {: RESULT = Math.pow(a, b); :}
+  | LOG_PREFIX FLOAT:float_base LPAR expr:arg RPAR
+    {: RESULT = Math.log(arg) / Math.log(float_base); :}
   | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
     {: RESULT = Math.log(arg) / Math.log(int_base); :}
   | term:t
