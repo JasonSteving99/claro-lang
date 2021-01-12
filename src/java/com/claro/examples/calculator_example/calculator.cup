@@ -25,7 +25,7 @@ import java.util.Vector;
  * <p>The grammar defines a simple arihmetic expressions that supports the addition,
  * subtraction, multiplication, division, exponentiation, logarithms and parentheses.
  *
- * @author Régis Décamps
+ * @author Jason Steving, derived from a simpler example by Régis Décamps
  */
 
 parser code {:
