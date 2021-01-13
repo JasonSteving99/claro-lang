@@ -3,13 +3,18 @@ package com.claro.examples.calculator_example;
 import java.io.StringReader;
 import java.util.Scanner;
   
-public class CalculatorMain {
+public class CalculatorCompilerMain {
   public static void main(String[] args) throws Exception {
-    System.out.println("Enter your expression:");
+    if (args.length == 0 || !args[0].equals("--silent")) {
+      System.out.println("Enter your expression:");
+    }
     Scanner scan = new Scanner(System.in);
     String inputFormula = scan.nextLine();
     CalculatorParser parser = createParser(inputFormula);
-    System.out.println("= " + parser.parse().value);
+    if (args.length == 0 || !args[0].equals("--silent")) {
+      System.out.print("= ");
+    }
+    System.out.println(parser.parse().value);
   }
 
   private static CalculatorLexer createLexer(String input) {

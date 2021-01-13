@@ -21,7 +21,7 @@ import java_cup.runtime.Symbol;
 /**
  * A simple lexer/parser for basic arithmetic expressions.
  *
- * @author Régis Décamps
+ * @author Jason Steving, derived from a simpler example by Régis Décamps
  */
 
 %%
@@ -78,7 +78,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     ")"                { return symbol(Calc.RPAR); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }
 
-    "="                { return symbol(Calc.EQUALS); }
+    "=="                { return symbol(Calc.EQUALS); }
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
