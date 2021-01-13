@@ -7,4 +7,4 @@ Demonstrates the integration with javacup:
 
 ### Running Executable Calculator Example
 
-`$ blaze run calculator_binary`
+`$ blaze run compiled_calculator_binary`
