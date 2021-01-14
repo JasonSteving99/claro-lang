@@ -140,9 +140,6 @@ precedence left EXPONENTIATE;
 precedence left LOG_PREFIX;
 
 // This is where the grammar starts.
-//program ::=
-//    calculated SEMICOLON program
-
 calculated ::=
     stmt_list:s
     {:
@@ -154,9 +151,6 @@ calculated ::=
        }
        RESULT = genJavaMain(s);
     :}
-// Need to put equality back in the grammar once something is implemented to allow it to act as a double.
-//  | equality:e SEMICOLON
-//    {: RESULT = genJavaMain(e); :}
   ;
 
 stmt_list ::=
