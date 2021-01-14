@@ -14,9 +14,9 @@ java_binary(
 
 genrule(
     name = "compiled_calculator",
-    srcs = ["//src/java/com/claro/examples/calculator_example/calculator_programs:first.calculator"],
+    srcs = ["//src/java/com/claro/examples/calculator_example/calculator_programs:second.calculator"],
     cmd = "$(JAVA) -jar $(location :calculator_compiler_binary_deploy.jar) --silent < $< > $(OUTS)",
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
     tools = [":calculator_compiler_binary_deploy.jar"],
     outs = ["CompiledCalculator.java"]
 )
@@ -46,6 +46,7 @@ java_library(
     ],
     deps = [
         "@jflex_rules//third_party/cup",  # the runtime would be sufficient
+        "@maven//:org_apache_commons_commons_text",
     ],
 )
 

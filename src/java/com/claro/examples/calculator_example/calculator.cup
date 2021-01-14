@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example;
 
+import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
+import java.util.HashSet;
 import java.util.Vector;
 /*
  * Copyright (C) 2018 Google LLC
@@ -31,6 +33,13 @@ import java.util.Vector;
 action code {:
   int indentationLevel = 1;
 
+  // We're gonna use a set for what would be the "symbol table" for now, since this simple grammar really only needs to
+  // check whether a variable has been initialized yet or not.
+  HashSet<String> symbolSet = new HashSet<>();
+  // We're gonna collect another set for which initialized variables are actually *used* so that we can give a fancy
+  // little warning indicating that a variable goes unused.
+  HashSet<String> usedSymbolSet = new HashSet<>();
+
   private String getIndents(int level) {
     StringBuilder res = new StringBuilder();
     for(int i = 0; i < level; i++) {
@@ -42,13 +51,20 @@ action code {:
   private String genJavaMain(String expr) {
     return String.format(
       "package com.claro.examples.calculator_example;\n\n" +
+      "import java.util.Scanner;\n\n\n" +
       "public class CompiledCalculator {\n" +
+      // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
+      "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
       "  public static void main(String[] args) {\n" +
-      "    System.out.printf(\"Computing the following:\\n%%s\\n= \", \"%s\");\n" +
-      "    System.out.println(%s);\n" +
+      "/*******AUTO-GENERATED DO NOT MODIFY*******/\n" +
+      "%s" +
+      "/*******END AUTO-GENERATED*******/\n" +
+      "  }\n\n" +
+      "  private static double promptUserInput(String prompt) {\n" +
+      "    System.out.println(prompt);\n" +
+      "    return INPUT_SCANNER.nextDouble();\n" +
       "  }\n" +
       "}",
-      expr,
       expr
     );
   }
@@ -57,34 +73,54 @@ action code {:
 parser code {:
 :}
 
-// Terminals: () * + - =
+// Terminals: () * + - == = ^ ;
 terminal         LPAR, RPAR;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
-// An integer is also a terminal, bit it's of type Double.
+terminal         SEMICOLON;
+terminal         EQUALS;
+terminal         ASSIGNMENT;
+// An integer is also a terminal, but it's of type Double.
 terminal Double  INTEGER;
-// A float is also a terminal, bit it's of type Double.
+// A float is also a terminal, but it's of type Double.
 terminal Double  FLOAT;
+// A string is also a terminal, but it's of type String.
+terminal String  STRING;
+// A variable identifier is just a sequence of chars.
+terminal String  IDENTIFIER;
 // The prefix "log_", of the function log_x(y), is also a terminal.
 // This is good practice for figuring out how to handle functions
 // once I get to Claro, consider this a function hard-coded into the
 // grammar.
 terminal         LOG_PREFIX;
-terminal         EQUALS;
+// This grammar also has a builtin print() function for printing expr values.
+terminal         PRINT;
+// This grammar also has a builtin numeric() function for casting booleans to doubles.
+terminal         NUMERIC_BOOL;
+// This grammar also has a builtin input() functino for reading a number from stdin.
+terminal         INPUT;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
 nonterminal String calculated;
 nonterminal String equality;
 nonterminal String expr;
-nonterminal String multiply_expr;
 nonterminal String term;
+nonterminal String stmt_list;
+nonterminal String stmt;
+nonterminal String print;
+nonterminal String assignment;
+nonterminal String input;
 //nonterminal String  calculated;
 //nonterminal Boolean equality;
 //nonterminal Double  expr;
 //nonterminal Double  multiply_expr;
 //nonterminal Double  term;
 
+// Lower precedence things at the top, higher precedence things at the bottom.
+precedence left IDENTIFIER;
+precedence left SEMICOLON;
+precedence left ASSIGNMENT;
 precedence left EQUALS;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
@@ -92,20 +128,65 @@ precedence left EXPONENTIATE;
 precedence left LOG_PREFIX;
 
 // This is where the grammar starts.
+//program ::=
+//    calculated SEMICOLON program
+
 calculated ::=
-    expr:e
-    {: RESULT = genJavaMain(e); :}
-  | equality:e
-    {: RESULT = genJavaMain(e); :}
+    stmt_list:s
+    {:
+       symbolSet.removeAll(usedSymbolSet);
+       if (symbolSet.size() > 0) {
+         throw new CalculatorParserException(
+           String.format("Warning! The following declared symbols are unused! %s", symbolSet)
+         );
+       }
+       RESULT = genJavaMain(s);
+    :}
+// Need to put equality back in the grammar once something is implemented to allow it to act as a double.
+//  | equality:e SEMICOLON
+//    {: RESULT = genJavaMain(e); :}
   ;
 
-// An expression is a sum of priority_expr. Because the parser needs to produce priority_expr
-// in order to assemble expr, this effectively makes priority_expr of higher priority than
-// expr in the computation of the result.
-// We also implement the actual computation done by the calculator. RESULT is the label that is
-// assigned automatically to the rhs, in this case 'expr' because 'expr ::= ...'.
-// Since the priority_expr is an object of type Double, we can call doubleValue() to retrieve its
-// value.
+stmt_list ::=
+    stmt:head stmt_list:tail
+    {: RESULT = String.format("%s%s", head, tail); :}
+  | stmt:s
+    {: RESULT = String.format("%s", s); :}
+  ;
+
+stmt ::=
+    print:p SEMICOLON
+    {: RESULT = String.format("%s;\n", p); :}
+  | assignment:a SEMICOLON
+    {: RESULT = String.format("%s;\n", a); :}
+  ;
+
+print ::=
+    PRINT LPAR expr:e RPAR
+    {:
+       RESULT = String.format(
+         "System.out.println(String.format(\"%s == %%s\", %s))",
+         StringEscapeUtils.escapeJava(e),
+         e);
+    :}
+  ;
+
+assignment ::=
+    IDENTIFIER:identifier ASSIGNMENT expr:e
+    {:
+       StringBuilder res = new StringBuilder();
+       if (!symbolSet.contains(identifier)) {
+          // First time we're seeing the variable, so declare it.
+          res.append(String.format("double %s;\n", identifier));
+          symbolSet.add(identifier);
+       }
+       res.append(String.format("%s = %s", identifier, e));
+       RESULT = res.toString();
+    :}
+  ;
+
+// In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
+// language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
 expr ::=
     MINUS expr:e
     {: RESULT = String.format("(-%s)", e); :}
@@ -123,6 +204,10 @@ expr ::=
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, float_base); :}
   | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, int_base); :}
+  | NUMERIC_BOOL LPAR equality:b RPAR
+    {: RESULT = String.format("(%s ? 1 : 0)", b); :}
+  | equality:b
+    {: RESULT = b; :}  // This is the action that causes the type-unsafety in this language...introduces booleans.
   | term:t
     {: RESULT = t; :}
   ;
@@ -141,4 +226,24 @@ term ::=
     {: RESULT = f.toString(); :}
   | INTEGER:i
     {: RESULT = i.toString(); :}
+  | IDENTIFIER:identifier
+    {:
+       // Make sure we check this will actually be a valid reference before we allow it.
+       if (!symbolSet.contains(identifier)) {
+         throw new CalculatorParserException(String.format("Referencing variable <%s> before assignment!", identifier));
+       }
+
+       // Mark that we're using this variable as a term, so that at the end of the program, we can warn about unused.
+       usedSymbolSet.add(identifier);
+
+       RESULT = identifier;
+    :}
+  | input:i
+    {: RESULT = i; :}
   ;
+
+input ::=
+    INPUT LPAR STRING:prompt RPAR
+    {: RESULT = String.format("promptUserInput(\"%s\")", prompt); :}
+  ;
+

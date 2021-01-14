@@ -1,1 +1,12 @@
-(log_3.1(8) / log_3.1(2)) ^ 2 + 1.1 * 2
+# First calculator source file!
+
+# Variable initialization doesn't need type indication because there are literally only doubles in this language...
+VARX = (log_3.1(8) / log_3.1(2)) ^ 2 + 1.1 * 2;
+print(VARX);
+
+Y = VARX + 2;
+print(Y);
+print(2 - Y);
+
+# Uncomment the line below to see an error for unused symbols.
+# UNUSED = 9;

@@ -35,6 +35,9 @@ import java_cup.runtime.Symbol;
 %unicode
 
 %{
+    // This will be used to accumulate all string characters during the STRING state.
+    StringBuffer string = new StringBuffer();
+
     /** Creates a new {@link Symbol} of the given type. */
     private Symbol symbol(int type) {
         return new Symbol(type, yyline, yycolumn);
@@ -47,10 +50,13 @@ import java_cup.runtime.Symbol;
 %}
 
 // A (integer) number is a sequence of digits.
-Integer         = [0-9]+
+Integer        = [0-9]+
 
 // A (decimal) float is a real number with a decimal value.
 Float          = {Integer}\.{Integer}
+
+// A variable identifier. We'll just do uppercase for vars.
+Identifier     = [A-Z]+
 
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
@@ -58,6 +64,8 @@ LineTerminator = \r|\n|\r\n
 /* White space is a line terminator, space, tab, or line feed. */
 WhiteSpace     = {LineTerminator} | [ \t\f]
 
+%state LINECOMMENT
+%state STRING
 
 %%
 
@@ -76,20 +84,56 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "/"                { return symbol(Calc.DIVIDE); }
     "("                { return symbol(Calc.LPAR); }
     ")"                { return symbol(Calc.RPAR); }
+    "=="               { return symbol(Calc.EQUALS); }
+    "="                { return symbol(Calc.ASSIGNMENT); }
+    ";"                { return symbol(Calc.SEMICOLON); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }
+    "print"            { return symbol(Calc.PRINT); }
+    "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
+    "input"            { return symbol(Calc.INPUT); }
+    \"                 {
+                         // There may have already been another string accumulated into this buffer.
+                         // In that case we need to clear the buffer to start processing this.
+                         string.setLength(0);
+                         yybegin(STRING);
+                       }
 
-    "=="                { return symbol(Calc.EQUALS); }
+    // If the line comment symbol is found, ignore the token and then switch to the LINECOMMENT lexer state.
+    "#"                { yybegin(LINECOMMENT); }
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
-    {Integer}           { return symbol(Calc.INTEGER, Double.parseDouble(yytext())); }
+    {Integer}          { return symbol(Calc.INTEGER, Double.parseDouble(yytext())); }
 
     // If float is found, return the token FLOAT that represents a float and the value of
     // the float that is held in the string yytext
-    {Float}           { return symbol(Calc.FLOAT, Double.parseDouble(yytext())); }
+    {Float}            { return symbol(Calc.FLOAT, Double.parseDouble(yytext())); }
+
+    {Identifier}       { return symbol(Calc.IDENTIFIER, yytext()); }
 
     /* Don't do anything if whitespace is found */
     {WhiteSpace}       { /* do nothing with space */ }
+}
+
+// A comment that goes all the way from the symbol '#' to the end of the line or EOF.
+<LINECOMMENT> {
+    {LineTerminator}   { yybegin(YYINITIAL); }
+    .                  { /* Ignore everything in the rest of the commented line. */ }
+}
+
+// A String is a sequence of any printable characters between quotes.
+<STRING> {
+    \"                 {
+                          yybegin(YYINITIAL);
+                          return symbol(Calc.STRING, string.toString());
+                       }
+    [^\n\r\"\\]+       { string.append( yytext() ); }
+    \\t                { string.append('\t'); }
+    \\n                { string.append('\n'); }
+
+    \\r                { string.append('\r'); }
+    \\\"               { string.append('\"'); }
+    \\                 { string.append('\\'); }
 }
 
 // We have changed the default symbol in the bazel `cup()` rule from "sym" to "Calc", so we need to

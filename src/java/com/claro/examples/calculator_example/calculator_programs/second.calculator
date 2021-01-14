@@ -1,1 +1,14 @@
-log_2(9 ^ 2 + 51 - 4)
+# This language has booleans and numbers at the moment.
+
+# Print out and show a boolean.
+print(
+  log_2(9 ^ 2 + 51 - 4) == 7
+);
+
+# Show the ability to convert from boolean to a number (0 or 1).
+print(
+ numeric_bool(5 == 3 + 2) + 4
+);
+
+Z = input("Sup bruh, gimme a number:");
+print(Z);

@@ -9,8 +9,14 @@ public class CalculatorCompilerMain {
       System.out.println("Enter your expression:");
     }
     Scanner scan = new Scanner(System.in);
-    String inputFormula = scan.nextLine();
-    CalculatorParser parser = createParser(inputFormula);
+    StringBuilder inputProgram = new StringBuilder();
+    while(scan.hasNextLine()) {
+      inputProgram.append(scan.nextLine());
+      // Scanner is being stupid and dropping all the newlines... so this may give an extra compared to what's in the
+      // source file, but who cares, the grammar will handle it.
+      inputProgram.append("\n");
+    }
+    CalculatorParser parser = createParser(inputProgram.toString());
     if (args.length == 0 || !args[0].equals("--silent")) {
       System.out.print("= ");
     }

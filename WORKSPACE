@@ -24,9 +24,11 @@ http_archive(
 load("@jflex_rules//jflex:deps.bzl", "JFLEX_ARTIFACTS")
 load("@jflex_rules//third_party:third_party_deps.bzl", "THIRD_PARTY_ARTIFACTS")
 
+# See this documentation to understand how fetching Maven deps works in Bazel:
+# https://github.com/bazelbuild/rules_jvm_external
 maven_install(
     name = "maven",
-    artifacts = JFLEX_ARTIFACTS + THIRD_PARTY_ARTIFACTS,
+    artifacts = JFLEX_ARTIFACTS + THIRD_PARTY_ARTIFACTS + ["org.apache.commons:commons-text:jar:1.1"],
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://jcenter.bintray.com/",
