@@ -48,6 +48,9 @@ action code {:
     return res.toString();
   }
 
+  /**
+  * In some ways this hardcoded class is basically a standard library for this language.
+  */
   private String genJavaMain(String expr) {
     return String.format(
       "package com.claro.examples.calculator_example;\n\n" +
@@ -255,7 +258,7 @@ inequality ::=
     {: RESULT = String.format("(%s >= %s)", a, b); :}
   ;
 
-// TODO(steving) Address this. This action causes type-unsafety in this language...introduces doubles where really
+// TODO(steving) Address this. This action causes type-unsafety in this language...allows doubles where really
 // there should only be booleans.
 bool_arithmetic ::=
     expr:a AND expr:b
