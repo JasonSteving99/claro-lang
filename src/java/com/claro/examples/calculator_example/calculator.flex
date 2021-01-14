@@ -84,7 +84,19 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "/"                { return symbol(Calc.DIVIDE); }
     "("                { return symbol(Calc.LPAR); }
     ")"                { return symbol(Calc.RPAR); }
+    "{"                { return symbol(Calc.LCURLY); }
+    "}"                { return symbol(Calc.RCURLY); }
     "=="               { return symbol(Calc.EQUALS); }
+    "!="               { return symbol(Calc.NOT_EQUALS); }
+    "<"                { return symbol(Calc.LBRACKET); }
+    ">"                { return symbol(Calc.RBRACKET); }
+    "<="               { return symbol(Calc.LTE); }
+    ">="               { return symbol(Calc.GTE); }
+    "or"               { return symbol(Calc.OR); }
+    "and"              { return symbol(Calc.AND); }
+    "not"              { return symbol(Calc.NOT); }
+    "true"             { return symbol(Calc.TRUE); }
+    "false"            { return symbol(Calc.FALSE); }
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }

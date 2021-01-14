@@ -73,14 +73,18 @@ action code {:
 parser code {:
 :}
 
-// Terminals: () * + - == = ^ ;
+// Terminals: () * + - == < > <= >= or and = ^ ;
 terminal         LPAR, RPAR;
+terminal         LCURLY, RCURLY;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
 terminal         SEMICOLON;
-terminal         EQUALS;
+terminal         EQUALS, NOT_EQUALS;
 terminal         ASSIGNMENT;
+terminal         LBRACKET, RBRACKET, LTE, GTE;
+terminal         OR, AND, NOT;
+terminal         TRUE, FALSE;
 // An integer is also a terminal, but it's of type Double.
 terminal Double  INTEGER;
 // A float is also a terminal, but it's of type Double.
@@ -103,14 +107,17 @@ terminal         INPUT;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
 nonterminal String calculated;
-nonterminal String equality;
 nonterminal String expr;
 nonterminal String term;
-nonterminal String stmt_list;
 nonterminal String stmt;
+nonterminal String stmt_list;
 nonterminal String print;
 nonterminal String assignment;
 nonterminal String input;
+nonterminal String bool_expr;
+nonterminal String equality;
+nonterminal String inequality;
+nonterminal String bool_arithmetic;
 //nonterminal String  calculated;
 //nonterminal Boolean equality;
 //nonterminal Double  expr;
@@ -121,7 +128,9 @@ nonterminal String input;
 precedence left IDENTIFIER;
 precedence left SEMICOLON;
 precedence left ASSIGNMENT;
-precedence left EQUALS;
+precedence left EQUALS, NOT_EQUALS;
+precedence left AND, OR, NOT;
+precedence left LBRACKET, RBRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
@@ -204,21 +213,60 @@ expr ::=
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, float_base); :}
   | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, int_base); :}
-  | NUMERIC_BOOL LPAR equality:b RPAR
+  | NUMERIC_BOOL LPAR bool_expr:b RPAR
     {: RESULT = String.format("(%s ? 1 : 0)", b); :}
-  | equality:b
-    {: RESULT = b; :}  // This is the action that causes the type-unsafety in this language...introduces booleans.
+  | bool_expr:b
+    // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
+    // there should only be doubles.
+    {: RESULT = b; :}
   | term:t
     {: RESULT = t; :}
   ;
 
-// This calculator can evaluate an equality check of expressions, but then it must be the topmost grammar production.
+bool_expr ::=
+    equality:b
+    {: RESULT = b; :}
+  | inequality:b
+    {: RESULT = b; :}
+  | bool_arithmetic:b
+    {: RESULT = b; :}
+  | TRUE
+    {: RESULT = "true"; :}
+  | FALSE
+    {: RESULT = "false"; :}
+  ;
+
+// This calculator can evaluate an equality check of expressions.
 equality ::=
     expr:a EQUALS expr:b
     {: RESULT = String.format("(%s == %s)", a, b); :}
-    ;
+  | expr:a NOT_EQUALS expr:b
+    {: RESULT = String.format("(%s != %s)", a, b); :}
+  ;
 
-// The last term closes the grammar. It's a number, or another expression in parentheses.
+inequality ::=
+    expr:a LBRACKET expr:b
+    {: RESULT = String.format("(%s < %s)", a, b); :}
+  | expr:a RBRACKET expr:b
+    {: RESULT = String.format("(%s > %s)", a, b); :}
+  | expr:a LTE expr:b
+    {: RESULT = String.format("(%s <= %s)", a, b); :}
+  | expr:a GTE expr:b
+    {: RESULT = String.format("(%s >= %s)", a, b); :}
+  ;
+
+// TODO(steving) Address this. This action causes type-unsafety in this language...introduces doubles where really
+// there should only be booleans.
+bool_arithmetic ::=
+    expr:a AND expr:b
+    {: RESULT = String.format("(%s && %s)", a, b); :}
+  | expr:a OR expr:b
+    {: RESULT = String.format("(%s || %s)", a, b); :}
+  | NOT expr:a
+    {: RESULT = String.format("(!%s)", a); :}
+  ;
+
+// The last term closes the grammar. It's a number, identifier, user_provided input, or another expression in parentheses.
 term ::=
     LPAR expr:e RPAR
     {: RESULT = String.format("(%s)", e); :}

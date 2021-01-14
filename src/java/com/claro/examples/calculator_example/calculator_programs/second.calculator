@@ -12,3 +12,10 @@ print(
 
 Z = input("Sup bruh, gimme a number:");
 print(Z);
+print(Z == 10);
+print(Z != 10);
+print(Z > 10);
+print(Z < 10);
+print(Z <= 10);
+print(Z >= 10);
+print((Z == 10 + 1) == true);
