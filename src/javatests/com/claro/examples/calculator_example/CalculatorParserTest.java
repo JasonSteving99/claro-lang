@@ -15,12 +15,13 @@
  */
 package com.claro.examples.calculator_example;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
-
-import java.io.StringReader;
 import java_cup.runtime.Symbol;
 import org.junit.Test;
+
+import java.io.StringReader;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 /**
  * Test for {@link CalculatorParser}.
@@ -30,9 +31,9 @@ import org.junit.Test;
 public class CalculatorParserTest {
   @Test
   public void test() throws Exception {
-    CalculatorParser parser = createParser("1 + 2 + (3 + 4) * 5 + 6");
+    CalculatorParser parser = createParser("print(1 + 2 + (3 + 4) * 5 + 6);");
     Symbol symbol = parser.parse();
-    assertThat(symbol.value).isEqualTo(1 + 2 + (3 + 4) * 5 + 6);
+    assertThat((String)symbol.value).contains("System.out.println(String.format(\"(((1.0 + 2.0) + (((3.0 + 4.0)) * 5.0)) + 6.0) == %s\", (((1.0 + 2.0) + (((3.0 + 4.0)) * 5.0)) + 6.0)));");
   }
 
   /** The lexer is happy producing tokens for this input, but this is invalid for the grammar. */

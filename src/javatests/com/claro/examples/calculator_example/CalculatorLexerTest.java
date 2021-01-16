@@ -15,16 +15,17 @@
  */
 package com.claro.examples.calculator_example;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
+import java_cup.runtime.Symbol;
+import org.junit.After;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java_cup.runtime.Symbol;
-import org.junit.After;
-import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.fail;
 
 /**
  * Test for the generated {@link CalculatorLexer}.
@@ -42,14 +43,17 @@ public class CalculatorLexerTest {
 
   @Test
   public void test() throws IOException {
-    lexer = createLexer("1 + 2 * (3)");
-    assertThatNextTokenIsEqualTo(Calc.NUMBER, 1);
+    lexer = createLexer("X = 1 + 2 * (3);");
+    assertThatNextTokenIsEqualTo(Calc.IDENTIFIER, "X");
+    assertThatNextTokenIsEqualTo(Calc.ASSIGNMENT);
+    assertThatNextTokenIsEqualTo(Calc.INTEGER, 1);
     assertThatNextTokenIsEqualTo(Calc.PLUS);
-    assertThatNextTokenIsEqualTo(Calc.NUMBER, 2);
+    assertThatNextTokenIsEqualTo(Calc.INTEGER, 2);
     assertThatNextTokenIsEqualTo(Calc.MULTIPLY);
     assertThatNextTokenIsEqualTo(Calc.LPAR);
-    assertThatNextTokenIsEqualTo(Calc.NUMBER, 3);
+    assertThatNextTokenIsEqualTo(Calc.INTEGER, 3);
     assertThatNextTokenIsEqualTo(Calc.RPAR);
+    assertThatNextTokenIsEqualTo(Calc.SEMICOLON);
     assertThatNextTokenIsEqualTo(Calc.EOF);
   }
 
