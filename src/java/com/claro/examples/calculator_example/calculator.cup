@@ -4,6 +4,7 @@ import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
 import java.util.Vector;
+import java.util.Stack;
 /*
  * Copyright (C) 2018 Google LLC
  *
@@ -55,7 +56,7 @@ action code {:
     return String.format(
       "package com.claro.examples.calculator_example;\n\n" +
       "import java.util.Scanner;\n\n\n" +
-      "public class CompiledCalculator {\n" +
+      "public class %s {\n" +
       // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
       "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
       "  public static void main(String[] args) {\n" +
@@ -68,12 +69,14 @@ action code {:
       "    return INPUT_SCANNER.nextDouble();\n" +
       "  }\n" +
       "}",
+      generatedClassName,
       expr
     );
   }
 :}
 
 parser code {:
+  public String generatedClassName = "CompiledCalculator";  // default to be overridden.
 :}
 
 // Terminals: () * + - == < > <= >= or and = ^ ;
@@ -271,6 +274,8 @@ term ::=
     {: RESULT = f.toString(); :}
   | INTEGER:i
     {: RESULT = i.toString(); :}
+  | STRING:s
+    {: RESULT = String.format("\"%s\"", s); :}
   | IDENTIFIER:identifier
     {:
        // Make sure we check this will actually be a valid reference before we allow it.

@@ -2,7 +2,7 @@ package com.claro.examples.calculator_example;
   
 import java.io.StringReader;
 import java.util.Scanner;
-  
+
 public class CalculatorCompilerMain {
   public static void main(String[] args) throws Exception {
     if (args.length == 0 || !args[0].equals("--silent")) {
@@ -17,6 +17,9 @@ public class CalculatorCompilerMain {
       inputProgram.append("\n");
     }
     CalculatorParser parser = createParser(inputProgram.toString());
+    if (args.length >= 2) {  // args[1] holds the generated classname.
+      parser.generatedClassName = args[1];
+    }
     if (args.length == 0 || !args[0].equals("--silent")) {
       System.out.print("= ");
     }

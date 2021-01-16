@@ -10,6 +10,7 @@ print(
  numeric_bool(5 == 3 + 2) + 4
 );
 
+print("testing");
 Z = input("Sup bruh, gimme a number:");
 print(Z);
 print(Z == 10);
