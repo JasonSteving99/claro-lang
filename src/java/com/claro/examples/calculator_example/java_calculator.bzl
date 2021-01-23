@@ -1,12 +1,17 @@
 load("@jflex_rules//jflex:jflex.bzl", "jflex")
 load("@jflex_rules//cup:cup.bzl", "cup")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 
 DEFAULT_CALCULATOR_NAME = "calculator"
 
+# Leaving this named as *_binary literally just because then IntelliJ is nice
+# to me and will automatically pick up the target as executable.
 def java_calculator_binary(name, srcs, java_name = "CompiledCalculator"):
-    native.java_binary(
+    java_image(
         name = name,
         main_class = "com.claro.examples.calculator_example." + java_name,
+        # Put these runfiles into their own layer.
+        layers = srcs,
         srcs = srcs,
     )
 

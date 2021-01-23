@@ -1,9 +1,20 @@
 package(default_visibility = ["//visibility:public"])
 
 load(":java_calculator.bzl", "gen_calculator_compiler", "java_calculator_library", "java_calculator_binary")
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_push")
+
+# Manually run this target if you're feelin fancy and want to push this binary
+# to Docker Hub.
+docker_push(
+   name = "push_first_compiled_calculator_image",
+   image = ":first_compiled_calculator_image",
+   registry = "index.docker.io",
+   repository = "clarolang/calculator",
+   tag = "first",
+)
 
 java_calculator_binary(
-    name = "first_compiled_calculator_binary",
+    name = "first_compiled_calculator_image",
     srcs = [":first_compiled_calculator"],
     java_name = "First",
 )
@@ -14,8 +25,18 @@ java_calculator_library(
     java_name = "First",
 )
 
+# Manually run this target if you're feelin fancy and want to push this binary
+# to Docker Hub.
+docker_push(
+   name = "push_second_compiled_calculator_image",
+   image = ":second_compiled_calculator_image",
+   registry = "index.docker.io",
+   repository = "clarolang/calculator",
+   tag = "second",
+)
+
 java_calculator_binary(
-    name = "second_compiled_calculator_binary",
+    name = "second_compiled_calculator_image",
     srcs = [":second_compiled_calculator"],
     java_name = "Second",
 )
