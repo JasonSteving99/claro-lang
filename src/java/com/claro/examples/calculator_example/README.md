@@ -24,3 +24,11 @@ If at all possible you should definitely prefer running this project with Bazel 
 ### Run the Compiler Over a .calculator File and Run It
 
 `$ docker run -i clarolang/calculator:compiler --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java && javac FirstCalculator.java && java FirstCalculator`
+
+### Cleanup After Yourself
+
+The above commands will have produced some artifact files that you probably don't want lying around:
+- FirstCalculator.java
+- FirstCalculator.class
+
+`$ rm FirstCalculator.java FirstCalculator.class`
