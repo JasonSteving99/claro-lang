@@ -54,7 +54,7 @@ action code {:
   */
   private String genJavaMain(String expr) {
     return String.format(
-      "package com.claro.examples.calculator_example;\n\n" +
+      "%s" +
       "import java.util.Scanner;\n\n\n" +
       "public class %s {\n" +
       // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
@@ -69,7 +69,8 @@ action code {:
       "    return INPUT_SCANNER.nextDouble();\n" +
       "  }\n" +
       "}",
-      generatedClassName,
+      parser.package_string,
+      parser.generatedClassName,
       expr
     );
   }
@@ -77,6 +78,7 @@ action code {:
 
 parser code {:
   public String generatedClassName = "CompiledCalculator";  // default to be overridden.
+  public String package_string = "";  // default to be overridden.
 :}
 
 // Terminals: () * + - == < > <= >= or and = ^ ;

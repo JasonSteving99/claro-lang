@@ -16,9 +16,17 @@ public class CalculatorCompilerMain {
       // source file, but who cares, the grammar will handle it.
       inputProgram.append("\n");
     }
+
     CalculatorParser parser = createParser(inputProgram.toString());
-    if (args.length >= 2) {  // args[1] holds the generated classname.
-      parser.generatedClassName = args[1];
+
+    // TODO(steving) Migrate this file to use an actual cli library.
+    // For now if you're gonna pass 2 args you gotta pass them all...
+    if (args.length >= 2) {
+      // args[1] holds the generated classname.
+      parser.generatedClassName = args[1].substring("--classname=".length());
+      // args[2] holds the flag for package...
+      String packageArg = args[2].substring("--package=".length());
+      parser.package_string = packageArg.equals("") ? "" : "package " + packageArg + ";\n\n";
     }
     if (args.length == 0 || !args[0].equals("--silent")) {
       System.out.print("= ");

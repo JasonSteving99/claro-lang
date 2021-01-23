@@ -3,13 +3,14 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 
 DEFAULT_CALCULATOR_NAME = "calculator"
+DEFAULT_PACKAGE_PREFIX = "com.claro.examples.calculator_example"
 
 # Leaving this named as *_binary literally just because then IntelliJ is nice
 # to me and will automatically pick up the target as executable.
 def java_calculator_binary(name, srcs, java_name = "CompiledCalculator"):
     java_image(
         name = name,
-        main_class = "com.claro.examples.calculator_example." + java_name,
+        main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
         # Put these runfiles into their own layer.
         layers = srcs,
         srcs = srcs,
@@ -19,9 +20,10 @@ def java_calculator_library(name, src, java_name = "CompiledCalculator", calcula
     native.genrule(
         name = name,
         srcs = [src],
-        cmd = "$(JAVA) -jar $(location :{0}_compiler_binary_deploy.jar) --silent {1} < $< > $(OUTS)".format(
+        cmd = "$(JAVA) -jar $(location :{0}_compiler_binary_deploy.jar) --silent --classname={1} --package={2} < $< > $(OUTS)".format(
             calculator_compiler_name,
             java_name,
+            DEFAULT_PACKAGE_PREFIX,
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
         tools = ["//src/java/com/claro/examples/calculator_example:calculator_compiler_binary_deploy.jar"],
@@ -29,9 +31,14 @@ def java_calculator_library(name, src, java_name = "CompiledCalculator", calcula
     )
 
 def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
+    java_image(
+        name = name + "_compiler_image",
+        main_class = DEFAULT_PACKAGE_PREFIX + ".CalculatorCompilerMain",
+        runtime_deps = [":" + name + "_compiler_binary"]
+    )
     native.java_binary(
         name = name + "_compiler_binary",
-        main_class = "com.claro.examples.calculator_example.CalculatorCompilerMain",
+        main_class = DEFAULT_PACKAGE_PREFIX + ".CalculatorCompilerMain",
         runtime_deps = [":" + name + "_compiler_main"],
     )
 
