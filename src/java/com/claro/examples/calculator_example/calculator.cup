@@ -2,6 +2,7 @@ package com.claro.examples.calculator_example;
 
 import com.claro.examples.calculator_example.intermediate_representation.IntegerTerm;
 import com.claro.examples.calculator_example.intermediate_representation.FloatTerm;
+import com.claro.examples.calculator_example.intermediate_representation.Node;
 import com.claro.examples.calculator_example.intermediate_representation.StringTerm;
 import com.claro.examples.calculator_example.intermediate_representation.Target;
 import org.apache.commons.text.StringEscapeUtils;
@@ -121,6 +122,7 @@ terminal         INPUT;
 nonterminal String calculated;
 nonterminal String expr;
 nonterminal String term;
+nonterminal Node   primitive;
 nonterminal String stmt;
 nonterminal String stmt_list;
 nonterminal String print;
@@ -275,14 +277,10 @@ bool_arithmetic ::=
 // The last term closes the grammar. It's a number, identifier, user_provided input, or another expression in parentheses.
 // TODO(steving) Once all productions are updated to generate IR nodes, remove toString() calls.
 term ::=
-    LPAR expr:e RPAR
+    primitive:p
+    {: RESULT = p.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
+  | LPAR expr:e RPAR
     {: RESULT = String.format("(%s)", e); :}
-  | FLOAT:f
-    {: RESULT = new FloatTerm(f).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
-  | INTEGER:i
-    {: RESULT = new IntegerTerm(i).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
-  | STRING:s
-    {: RESULT = new StringTerm(s).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
   | IDENTIFIER:identifier
     {:
        // Make sure we check this will actually be a valid reference before we allow it.
@@ -297,6 +295,15 @@ term ::=
     :}
   | input:i
     {: RESULT = i; :}
+  ;
+
+primitive ::=
+    FLOAT:f
+    {: RESULT = new FloatTerm(f); :}
+  | INTEGER:i
+    {: RESULT = new IntegerTerm(i); :}
+  | STRING:s
+    {: RESULT = new StringTerm(s); :}
   ;
 
 input ::=
