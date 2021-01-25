@@ -28,7 +28,13 @@ load("@jflex_rules//third_party:third_party_deps.bzl", "THIRD_PARTY_ARTIFACTS")
 # https://github.com/bazelbuild/rules_jvm_external
 maven_install(
     name = "maven",
-    artifacts = JFLEX_ARTIFACTS + THIRD_PARTY_ARTIFACTS + ["org.apache.commons:commons-text:jar:1.1"],
+    artifacts =
+        JFLEX_ARTIFACTS +
+        THIRD_PARTY_ARTIFACTS +
+        [
+            "org.apache.commons:commons-text:jar:1.1",
+            "com.google.guava:guava:jar:23.5-jre",
+        ],
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://jcenter.bintray.com/",

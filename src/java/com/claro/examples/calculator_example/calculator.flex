@@ -115,7 +115,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
-    {Integer}          { return symbol(Calc.INTEGER, Double.parseDouble(yytext())); }
+    {Integer}          { return symbol(Calc.INTEGER, Integer.parseInt(yytext())); }
 
     // If float is found, return the token FLOAT that represents a float and the value of
     // the float that is held in the string yytext

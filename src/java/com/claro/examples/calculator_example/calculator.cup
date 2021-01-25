@@ -1,5 +1,9 @@
 package com.claro.examples.calculator_example;
 
+import com.claro.examples.calculator_example.intermediate_representation.IntegerTerm;
+import com.claro.examples.calculator_example.intermediate_representation.FloatTerm;
+import com.claro.examples.calculator_example.intermediate_representation.StringTerm;
+import com.claro.examples.calculator_example.intermediate_representation.Target;
 import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
@@ -93,8 +97,8 @@ terminal         ASSIGNMENT;
 terminal         LBRACKET, RBRACKET, LTE, GTE;
 terminal         OR, AND, NOT;
 terminal         TRUE, FALSE;
-// An integer is also a terminal, but it's of type Double.
-terminal Double  INTEGER;
+// An integer is also a terminal, but it's of type Integer.
+terminal Integer INTEGER;
 // A float is also a terminal, but it's of type Double.
 terminal Double  FLOAT;
 // A string is also a terminal, but it's of type String.
@@ -269,15 +273,16 @@ bool_arithmetic ::=
   ;
 
 // The last term closes the grammar. It's a number, identifier, user_provided input, or another expression in parentheses.
+// TODO(steving) Once all productions are updated to generate IR nodes, remove toString() calls.
 term ::=
     LPAR expr:e RPAR
     {: RESULT = String.format("(%s)", e); :}
   | FLOAT:f
-    {: RESULT = f.toString(); :}
+    {: RESULT = new FloatTerm(f).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
   | INTEGER:i
-    {: RESULT = i.toString(); :}
+    {: RESULT = new IntegerTerm(i).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
   | STRING:s
-    {: RESULT = String.format("\"%s\"", s); :}
+    {: RESULT = new StringTerm(s).generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
   | IDENTIFIER:identifier
     {:
        // Make sure we check this will actually be a valid reference before we allow it.

@@ -60,8 +60,12 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
             ":" + name + "_gen_parser",
         ],
         deps = [
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:integer_term",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:float_term",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:string_term",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
+            "//:apache_commons_text",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient
-            "@maven//:org_apache_commons_commons_text",
         ],
     )
 
