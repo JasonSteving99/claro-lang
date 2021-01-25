@@ -20,5 +20,5 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - 
-        name: Build the Docker image
+        name: Build and Push the Calculator Compiler Docker Image
         run: bazel run //src/java/com/claro/examples/calculator_example:push_calculator_compiler_image --incompatible_restrict_string_escapes=false
