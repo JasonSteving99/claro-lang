@@ -11,7 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build the Docker image
-    - run: echo "8bfb3c68-2b11-400c-a76f-6edcd1ce4f0b" | docker login --username clarolang
-    - run: bazel run //src/java/com/claro/examples/calculator_example:push_calculator_compiler_image --incompatible_restrict_string_escapes=false
+      - 
+        uses: actions/checkout@v2
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1 
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - 
+        name: Build the Docker image
+        run: bazel run //src/java/com/claro/examples/calculator_example:push_calculator_compiler_image --incompatible_restrict_string_escapes=false
