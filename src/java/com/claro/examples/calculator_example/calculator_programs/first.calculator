@@ -7,6 +7,7 @@ print(VARX);
 Y = VARX + 2;
 print(Y);
 print(2 - Y);
+print(2 - Y > 1 - Y == true);
 
 # Uncomment the line below to see an error for unused symbols.
 # UNUSED = 9;

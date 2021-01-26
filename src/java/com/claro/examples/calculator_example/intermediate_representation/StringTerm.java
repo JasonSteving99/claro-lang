@@ -4,7 +4,6 @@ final public class StringTerm extends Term {
   private final String value;
 
   public StringTerm(String value) {
-    super();
     this.value = value;
   }
 

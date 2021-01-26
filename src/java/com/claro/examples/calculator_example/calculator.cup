@@ -1,13 +1,6 @@
 package com.claro.examples.calculator_example;
 
-import com.claro.examples.calculator_example.intermediate_representation.IdentifierReferenceTerm;
-import com.claro.examples.calculator_example.intermediate_representation.InputTerm;
-import com.claro.examples.calculator_example.intermediate_representation.IntegerTerm;
-import com.claro.examples.calculator_example.intermediate_representation.FloatTerm;
-import com.claro.examples.calculator_example.intermediate_representation.Node;
-import com.claro.examples.calculator_example.intermediate_representation.StringTerm;
-import com.claro.examples.calculator_example.intermediate_representation.Target;
-import com.claro.examples.calculator_example.intermediate_representation.Term;
+import com.claro.examples.calculator_example.intermediate_representation.*;
 import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
@@ -122,19 +115,21 @@ terminal         NUMERIC_BOOL;
 terminal         INPUT;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal String    calculated;
-nonterminal String    expr;
-nonterminal Term      term;
-nonterminal Term      primitive;
-nonterminal String    stmt;
-nonterminal String    stmt_list;
-nonterminal String    print;
-nonterminal String    assignment;
-nonterminal InputTerm input;
-nonterminal String    bool_expr;
-nonterminal String    equality;
-nonterminal String    inequality;
-nonterminal String    bool_arithmetic;
+nonterminal String      calculated;
+nonterminal Expr        expr;
+nonterminal Term        term;
+nonterminal Term        primitive;
+nonterminal FloatTerm   float;
+nonterminal IntegerTerm integer;
+nonterminal String      stmt;
+nonterminal String      stmt_list;
+nonterminal String      print;
+nonterminal String      assignment;
+nonterminal InputExpr   input;
+nonterminal BoolExpr    bool_expr;
+nonterminal BoolExpr    equality;
+nonterminal BoolExpr    inequality;
+nonterminal BoolExpr    bool_arithmetic;
 //nonterminal String  calculated;
 //nonterminal Boolean equality;
 //nonterminal Double  expr;
@@ -184,10 +179,11 @@ stmt ::=
 print ::=
     PRINT LPAR expr:e RPAR
     {:
+       String expr_java_source = e.generateTargetOutput(Target.JAVA_SOURCE).toString();
        RESULT = String.format(
          "System.out.println(String.format(\"%s == %%s\", %s))",
-         StringEscapeUtils.escapeJava(e),
-         e);
+         StringEscapeUtils.escapeJava(expr_java_source),
+         expr_java_source);
     :}
   ;
 
@@ -200,48 +196,49 @@ assignment ::=
           res.append(String.format("double %s;\n", identifier));
           symbolSet.add(identifier);
        }
-       res.append(String.format("%s = %s", identifier, e));
+       res.append(String.format("%s = %s", identifier, e.generateTargetOutput(Target.JAVA_SOURCE).toString()));
        RESULT = res.toString();
     :}
   ;
+
+// TODO(steving) Everything above this line still needs conversion to AST IR Nodes.
 
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
 // language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
 expr ::=
     MINUS expr:e
-    {: RESULT = String.format("(-%s)", e); :}
+    {: RESULT = new NegateNumericExpr(e); :}
   | expr:a PLUS expr:b
-    {: RESULT = String.format("(%s + %s)", a, b); :}
+    {: RESULT = new AddNumericExpr(a, b); :}
   | expr:a MINUS expr:b
-    {: RESULT = String.format("(%s - %s)", a, b); :}
+    {: RESULT = new SubtractNumericExpr(a, b); :}
   | expr:a MULTIPLY expr:b
-    {: RESULT = String.format("(%s * %s)", a, b); :}
+    {: RESULT = new MultiplyNumericExpr(a, b); :}
   | expr:a DIVIDE expr:b // Only support int-division right now...
-    {: RESULT = String.format("(%s / %s)", a, b); :}
+    {: RESULT = new DivideNumericExpr(a, b); :}
   | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
-    {: RESULT = String.format("Math.pow(%s, %s)", a,b); :}
+    {: RESULT = new ExponentiateNumericExpr(a, b); :}
   | LPAR expr:e RPAR
-    {: RESULT = String.format("(%s)", e); :}
-  | LOG_PREFIX FLOAT:float_base LPAR expr:arg RPAR
-    {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, float_base); :}
-  | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
-    {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, int_base); :}
+    {: RESULT = new ParenthesizedExpr(e); :}
+  | LOG_PREFIX float:float_base LPAR expr:arg RPAR
+    {: RESULT = new LogNumericExpr(arg, float_base); :}
+  | LOG_PREFIX integer:int_base LPAR expr:arg RPAR
+    {: RESULT = new LogNumericExpr(arg, int_base); :}
   | NUMERIC_BOOL LPAR bool_expr:b RPAR
-    {: RESULT = String.format("(%s ? 1 : 0)", b); :}
+    {: RESULT = new NumericBoolNumericExpr(b); :}
   | input:i
-    {: RESULT = i.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
+    {: RESULT = i; :}
   | bool_expr:b
     // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
     // there should only be doubles.
     {: RESULT = b; :}
-  // TODO(steving) Once all productions are updated to generate IR nodes, remove toString() calls.
   | term:t
-    {: RESULT = t.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
+    {: RESULT = t; :}
   ;
 
 input ::=
     INPUT LPAR STRING:prompt RPAR
-    {: RESULT = new InputTerm(prompt); :}
+    {: RESULT = new InputExpr(prompt); :}
   ;
 
 bool_expr ::=
@@ -251,40 +248,36 @@ bool_expr ::=
     {: RESULT = b; :}
   | bool_arithmetic:b
     {: RESULT = b; :}
-  | TRUE
-    {: RESULT = "true"; :}
-  | FALSE
-    {: RESULT = "false"; :}
   ;
 
 // This calculator can evaluate an equality check of expressions.
 equality ::=
     expr:a EQUALS expr:b
-    {: RESULT = String.format("(%s == %s)", a, b); :}
+    {: RESULT = new EqualsBoolExpr(a, b); :}
   | expr:a NOT_EQUALS expr:b
-    {: RESULT = String.format("(%s != %s)", a, b); :}
+    {: RESULT = new NotEqualsBoolExpr(a, b); :}
   ;
 
 inequality ::=
     expr:a LBRACKET expr:b
-    {: RESULT = String.format("(%s < %s)", a, b); :}
+    {: RESULT = new LessThanBoolExpr(a, b); :}
   | expr:a RBRACKET expr:b
-    {: RESULT = String.format("(%s > %s)", a, b); :}
+    {: RESULT = new GreaterThanBoolExpr(a, b); :}
   | expr:a LTE expr:b
-    {: RESULT = String.format("(%s <= %s)", a, b); :}
+    {: RESULT = new LessThanOrEqualToBoolExpr(a, b); :}
   | expr:a GTE expr:b
-    {: RESULT = String.format("(%s >= %s)", a, b); :}
+    {: RESULT = new GreaterThanOrEqualToBoolExpr(a, b); :}
   ;
 
 // TODO(steving) Address this. This action causes type-unsafety in this language...allows doubles where really
 // there should only be booleans.
 bool_arithmetic ::=
     expr:a AND expr:b
-    {: RESULT = String.format("(%s && %s)", a, b); :}
+    {: RESULT = new AndBoolExpr(a, b); :}
   | expr:a OR expr:b
-    {: RESULT = String.format("(%s || %s)", a, b); :}
+    {: RESULT = new OrBoolExpr(a, b); :}
   | NOT expr:a
-    {: RESULT = String.format("(!%s)", a); :}
+    {: RESULT = new NotBoolExpr(a); :}
   ;
 
 // The last production 'term' closes the grammar. It's a primitive or identifier.
@@ -296,11 +289,24 @@ term ::=
   ;
 
 primitive ::=
-    FLOAT:f
-    {: RESULT = new FloatTerm(f); :}
-  | INTEGER:i
-    {: RESULT = new IntegerTerm(i); :}
+    float:f
+    {: RESULT = f; :}
+  | integer:i
+    {: RESULT = i; :}
   | STRING:s
     {: RESULT = new StringTerm(s); :}
+  | TRUE
+    {: RESULT = new TrueTerm(); :}
+  | FALSE
+    {: RESULT = new FalseTerm(); :}
   ;
 
+float ::=
+    FLOAT:f
+    {: RESULT = new FloatTerm(f); :}
+  ;
+
+integer ::=
+    INTEGER:i
+    {: RESULT = new IntegerTerm(i); :}
+  ;
