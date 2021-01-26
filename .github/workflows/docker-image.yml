@@ -6,7 +6,7 @@ on:
 
 jobs:
 
-  Build and Push:
+  Build-and-Push:
 
     runs-on: ubuntu-latest
 
