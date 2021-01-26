@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Push to Docker Hub
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
 
-  build:
+  Build-and-Push:
 
     runs-on: ubuntu-latest
 
@@ -21,4 +21,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - 
         name: Build and Push the Calculator Compiler Docker Image
+        # --incompatible_restrict_string_escapes=false because there's a bug in 
+        # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
+        # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
         run: bazel run //src/java/com/claro/examples/calculator_example:push_calculator_compiler_image --incompatible_restrict_string_escapes=false
