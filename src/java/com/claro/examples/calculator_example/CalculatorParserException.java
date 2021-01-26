@@ -5,7 +5,7 @@ package com.claro.examples.calculator_example;
 
 /** An exception from the lexer/parser. */
 public class CalculatorParserException extends RuntimeException {
-  CalculatorParserException(String message) {
+  public CalculatorParserException(String message) {
     super(message);
   }
 }

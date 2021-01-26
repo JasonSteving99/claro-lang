@@ -1,10 +1,13 @@
 package com.claro.examples.calculator_example;
 
+import com.claro.examples.calculator_example.intermediate_representation.IdentifierReferenceTerm;
+import com.claro.examples.calculator_example.intermediate_representation.InputTerm;
 import com.claro.examples.calculator_example.intermediate_representation.IntegerTerm;
 import com.claro.examples.calculator_example.intermediate_representation.FloatTerm;
 import com.claro.examples.calculator_example.intermediate_representation.Node;
 import com.claro.examples.calculator_example.intermediate_representation.StringTerm;
 import com.claro.examples.calculator_example.intermediate_representation.Target;
+import com.claro.examples.calculator_example.intermediate_representation.Term;
 import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
@@ -119,19 +122,19 @@ terminal         NUMERIC_BOOL;
 terminal         INPUT;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal String calculated;
-nonterminal String expr;
-nonterminal String term;
-nonterminal Node   primitive;
-nonterminal String stmt;
-nonterminal String stmt_list;
-nonterminal String print;
-nonterminal String assignment;
-nonterminal String input;
-nonterminal String bool_expr;
-nonterminal String equality;
-nonterminal String inequality;
-nonterminal String bool_arithmetic;
+nonterminal String    calculated;
+nonterminal String    expr;
+nonterminal Term      term;
+nonterminal Term      primitive;
+nonterminal String    stmt;
+nonterminal String    stmt_list;
+nonterminal String    print;
+nonterminal String    assignment;
+nonterminal InputTerm input;
+nonterminal String    bool_expr;
+nonterminal String    equality;
+nonterminal String    inequality;
+nonterminal String    bool_arithmetic;
 //nonterminal String  calculated;
 //nonterminal Boolean equality;
 //nonterminal Double  expr;
@@ -217,18 +220,28 @@ expr ::=
     {: RESULT = String.format("(%s / %s)", a, b); :}
   | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
     {: RESULT = String.format("Math.pow(%s, %s)", a,b); :}
+  | LPAR expr:e RPAR
+    {: RESULT = String.format("(%s)", e); :}
   | LOG_PREFIX FLOAT:float_base LPAR expr:arg RPAR
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, float_base); :}
   | LOG_PREFIX INTEGER:int_base LPAR expr:arg RPAR
     {: RESULT = String.format("(Math.log(%s) / Math.log(%s))", arg, int_base); :}
   | NUMERIC_BOOL LPAR bool_expr:b RPAR
     {: RESULT = String.format("(%s ? 1 : 0)", b); :}
+  | input:i
+    {: RESULT = i.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
   | bool_expr:b
     // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
     // there should only be doubles.
     {: RESULT = b; :}
+  // TODO(steving) Once all productions are updated to generate IR nodes, remove toString() calls.
   | term:t
-    {: RESULT = t; :}
+    {: RESULT = t.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
+  ;
+
+input ::=
+    INPUT LPAR STRING:prompt RPAR
+    {: RESULT = new InputTerm(prompt); :}
   ;
 
 bool_expr ::=
@@ -274,27 +287,12 @@ bool_arithmetic ::=
     {: RESULT = String.format("(!%s)", a); :}
   ;
 
-// The last term closes the grammar. It's a number, identifier, user_provided input, or another expression in parentheses.
-// TODO(steving) Once all productions are updated to generate IR nodes, remove toString() calls.
+// The last production 'term' closes the grammar. It's a primitive or identifier.
 term ::=
     primitive:p
-    {: RESULT = p.generateTargetOutput(Target.JAVA_SOURCE).toString(); :}
-  | LPAR expr:e RPAR
-    {: RESULT = String.format("(%s)", e); :}
+    {: RESULT = p; :}
   | IDENTIFIER:identifier
-    {:
-       // Make sure we check this will actually be a valid reference before we allow it.
-       if (!symbolSet.contains(identifier)) {
-         throw new CalculatorParserException(String.format("Referencing variable <%s> before assignment!", identifier));
-       }
-
-       // Mark that we're using this variable as a term, so that at the end of the program, we can warn about unused.
-       usedSymbolSet.add(identifier);
-
-       RESULT = identifier;
-    :}
-  | input:i
-    {: RESULT = i; :}
+    {: RESULT = new IdentifierReferenceTerm(identifier, symbolSet, usedSymbolSet); :}
   ;
 
 primitive ::=
@@ -304,10 +302,5 @@ primitive ::=
     {: RESULT = new IntegerTerm(i); :}
   | STRING:s
     {: RESULT = new StringTerm(s); :}
-  ;
-
-input ::=
-    INPUT LPAR STRING:prompt RPAR
-    {: RESULT = String.format("promptUserInput(\"%s\")", prompt); :}
   ;
 

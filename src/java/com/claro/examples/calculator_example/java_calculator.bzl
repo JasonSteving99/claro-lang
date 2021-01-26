@@ -55,18 +55,26 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
     native.java_library(
         name = name + "_java_parser",
         srcs = [
-            "CalculatorParserException.java",
             ":" + name + "_gen_lexer",
             ":" + name + "_gen_parser",
         ],
         deps = [
+            ":calculator_parser_exception",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:identifier_reference_term",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:input_term",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:integer_term",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:float_term",
-            "//src/java/com/claro/examples/calculator_example/intermediate_representation:string_term",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:string_term",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:term",
             "//:apache_commons_text",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient
         ],
+    )
+
+    native.java_library(
+        name = "calculator_parser_exception",
+        srcs = ["CalculatorParserException.java"],
     )
 
     cup(

@@ -10,6 +10,23 @@ java_library(
 )
 
 java_library(
+    name = "identifier_reference_term",
+    srcs = ["IdentifierReferenceTerm.java"],
+    deps = [
+        ":term",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+    ],
+)
+
+java_library(
+    name = "input_term",
+    srcs = ["InputTerm.java"],
+    deps = [
+        ":term",
+    ],
+)
+
+java_library(
     name = "float_term",
     srcs = ["FloatTerm.java"],
     deps = [
