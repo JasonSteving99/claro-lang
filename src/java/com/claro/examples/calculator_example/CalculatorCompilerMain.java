@@ -1,5 +1,8 @@
 package com.claro.examples.calculator_example;
   
+import com.claro.examples.calculator_example.intermediate_representation.ProgramNode;
+import com.claro.examples.calculator_example.intermediate_representation.Target;
+
 import java.io.StringReader;
 import java.util.Scanner;
 
@@ -31,7 +34,8 @@ public class CalculatorCompilerMain {
     if (args.length == 0 || !args[0].equals("--silent")) {
       System.out.print("= ");
     }
-    System.out.println(parser.parse().value);
+    // TODO(steving) Update to take the compiler target as an arg.
+    System.out.println(((ProgramNode) parser.parse().value).generateTargetOutput(Target.JAVA_SOURCE));
   }
 
   private static CalculatorLexer createLexer(String input) {

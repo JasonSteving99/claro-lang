@@ -91,6 +91,47 @@ java_library(
 )
 
 java_library(
+    name = "stmt_list_node",
+    srcs = ["StmtListNode.java"],
+    deps = [
+        ":node",
+        ":stmt",
+        "//:guava",
+    ],
+)
+
+java_library(
+    name = "stmt_impls",
+    srcs = glob(["*Stmt.java"], exclude = ["Stmt.java"]),
+    deps = [
+        ":expr",
+        ":stmt",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//:apache_commons_text",
+        "//:guava",
+    ],
+)
+java_library(
+    name = "stmt",
+    srcs = ["Stmt.java"],
+    deps = [
+        ":node",
+        "//:guava",
+    ],
+)
+
+java_library(
+    name = "program_node",
+    srcs = ["ProgramNode.java"],
+    deps = [
+        ":node",
+        ":stmt_list_node",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//:guava",
+    ],
+)
+
+java_library(
     name = "node",
     srcs = [
         "Node.java",

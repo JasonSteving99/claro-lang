@@ -49,6 +49,8 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
         ],
         deps = [
             ":" + name + "_java_parser",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:program_node",
         ],
     )
 
@@ -66,6 +68,10 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:expr_impls",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:numeric_expr_impls",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:program_node",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:stmt",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:stmt_impls",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation:stmt_list_node",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:term",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:term_impls",
             "//:apache_commons_text",

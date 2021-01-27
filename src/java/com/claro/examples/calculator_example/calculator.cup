@@ -1,7 +1,6 @@
 package com.claro.examples.calculator_example;
 
 import com.claro.examples.calculator_example.intermediate_representation.*;
-import org.apache.commons.text.StringEscapeUtils;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
 import java.util.Vector;
@@ -49,32 +48,6 @@ action code {:
     }
     return res.toString();
   }
-
-  /**
-  * In some ways this hardcoded class is basically a standard library for this language.
-  */
-  private String genJavaMain(String expr) {
-    return String.format(
-      "%s" +
-      "import java.util.Scanner;\n\n\n" +
-      "public class %s {\n" +
-      // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
-      "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
-      "  public static void main(String[] args) {\n" +
-      "/*******AUTO-GENERATED DO NOT MODIFY*******/\n" +
-      "%s" +
-      "/*******END AUTO-GENERATED*******/\n" +
-      "  }\n\n" +
-      "  private static double promptUserInput(String prompt) {\n" +
-      "    System.out.println(prompt);\n" +
-      "    return INPUT_SCANNER.nextDouble();\n" +
-      "  }\n" +
-      "}",
-      parser.package_string,
-      parser.generatedClassName,
-      expr
-    );
-  }
 :}
 
 parser code {:
@@ -115,26 +88,21 @@ terminal         NUMERIC_BOOL;
 terminal         INPUT;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal String      calculated;
-nonterminal Expr        expr;
-nonterminal Term        term;
-nonterminal Term        primitive;
-nonterminal FloatTerm   float;
-nonterminal IntegerTerm integer;
-nonterminal String      stmt;
-nonterminal String      stmt_list;
-nonterminal String      print;
-nonterminal String      assignment;
-nonterminal InputExpr   input;
-nonterminal BoolExpr    bool_expr;
-nonterminal BoolExpr    equality;
-nonterminal BoolExpr    inequality;
-nonterminal BoolExpr    bool_arithmetic;
-//nonterminal String  calculated;
-//nonterminal Boolean equality;
-//nonterminal Double  expr;
-//nonterminal Double  multiply_expr;
-//nonterminal Double  term;
+nonterminal ProgramNode    program;
+nonterminal Expr           expr;
+nonterminal Term           term;
+nonterminal Term           primitive;
+nonterminal FloatTerm      float;
+nonterminal IntegerTerm    integer;
+nonterminal Stmt           stmt;
+nonterminal StmtListNode   stmt_list;
+nonterminal PrintStmt      print;
+nonterminal AssignmentStmt assignment;
+nonterminal InputExpr      input;
+nonterminal BoolExpr       bool_expr;
+nonterminal BoolExpr       equality;
+nonterminal BoolExpr       inequality;
+nonterminal BoolExpr       bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 precedence left IDENTIFIER;
@@ -149,59 +117,36 @@ precedence left EXPONENTIATE;
 precedence left LOG_PREFIX;
 
 // This is where the grammar starts.
-calculated ::=
+program ::=
     stmt_list:s
     {:
-       symbolSet.removeAll(usedSymbolSet);
-       if (symbolSet.size() > 0) {
-         throw new CalculatorParserException(
-           String.format("Warning! The following declared symbols are unused! %s", symbolSet)
-         );
-       }
-       RESULT = genJavaMain(s);
+       RESULT = new ProgramNode(s, symbolSet, usedSymbolSet, package_string, generatedClassName);
     :}
   ;
 
 stmt_list ::=
     stmt:head stmt_list:tail
-    {: RESULT = String.format("%s%s", head, tail); :}
+    {: RESULT = new StmtListNode(head, tail); :}
   | stmt:s
-    {: RESULT = String.format("%s", s); :}
+    {: RESULT = new StmtListNode(s); :}
   ;
 
 stmt ::=
-    print:p SEMICOLON
-    {: RESULT = String.format("%s;\n", p); :}
-  | assignment:a SEMICOLON
-    {: RESULT = String.format("%s;\n", a); :}
+    print:p
+    {: RESULT = p; :}
+  | assignment:a
+    {: RESULT = a; :}
   ;
 
 print ::=
-    PRINT LPAR expr:e RPAR
-    {:
-       String expr_java_source = e.generateTargetOutput(Target.JAVA_SOURCE).toString();
-       RESULT = String.format(
-         "System.out.println(String.format(\"%s == %%s\", %s))",
-         StringEscapeUtils.escapeJava(expr_java_source),
-         expr_java_source);
-    :}
+    PRINT LPAR expr:e RPAR SEMICOLON
+    {: RESULT = new PrintStmt(e); :}
   ;
 
 assignment ::=
-    IDENTIFIER:identifier ASSIGNMENT expr:e
-    {:
-       StringBuilder res = new StringBuilder();
-       if (!symbolSet.contains(identifier)) {
-          // First time we're seeing the variable, so declare it.
-          res.append(String.format("double %s;\n", identifier));
-          symbolSet.add(identifier);
-       }
-       res.append(String.format("%s = %s", identifier, e.generateTargetOutput(Target.JAVA_SOURCE).toString()));
-       RESULT = res.toString();
-    :}
+    IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new AssignmentStmt(identifier, e, symbolSet, usedSymbolSet); :}
   ;
-
-// TODO(steving) Everything above this line still needs conversion to AST IR Nodes.
 
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
 // language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
