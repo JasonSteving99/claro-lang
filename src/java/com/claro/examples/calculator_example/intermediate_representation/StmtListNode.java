@@ -2,6 +2,8 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
+
 public class StmtListNode extends Node {
   private StmtListNode tail = null;
 
@@ -25,5 +27,15 @@ public class StmtListNode extends Node {
       res.append(tail.generateJavaSourceOutput());
     }
     return res;
+  }
+
+  @Override
+  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+    // Simply execute the statements. Statements don't return values.
+    this.getChildren().get(0).generateInterpretedOutput(heap);
+    if (tail != null) {
+      tail.generateInterpretedOutput(heap);
+    }
+    return null;
   }
 }

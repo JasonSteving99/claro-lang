@@ -20,7 +20,7 @@ def java_calculator_library(name, src, java_name = "CompiledCalculator", calcula
     native.genrule(
         name = name,
         srcs = [src],
-        cmd = "$(JAVA) -jar $(location :{0}_compiler_binary_deploy.jar) --silent --classname={1} --package={2} < $< > $(OUTS)".format(
+        cmd = "$(JAVA) -jar $(location :{0}_compiler_binary_deploy.jar) --java_source --silent --classname={1} --package={2} < $< > $(OUTS)".format(
             calculator_compiler_name,
             java_name,
             DEFAULT_PACKAGE_PREFIX,
@@ -49,8 +49,9 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
         ],
         deps = [
             ":" + name + "_java_parser",
-            "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
-            "//src/java/com/claro/examples/calculator_example/intermediate_representation:program_node",
+            "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:interpreter",
+            "//src/java/com/claro/examples/calculator_example/compiler_backends/java_source",
+            "//src/java/com/claro/examples/calculator_example/compiler_backends/repl",
         ],
     )
 

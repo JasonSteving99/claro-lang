@@ -1,5 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
+import java.util.HashMap;
+
 final public class StringTerm extends Term {
   private final String value;
 
@@ -14,5 +16,10 @@ final public class StringTerm extends Term {
   @Override
   protected StringBuilder generateJavaSourceOutput() {
     return new StringBuilder(String.format("\"%s\"", value));
+  }
+
+  @Override
+  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+    return this.getValue();
   }
 }

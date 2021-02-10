@@ -2,6 +2,8 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
+
 public class LessThanOrEqualToBoolExpr extends BoolExpr {
 
   public LessThanOrEqualToBoolExpr(Expr lhs, Expr rhs) {
@@ -17,5 +19,12 @@ public class LessThanOrEqualToBoolExpr extends BoolExpr {
             this.getChildren().get(1).generateJavaSourceOutput()
         )
     );
+  }
+
+  @Override
+  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+    return
+        (double) this.getChildren().get(0).generateInterpretedOutput(heap) >=
+        (double) this.getChildren().get(1).generateInterpretedOutput(heap);
   }
 }

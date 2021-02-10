@@ -2,6 +2,7 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 
+import java.util.HashMap;
 import java.util.HashSet;
 
 public class IdentifierReferenceTerm extends Term {
@@ -25,5 +26,10 @@ public class IdentifierReferenceTerm extends Term {
   @Override
   protected StringBuilder generateJavaSourceOutput() {
     return new StringBuilder(this.identifier);
+  }
+
+  @Override
+  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+    return heap.get(this.identifier);
   }
 }

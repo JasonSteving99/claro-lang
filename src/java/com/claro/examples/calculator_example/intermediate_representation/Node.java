@@ -2,6 +2,8 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
+
 public abstract class Node {
   private final ImmutableList<Node> children;
 
@@ -14,13 +16,17 @@ public abstract class Node {
   }
 
   public StringBuilder generateTargetOutput(Target target) throws IllegalArgumentException {
+    return generateTargetOutput(target, new HashMap<>());
+  }
+
+  public StringBuilder generateTargetOutput(Target target, HashMap<String, Object> heap) throws IllegalArgumentException {
     StringBuilder generatedOutput;
     switch (target) {
       case JAVA_SOURCE:
         generatedOutput = generateJavaSourceOutput();
         break;
       case INTERPRETED:
-        generatedOutput = generateInterpretedOutput();
+        generatedOutput = new StringBuilder().append(generateInterpretedOutput(heap));
         break;
       default:
         throw new IllegalArgumentException("Unexpected Target: " + target);
@@ -30,8 +36,5 @@ public abstract class Node {
 
   protected abstract StringBuilder generateJavaSourceOutput();
 
-  protected StringBuilder generateInterpretedOutput() {
-    // TODO(steving) Consider having all Node impls implement this, but for now, just default to do nothing.
-    return new StringBuilder();
-  }
+  protected abstract Object generateInterpretedOutput(HashMap<String, Object> heap);
 }

@@ -1,4 +1,9 @@
-package(default_visibility = ["//src/java/com/claro/examples/calculator_example:__pkg__"])
+package(
+    default_visibility = [
+        "//src/java/com/claro/examples/calculator_example:__pkg__",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends:__subpackages__",
+    ]
+)
 
 java_library(
     name = "expr_impls",

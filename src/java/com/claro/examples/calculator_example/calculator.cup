@@ -34,13 +34,6 @@ import java.util.Stack;
 action code {:
   int indentationLevel = 1;
 
-  // We're gonna use a set for what would be the "symbol table" for now, since this simple grammar really only needs to
-  // check whether a variable has been initialized yet or not.
-  HashSet<String> symbolSet = new HashSet<>();
-  // We're gonna collect another set for which initialized variables are actually *used* so that we can give a fancy
-  // little warning indicating that a variable goes unused.
-  HashSet<String> usedSymbolSet = new HashSet<>();
-
   private String getIndents(int level) {
     StringBuilder res = new StringBuilder();
     for(int i = 0; i < level; i++) {
@@ -53,6 +46,14 @@ action code {:
 parser code {:
   public String generatedClassName = "CompiledCalculator";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
+  // We're gonna use a set for what would be the "symbol table" for now, since this simple grammar really only needs to
+  // check whether a variable has been initialized yet or not.
+  public HashSet<String> symbolSet = new HashSet<>();
+  // We're gonna collect another set for which initialized variables are actually *used* so that we can give a fancy
+  // little warning indicating that a variable goes unused.
+  public HashSet<String> usedSymbolSet = new HashSet<>();
+  // We need a knob for enabling/disabling unused checks in order to have REPL support.
+  public boolean checkUnused = true;
 :}
 
 // Terminals: () * + - == < > <= >= or and = ^ ;
@@ -120,7 +121,7 @@ precedence left LOG_PREFIX;
 program ::=
     stmt_list:s
     {:
-       RESULT = new ProgramNode(s, symbolSet, usedSymbolSet, package_string, generatedClassName);
+       RESULT = new ProgramNode(s, symbolSet, usedSymbolSet, checkUnused, package_string, generatedClassName);
     :}
   ;
 

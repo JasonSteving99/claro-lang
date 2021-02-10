@@ -2,6 +2,7 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
 import java.util.HashSet;
 
 public class AssignmentStmt extends Stmt {
@@ -30,5 +31,12 @@ public class AssignmentStmt extends Stmt {
     }
     res.append(String.format("%s = %s;\n", this.IDENTIFIER, this.getChildren().get(0).generateJavaSourceOutput().toString()));
     return res;
+  }
+
+  @Override
+  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+    // Put the computed value of this identifier directly in the heap.
+    heap.put(this.IDENTIFIER, this.getChildren().get(0).generateInterpretedOutput(heap));
+    return null;
   }
 }
