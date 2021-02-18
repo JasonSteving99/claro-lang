@@ -4,6 +4,7 @@ import com.claro.examples.calculator_example.CalculatorParser;
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.CompilerBackend;
 import com.claro.examples.calculator_example.compiler_backends.ParserUtil;
+import com.claro.examples.calculator_example.compiler_backends.repl.repl_terminal.ReplTerminal;
 import com.claro.examples.calculator_example.intermediate_representation.ProgramNode;
 import com.claro.examples.calculator_example.intermediate_representation.Target;
 

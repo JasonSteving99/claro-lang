@@ -1,4 +1,4 @@
-package com.claro.examples.calculator_example.compiler_backends.repl;
+package com.claro.examples.calculator_example.compiler_backends.repl.repl_terminal;
 
 import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TextColor;
@@ -6,10 +6,11 @@ import com.googlecode.lanterna.graphics.TextGraphics;
 import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
-import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal.CtrlCBehaviour;
+import com.googlecode.lanterna.terminal.ansi.UnixTerminal;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Stack;
 import java.util.function.Function;
 
@@ -17,17 +18,19 @@ public class ReplTerminal {
 
   private final Function<String, Void> inputHandler;
 
-  ReplTerminal(Function<String, Void> inputHandler) {
+  public ReplTerminal(Function<String, Void> inputHandler) {
     this.inputHandler = inputHandler;
   }
 
   public void runTerminal() {
     DefaultTerminalFactory defaultTerminalFactory = new DefaultTerminalFactory();
-    Terminal terminal = null;
+    UnixTerminal terminal = null;
     try {
-      terminal = defaultTerminalFactory
-          .setUnixTerminalCtrlCBehaviour(CtrlCBehaviour.CTRL_C_KILLS_APPLICATION)
-          .createTerminal();
+      terminal = new UnixTerminal(
+          System.in,
+          System.out,
+          StandardCharsets.UTF_8,
+          CtrlCBehaviour.CTRL_C_KILLS_APPLICATION);
 
       terminal.clearScreen();
       terminal.setCursorVisible(true);
@@ -37,14 +40,14 @@ public class ReplTerminal {
       // Change to a background/foreground color combo that pops more.
       textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
       textGraphics.setBackgroundColor(TextColor.ANSI.BLACK);
-      textGraphics.putString(2, 1, "ClaroLang 0.0.1 - Press ESC/Ctr-C to exit", SGR.BOLD);
+      textGraphics.putString(2, 0, "ClaroLang 0.0.1 - Press ESC/Ctr-C to exit", SGR.BOLD);
 
       // Change back to the default background/foreground colors.
       textGraphics.setForegroundColor(TextColor.ANSI.DEFAULT);
       textGraphics.setBackgroundColor(TextColor.ANSI.DEFAULT);
 
       final String PROMPT = ">>> ";
-      textGraphics.putString(0, 2, PROMPT, SGR.BOLD);
+      textGraphics.putString(0, 1, PROMPT, SGR.BOLD);
       // Need to flush for changes to become visible.
       terminal.flush();
 
@@ -52,7 +55,7 @@ public class ReplTerminal {
       StringBuilder currInstruction = new StringBuilder();
       Stack<String> prevInstructions = new Stack<>();
       int instructionIndex = 0;
-      int currLine = 2;
+      int currLine = 1;
       int currPromptCol = 0;
 
       KeyStroke keyStroke = terminal.readInput();
@@ -128,20 +131,28 @@ public class ReplTerminal {
               // TODO(steving) TextGraphics/Terminal logic into the REPL impl of the PrintStmt node.
               // Finally, actually call the given inputHandler.
               // Setup the cursor for potential output from inputHandler.
-              terminal.setCursorPosition(0, currLine + 1);
+              if (++currLine >= terminal.getTerminalSize().getRows()) {
+                terminal.scrollLines(0, currLine - 1, 1);
+              }
+              terminal.setCursorPosition(0, currLine);
               inputHandler.apply(prevInstructions.peek());
               currLine = terminal.getCursorPosition().getRow();
             } else {
               currLine++;
             }
+            if (currLine >= terminal.getTerminalSize().getRows()) {
+              /*
+               Note that currLine is potentially pointing ahead of the last row shown in the terminal
+               currently because the inputHandler may have output multiple lines. In this case, this
+               scrollLines method is being told to scroll lines that are currently below the fold, but
+               it appears that it handles this well.
+              */
+              terminal.scrollLines(0, currLine, 1);
+            }
             currPromptCol = 0;
             break;
         }
-        // TODO(steving) Need to allow user to hit enter enough times to have previous instructions scroll
-        // TODO(steving) off the screen. This would involve printing out the top N things on the insctruction
-        // TODO(steving) stack where N is the number of rows in the terminal window. This'll also require
-        // TODO(steving) maintaining a new stack of the outputs which would be gathered using
-        // TODO(steving) TextGraphics::getCharacter(col, row).
+
         // Print the currInstruction in two parts to leave the cursor exactly where the user expects it.
         textGraphics.putString(0, currLine, PROMPT + currInstruction.toString(), SGR.BOLD);
         textGraphics.putString(0, currLine, PROMPT + currInstruction.substring(0, currPromptCol));
