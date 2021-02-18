@@ -34,6 +34,7 @@ maven_install(
         [
             "org.apache.commons:commons-text:jar:1.1",
             "com.google.guava:guava:jar:23.5-jre",
+            "com.googlecode.lanterna:lanterna:3.1.1",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [
