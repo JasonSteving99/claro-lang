@@ -56,7 +56,7 @@ Integer        = [0-9]+
 Float          = {Integer}\.{Integer}
 
 // A variable identifier. We'll just do uppercase for vars.
-Identifier     = [A-Z]+
+Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|[0-9])*
 
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
@@ -100,6 +100,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }
+    "if"               { return symbol(Calc.IF); }
     "print"            { return symbol(Calc.PRINT); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
     "input"            { return symbol(Calc.INPUT); }

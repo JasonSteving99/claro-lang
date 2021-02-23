@@ -87,23 +87,25 @@ terminal         PRINT;
 terminal         NUMERIC_BOOL;
 // This grammar also has a builtin input() functino for reading a number from stdin.
 terminal         INPUT;
+terminal         IF;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal ProgramNode    program;
-nonterminal Expr           expr;
-nonterminal Term           term;
-nonterminal Term           primitive;
-nonterminal FloatTerm      float;
-nonterminal IntegerTerm    integer;
-nonterminal Stmt           stmt;
-nonterminal StmtListNode   stmt_list;
-nonterminal PrintStmt      print;
-nonterminal AssignmentStmt assignment;
-nonterminal InputExpr      input;
-nonterminal BoolExpr       bool_expr;
-nonterminal BoolExpr       equality;
-nonterminal BoolExpr       inequality;
-nonterminal BoolExpr       bool_arithmetic;
+nonterminal ProgramNode     program;
+nonterminal Expr            expr;
+nonterminal Term            term;
+nonterminal Term            primitive;
+nonterminal FloatTerm       float;
+nonterminal IntegerTerm     integer;
+nonterminal Stmt            stmt;
+nonterminal StmtListNode    stmt_list;
+nonterminal IfStmt          if_stmt;
+nonterminal PrintStmt       print;
+nonterminal AssignmentStmt  assignment;
+nonterminal InputExpr       input;
+nonterminal BoolExpr        bool_expr;
+nonterminal BoolExpr        equality;
+nonterminal BoolExpr        inequality;
+nonterminal BoolExpr        bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 precedence left IDENTIFIER;
@@ -115,7 +117,7 @@ precedence left LBRACKET, RBRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
-precedence left LOG_PREFIX;
+precedence left LOG_PREFIX, IF;
 
 // This is where the grammar starts.
 program ::=
@@ -137,6 +139,8 @@ stmt ::=
     {: RESULT = p; :}
   | assignment:a
     {: RESULT = a; :}
+  | if_stmt:i
+    {: RESULT = i; :}
   ;
 
 print ::=
@@ -202,6 +206,11 @@ equality ::=
     {: RESULT = new EqualsBoolExpr(a, b); :}
   | expr:a NOT_EQUALS expr:b
     {: RESULT = new NotEqualsBoolExpr(a, b); :}
+  ;
+
+if_stmt ::=
+    IF LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = new IfStmt(e, stmt_list); :}
   ;
 
 inequality ::=

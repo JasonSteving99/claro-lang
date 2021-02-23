@@ -109,8 +109,10 @@ java_library(
     name = "stmt_impls",
     srcs = glob(["*Stmt.java"], exclude = ["Stmt.java"]),
     deps = [
+        ":bool_expr",
         ":expr",
         ":stmt",
+        ":stmt_list_node",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//:apache_commons_text",
         "//:guava",
