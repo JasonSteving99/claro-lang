@@ -1,8 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableList;
-
-import java.util.HashMap;
 
 public class IfStmt extends Stmt {
 
@@ -11,28 +10,43 @@ public class IfStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
     res.append(
         String.format(
-            "if ( %s ) {\n%s\n}\n",
+            "if ( %s )",
             this.getChildren()
                 .get(0)
-                .generateJavaSourceOutput()
-                .toString(),
-            this.getChildren()
-                .get(1)
-                .generateJavaSourceOutput()
+                .generateJavaSourceOutput(scopedHeap)
                 .toString()
         )
     );
+    // We've now entered a new scope.
+    scopedHeap.enterNewScope();
+    // Do work in this new scope.
+    res.append(
+        String.format(
+            " {\n%s\n}\n",
+            this.getChildren()
+                .get(1)
+                .generateJavaSourceOutput(scopedHeap)
+                .toString()
+        )
+    );
+    // And we're now leaving this scope.
+    scopedHeap.exitCurrScope();
     return res;
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
-    if ((boolean) this.getChildren().get(0).generateInterpretedOutput(heap)) {
-      this.getChildren().get(1).generateInterpretedOutput(heap);
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    if ((boolean) this.getChildren().get(0).generateInterpretedOutput(scopedHeap)) {
+      // We've now entered a new scope.
+      scopedHeap.enterNewScope();
+      // Do work in this new scope.
+      this.getChildren().get(1).generateInterpretedOutput(scopedHeap);
+      // And we're now leaving this scope.
+      scopedHeap.exitCurrScope();
     }
     return null;
   }

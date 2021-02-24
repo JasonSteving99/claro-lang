@@ -1,6 +1,6 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
-import java.util.HashMap;
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 
 final public class StringTerm extends Term {
   private final String value;
@@ -14,12 +14,12 @@ final public class StringTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(String.format("\"%s\"", value));
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     return this.getValue();
   }
 }

@@ -1,10 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
-import com.claro.examples.calculator_example.CalculatorParserException;
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableList;
-
-import java.util.HashMap;
-import java.util.HashSet;
 
 public class ProgramNode extends Node {
   private final String packageString, generatedClassName;
@@ -12,35 +9,30 @@ public class ProgramNode extends Node {
   // TODO(steving) package and generatedClassName should probably be injected some cleaner way since this is a Target::JAVA_SOURCE-only artifact.
   public ProgramNode(
       StmtListNode stmtListNode,
-      HashSet<String> symbolSet,
-      HashSet<String> usedSymbolSet,
-      boolean checkUnused,
       String packageString,
       String generatedClassName) {
     super(ImmutableList.of(stmtListNode));
-
-    // TODO(steving) This should probably be pulled out to be something that gets processed top-down outside of constructing the AST.
-    if (checkUnused) {
-      symbolSet.removeAll(usedSymbolSet);
-      if (symbolSet.size() > 0) {
-        throw new CalculatorParserException(
-            String.format("Warning! The following declared symbols are unused! %s", symbolSet)
-        );
-      }
-    }
-
     this.packageString = packageString;
     this.generatedClassName = generatedClassName;
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
-    return new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput().toString()));
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    scopedHeap.enterNewScope();
+    StringBuilder compiledJavaSourceOutput =
+        new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
+    scopedHeap.exitCurrScope();
+    return compiledJavaSourceOutput;
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
-    return this.getChildren().get(0).generateInterpretedOutput(heap);
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    scopedHeap.enterNewScope();
+    this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
+    scopedHeap.exitCurrScope();
+
+    // There's no output in the interpreting mode.
+    return null;
   }
 
   /**

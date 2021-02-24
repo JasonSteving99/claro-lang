@@ -3,8 +3,6 @@ package com.claro.examples.calculator_example;
 import com.claro.examples.calculator_example.intermediate_representation.*;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
-import java.util.Vector;
-import java.util.Stack;
 /*
  * Copyright (C) 2018 Google LLC
  *
@@ -46,14 +44,6 @@ action code {:
 parser code {:
   public String generatedClassName = "CompiledCalculator";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
-  // We're gonna use a set for what would be the "symbol table" for now, since this simple grammar really only needs to
-  // check whether a variable has been initialized yet or not.
-  public HashSet<String> symbolSet = new HashSet<>();
-  // We're gonna collect another set for which initialized variables are actually *used* so that we can give a fancy
-  // little warning indicating that a variable goes unused.
-  public HashSet<String> usedSymbolSet = new HashSet<>();
-  // We need a knob for enabling/disabling unused checks in order to have REPL support.
-  public boolean checkUnused = true;
 :}
 
 // Terminals: () * + - == < > <= >= or and = ^ ;
@@ -123,7 +113,7 @@ precedence left LOG_PREFIX, IF;
 program ::=
     stmt_list:s
     {:
-       RESULT = new ProgramNode(s, symbolSet, usedSymbolSet, checkUnused, package_string, generatedClassName);
+       RESULT = new ProgramNode(s, package_string, generatedClassName);
     :}
   ;
 
@@ -150,7 +140,7 @@ print ::=
 
 assignment ::=
     IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
-    {: RESULT = new AssignmentStmt(identifier, e, symbolSet, usedSymbolSet); :}
+    {: RESULT = new AssignmentStmt(identifier, e); :}
   ;
 
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
@@ -240,7 +230,7 @@ term ::=
     primitive:p
     {: RESULT = p; :}
   | IDENTIFIER:identifier
-    {: RESULT = new IdentifierReferenceTerm(identifier, symbolSet, usedSymbolSet); :}
+    {: RESULT = new IdentifierReferenceTerm(identifier); :}
   ;
 
 primitive ::=

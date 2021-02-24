@@ -1,8 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableList;
-
-import java.util.HashMap;
 
 public class StmtListNode extends Node {
   private StmtListNode tail = null;
@@ -21,20 +20,20 @@ public class StmtListNode extends Node {
 
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
-    StringBuilder res = this.getChildren().get(0).generateJavaSourceOutput();
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    StringBuilder res = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
     if (tail != null) {
-      res.append(tail.generateJavaSourceOutput());
+      res.append(tail.generateJavaSourceOutput(scopedHeap));
     }
     return res;
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     // Simply execute the statements. Statements don't return values.
-    this.getChildren().get(0).generateInterpretedOutput(heap);
+    this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
     if (tail != null) {
-      tail.generateInterpretedOutput(heap);
+      tail.generateInterpretedOutput(scopedHeap);
     }
     return null;
   }

@@ -1,8 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableList;
 
-import java.util.HashMap;
 import java.util.Scanner;
 
 public class InputExpr extends Expr {
@@ -16,12 +16,12 @@ public class InputExpr extends Expr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(String.format("promptUserInput(\"%s\")", this.prompt));
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     System.out.println(prompt);
     return INPUT_SCANNER.nextDouble();
   }

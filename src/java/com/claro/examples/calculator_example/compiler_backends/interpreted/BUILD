@@ -10,5 +10,16 @@ java_library(
       "//src/java/com/claro/examples/calculator_example/compiler_backends:compiler_backend",
       "//src/java/com/claro/examples/calculator_example/intermediate_representation:node",
       "//src/java/com/claro/examples/calculator_example/intermediate_representation:program_node",
+      ":scoped_heap",
+    ],
+)
+
+# TODO(steving) This is now used by all CompilerBackends. Move out of .../interpreted.
+java_library(
+    name = "scoped_heap",
+    srcs = ["ScopedHeap.java"],
+    deps = [
+        "//:guava",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
     ],
 )

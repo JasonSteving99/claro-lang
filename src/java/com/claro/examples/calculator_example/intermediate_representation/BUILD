@@ -16,6 +16,7 @@ java_library(
         ":expr",
         ":numeric_expr_impls",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
 
@@ -29,6 +30,7 @@ java_library(
         ":numeric_expr",
         ":expr",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
 
@@ -52,6 +54,7 @@ java_library(
         ":bool_expr",
         ":expr",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap"
     ],
 )
 
@@ -74,6 +77,7 @@ java_library(
     deps = [
         ":term",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
 
@@ -102,6 +106,7 @@ java_library(
         ":node",
         ":stmt",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap"
     ],
 )
 
@@ -113,9 +118,10 @@ java_library(
         ":expr",
         ":stmt",
         ":stmt_list_node",
-        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//:apache_commons_text",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
 java_library(
@@ -133,8 +139,9 @@ java_library(
     deps = [
         ":node",
         ":stmt_list_node",
-        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
 
@@ -144,5 +151,8 @@ java_library(
         "Node.java",
         "Target.java",
     ],
-    deps = ["//:guava"],
+    deps = [
+        "//:guava",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
+    ],
 )

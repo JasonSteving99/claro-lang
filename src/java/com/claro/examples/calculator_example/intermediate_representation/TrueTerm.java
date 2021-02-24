@@ -1,6 +1,6 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
-import java.util.HashMap;
+import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 
 final public class TrueTerm extends Term {
   private final static boolean VALUE = true;
@@ -10,12 +10,12 @@ final public class TrueTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput() {
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     return new StringBuilder("true");
   }
 
   @Override
-  protected Object generateInterpretedOutput(HashMap<String, Object> heap) {
+  protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     return true;
   }
 }
