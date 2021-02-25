@@ -1,0 +1,26 @@
+# Expecting this all to print the following:
+# if
+# if->else if
+# if->else
+# if->else if->else
+
+if (true) {
+  print("if");
+  if (false) {
+    print("nope");
+  } else if (true) {
+    print("if->else if");
+    if (false) {
+      print("nope");
+    } else {
+      print("if->else");
+      if (false) {
+        print("nope");
+      } else if (false) {
+        print("nope");
+      } else {
+        print("if->else if->else");
+      }
+    }
+  }
+}

@@ -101,6 +101,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     ";"                { return symbol(Calc.SEMICOLON); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }
     "if"               { return symbol(Calc.IF); }
+    "else"             { return symbol(Calc.ELSE); }
     "print"            { return symbol(Calc.PRINT); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
     "input"            { return symbol(Calc.INPUT); }

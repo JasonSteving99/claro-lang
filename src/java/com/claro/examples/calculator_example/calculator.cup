@@ -77,7 +77,7 @@ terminal         PRINT;
 terminal         NUMERIC_BOOL;
 // This grammar also has a builtin input() functino for reading a number from stdin.
 terminal         INPUT;
-terminal         IF;
+terminal         IF, ELSE;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
 nonterminal ProgramNode     program;
@@ -88,7 +88,11 @@ nonterminal FloatTerm       float;
 nonterminal IntegerTerm     integer;
 nonterminal Stmt            stmt;
 nonterminal StmtListNode    stmt_list;
+nonterminal IfStmt          if_else_chain_stmt;
 nonterminal IfStmt          if_stmt;
+nonterminal IfStmt          else_if_stmt_chain;
+nonterminal IfStmt          else_if_stmt;
+nonterminal StmtListNode    else_stmt;
 nonterminal PrintStmt       print;
 nonterminal AssignmentStmt  assignment;
 nonterminal InputExpr       input;
@@ -107,7 +111,7 @@ precedence left LBRACKET, RBRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
-precedence left LOG_PREFIX, IF;
+precedence left LOG_PREFIX, IF, ELSE;
 
 // This is where the grammar starts.
 program ::=
@@ -129,7 +133,7 @@ stmt ::=
     {: RESULT = p; :}
   | assignment:a
     {: RESULT = a; :}
-  | if_stmt:i
+  | if_else_chain_stmt:i
     {: RESULT = i; :}
   ;
 
@@ -198,9 +202,51 @@ equality ::=
     {: RESULT = new NotEqualsBoolExpr(a, b); :}
   ;
 
+if_else_chain_stmt ::=
+    if_stmt:leading_if_stmt else_if_stmt_chain:else_if_chain
+    {:
+       leading_if_stmt.setNextCondition(else_if_chain);
+       RESULT = leading_if_stmt;
+    :}
+  | if_stmt:if_stmt else_stmt:trailing_else_stmt
+    {:
+       if_stmt.setTerminalElseClause(trailing_else_stmt);
+       RESULT = if_stmt;
+    :}
+  | if_stmt:if_stmt
+    {: RESULT = if_stmt; :}
+  ;
+
 if_stmt ::=
     IF LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new IfStmt(e, stmt_list); :}
+  ;
+
+else_if_stmt_chain ::=
+    else_if_stmt:head else_if_stmt_chain:tail
+    {:
+       head.setNextCondition(tail);
+       RESULT = head;
+    :}
+  | else_if_stmt:else_if_stmt else_stmt:trailing_else_stmt
+    {:
+       else_if_stmt.setTerminalElseClause(trailing_else_stmt);
+       RESULT = else_if_stmt;
+    :}
+  | else_if_stmt:else_if_stmt
+    {: RESULT = else_if_stmt; :}
+  ;
+
+else_if_stmt ::=
+    ELSE if_stmt:else_if_stmt
+    {: RESULT = else_if_stmt; :}
+  ;
+
+// We can simply return the StmtListNode itself because this is actually gonna be run by the IfStmt it's associated
+// with.
+else_stmt ::=
+    ELSE LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = stmt_list; :}
   ;
 
 inequality ::=

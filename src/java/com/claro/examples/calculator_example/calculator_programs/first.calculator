@@ -40,5 +40,22 @@ print(scopeTest1);
 # Uncomment the line below to see an error about referencing before assignment.
 # print(scopeTest2);
 
+# Let's test out condition chains.
+if (false) {
+  print("False shouldn't be printing...");
+} else if (true) {
+  if (false) {
+    print("This shouldn't be printing...");
+  } else if (false) {
+    print("This shouldn't be printing...");
+  } else {
+    print("This should print!");
+  }
+} else if (true) {
+  print("Ok this code is real weird, but anyways, this shouldn't print");
+} else {
+  print("How are we even getting here...at some point this should throw for unreachable code probably...");
+}
+
 # Uncomment the line below to see an error for unused symbols.
 # UNUSED = 9;
