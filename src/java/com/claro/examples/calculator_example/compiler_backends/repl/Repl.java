@@ -18,6 +18,11 @@ public class Repl implements CompilerBackend {
   private final HashSet<String> SYMBOL_TABLE = new HashSet<>();
   private final HashSet<String> USED_SYMBOL_TABLE = new HashSet<>();
 
+  public Repl() {
+    // Make sure that the REPL's heap is ready.
+    SCOPED_HEAP.enterNewScope();
+  }
+
   @Override
   public void run() {
     ReplTerminal replTerminal = new ReplTerminal(this::interpretInstruction);

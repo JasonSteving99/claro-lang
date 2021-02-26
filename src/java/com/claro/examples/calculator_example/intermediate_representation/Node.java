@@ -15,7 +15,9 @@ public abstract class Node {
   }
 
   public StringBuilder generateTargetOutput(Target target) throws IllegalArgumentException {
-    return generateTargetOutput(target, new ScopedHeap());
+    ScopedHeap scopedHeap = new ScopedHeap();
+    scopedHeap.enterNewScope();
+    return generateTargetOutput(target, scopedHeap);
   }
 
   public StringBuilder generateTargetOutput(Target target, ScopedHeap scopedHeap) throws IllegalArgumentException {

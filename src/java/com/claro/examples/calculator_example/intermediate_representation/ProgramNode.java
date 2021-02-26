@@ -18,18 +18,14 @@ public class ProgramNode extends Node {
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    scopedHeap.enterNewScope();
     StringBuilder compiledJavaSourceOutput =
         new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
-    scopedHeap.exitCurrScope();
     return compiledJavaSourceOutput;
   }
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    scopedHeap.enterNewScope();
     this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
-    scopedHeap.exitCurrScope();
 
     // There's no output in the interpreting mode.
     return null;
