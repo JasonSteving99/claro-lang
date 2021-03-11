@@ -14,5 +14,11 @@ while (x < 10) {
   x = x + 1;
 }
 
+if (x == 0) {
+  print("Scoping would be broken if this were the case (but it's not).");
+} else if (x == 10) {
+  print("The loop does what I think, and scoping seems to work correctly!");
+}
+
 # Uncomment the line below to see an error relating to z not existing in this scope as expected.
 # print(z);
