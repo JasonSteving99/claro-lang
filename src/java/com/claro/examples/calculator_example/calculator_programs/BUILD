@@ -20,3 +20,15 @@ java_calculator_library(
     src = "conditions.calculator",
     java_name = "Conditions",
 )
+
+java_calculator_binary(
+    name = "while_compiled_calculator_image",
+    srcs = [":while_compiled_calculator"],
+    java_name = "While",
+)
+
+java_calculator_library(
+    name = "while_compiled_calculator",
+    src = "while.calculator",
+    java_name = "While",
+)

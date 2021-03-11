@@ -1,0 +1,18 @@
+# Obviously this should print out 0-9 on separate lines with some interleaved strings for showing conditions working
+# nested within the while-loop.
+
+x = 0;
+while (x < 10) {
+  # Declaring z just to show that z doesn't exist outside this scope.
+  z = x;
+  print(z);
+  if (x >= 5) {
+    print("last half");
+  } else {
+    print("first half");
+  }
+  x = x + 1;
+}
+
+# Uncomment the line below to see an error relating to z not existing in this scope as expected.
+# print(z);

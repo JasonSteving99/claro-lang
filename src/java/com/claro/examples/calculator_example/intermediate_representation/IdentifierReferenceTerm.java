@@ -19,7 +19,7 @@ public class IdentifierReferenceTerm extends Term {
       scopedHeap.markIdentifierUsed(identifier);
       return new StringBuilder(this.identifier);
     }
-    throw new CalculatorParserException(String.format("Referencing variable <%s> before assignment!", identifier));
+    throw new CalculatorParserException(String.format("No variable <%s> within the current scope!", identifier));
   }
 
   @Override

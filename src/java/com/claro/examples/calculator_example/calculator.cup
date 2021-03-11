@@ -78,6 +78,7 @@ terminal         NUMERIC_BOOL;
 // This grammar also has a builtin input() functino for reading a number from stdin.
 terminal         INPUT;
 terminal         IF, ELSE;
+terminal         WHILE;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
 nonterminal ProgramNode     program;
@@ -93,6 +94,7 @@ nonterminal IfStmt          if_stmt;
 nonterminal IfStmt          else_if_stmt_chain;
 nonterminal IfStmt          else_if_stmt;
 nonterminal StmtListNode    else_stmt;
+nonterminal WhileStmt       while_stmt;
 nonterminal PrintStmt       print;
 nonterminal AssignmentStmt  assignment;
 nonterminal InputExpr       input;
@@ -102,6 +104,7 @@ nonterminal BoolExpr        inequality;
 nonterminal BoolExpr        bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
+// ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
 precedence left IDENTIFIER;
 precedence left SEMICOLON;
 precedence left ASSIGNMENT;
@@ -112,6 +115,7 @@ precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
+precedence left WHILE;
 
 // This is where the grammar starts.
 program ::=
@@ -135,6 +139,8 @@ stmt ::=
     {: RESULT = a; :}
   | if_else_chain_stmt:i
     {: RESULT = i; :}
+  | while_stmt:w
+    {: RESULT = w; :}
   ;
 
 print ::=
@@ -247,6 +253,11 @@ else_if_stmt ::=
 else_stmt ::=
     ELSE LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = stmt_list; :}
+  ;
+
+while_stmt ::=
+    WHILE LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = new WhileStmt(e, stmt_list); :}
   ;
 
 inequality ::=

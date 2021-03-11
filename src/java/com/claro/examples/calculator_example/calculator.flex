@@ -105,6 +105,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "print"            { return symbol(Calc.PRINT); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
     "input"            { return symbol(Calc.INPUT); }
+    "while"            { return symbol(Calc.WHILE); }
     \"                 {
                          // There may have already been another string accumulated into this buffer.
                          // In that case we need to clear the buffer to start processing this.

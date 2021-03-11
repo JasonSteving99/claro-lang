@@ -21,7 +21,7 @@ public class ScopedHeap {
     if (optionalIdentifierScopeLevel.isPresent()) {
       return scopedHeapStack.elementAt(optionalIdentifierScopeLevel.get()).get(identifier).interpretedValue;
     }
-    throw new CalculatorParserException(String.format("Referencing variable <%s> before assignment!", identifier));
+    throw new CalculatorParserException(String.format("No variable <%s> within the current scope!", identifier));
   }
 
   // This should honestly only be used by the Target.JAVA_SOURCE path where the values won't be known to the
