@@ -18,7 +18,15 @@ public class AssignmentStmt extends Stmt {
     StringBuilder res = new StringBuilder();
     if (!scopedHeap.isIdentifierDeclared(this.IDENTIFIER)) {
       // First time we're seeing the variable, so declare it.
-      res.append(String.format("double %s;\n", this.IDENTIFIER));
+      // TODO(steving) Need to delegate this downstream. Have Exprs impl a method returning their own typing info.
+      String type;
+      if (this.getChildren().get(0) instanceof ListExpr) {
+        // TODO(steving) This ArrayList<Object> will break our type system, need an actual concrete type.
+        type = "ArrayList<Object>";
+      } else {
+        type = "double";
+      }
+      res.append(String.format("%s %s;\n", type, this.IDENTIFIER));
     }
     scopedHeap.putIdentifierValue(this.IDENTIFIER);
     res.append(String.format("%s = %s;\n", this.IDENTIFIER, this.getChildren()

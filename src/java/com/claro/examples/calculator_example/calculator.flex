@@ -86,10 +86,12 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     ")"                { return symbol(Calc.RPAR); }
     "{"                { return symbol(Calc.LCURLY); }
     "}"                { return symbol(Calc.RCURLY); }
+    "["                { return symbol(Calc.LBRACKET); }
+    "]"                { return symbol(Calc.RBRACKET); }
     "=="               { return symbol(Calc.EQUALS); }
     "!="               { return symbol(Calc.NOT_EQUALS); }
-    "<"                { return symbol(Calc.LBRACKET); }
-    ">"                { return symbol(Calc.RBRACKET); }
+    "<"                { return symbol(Calc.L_ANGLE_BRACKET); }
+    ">"                { return symbol(Calc.R_ANGLE_BRACKET); }
     "<="               { return symbol(Calc.LTE); }
     ">="               { return symbol(Calc.GTE); }
     "or"               { return symbol(Calc.OR); }
@@ -99,6 +101,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "false"            { return symbol(Calc.FALSE); }
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
+    ","                { return symbol(Calc.COMMA); }
     "log_"             { return symbol(Calc.LOG_PREFIX); }
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }

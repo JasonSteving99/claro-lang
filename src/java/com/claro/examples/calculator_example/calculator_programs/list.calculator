@@ -1,0 +1,7 @@
+# This file exists to test out support of lists and list operations.
+
+l = [];
+print(l); # Print an empty list "[]".
+
+l = [1,2,3];
+print(l); # Print the list "[1.0, 2.0, 3.0]".

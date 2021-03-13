@@ -37,18 +37,29 @@ public class ProgramNode extends Node {
   private String genJavaMain(String java_source_stmt_list) {
     return String.format(
         "%s" +
-        "import java.util.Scanner;\n\n\n" +
+        "import java.util.ArrayList;\n" +
+        "import java.util.Scanner;\n" +
+        "\n\n" +
         "public class %s {\n" +
         // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
         "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
         "  public static void main(String[] args) {\n" +
-        "/*******AUTO-GENERATED DO NOT MODIFY*******/\n" +
+        "/*******BEGIN AUTO-GENERATED: DO NOT MODIFY*******/\n" +
         "%s" +
         "/*******END AUTO-GENERATED*******/\n" +
+        "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
         "  }\n\n" +
         "  private static double promptUserInput(String prompt) {\n" +
         "    System.out.println(prompt);\n" +
         "    return INPUT_SCANNER.nextDouble();\n" +
+        "  }\n" +
+        "  private static <T> ArrayList<T> initializeList() {\n" +
+        "    return new ArrayList<>();\n" +
+        "  }\n" +
+        "  private static <T> ArrayList<T> initializeList(T ... args) {\n" +
+        "    ArrayList<T> arrayList = new ArrayList<>(args.length);\n" +
+        "    for (T arg : args) arrayList.add(arg);\n" +
+        "    return arrayList;\n" +
         "  }\n" +
         "}",
         this.packageString,

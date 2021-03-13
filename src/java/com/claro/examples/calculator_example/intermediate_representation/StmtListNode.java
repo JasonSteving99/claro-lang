@@ -18,7 +18,6 @@ public class StmtListNode extends Node {
     this.tail = tail;
   }
 
-
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);

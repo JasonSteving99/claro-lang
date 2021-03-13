@@ -9,11 +9,13 @@ java_library(
     name = "expr_impls",
     srcs = [
         "InputExpr.java",
+        "ListExpr.java",
         "ParenthesizedExpr.java",
     ],
     deps = [
         ":bool_expr_impls",
         ":expr",
+        ":node",
         ":numeric_expr_impls",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
@@ -116,6 +118,8 @@ java_library(
     deps = [
         ":bool_expr",
         ":expr",
+        # TODO(steving) Remove this dep once the type reporting is delegated to Expr impls..
+        ":expr_impls",
         ":stmt",
         ":stmt_list_node",
         "//:apache_commons_text",

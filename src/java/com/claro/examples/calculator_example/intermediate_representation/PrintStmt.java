@@ -14,7 +14,7 @@ public class PrintStmt extends Stmt {
     String expr_java_source = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString();
     return new StringBuilder(
         String.format(
-            "System.out.println(String.format(\"%%s\", %s));\n",
+            "System.out.println(%s);\n",
             expr_java_source
         )
     );

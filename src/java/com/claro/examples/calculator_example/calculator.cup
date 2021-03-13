@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example;
 
 import com.claro.examples.calculator_example.intermediate_representation.*;
+import com.google.common.collect.ImmutableList;
 import java_cup.runtime.Symbol;
 import java.util.HashSet;
 /*
@@ -46,16 +47,16 @@ parser code {:
   public String package_string = "";  // default to be overridden.
 :}
 
-// Terminals: () * + - == < > <= >= or and = ^ ;
 terminal         LPAR, RPAR;
-terminal         LCURLY, RCURLY;
+terminal         LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
 terminal         SEMICOLON;
+terminal         COMMA;
 terminal         EQUALS, NOT_EQUALS;
 terminal         ASSIGNMENT;
-terminal         LBRACKET, RBRACKET, LTE, GTE;
+terminal         L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal         OR, AND, NOT;
 terminal         TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
@@ -89,6 +90,8 @@ nonterminal FloatTerm       float;
 nonterminal IntegerTerm     integer;
 nonterminal Stmt            stmt;
 nonterminal StmtListNode    stmt_list;
+nonterminal ListExpr        list;
+nonterminal ImmutableList.Builder<Node> list_initializer_args;
 nonterminal IfStmt          if_else_chain_stmt;
 nonterminal IfStmt          if_stmt;
 nonterminal IfStmt          else_if_stmt_chain;
@@ -105,12 +108,13 @@ nonterminal BoolExpr        bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence left COMMA;
 precedence left IDENTIFIER;
 precedence left SEMICOLON;
 precedence left ASSIGNMENT;
 precedence left EQUALS, NOT_EQUALS;
 precedence left AND, OR, NOT;
-precedence left LBRACKET, RBRACKET, LTE, GTE;
+precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE;
 precedence left EXPONENTIATE;
@@ -178,6 +182,8 @@ expr ::=
     {: RESULT = new NumericBoolNumericExpr(b); :}
   | input:i
     {: RESULT = i; :}
+  | list:l
+    {: RESULT = l; :}
   | bool_expr:b
     // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
     // there should only be doubles.
@@ -189,6 +195,27 @@ expr ::=
 input ::=
     INPUT LPAR STRING:prompt RPAR
     {: RESULT = new InputExpr(prompt); :}
+  ;
+
+list ::=
+    LBRACKET list_initializer_args:args RBRACKET
+    {:
+       // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
+       RESULT = new ListExpr(args.build().reverse());
+    :}
+  | LBRACKET RBRACKET
+    {: RESULT = new ListExpr(); :}
+  ;
+
+list_initializer_args ::=
+    expr:head COMMA list_initializer_args:tail
+    {:
+       // Notice that we're building this list in reverse order, just by the order of the parser recursively identifying
+       // each expr in the list.
+       RESULT = tail.add(head);
+    :}
+  | expr:e
+    {: RESULT = ImmutableList.<Node>builder().add(e); :}
   ;
 
 bool_expr ::=
@@ -261,9 +288,9 @@ while_stmt ::=
   ;
 
 inequality ::=
-    expr:a LBRACKET expr:b
+    expr:a L_ANGLE_BRACKET expr:b
     {: RESULT = new LessThanBoolExpr(a, b); :}
-  | expr:a RBRACKET expr:b
+  | expr:a R_ANGLE_BRACKET expr:b
     {: RESULT = new GreaterThanBoolExpr(a, b); :}
   | expr:a LTE expr:b
     {: RESULT = new LessThanOrEqualToBoolExpr(a, b); :}
