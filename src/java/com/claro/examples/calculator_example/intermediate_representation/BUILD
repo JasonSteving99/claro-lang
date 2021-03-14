@@ -10,6 +10,7 @@ java_library(
     srcs = [
         "InputExpr.java",
         "ListExpr.java",
+        "ListSubscriptExpr.java",
         "ParenthesizedExpr.java",
     ],
     deps = [

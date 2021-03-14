@@ -16,6 +16,20 @@ public class ListExpr extends Expr {
     super(listInitializerArgsList);
   }
 
+  // TODO(steving) Re-implement this in a standardized way instead of this hacky one-off way.
+  public String getJavaSourceType() {
+    if (getChildren().isEmpty()) {
+      return "Object";
+    }
+    Node firstChild = getChildren().get(0);
+    if (firstChild instanceof ListExpr) {
+      return String.format("ArrayList<%s>", ((ListExpr) firstChild).getJavaSourceType());
+    } else {
+      // TODO(steving) This needs to defer instead to the actual type of the type known by the Expr in the initializer list.
+      return "Integer";
+    }
+  }
+
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // Simply for parity with the interpreted implementation, this is how we'll get this ArrayList.

@@ -5,3 +5,31 @@ print(l); # Print an empty list "[]".
 
 l = [1,2,3];
 print(l); # Print the list "[1.0, 2.0, 3.0]".
+
+# Print out 5.0, 4.0, 3.0 on separate lines.
+print("1D list!");
+l = [5,4,3];
+i = 0;
+while (i < 3) {
+  print(l[i]);
+  i = i + 1;
+}
+
+# Show that 2D (ND) lists are supported.
+print("2D list!");
+l2 = [
+       [0,1,2,3,4],
+       [5,6,7,8,9],
+       [10,11,12,13,14],
+       [15,16,17,18,19],
+       [20,21,22,23,24]
+     ];
+r = 0;
+while (r < 5) {
+  c = 0;
+  while (c < 5) {
+    print(l2[r][c]);
+    c = c + 1;
+  }
+  r = r + 1;
+}

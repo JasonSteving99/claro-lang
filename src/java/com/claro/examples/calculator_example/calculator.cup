@@ -82,29 +82,31 @@ terminal         IF, ELSE;
 terminal         WHILE;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal ProgramNode     program;
-nonterminal Expr            expr;
-nonterminal Term            term;
-nonterminal Term            primitive;
-nonterminal FloatTerm       float;
-nonterminal IntegerTerm     integer;
-nonterminal Stmt            stmt;
-nonterminal StmtListNode    stmt_list;
-nonterminal ListExpr        list;
+nonterminal ProgramNode             program;
+nonterminal Expr                    expr;
+nonterminal Term                    term;
+nonterminal Term                    primitive;
+nonterminal IdentifierReferenceTerm identifier;
+nonterminal FloatTerm               float;
+nonterminal IntegerTerm             integer;
+nonterminal Stmt                    stmt;
+nonterminal StmtListNode            stmt_list;
+nonterminal ListExpr                list;
+nonterminal ListSubscriptExpr       list_subscript;
 nonterminal ImmutableList.Builder<Node> list_initializer_args;
-nonterminal IfStmt          if_else_chain_stmt;
-nonterminal IfStmt          if_stmt;
-nonterminal IfStmt          else_if_stmt_chain;
-nonterminal IfStmt          else_if_stmt;
-nonterminal StmtListNode    else_stmt;
-nonterminal WhileStmt       while_stmt;
-nonterminal PrintStmt       print;
-nonterminal AssignmentStmt  assignment;
-nonterminal InputExpr       input;
-nonterminal BoolExpr        bool_expr;
-nonterminal BoolExpr        equality;
-nonterminal BoolExpr        inequality;
-nonterminal BoolExpr        bool_arithmetic;
+nonterminal IfStmt                  if_else_chain_stmt;
+nonterminal IfStmt                  if_stmt;
+nonterminal IfStmt                  else_if_stmt_chain;
+nonterminal IfStmt                  else_if_stmt;
+nonterminal StmtListNode            else_stmt;
+nonterminal WhileStmt               while_stmt;
+nonterminal PrintStmt               print;
+nonterminal AssignmentStmt          assignment;
+nonterminal InputExpr               input;
+nonterminal BoolExpr                bool_expr;
+nonterminal BoolExpr                equality;
+nonterminal BoolExpr                inequality;
+nonterminal BoolExpr                bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -184,6 +186,8 @@ expr ::=
     {: RESULT = i; :}
   | list:l
     {: RESULT = l; :}
+  | list_subscript:l
+    {: RESULT = l; :}
   | bool_expr:b
     // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
     // there should only be doubles.
@@ -216,6 +220,17 @@ list_initializer_args ::=
     :}
   | expr:e
     {: RESULT = ImmutableList.<Node>builder().add(e); :}
+  ;
+
+list_subscript ::=
+    // Support arbitrarily repeated subscripting. ListSubscriptExpr node will check that there's the right levels of
+    // nesting available for the given number of subscripts in this specific context.
+    list_subscript:l LBRACKET expr:e RBRACKET
+    {: RESULT = new ListSubscriptExpr(l, e); :}
+  | list:l LBRACKET expr:e RBRACKET
+    {: RESULT = new ListSubscriptExpr(l, e); :}
+  | identifier:i LBRACKET expr:e RBRACKET
+    {: RESULT = new ListSubscriptExpr(i, e); :}
   ;
 
 bool_expr ::=
@@ -313,7 +328,12 @@ bool_arithmetic ::=
 term ::=
     primitive:p
     {: RESULT = p; :}
-  | IDENTIFIER:identifier
+  | identifier:i
+    {: RESULT = i; :}
+  ;
+
+identifier ::=
+    IDENTIFIER:identifier
     {: RESULT = new IdentifierReferenceTerm(identifier); :}
   ;
 
