@@ -8,6 +8,8 @@ package(
 java_library(
     name = "expr_impls",
     srcs = [
+        "DecrementExpr.java",
+        "IncrementExpr.java",
         "InputExpr.java",
         "ListExpr.java",
         "ListSubscriptExpr.java",
@@ -19,6 +21,7 @@ java_library(
         ":expr",
         ":node",
         ":numeric_expr_impls",
+        ":term_impls",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],

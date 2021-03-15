@@ -52,6 +52,7 @@ terminal         LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal         EXPONENTIATE;
 terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
+terminal         INCREMENT, DECREMENT;
 terminal         SEMICOLON;
 terminal         COMMA;
 terminal         EQUALS, NOT_EQUALS;
@@ -104,6 +105,10 @@ nonterminal StmtListNode                else_stmt;
 nonterminal WhileStmt                   while_stmt;
 nonterminal PrintStmt                   print;
 nonterminal AssignmentStmt              identifier_assignment;
+nonterminal IncrementExpr               identifier_increment;
+nonterminal IncrementStmt               identifier_increment_stmt;
+nonterminal DecrementExpr               identifier_decrement;
+nonterminal DecrementStmt               identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt   list_element_assignment;
 nonterminal InputExpr                   input;
 nonterminal BoolExpr                    bool_expr;
@@ -146,6 +151,10 @@ stmt ::=
     {: RESULT = p; :}
   | identifier_assignment:a
     {: RESULT = a; :}
+  | identifier_increment_stmt:i
+    {: RESULT = i; :}
+  | identifier_decrement_stmt:i
+    {: RESULT = i; :}
   | list_element_assignment:l
     {: RESULT = l; :}
   | if_else_chain_stmt:i
@@ -164,6 +173,30 @@ identifier_assignment ::=
     {: RESULT = new AssignmentStmt(identifier, e); :}
   ;
 
+identifier_increment_stmt ::=
+    identifier_increment:i SEMICOLON
+    {: RESULT = new IncrementStmt(i); :}
+  ;
+
+identifier_increment ::=
+    INCREMENT identifier:i
+    {: RESULT = new IncrementExpr(i, /*preIncrement=*/true); :}
+  | identifier:i INCREMENT
+    {: RESULT = new IncrementExpr(i, /*preIncrement=*/false); :}
+  ;
+
+identifier_decrement_stmt ::=
+    identifier_decrement:i SEMICOLON
+    {: RESULT = new DecrementStmt(i); :}
+  ;
+
+identifier_decrement ::=
+    DECREMENT identifier:i
+    {: RESULT = new DecrementExpr(i, /*preDecrement=*/true); :}
+  | identifier:i DECREMENT
+    {: RESULT = new DecrementExpr(i, /*preDecrement=*/false); :}
+  ;
+
 list_element_assignment ::=
     list_subscript:l ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new ListElementAssignmentStmt(l, e); :}
@@ -176,6 +209,10 @@ expr ::=
     {: RESULT = new NegateNumericExpr(e); :}
   | expr:a PLUS expr:b
     {: RESULT = new AddNumericExpr(a, b); :}
+  | identifier_increment:i
+    {: RESULT = i; :}
+  | identifier_decrement:i
+    {: RESULT = i; :}
   | expr:a MINUS expr:b
     {: RESULT = new SubtractNumericExpr(a, b); :}
   | expr:a MULTIPLY expr:b

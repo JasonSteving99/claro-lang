@@ -38,7 +38,6 @@ public class Repl implements CompilerBackend {
     } catch (CalculatorParserException e) {
       System.out.println(String.format("Error: %s", e.getMessage()));
     } catch (Exception e) {
-      System.out.println("Invalid Syntax Error:");
       e.printStackTrace();
     }
 

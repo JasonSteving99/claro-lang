@@ -12,6 +12,10 @@ public class IdentifierReferenceTerm extends Term {
     this.identifier = identifier;
   }
 
+  public String getIdentifier() {
+    return identifier;
+  }
+
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // Make sure we check this will actually be a valid reference before we allow it.

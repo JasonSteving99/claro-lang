@@ -78,6 +78,8 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 
     /* Create a new parser symbol for the lexem. */
     "+"                { return symbol(Calc.PLUS); }
+    "++"               { return symbol(Calc.INCREMENT); }
+    "--"               { return symbol(Calc.DECREMENT); }
     "-"                { return symbol(Calc.MINUS); }
     "*"                { return symbol(Calc.MULTIPLY); }
     "^"                { return symbol(Calc.EXPONENTIATE); }

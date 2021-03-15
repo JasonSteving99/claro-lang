@@ -11,8 +11,7 @@ print("1D list!");
 l = [3,4,5];
 i = len(l) - 1;
 while (i >= 0) {
-  print(l[i]);
-  i = i - 1;
+  print(l[i--]);
 }
 
 # Show that 2D (ND) lists are supported.
@@ -28,10 +27,9 @@ r = 0;
 while (r < len(l2)) {
   c = 0;
   while (c < len(l2[r])) {
-    print(l2[r][c]);
-    c = c + 1;
+    print(l2[r][c++]);
   }
-  r = r + 1;
+  r++;
 }
 
 # Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.
@@ -41,6 +39,6 @@ print(toAccumulate);
 i = 1;
 while (i < len(toAccumulate)) {
   toAccumulate[i] = toAccumulate[i - 1] + toAccumulate[i];
-  i = i + 1;
+  i++;
 }
 print(toAccumulate);
