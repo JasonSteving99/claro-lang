@@ -1,5 +1,6 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
+import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableList;
 
@@ -22,6 +23,17 @@ public class NegateNumericExpr extends NumericExpr {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    return -((double) this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+    Object value = this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
+    if (value instanceof Double) {
+      return -((double) this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+    } else if (value instanceof Integer) {
+      return -((int) this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+    } else {
+      // TODO(steving) In the future, assume that operator-negate is able to be used on arbitrary Comparable impls. So
+      // TODO(steving) check the type of each in the heap and see if they are implementing Comparable, and call their
+      // TODO(steving) impl of Operators::negate.
+      throw new CalculatorParserException(
+          "Internal Compiler Error: Currently `-`(negate) is not supported for types other than Integer and Double.");
+    }
   }
 }

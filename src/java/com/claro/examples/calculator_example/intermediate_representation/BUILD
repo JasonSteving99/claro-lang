@@ -11,6 +11,7 @@ java_library(
         "InputExpr.java",
         "ListExpr.java",
         "ListSubscriptExpr.java",
+        "LenExpr.java",
         "ParenthesizedExpr.java",
     ],
     deps = [
@@ -33,6 +34,7 @@ java_library(
         ":numeric_expr",
         ":expr",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
     ],
 )
@@ -57,6 +59,7 @@ java_library(
         ":bool_expr",
         ":expr",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap"
     ],
 )

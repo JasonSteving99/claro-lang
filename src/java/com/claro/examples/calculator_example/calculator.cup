@@ -78,6 +78,8 @@ terminal         PRINT;
 terminal         NUMERIC_BOOL;
 // This grammar also has a builtin input() functino for reading a number from stdin.
 terminal         INPUT;
+// This grammar also has a builtin len() function for getting the length of an Iterable.
+terminal         LEN;
 terminal         IF, ELSE;
 terminal         WHILE;
 
@@ -196,6 +198,8 @@ expr ::=
     {: RESULT = l; :}
   | list_subscript:l
     {: RESULT = l; :}
+  | LEN LPAR expr:e RPAR
+    {: RESULT = new LenExpr(e); :}
   | bool_expr:b
     // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
     // there should only be doubles.

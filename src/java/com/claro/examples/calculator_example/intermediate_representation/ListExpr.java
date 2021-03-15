@@ -23,7 +23,7 @@ public class ListExpr extends Expr {
     }
     Node firstChild = getChildren().get(0);
     if (firstChild instanceof ListExpr) {
-      return String.format("ArrayList<%s>", ((ListExpr) firstChild).getJavaSourceType());
+      return String.format("ClaroList<%s>", ((ListExpr) firstChild).getJavaSourceType());
     } else {
       // TODO(steving) This needs to defer instead to the actual type of the type known by the Expr in the initializer list.
       return "Integer";

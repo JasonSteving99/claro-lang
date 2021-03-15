@@ -53,13 +53,25 @@ public class ProgramNode extends Node {
         "    System.out.println(prompt);\n" +
         "    return INPUT_SCANNER.nextDouble();\n" +
         "  }\n" +
-        "  private static <T> ArrayList<T> initializeList() {\n" +
-        "    return new ArrayList<>();\n" +
+        "  private static <T> ClaroList<T> initializeList() {\n" +
+        "    return new ClaroList<>();\n" +
         "  }\n" +
-        "  private static <T> ArrayList<T> initializeList(T ... args) {\n" +
-        "    ArrayList<T> arrayList = new ArrayList<>(args.length);\n" +
+        "  private static <T> ClaroList<T> initializeList(T ... args) {\n" +
+        "    ClaroList<T> arrayList = new ClaroList<>(args.length);\n" +
         "    for (T arg : args) arrayList.add(arg);\n" +
         "    return arrayList;\n" +
+        "  }\n" +
+        "  private static class ClaroList<T> extends ArrayList<T> {\n" +
+        "    public ClaroList() {\n" +
+        "      super();\n" +
+        "    }\n" +
+        "    public ClaroList(int initialSize) {\n" +
+        "      super(initialSize);\n" +
+        "    }\n" +
+        "    // In Claro, this'll end up being a method defined on the Iterable interface.\n" +
+        "    public int length() {\n" +
+        "      return ClaroList.this.size();\n" +
+        "    }\n" +
         "  }\n" +
         "}",
         this.packageString,

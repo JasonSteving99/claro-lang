@@ -102,13 +102,17 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
     ","                { return symbol(Calc.COMMA); }
-    "log_"             { return symbol(Calc.LOG_PREFIX); }
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }
+    "while"            { return symbol(Calc.WHILE); }
+
+    // Builtin functions are currently processed at the grammar level.. maybe there's a better generalized way.
+    "log_"             { return symbol(Calc.LOG_PREFIX); }
     "print"            { return symbol(Calc.PRINT); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
     "input"            { return symbol(Calc.INPUT); }
-    "while"            { return symbol(Calc.WHILE); }
+    "len"              { return symbol(Calc.LEN); }
+
     \"                 {
                          // There may have already been another string accumulated into this buffer.
                          // In that case we need to clear the buffer to start processing this.

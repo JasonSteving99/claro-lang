@@ -22,7 +22,7 @@ public class AssignmentStmt extends Stmt {
       String type;
       if (this.getChildren().get(0) instanceof ListExpr) {
         // TODO(steving) This ArrayList<Object> will break our type system, need an actual concrete type.
-        String typeFormatString = "ArrayList<%s>";
+        String typeFormatString = "ClaroList<%s>";
         ListExpr listExpr = (ListExpr) this.getChildren().get(0);
         type = String.format(typeFormatString, listExpr.getJavaSourceType());
       } else {
