@@ -3,9 +3,9 @@ package com.claro.examples.calculator_example.intermediate_representation;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 
 final public class IntegerTerm extends Term {
-  private final int value;
+  private final Integer value;
 
-  public IntegerTerm(int value) {
+  public IntegerTerm(Integer value) {
     super();
     this.value = value;
   }
@@ -21,7 +21,6 @@ final public class IntegerTerm extends Term {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // For now, simplify life and treat all numeric things in this language as doubles.
-    return Double.valueOf(this.getValue());
+    return this.getValue();
   }
 }

@@ -40,9 +40,7 @@ public class ListElementAssignmentStmt extends Stmt {
     // TODO(steving) Determine the type in a type-safe way deferring to the ListExpr node.
     ((ArrayList<Object>) this.getChildren().get(0).generateInterpretedOutput(scopedHeap))
         .set(
-            // TODO(steving) After assertion that this Expr is ACTUALLY an Integer (once that's supported in Claro) then
-            // TODO(steving) this should be able to drop the downcast from Double -> Integer.
-            ((Double) this.getChildren().get(1).generateInterpretedOutput(scopedHeap)).intValue(),
+            (int) this.getChildren().get(1).generateInterpretedOutput(scopedHeap),
             this.getChildren().get(2).generateInterpretedOutput(scopedHeap)
         );
     return null;

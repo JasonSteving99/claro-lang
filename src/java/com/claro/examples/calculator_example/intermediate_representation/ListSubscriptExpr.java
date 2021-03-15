@@ -26,6 +26,6 @@ public class ListSubscriptExpr extends Expr {
     return ((ArrayList<Double>) getChildren().get(0).generateInterpretedOutput(scopedHeap))
         .get(
             // TODO(steving) There needs to instead be an explicit type check here that this value is an integer.
-            ((Double) getChildren().get(1).generateInterpretedOutput(scopedHeap)).intValue());
+            (int) getChildren().get(1).generateInterpretedOutput(scopedHeap));
   }
 }
