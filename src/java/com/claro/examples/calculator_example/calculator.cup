@@ -82,31 +82,32 @@ terminal         IF, ELSE;
 terminal         WHILE;
 
 // Just everything in the world will be real number doubles in this calculator, who cares.
-nonterminal ProgramNode             program;
-nonterminal Expr                    expr;
-nonterminal Term                    term;
-nonterminal Term                    primitive;
-nonterminal IdentifierReferenceTerm identifier;
-nonterminal FloatTerm               float;
-nonterminal IntegerTerm             integer;
-nonterminal Stmt                    stmt;
-nonterminal StmtListNode            stmt_list;
-nonterminal ListExpr                list;
-nonterminal ListSubscriptExpr       list_subscript;
+nonterminal ProgramNode                 program;
+nonterminal Expr                        expr;
+nonterminal Term                        term;
+nonterminal Term                        primitive;
+nonterminal IdentifierReferenceTerm     identifier;
+nonterminal FloatTerm                   float;
+nonterminal IntegerTerm                 integer;
+nonterminal Stmt                        stmt;
+nonterminal StmtListNode                stmt_list;
+nonterminal ListExpr                    list;
+nonterminal ListSubscriptExpr           list_subscript;
 nonterminal ImmutableList.Builder<Node> list_initializer_args;
-nonterminal IfStmt                  if_else_chain_stmt;
-nonterminal IfStmt                  if_stmt;
-nonterminal IfStmt                  else_if_stmt_chain;
-nonterminal IfStmt                  else_if_stmt;
-nonterminal StmtListNode            else_stmt;
-nonterminal WhileStmt               while_stmt;
-nonterminal PrintStmt               print;
-nonterminal AssignmentStmt          assignment;
-nonterminal InputExpr               input;
-nonterminal BoolExpr                bool_expr;
-nonterminal BoolExpr                equality;
-nonterminal BoolExpr                inequality;
-nonterminal BoolExpr                bool_arithmetic;
+nonterminal IfStmt                      if_else_chain_stmt;
+nonterminal IfStmt                      if_stmt;
+nonterminal IfStmt                      else_if_stmt_chain;
+nonterminal IfStmt                      else_if_stmt;
+nonterminal StmtListNode                else_stmt;
+nonterminal WhileStmt                   while_stmt;
+nonterminal PrintStmt                   print;
+nonterminal AssignmentStmt              identifier_assignment;
+nonterminal ListElementAssignmentStmt   list_element_assignment;
+nonterminal InputExpr                   input;
+nonterminal BoolExpr                    bool_expr;
+nonterminal BoolExpr                    equality;
+nonterminal BoolExpr                    inequality;
+nonterminal BoolExpr                    bool_arithmetic;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -141,8 +142,10 @@ stmt_list ::=
 stmt ::=
     print:p
     {: RESULT = p; :}
-  | assignment:a
+  | identifier_assignment:a
     {: RESULT = a; :}
+  | list_element_assignment:l
+    {: RESULT = l; :}
   | if_else_chain_stmt:i
     {: RESULT = i; :}
   | while_stmt:w
@@ -154,9 +157,14 @@ print ::=
     {: RESULT = new PrintStmt(e); :}
   ;
 
-assignment ::=
+identifier_assignment ::=
     IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new AssignmentStmt(identifier, e); :}
+  ;
+
+list_element_assignment ::=
+    list_subscript:l ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new ListElementAssignmentStmt(l, e); :}
   ;
 
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this

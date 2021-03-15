@@ -33,3 +33,14 @@ while (r < 5) {
   }
   r = r + 1;
 }
+
+# Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.
+print("Now accumulate sum of all elements in the following list:");
+toAccumulate = [0,1,2,3,4,5];
+print(toAccumulate);
+i = 1;
+while (i < 6) {
+  toAccumulate[i] = toAccumulate[i - 1] + toAccumulate[i];
+  i = i + 1;
+}
+print(toAccumulate);
