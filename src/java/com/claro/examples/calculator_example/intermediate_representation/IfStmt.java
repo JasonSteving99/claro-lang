@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -47,6 +49,15 @@ public class IfStmt extends Stmt {
 
   private Stack<IfStmt> getConditionStack() {
     return conditionStack;
+  }
+
+  @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    this.getConditionStack().forEach(
+        ifStmt -> {
+          ((Expr) ifStmt.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+          ((StmtListNode) ifStmt.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+        });
   }
 
   @Override

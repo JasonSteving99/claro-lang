@@ -2,6 +2,8 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 public class LogNumericExpr extends NumericExpr {
@@ -9,6 +11,11 @@ public class LogNumericExpr extends NumericExpr {
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public LogNumericExpr(Expr arg, Expr log_base) {
     super(ImmutableList.of(arg, log_base));
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+    return Types.DOUBLE;
   }
 
   @Override

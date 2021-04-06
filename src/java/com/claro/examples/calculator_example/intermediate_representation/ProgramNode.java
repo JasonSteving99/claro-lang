@@ -18,13 +18,19 @@ public class ProgramNode extends Node {
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    StringBuilder compiledJavaSourceOutput =
-        new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
-    return compiledJavaSourceOutput;
+    // At the program level, validate all types in the entire AST before execution.
+    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+
+    // Now that we've validated that all types are valid, go to town!
+    return new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
   }
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    // At the program level, validate all types in the entire AST before execution.
+    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+
+    // Now that we've validated that all types are valid, go to town!
     this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
 
     // There's no output in the interpreting mode.

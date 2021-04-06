@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 // This class exists solely to have something that distinguishes the Stmt "i++;" from the Expr "i++". Finicky finicky.
@@ -8,6 +10,11 @@ public class IncrementStmt extends Stmt {
 
   public IncrementStmt(IncrementExpr incrementExpr) {
     super(ImmutableList.of(incrementExpr));
+  }
+
+  @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.INTEGER);
   }
 
   @Override

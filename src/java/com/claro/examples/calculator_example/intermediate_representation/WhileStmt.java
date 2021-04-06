@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 public class WhileStmt extends Stmt {
@@ -8,6 +10,12 @@ public class WhileStmt extends Stmt {
   // Constructor for "if" and "else if" statements that do have a condition to check.
   public WhileStmt(Expr expr, StmtListNode stmtListNode) {
     super(ImmutableList.of(expr, stmtListNode));
+  }
+
+  @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+    ((StmtListNode) this.getChildren().get(1)).assertExpectedExprTypes(scopedHeap);
   }
 
   @Override

@@ -29,7 +29,7 @@ while (r < len(l2)) {
   while (c < len(l2[r])) {
     print(l2[r][c++]);
   }
-  r++;
+  ++r;
 }
 
 # Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.

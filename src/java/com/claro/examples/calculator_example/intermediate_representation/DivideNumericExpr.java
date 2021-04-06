@@ -2,13 +2,37 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 public class DivideNumericExpr extends NumericExpr {
 
+  private static final String TYPE_SUPPORT_ERROR_MESSAGE =
+      "Internal Compiler Error: Currently `/` is not supported for types other than Integer and Double.";
+
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public DivideNumericExpr(Expr lhs, Expr rhs) {
     super(ImmutableList.of(lhs, rhs));
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+    Type lhs = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+    Type rhs = ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap);
+    if (lhs.equals(Types.DOUBLE) && rhs.equals(Types.DOUBLE)) {
+      return Types.DOUBLE;
+    } else if ((lhs.equals(Types.DOUBLE) && rhs.equals(Types.INTEGER)) ||
+               (lhs.equals(Types.INTEGER) && rhs.equals(Types.DOUBLE))) {
+      return Types.DOUBLE;
+    } else if (lhs.equals(Types.INTEGER) && rhs.equals(Types.INTEGER)) {
+      return Types.INTEGER;
+    } else {
+      // TODO(steving) In the future, assume that operator/ is able to be used on arbitrary Comparable impls. So check
+      // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
+      // TODO(steving) Operators::divide.
+      throw new CalculatorParserException(TYPE_SUPPORT_ERROR_MESSAGE);
+    }
   }
 
   @Override
@@ -50,8 +74,7 @@ public class DivideNumericExpr extends NumericExpr {
       // TODO(steving) In the future, assume that operator/ is able to be used on arbitrary Comparable impls. So check
       // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
       // TODO(steving) Operators::divide.
-      throw new CalculatorParserException(
-          "Internal Compiler Error: Currently `/` is not supported for types other than Integer and Double.");
+      throw new CalculatorParserException(TYPE_SUPPORT_ERROR_MESSAGE);
     }
   }
 }

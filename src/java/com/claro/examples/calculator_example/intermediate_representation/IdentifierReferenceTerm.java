@@ -2,6 +2,7 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 
 public class IdentifierReferenceTerm extends Term {
 
@@ -14,6 +15,12 @@ public class IdentifierReferenceTerm extends Term {
 
   public String getIdentifier() {
     return identifier;
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+    // TODO(steving) Need to figure out this type by looking up in the ScopedHeap.
+    return null;
   }
 
   @Override

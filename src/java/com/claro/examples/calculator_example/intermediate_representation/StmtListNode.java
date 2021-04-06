@@ -18,6 +18,14 @@ public class StmtListNode extends Node {
     this.tail = tail;
   }
 
+  // Called after complete construction of AST-IR, but before evaluating any program values.
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) {
+    ((Stmt) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    if (tail != null) {
+      tail.assertExpectedExprTypes(scopedHeap);
+    }
+  }
+
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);

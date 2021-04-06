@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -18,6 +20,19 @@ public class ListElementAssignmentStmt extends Stmt {
             e
         )
     );
+  }
+
+  @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    ((IdentifierReferenceTerm) this.getChildren().get(0))
+        .assertExpectedExprType(
+            scopedHeap,
+            Types.ListType.forValueType(
+                // Get the type for the value being assigned into this List to make sure it applies.
+                ((Expr) this.getChildren().get(2)).getValidatedExprType(scopedHeap))
+        );
+    // Can only index into Lists using Integers.
+    ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
   }
 
   @Override

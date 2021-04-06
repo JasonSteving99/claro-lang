@@ -1,10 +1,13 @@
 package com.claro.examples.calculator_example.compiler_backends.interpreted;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.google.common.base.Preconditions;
 
 import java.util.*;
 
+// TODO(steving) There should be a ScopedSymbolTable interface with 2 impls. 1: ScopedHeap used for Interpreter and
+// TODO(steving) 2: ScopedSymbolTableImpl for the compiler impl. B/c only Interpreter needs actual values stored.
 public class ScopedHeap {
 
   private final Stack<HashMap<String, IdentifierData>> scopedHeapStack = new Stack<>();
@@ -17,27 +20,28 @@ public class ScopedHeap {
   // This should honestly only be used by the Target.INTERPRETED path where the values will actually be known to the
   // CompilerBackend itself.
   public Object getIdentifierValue(String identifier) throws CalculatorParserException {
-    Optional<Integer> optionalIdentifierScopeLevel = findIdentifierScopeLevel(identifier);
-    if (optionalIdentifierScopeLevel.isPresent()) {
-      return scopedHeapStack.elementAt(optionalIdentifierScopeLevel.get()).get(identifier).interpretedValue;
-    }
-    throw new CalculatorParserException(String.format("No variable <%s> within the current scope!", identifier));
+    return getIdentifierData(identifier).interpretedValue;
   }
 
   // This should honestly only be used by the Target.JAVA_SOURCE path where the values won't be known to the
   // CompilerBackend itself.
-  public void putIdentifierValue(String identifier) {
-    putIdentifierValue(identifier, null);
+  public void putIdentifierValue(String identifier, Type type) {
+    putIdentifierValue(identifier, type, null);
   }
 
   // This should honestly only be used by the Target.INTERPRETED path where the values will actually be known to the
   // CompilerBackend itself.
-  public void putIdentifierValue(String identifier, Object value) {
+  public void putIdentifierValue(String identifier, Type type, Object value) {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierScopeLevel(identifier);
     scopedHeapStack
         .elementAt(
             optionalIdentifierScopeLevel.orElse(scopedHeapStack.size() - 1))
-        .put(identifier, new IdentifierData(value));
+        .put(identifier, new IdentifierData(type, value));
+  }
+
+  // Simply update the value but don't change any other metadata associated with the symbol.
+  public void updateIdentifierValue(String identifier, Object updatedIdentifierValue) {
+    getIdentifierData(identifier).interpretedValue = updatedIdentifierValue;
   }
 
   public void markIdentifierUsed(String identifier) {
@@ -46,7 +50,7 @@ public class ScopedHeap {
         identifierScopeLevel.isPresent(),
         "Internal Compiler Error: attempting to mark usage of an undeclared identifier."
     );
-    scopedHeapStack.elementAt(identifierScopeLevel.get()).get(identifier).used = true;
+    scopedHeapStack.elementAt(identifierScopeLevel.get()).get(identifier).setUsed(true);
   }
 
   public void enterNewScope() {
@@ -62,6 +66,15 @@ public class ScopedHeap {
 
   public boolean isIdentifierDeclared(String identifier) {
     return findIdentifierScopeLevel(identifier).isPresent();
+  }
+
+  private IdentifierData getIdentifierData(String identifier) throws CalculatorParserException {
+    Optional<Integer> optionalIdentifierScopeLevel = findIdentifierScopeLevel(identifier);
+    if (optionalIdentifierScopeLevel.isPresent()) {
+      return scopedHeapStack.elementAt(optionalIdentifierScopeLevel.get()).get(identifier);
+    }
+    throw new CalculatorParserException(String.format("No variable <%s> within the current scope!", identifier));
+
   }
 
   private Optional<Integer> findIdentifierScopeLevel(String identifier) {
@@ -89,12 +102,14 @@ public class ScopedHeap {
   }
 
   private static class IdentifierData {
-    // This value is only meaningful if the
+    Type type;
+    // This value is only meaningful in interpreted modes where values are tracked.
     Object interpretedValue;
     // This should be set to True when this identifier is referenced.
     boolean used = false;
 
-    public IdentifierData(Object interpretedValue) {
+    public IdentifierData(Type type, Object interpretedValue) {
+      this.type = type;
       this.interpretedValue = interpretedValue;
     }
   }
