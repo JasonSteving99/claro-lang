@@ -2,11 +2,18 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class MultiplyNumericExpr extends NumericExpr {
+  // TODO(steving) In the future, assume that operator* is able to be used on arbitrary Comparable impls. So check
+  // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
+  // TODO(steving) Operators::multiply.
+  private static final ImmutableSet<Type> SUPPORTED_MULTIPLY_OPERAND_TYPES =
+      ImmutableSet.of(Types.INTEGER, Types.DOUBLE);
   private static final String TYPE_SUPPORT_ERROR_MESSAGE =
       "Internal Compiler Error: Currently `*` is not supported for types other than Integer and Double.";
 
@@ -16,21 +23,18 @@ public class MultiplyNumericExpr extends NumericExpr {
   }
 
   @Override
-  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Type lhs = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
     Type rhs = ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap);
-    if (lhs.equals(Types.DOUBLE) && rhs.equals(Types.DOUBLE)) {
+
+    // Make sure we're at least looking at supported types.
+    assertSupportedExprType(lhs, SUPPORTED_MULTIPLY_OPERAND_TYPES);
+    assertSupportedExprType(rhs, SUPPORTED_MULTIPLY_OPERAND_TYPES);
+
+    if (lhs.equals(Types.DOUBLE) || rhs.equals(Types.DOUBLE)) {
       return Types.DOUBLE;
-    } else if ((lhs.equals(Types.DOUBLE) && rhs.equals(Types.INTEGER)) ||
-               (lhs.equals(Types.INTEGER) && rhs.equals(Types.DOUBLE))) {
-      return Types.DOUBLE;
-    } else if (lhs.equals(Types.INTEGER) && rhs.equals(Types.INTEGER)) {
-      return Types.INTEGER;
     } else {
-      // TODO(steving) In the future, assume that operator* is able to be used on arbitrary Comparable impls. So check
-      // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
-      // TODO(steving) Operators::multiply.
-      throw new CalculatorParserException(TYPE_SUPPORT_ERROR_MESSAGE);
+      return Types.INTEGER;
     }
   }
 
@@ -70,9 +74,6 @@ public class MultiplyNumericExpr extends NumericExpr {
       }
       return lhsDouble * rhsDouble;
     } else {
-      // TODO(steving) In the future, assume that operator* is able to be used on arbitrary Comparable impls. So check
-      // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
-      // TODO(steving) Operators::multiply.
       throw new CalculatorParserException(TYPE_SUPPORT_ERROR_MESSAGE);
     }
   }

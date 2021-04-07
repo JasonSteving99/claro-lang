@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -11,7 +12,7 @@ public class ParenthesizedExpr extends Expr {
   }
 
   @Override
-  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     return ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
   }
 

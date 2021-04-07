@@ -58,6 +58,8 @@ java_library(
     name = "claro_type_exception",
     srcs = ["ClaroTypeException.java"],
     deps = [
+        ":base_type",
         ":type",
+        "//:guava",
     ],
 )

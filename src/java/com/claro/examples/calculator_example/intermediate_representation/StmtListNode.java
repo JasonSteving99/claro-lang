@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.google.common.collect.ImmutableList;
 
 public class StmtListNode extends Node {
@@ -19,7 +20,7 @@ public class StmtListNode extends Node {
   }
 
   // Called after complete construction of AST-IR, but before evaluating any program values.
-  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) {
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     ((Stmt) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
     if (tail != null) {
       tail.assertExpectedExprTypes(scopedHeap);

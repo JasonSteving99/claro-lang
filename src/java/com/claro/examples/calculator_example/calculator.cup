@@ -257,7 +257,10 @@ list ::=
        RESULT = new ListExpr(args.build().reverse());
     :}
   | LBRACKET RBRACKET
-    {: RESULT = new ListExpr(); :}
+    {:
+       // TODO(steving) Remove this and then replace within initializer w/ type.
+       RESULT = new ListExpr();
+    :}
   ;
 
 list_initializer_args ::=

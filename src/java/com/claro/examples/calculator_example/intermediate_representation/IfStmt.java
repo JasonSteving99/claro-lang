@@ -53,11 +53,10 @@ public class IfStmt extends Stmt {
 
   @Override
   protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    this.getConditionStack().forEach(
-        ifStmt -> {
-          ((Expr) ifStmt.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
-          ((StmtListNode) ifStmt.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
-        });
+    for (IfStmt ifStmt : getConditionStack()) {
+      ((Expr) ifStmt.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+      ((StmtListNode) ifStmt.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    }
   }
 
   @Override

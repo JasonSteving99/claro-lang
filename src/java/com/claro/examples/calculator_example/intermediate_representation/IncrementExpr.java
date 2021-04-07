@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
@@ -10,12 +11,13 @@ public class IncrementExpr extends Expr {
 
   public IncrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preIncrement) {
     super(ImmutableList.of(identifierReferenceTerm));
-    // TODO(steving) Assert that the IdentifierReferenceTerm is of type Integer.
     this.preIncrement = preIncrement;
   }
 
   @Override
-  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+
     return Types.INTEGER;
   }
 

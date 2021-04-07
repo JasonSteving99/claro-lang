@@ -12,7 +12,7 @@ final public class TrueTerm extends Term {
   }
 
   @Override
-  protected Type getValidatedExprType() {
+  protected Type getValidatedExprType(ScopedHeap unusedScopedHeap) {
     return Types.BOOLEAN;
   }
 

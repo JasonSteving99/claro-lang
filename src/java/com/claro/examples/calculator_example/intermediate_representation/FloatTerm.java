@@ -17,7 +17,7 @@ final public class FloatTerm extends Term {
   }
 
   @Override
-  protected Type getValidatedExprType() {
+  protected Type getValidatedExprType(ScopedHeap unusedScopedHeap) {
     return Types.DOUBLE;
   }
 

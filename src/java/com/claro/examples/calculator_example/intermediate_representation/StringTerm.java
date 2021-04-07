@@ -16,7 +16,7 @@ final public class StringTerm extends Term {
   }
 
   @Override
-  protected Type getValidatedExprType() {
+  protected Type getValidatedExprType(ScopedHeap unusedScopedHeap) {
     return Types.STRING;
   }
 

@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.google.common.collect.ImmutableList;
 
 public class ProgramNode extends Node {
@@ -19,7 +20,14 @@ public class ProgramNode extends Node {
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // At the program level, validate all types in the entire AST before execution.
-    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    try {
+      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    } catch (ClaroTypeException e) {
+      // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+      // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+      // use in the execution stage.
+      throw new RuntimeException(e);
+    }
 
     // Now that we've validated that all types are valid, go to town!
     return new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
@@ -28,7 +36,14 @@ public class ProgramNode extends Node {
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     // At the program level, validate all types in the entire AST before execution.
-    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    try {
+      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    } catch (ClaroTypeException e) {
+      // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+      // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+      // use in the execution stage.
+      throw new RuntimeException(e);
+    }
 
     // Now that we've validated that all types are valid, go to town!
     this.getChildren().get(0).generateInterpretedOutput(scopedHeap);

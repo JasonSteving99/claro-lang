@@ -1,21 +1,45 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
+
+import java.util.Optional;
 
 public class AssignmentStmt extends Stmt {
 
   // TODO(steving) This should just be a child IdentifierReferenceTerm passed to the superclass.
   private final String IDENTIFIER;
 
+  private final Optional<Type> optionalIdentifierDeclaredType;
+  private Type identifierValidatedInferredType;
+
   public AssignmentStmt(String identifier, Expr e) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
+    this.optionalIdentifierDeclaredType = Optional.empty();
+  }
+
+  public AssignmentStmt(String identifier, Type declaredType, Expr e) {
+    super(ImmutableList.of(e));
+    this.IDENTIFIER = identifier;
+    this.optionalIdentifierDeclaredType = Optional.of(declaredType);
+  }
+
+  @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    Expr assignedValueExpr = (Expr) this.getChildren().get(0);
+    if (optionalIdentifierDeclaredType.isPresent()) {
+      assignedValueExpr.assertExpectedExprType(scopedHeap, optionalIdentifierDeclaredType.get());
+    } else {
+      identifierValidatedInferredType = assignedValueExpr.getValidatedExprType(scopedHeap);
+    }
   }
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    Expr assignedValueExpr = (Expr) this.getChildren().get(0);
+    Type identifierValidatedType = optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType);
     StringBuilder res = new StringBuilder();
     // TODO(steving) It actually gets confusing to not require the user to explicitly declare the new variable. Instead,
     // TODO(steving) let's reintroduce explicit declarations using the `var` keyword for type inference on assignment.
@@ -23,24 +47,14 @@ public class AssignmentStmt extends Stmt {
     // TODO(steving) super explicitly during init, or to init when type inference isn't possible/supported.
     if (!scopedHeap.isIdentifierDeclared(this.IDENTIFIER)) {
       // First time we're seeing the variable, so declare it.
-      // TODO(steving) Need to delegate this downstream. Have Exprs impl a method returning their own typing info.
-      String type;
-      if (assignedValueExpr instanceof ListExpr) {
-        // TODO(steving) This ArrayList<Object> will break our type system, need an actual concrete type.
-        String typeFormatString = "ClaroList<%s>";
-        ListExpr listExpr = (ListExpr) assignedValueExpr;
-        type = String.format(typeFormatString, listExpr.getJavaSourceType());
-      } else {
-        type = "double";
-      }
-      res.append(String.format("%s %s;\n", type, this.IDENTIFIER));
+      res.append(String.format("%s ", identifierValidatedType.getJavaSourceType()));
     }
-    scopedHeap.putIdentifierValue(this.IDENTIFIER, assignedValueExpr.getValidatedExprType());
+    scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
     res.append(
         String.format(
             "%s = %s;\n",
             this.IDENTIFIER,
-            assignedValueExpr.generateJavaSourceOutput(scopedHeap).toString()
+            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()
         )
     );
     return res;
@@ -48,12 +62,11 @@ public class AssignmentStmt extends Stmt {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    Expr assignedValueExpr = (Expr) this.getChildren().get(0);
     // Put the computed value of this identifier directly in the heap.
     scopedHeap.putIdentifierValue(
         this.IDENTIFIER,
-        assignedValueExpr.getValidatedExprType(),
-        assignedValueExpr.generateInterpretedOutput(scopedHeap)
+        this.optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType),
+        this.getChildren().get(0).generateInterpretedOutput(scopedHeap)
     );
     return null;
   }

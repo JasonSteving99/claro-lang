@@ -14,6 +14,9 @@ public class PrintStmt extends Stmt {
   protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // TODO(steving) For now, everything is printable since we're just plain ol deferring to Java to print objects at
     // TODO(steving) the worst case. Instead, in the future, probably require that you only print Printable things or something.
+    // Make sure that the encapsulated Expr does its on type validation on itself even though Print itself has no
+    // constraints to impart on it.
+    ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
   }
 
   @Override

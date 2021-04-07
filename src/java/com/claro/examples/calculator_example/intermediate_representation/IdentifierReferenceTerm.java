@@ -19,8 +19,7 @@ public class IdentifierReferenceTerm extends Term {
 
   @Override
   protected Type getValidatedExprType(ScopedHeap scopedHeap) {
-    // TODO(steving) Need to figure out this type by looking up in the ScopedHeap.
-    return null;
+    return scopedHeap.getValidatedIdentifierType(this.identifier);
   }
 
   @Override

@@ -2,13 +2,24 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class NegateNumericExpr extends NumericExpr {
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public NegateNumericExpr(Expr e) {
     super(ImmutableList.of(e));
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    Type toNegateExprType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+    assertSupportedExprType(toNegateExprType, ImmutableSet.of(Types.INTEGER, Types.DOUBLE));
+    return toNegateExprType;
   }
 
   @Override

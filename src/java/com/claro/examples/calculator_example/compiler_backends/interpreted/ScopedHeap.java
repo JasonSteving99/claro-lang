@@ -23,6 +23,10 @@ public class ScopedHeap {
     return getIdentifierData(identifier).interpretedValue;
   }
 
+  public Type getValidatedIdentifierType(String identifier) {
+    return getIdentifierData(identifier).type;
+  }
+
   // This should honestly only be used by the Target.JAVA_SOURCE path where the values won't be known to the
   // CompilerBackend itself.
   public void putIdentifierValue(String identifier, Type type) {
@@ -50,7 +54,7 @@ public class ScopedHeap {
         identifierScopeLevel.isPresent(),
         "Internal Compiler Error: attempting to mark usage of an undeclared identifier."
     );
-    scopedHeapStack.elementAt(identifierScopeLevel.get()).get(identifier).setUsed(true);
+    scopedHeapStack.elementAt(identifierScopeLevel.get()).get(identifier).used = true;
   }
 
   public void enterNewScope() {

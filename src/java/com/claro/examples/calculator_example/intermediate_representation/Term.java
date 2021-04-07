@@ -10,11 +10,7 @@ public abstract class Term extends Expr {
     super(ImmutableList.of());
   }
 
-  protected abstract Type getValidatedExprType();
-
   // Override this method for Terms that actually need to do something with this ScopedHeap.
   @Override
-  protected Type getValidatedExprType(ScopedHeap unusedScopedHeap) {
-    return getValidatedExprType();
-  }
+  protected abstract Type getValidatedExprType(ScopedHeap unusedScopedHeap);
 }

@@ -1,6 +1,9 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Scanner;
@@ -13,6 +16,11 @@ public class InputExpr extends Expr {
   public InputExpr(String prompt) {
     super(ImmutableList.of());
     this.prompt = prompt;
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    return Types.STRING;
   }
 
   @Override
