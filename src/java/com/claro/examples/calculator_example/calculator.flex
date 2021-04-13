@@ -101,6 +101,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "not"              { return symbol(Calc.NOT); }
     "true"             { return symbol(Calc.TRUE); }
     "false"            { return symbol(Calc.FALSE); }
+    "var"              { return symbol(Calc.VAR); }
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
     ","                { return symbol(Calc.COMMA); }

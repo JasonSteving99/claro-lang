@@ -100,6 +100,7 @@ java_library(
     ),
     deps = [
         ":term",
+        "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",

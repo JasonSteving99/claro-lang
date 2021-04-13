@@ -22,7 +22,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             INVALID_TYPE_ONE_OF_ERROR_MESSAGE_FMT_STR,
             actualType,
-            Joiner.on(",").join(expectedTypeOptions)
+            Joiner.on(", ").join(expectedTypeOptions)
         )
     );
   }
@@ -32,7 +32,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             INVALID_OPERATOR_OPERANDS_TYPE_ONE_OF_ERROR_MESSAGE_FMT_STR,
             operatorStr,
-            Joiner.on(",").join(expectedTypeOptions)
+            Joiner.on(", ").join(expectedTypeOptions)
         )
     );
   }

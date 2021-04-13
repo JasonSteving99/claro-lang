@@ -4,7 +4,10 @@
 # if->else
 # if->else if->else
 
+var x;
+
 if (true) {
+  x = 1;
   print("if");
   if (false) {
     print("nope");
@@ -23,4 +26,18 @@ if (true) {
       }
     }
   }
+} else if (false) {
+  if (true) {
+    x = -1;
+  } else {
+    x = -2;
+  }
+  print("unreachable");
+} else {
+  x = 2;
+  print("unreachable");
 }
+
+# Uncomment any of the assignment statements above and see Claro warn about possibly not initializing the var x! Branch
+# inspection to confirm initialization in every branch in the above branch group is crazy cool!
+print(x);

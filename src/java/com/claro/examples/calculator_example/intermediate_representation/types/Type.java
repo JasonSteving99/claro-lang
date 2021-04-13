@@ -19,6 +19,24 @@ public abstract class Type {
           parameterizedTypeArgs().values().stream()
               .map(Type::getJavaSourceType)
               .collect(ImmutableList.toImmutableList())
+              .toArray()
+      );
+    }
+    return res;
+  }
+
+  // Convert to Claro's canonical user-facing builtin type name.
+  public String toString() {
+    String res;
+    if (parameterizedTypeArgs().isEmpty()) {
+      res = this.baseType().getClaroCanonicalTypeNameFmtStr();
+    } else {
+      res = String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          parameterizedTypeArgs().values().stream()
+              .map(Type::toString)
+              .collect(ImmutableList.toImmutableList())
+              .toArray()
       );
     }
     return res;

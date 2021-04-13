@@ -75,6 +75,7 @@ def gen_calculator_compiler(name = DEFAULT_CALCULATOR_NAME):
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:stmt_list_node",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:term",
             "//src/java/com/claro/examples/calculator_example/intermediate_representation:term_impls",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:types",
             "//:apache_commons_text",
             "//:guava",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient

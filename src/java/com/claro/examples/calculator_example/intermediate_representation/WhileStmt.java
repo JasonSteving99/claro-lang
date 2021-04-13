@@ -14,8 +14,17 @@ public class WhileStmt extends Stmt {
 
   @Override
   protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // TODO(steving) Implement some sort of compile-time detection of "obviously-true, expression detection" so that we
+    // TODO(steving) could potentially add support for branch inspection for var initialization on while-loops as well.
+    // TODO(steving) Very low priority, since it'd only be on some cases where things are obvious, like while(true).
+    // TODO(steving) This would already be difficult with something as simple as `var i = 1; while (i < 2) {...}`.
     ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+
+    // Since we don't know whether or not the while-loop body will actually execute, we won't be able to trigger branch
+    // inspection on var initialization.
+    scopedHeap.observeNewScope(false);
     ((StmtListNode) this.getChildren().get(1)).assertExpectedExprTypes(scopedHeap);
+    scopedHeap.exitCurrObservedScope(false);
   }
 
   @Override
