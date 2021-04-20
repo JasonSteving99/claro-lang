@@ -13,7 +13,7 @@ public class MultiplyNumericExpr extends NumericExpr {
   // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
   // TODO(steving) Operators::multiply.
   private static final ImmutableSet<Type> SUPPORTED_MULTIPLY_OPERAND_TYPES =
-      ImmutableSet.of(Types.INTEGER, Types.DOUBLE);
+      ImmutableSet.of(Types.INTEGER, Types.FLOAT);
   private static final String TYPE_SUPPORT_ERROR_MESSAGE =
       "Internal Compiler Error: Currently `*` is not supported for types other than Integer and Double.";
 
@@ -31,8 +31,8 @@ public class MultiplyNumericExpr extends NumericExpr {
     assertSupportedExprType(lhs, SUPPORTED_MULTIPLY_OPERAND_TYPES);
     assertSupportedExprType(rhs, SUPPORTED_MULTIPLY_OPERAND_TYPES);
 
-    if (lhs.equals(Types.DOUBLE) || rhs.equals(Types.DOUBLE)) {
-      return Types.DOUBLE;
+    if (lhs.equals(Types.FLOAT) || rhs.equals(Types.FLOAT)) {
+      return Types.FLOAT;
     } else {
       return Types.INTEGER;
     }

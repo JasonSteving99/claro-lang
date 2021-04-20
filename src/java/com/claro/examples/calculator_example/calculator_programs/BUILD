@@ -34,6 +34,19 @@ java_calculator_library(
     src = "list.calculator",
     java_name = "List",
 )
+
+java_calculator_binary(
+    name = "types_compiled_calculator_image",
+    srcs = [":types_compiled_calculator"],
+    java_name = "Types",
+)
+
+java_calculator_library(
+    name = "types_compiled_calculator",
+    src = "types.calculator",
+    java_name = "Types",
+)
+
 java_calculator_binary(
     name = "while_compiled_calculator_image",
     srcs = [":while_compiled_calculator"],

@@ -1,12 +1,12 @@
 package com.claro.examples.calculator_example.intermediate_representation.types;
 
 public enum BaseType {
-  // TODO(steving) Determine whether "UNDECIDED" really belongs.
   // This type exists solely for the sake of the compiler being able to put off some type decisions until it gathers
-  // context that allows it to decide the actual type being expressed.
+  // context that allows it to decide the actual type being expressed. E.g. empty list `[]` doesn't know its type until
+  // context is imposed upon it for example in an assignment statement.
   UNDECIDED,
   INTEGER("int", "Integer"),
-  DOUBLE("float", "Double"),
+  FLOAT("float", "Double"),
   BOOLEAN("boolean"),
   STRING("string", "String"),
   ARRAY,

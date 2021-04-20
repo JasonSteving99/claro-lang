@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableSet;
 
 public class AddNumericExpr extends NumericExpr {
 
-  private static final ImmutableSet<Type> SUPPORTED_ADD_OPERAND_TYPES = ImmutableSet.of(Types.INTEGER, Types.DOUBLE);
+  private static final ImmutableSet<Type> SUPPORTED_ADD_OPERAND_TYPES = ImmutableSet.of(Types.INTEGER, Types.FLOAT);
   private final String TYPE_SUPPORT_ERROR_MESSAGE =
       "Internal Compiler Error: Currently `+` is not supported for types other than Integer and Double.";
 
@@ -27,8 +27,8 @@ public class AddNumericExpr extends NumericExpr {
     assertSupportedExprType(lhs, SUPPORTED_ADD_OPERAND_TYPES);
     assertSupportedExprType(rhs, SUPPORTED_ADD_OPERAND_TYPES);
 
-    if (lhs.equals(Types.DOUBLE) || rhs.equals(Types.DOUBLE)) {
-      return Types.DOUBLE;
+    if (lhs.equals(Types.FLOAT) || rhs.equals(Types.FLOAT)) {
+      return Types.FLOAT;
     } else {
       return Types.INTEGER;
     }

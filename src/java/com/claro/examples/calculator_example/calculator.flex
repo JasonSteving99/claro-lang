@@ -104,6 +104,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "var"              { return symbol(Calc.VAR); }
     "="                { return symbol(Calc.ASSIGNMENT); }
     ";"                { return symbol(Calc.SEMICOLON); }
+    ":"                { return symbol(Calc.COLON); }
     ","                { return symbol(Calc.COMMA); }
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }
@@ -115,6 +116,13 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
     "input"            { return symbol(Calc.INPUT); }
     "len"              { return symbol(Calc.LEN); }
+    "type"             { return symbol(Calc.TYPE); }
+
+    // Builtin Types.
+    "int"              { return symbol(Calc.INT_TYPE); }
+    "float"            { return symbol(Calc.FLOAT_TYPE); }
+    "boolean"          { return symbol(Calc.BOOLEAN_TYPE); }
+    "string"           { return symbol(Calc.STRING_TYPE); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

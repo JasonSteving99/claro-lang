@@ -49,12 +49,14 @@ public class DeclarationStmt extends Stmt {
     if (optionalIdentifierDeclaredType.isPresent()) {
       if (!this.getChildren().isEmpty()) {
         ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, optionalIdentifierDeclaredType.get());
+        scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
       scopedHeap.observeIdentifier(this.IDENTIFIER, optionalIdentifierDeclaredType.get());
     } else {
       // Infer the identifier's type only the first time it's assigned to.
       this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
       scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);
+      scopedHeap.initializeIdentifier(this.IDENTIFIER);
     }
   }
 
@@ -83,12 +85,16 @@ public class DeclarationStmt extends Stmt {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // Put the computed value of this identifier directly in the heap.
-    scopedHeap.putIdentifierValue(
-        this.IDENTIFIER,
-        this.optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType),
-        this.getChildren().get(0).generateInterpretedOutput(scopedHeap)
-    );
+    Type identifierValidatedType = optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType);
+
+    // Put the declared variable directly in the heap, with its computed value if initialized.
+    if (this.getChildren().isEmpty()) {
+      scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
+    } else {
+      scopedHeap.putIdentifierValue(
+          this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+      scopedHeap.initializeIdentifier(this.IDENTIFIER);
+    }
     return null;
   }
 }

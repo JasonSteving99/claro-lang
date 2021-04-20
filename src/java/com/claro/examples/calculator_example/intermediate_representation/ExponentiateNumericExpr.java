@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableSet;
 public class ExponentiateNumericExpr extends NumericExpr {
 
   private static final ImmutableSet<Type> SUPPORTED_EXPONENTIATE_OPERAND_TYPES =
-      ImmutableSet.of(Types.INTEGER, Types.DOUBLE);
+      ImmutableSet.of(Types.INTEGER, Types.FLOAT);
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public ExponentiateNumericExpr(Expr lhs, Expr rhs) {
@@ -24,7 +24,7 @@ public class ExponentiateNumericExpr extends NumericExpr {
     assertSupportedExprType(
         ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap), SUPPORTED_EXPONENTIATE_OPERAND_TYPES);
 
-    return Types.DOUBLE;
+    return Types.FLOAT;
   }
 
   @Override

@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 public class ListExpr extends Expr {
 
-  private final Optional<Type> emptyListValueType;
+  private Optional<Type> emptyListValueType;
 
   public ListExpr(ImmutableList<Node> listInitializerArgsList) {
     super(listInitializerArgsList);
@@ -22,7 +22,7 @@ public class ListExpr extends Expr {
   // TODO(steving) Drop this constructor option. We need the empty list type to be set. Use constructor below.
   public ListExpr() {
     super(ImmutableList.of());
-    this.emptyListValueType = Optional.empty();
+    this.emptyListValueType = Optional.of(Types.UNDECIDED);
   }
 
   public ListExpr(Type emptyListValueType) {
@@ -32,20 +32,28 @@ public class ListExpr extends Expr {
 
   @Override
   protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    Type listType;
     if (getChildren().isEmpty()) {
-      // TODO(steving) What's the type of a List that was defined as `l = []` when later they could equivalently say
-      // TODO(steving) `l.add(1)` or `l.add(1.0)` or `l.add("one")`?...Maybe instead we should require that for the
-      // TODO(steving) empty list you have to say something like `l: [int] = []` on initial declaration instead?
-      throw new UnsupportedOperationException(
-          "TODO(steving) Empty list type has to be special-cased into an initialization stmt in order to know the " +
-          "type on the line of use.");
+      // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
+      listType = emptyListValueType.get();
     } else {
       Type listValuesType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
       // Need to assert that all values in the list are of the same type.
       for (Node initialListValue : this.getChildren()) {
         ((Expr) initialListValue).assertExpectedExprType(scopedHeap, listValuesType);
       }
-      return Types.ListType.forValueType(listValuesType);
+      listType = Types.ListType.forValueType(listValuesType);
+    }
+    return listType;
+  }
+
+  @Override
+  protected void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    if (getChildren().isEmpty()) {
+      // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
+      this.emptyListValueType = Optional.of(expectedExprType);
+    } else {
+      super.assertExpectedExprType(scopedHeap, expectedExprType);
     }
   }
 

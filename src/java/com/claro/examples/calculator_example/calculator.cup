@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example;
 
 import com.claro.examples.calculator_example.intermediate_representation.*;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import java_cup.runtime.Symbol;
@@ -55,6 +56,7 @@ terminal         MULTIPLY, DIVIDE;
 terminal         PLUS, MINUS;
 terminal         INCREMENT, DECREMENT;
 terminal         SEMICOLON;
+terminal         COLON;
 terminal         COMMA;
 terminal         EQUALS, NOT_EQUALS;
 terminal         VAR, ASSIGNMENT;
@@ -82,10 +84,14 @@ terminal         NUMERIC_BOOL;
 terminal         INPUT;
 // This grammar also has a builtin len() function for getting the length of an Iterable.
 terminal         LEN;
+// This grammar also has a builtin type() function for getting the type of an Expr.
+terminal         TYPE;
 terminal         IF, ELSE;
 terminal         WHILE;
+// Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
+terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE;
 
-// Just everything in the world will be real number doubles in this calculator, who cares.
+// Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                 program;
 nonterminal Expr                        expr;
 nonterminal Term                        term;
@@ -105,6 +111,7 @@ nonterminal IfStmt                      else_if_stmt;
 nonterminal StmtListNode                else_stmt;
 nonterminal WhileStmt                   while_stmt;
 nonterminal PrintStmt                   print;
+nonterminal ShowTypeStmt                show_type;
 nonterminal DeclarationStmt             identifier_declaration;
 nonterminal AssignmentStmt              identifier_assignment;
 nonterminal IncrementExpr               identifier_increment;
@@ -117,6 +124,7 @@ nonterminal BoolExpr                    bool_expr;
 nonterminal BoolExpr                    equality;
 nonterminal BoolExpr                    inequality;
 nonterminal BoolExpr                    bool_arithmetic;
+nonterminal Type                        builtin_type;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -124,6 +132,7 @@ precedence left COMMA;
 precedence left IDENTIFIER;
 precedence left SEMICOLON;
 precedence left ASSIGNMENT;
+precedence left COLON;
 precedence left EQUALS, NOT_EQUALS;
 precedence left AND, OR, NOT;
 precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
@@ -151,6 +160,8 @@ stmt_list ::=
 stmt ::=
     print:p
     {: RESULT = p; :}
+  | show_type:s
+    {: RESULT = s; :}
   | identifier_declaration:d
     {: RESULT = d; :}
   | identifier_assignment:a
@@ -172,12 +183,35 @@ print ::=
     {: RESULT = new PrintStmt(e); :}
   ;
 
+show_type ::=
+    TYPE LPAR expr:e RPAR SEMICOLON
+    {: RESULT = new ShowTypeStmt(e); :}
+  ;
+
 identifier_declaration ::=
     VAR IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new DeclarationStmt(identifier, e); :}
-  | VAR IDENTIFIER:identifier SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier, Types.INTEGER); :}
-    // TODO(steving) Update and actually support other declaration syntaxes.
+  | VAR IDENTIFIER:identifier COLON builtin_type:t SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier, t); :}
+  | VAR IDENTIFIER:identifier COLON builtin_type:t ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier, t, e); :}
+  ;
+
+builtin_type ::=
+    INT_TYPE:t
+    {: RESULT = Types.INTEGER; :}
+  |
+    FLOAT_TYPE:t
+    {: RESULT = Types.FLOAT; :}
+  |
+    BOOLEAN_TYPE:t
+    {: RESULT = Types.BOOLEAN; :}
+  |
+    STRING_TYPE:t
+    {: RESULT = Types.STRING; :}
+  |
+    LBRACKET builtin_type:t RBRACKET
+    {: RESULT = Types.ListType.forValueType(t); :}
   ;
 
 identifier_assignment ::=
@@ -250,8 +284,6 @@ expr ::=
   | LEN LPAR expr:e RPAR
     {: RESULT = new LenExpr(e); :}
   | bool_expr:b
-    // TODO(steving) Address this. This action causes type-unsafety in this language...introduces booleans where really
-    // there should only be doubles.
     {: RESULT = b; :}
   | term:t
     {: RESULT = t; :}
@@ -269,10 +301,7 @@ list ::=
        RESULT = new ListExpr(args.build().reverse());
     :}
   | LBRACKET RBRACKET
-    {:
-       // TODO(steving) Remove this and then replace within initializer w/ type.
-       RESULT = new ListExpr();
-    :}
+    {: RESULT = new ListExpr(); :}
   ;
 
 list_initializer_args ::=

@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableSet;
 
 public class LogNumericExpr extends NumericExpr {
 
-  private static final ImmutableSet<Type> SUPPORTED_LOG_ARG_TYPES = ImmutableSet.of(Types.INTEGER, Types.DOUBLE);
+  private static final ImmutableSet<Type> SUPPORTED_LOG_ARG_TYPES = ImmutableSet.of(Types.INTEGER, Types.FLOAT);
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public LogNumericExpr(Expr arg, Expr log_base) {
@@ -24,7 +24,7 @@ public class LogNumericExpr extends NumericExpr {
     assertSupportedExprType(
         ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap), SUPPORTED_LOG_ARG_TYPES);
 
-    return Types.DOUBLE;
+    return Types.FLOAT;
   }
 
   @Override

@@ -5,9 +5,12 @@ import com.google.common.collect.ImmutableMap;
 
 public final class Types {
   public static final Type INTEGER = ConcreteType.create(BaseType.INTEGER);
-  public static final Type DOUBLE = ConcreteType.create(BaseType.DOUBLE);
+  public static final Type FLOAT = ConcreteType.create(BaseType.FLOAT);
   public static final Type STRING = ConcreteType.create(BaseType.STRING);
   public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
+
+  // Special type not to actually make it out of the type-checking phase of the compiler.
+  public static final Type UNDECIDED = ConcreteType.create(BaseType.UNDECIDED);
 
   @AutoValue
   public abstract static class ListType extends Type {
