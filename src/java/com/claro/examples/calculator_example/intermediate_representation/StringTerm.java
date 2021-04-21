@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 
 final public class StringTerm extends Term {
   private final String value;
@@ -11,6 +13,11 @@ final public class StringTerm extends Term {
 
   public String getValue() {
     return value;
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap unusedScopedHeap) {
+    return Types.STRING;
   }
 
   @Override

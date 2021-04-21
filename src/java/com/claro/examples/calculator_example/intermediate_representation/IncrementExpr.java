@@ -1,6 +1,9 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 public class IncrementExpr extends Expr {
@@ -8,8 +11,14 @@ public class IncrementExpr extends Expr {
 
   public IncrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preIncrement) {
     super(ImmutableList.of(identifierReferenceTerm));
-    // TODO(steving) Assert that the IdentifierReferenceTerm is of type Integer.
     this.preIncrement = preIncrement;
+  }
+
+  @Override
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+
+    return Types.INTEGER;
   }
 
   @Override
@@ -27,7 +36,7 @@ public class IncrementExpr extends Expr {
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     IdentifierReferenceTerm identifierReferenceTerm = (IdentifierReferenceTerm) getChildren().get(0);
     Integer res = (Integer) identifierReferenceTerm.generateInterpretedOutput(scopedHeap);
-    scopedHeap.putIdentifierValue(identifierReferenceTerm.getIdentifier(), res + 1);
+    scopedHeap.updateIdentifierValue(identifierReferenceTerm.getIdentifier(), res + 1);
     if (preIncrement) {
       res = res + 1;
     }

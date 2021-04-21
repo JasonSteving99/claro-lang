@@ -1,0 +1,102 @@
+##############################################
+# Declaration w/ Simultaneous Initialization #
+##############################################
+
+print("Declaration w/ Simultaneous Initialization");
+
+# **** Primitives. ****
+var i: int = 1;
+print(i);
+type(i);
+
+var f: float = 1.0;
+print(f);
+type(f);
+
+var s: string = "one";
+print(s);
+type(s);
+
+# **** Non-empty lists. ****
+
+var intList: [int] = [i, 2 * i, 4 * i];
+print(intList);
+type(intList);
+
+var floatList: [float] = [f, 2 * f, 4 * f];
+print(floatList);
+type(floatList);
+
+var stringList: [string] = [s, s, s];
+print(stringList);
+type(stringList);
+
+# **** Empty lists: ****
+
+# var emptyIntList: [int] = [];
+# emptyIntList.append(i).append(2 * i).append(4 * i);
+# print(emptyIntList == intList);
+
+# var emptyFloatList: [float] = [];
+# emptyFloatList.append(f).append(2 * f).append(4 * f);
+# print(emptyFloatList == floatList);
+
+# var emptyStringList: [string] = [];
+# emptyStringList.append(s).append(s).append(s);
+# print(emptyStringList == stringList);
+
+###############################################
+# Declaration w/o Simultaneous Initialization #
+###############################################
+
+print("Declaration w/o Simultaneous Initialization");
+
+# **** Primitives. ****
+var i2: int;
+i2 = 1;
+print(i2);
+type(i2);
+
+var f2: float;
+f2 = 1.0;
+print(f2);
+type(f2);
+
+var s2: string;
+s2 = "one";
+print(s2);
+type(s2);
+
+# **** Non-empty lists. ****
+
+var intList2: [int];
+intList2 = [i, 2 * i, 4 * i];
+print(intList2);
+type(intList2);
+
+var floatList2: [float];
+floatList2 = [f, 2 * f, 4 * f];
+print(floatList2);
+type(floatList2);
+
+var stringList2: [string];
+stringList2 = [s, s, s];
+print(stringList2);
+type(stringList2);
+
+# **** Empty lists: ****
+
+var emptyIntList2: [int];
+# emptyIntList2 = [];
+# emptyIntList2.append(i).append(2 * i).append(4 * i);
+# print(emptyIntList2 == intList2);
+
+var emptyFloatList2: [float];
+# emptyFloatList2 = [];
+# emptyFloatList2.append(f).append(2 * f).append(4 * f);
+# print(emptyFloatList2 == floatList2);
+
+var emptyStringList2: [string];
+# emptyStringList2 = [];
+# emptyStringList2.append(s).append(s).append(s);
+# print(emptyStringList2 == stringList);

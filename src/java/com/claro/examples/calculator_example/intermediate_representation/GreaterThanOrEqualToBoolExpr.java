@@ -2,12 +2,20 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class GreaterThanOrEqualToBoolExpr extends BoolExpr {
 
   public GreaterThanOrEqualToBoolExpr(Expr lhs, Expr rhs) {
     super(ImmutableList.of(lhs, rhs));
+  }
+
+  @Override
+  protected ImmutableSet<Type> getSupportedOperandTypes() {
+    return ImmutableSet.of(Types.INTEGER, Types.FLOAT);
   }
 
   @Override

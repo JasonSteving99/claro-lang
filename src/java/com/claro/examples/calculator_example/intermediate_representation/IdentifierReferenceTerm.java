@@ -1,7 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
-import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.google.common.base.Preconditions;
 
 public class IdentifierReferenceTerm extends Term {
 
@@ -17,13 +18,25 @@ public class IdentifierReferenceTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected Type getValidatedExprType(ScopedHeap scopedHeap) {
     // Make sure we check this will actually be a valid reference before we allow it.
-    if (scopedHeap.isIdentifierDeclared(identifier)) {
-      scopedHeap.markIdentifierUsed(identifier);
-      return new StringBuilder(this.identifier);
-    }
-    throw new CalculatorParserException(String.format("No variable <%s> within the current scope!", identifier));
+    Preconditions.checkState(
+        scopedHeap.isIdentifierDeclared(this.identifier),
+        "No variable <%s> within the current scope!",
+        this.identifier
+    );
+    Preconditions.checkState(
+        scopedHeap.isIdentifierInitialized(this.identifier),
+        "Variable <%s> may not have been initialized!",
+        this.identifier
+    );
+    return scopedHeap.getValidatedIdentifierType(this.identifier);
+  }
+
+  @Override
+  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    scopedHeap.markIdentifierUsed(identifier);
+    return new StringBuilder(this.identifier);
   }
 
   @Override

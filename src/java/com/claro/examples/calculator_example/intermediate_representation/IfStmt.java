@@ -1,6 +1,8 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -50,28 +52,58 @@ public class IfStmt extends Stmt {
   }
 
   @Override
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
+
+    for (IfStmt ifStmt : getConditionStack()) {
+      ((Expr) ifStmt.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+
+      scopedHeap.observeNewScope(enableBranchInspection);
+      ((StmtListNode) ifStmt.getChildren().get(1)).assertExpectedExprTypes(scopedHeap);
+      scopedHeap.exitCurrObservedScope(false);
+    }
+    if (optionalTerminalElseClause.isPresent()) {
+      scopedHeap.observeNewScope(true);
+      optionalTerminalElseClause.get().assertExpectedExprTypes(scopedHeap);
+      scopedHeap.exitCurrObservedScope(true);
+    }
+  }
+
+  @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
 
+    // If it's a guarantee that at least one of these branches will execute, then we need to enable branch inspection.
+    boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
+
     // First thing first handle the one guaranteed present if-stmt.
     IfStmt initialIfStmt = this.getConditionStack().pop();
-    appendIfConditionStmtJavaSource(initialIfStmt, scopedHeap, false, res);
+    appendIfConditionStmtJavaSource(initialIfStmt, scopedHeap, false, enableBranchInspection, res);
 
     // Now handle any remaining else-if-stmts.
     while (!this.getConditionStack().isEmpty()) {
-      appendIfConditionStmtJavaSource(this.getConditionStack().pop(), scopedHeap, true, res);
+      appendIfConditionStmtJavaSource(
+          this.getConditionStack().pop(),
+          scopedHeap,
+          true,
+          enableBranchInspection,
+          res
+      );
     }
 
     // Now handle the optional trailing else-stmt.
     optionalTerminalElseClause.ifPresent(
         terminalElseClauseStmtList
-            ->
-            res.append(
-                String.format(
-                    "else {\n%s\n}",
-                    terminalElseClauseStmtList.generateJavaSourceOutput(scopedHeap).toString()
-                )
-            )
+            -> {
+          scopedHeap.enterNewScope();
+          res.append(
+              String.format(
+                  "else {\n%s\n}",
+                  terminalElseClauseStmtList.generateJavaSourceOutput(scopedHeap).toString()
+              )
+          );
+          scopedHeap.exitCurrScope();
+        }
     );
 
     // Add a final trailing newline to make the following code land after this condition chain.
@@ -84,6 +116,7 @@ public class IfStmt extends Stmt {
       IfStmt ifStmt,
       ScopedHeap scopedHeap,
       boolean elseIf,
+      boolean enableBranchInspection,
       StringBuilder stringBuilder) {
     stringBuilder.append(
         String.format(

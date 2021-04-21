@@ -1,7 +1,7 @@
 # This file exists to test out support of lists and list operations.
 
-l = [];
-print(l); # Print an empty list "[]".
+# l = [];
+# print(l); # Print an empty list "[]".
 
 l = [1,2,3];
 print(l); # Print the list "[1.0, 2.0, 3.0]".
@@ -29,7 +29,7 @@ while (r < len(l2)) {
   while (c < len(l2[r])) {
     print(l2[r][c++]);
   }
-  r++;
+  ++r;
 }
 
 # Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.

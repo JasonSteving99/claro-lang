@@ -2,7 +2,10 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.CalculatorParserException;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.types.Type;
+import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 // TODO(steving) Btw, this class itself is an example where I want structural templating of some sort. This class's
 // TODO(steving) structure is literally perfect for all binary operators, but for some reason I can't reuse the
@@ -12,6 +15,11 @@ public class LessThanBoolExpr extends BoolExpr {
 
   public LessThanBoolExpr(Expr lhs, Expr rhs) {
     super(ImmutableList.of(lhs, rhs));
+  }
+
+  @Override
+  protected ImmutableSet<Type> getSupportedOperandTypes() {
+    return ImmutableSet.of(Types.INTEGER, Types.FLOAT);
   }
 
   @Override

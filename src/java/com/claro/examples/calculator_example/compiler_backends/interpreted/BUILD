@@ -19,7 +19,9 @@ java_library(
     name = "scoped_heap",
     srcs = ["ScopedHeap.java"],
     deps = [
+        "//:autovalue",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",
     ],
 )
