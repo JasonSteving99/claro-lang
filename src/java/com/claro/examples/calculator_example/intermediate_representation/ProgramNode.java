@@ -70,9 +70,9 @@ public class ProgramNode extends Node {
         "/*******END AUTO-GENERATED*******/\n" +
         "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
         "  }\n\n" +
-        "  private static double promptUserInput(String prompt) {\n" +
+        "  private static String promptUserInput(String prompt) {\n" +
         "    System.out.println(prompt);\n" +
-        "    return INPUT_SCANNER.nextDouble();\n" +
+        "    return INPUT_SCANNER.nextLine();\n" +
         "  }\n" +
         "  private static <T> ClaroList<T> initializeList() {\n" +
         "    return new ClaroList<>();\n" +

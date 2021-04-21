@@ -31,6 +31,6 @@ public class InputExpr extends Expr {
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     System.out.println(prompt);
-    return INPUT_SCANNER.nextDouble();
+    return INPUT_SCANNER.nextLine();
   }
 }
