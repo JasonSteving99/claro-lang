@@ -4,13 +4,13 @@
 Claro's compiler is designed from the ground up to support multiple backends to allow for various modes of handling the parsed AST Intermediate Representation. For now Claro supports the following Targets:
 
 #### REPL
-`$ bazel run compiled_calculator_binary -- --repl --silent`
+`$ bazel run calculator_compiler_binary -- --repl --silent`
 
 #### Interpreted
-`$ bazel run compiled_calculator_binary -- --interpreted --silent`
+`$ bazel run calculator_compiler_binary -- --interpreted --silent`
 
 #### Java Source Target Output
-`$ bazel run compiled_calculator_binary -- --silent`
+`$ bazel run calculator_compiler_binary -- --silent`
 
 
 # Docker Hub
