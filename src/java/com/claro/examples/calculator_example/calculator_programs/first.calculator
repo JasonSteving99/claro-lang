@@ -1,10 +1,10 @@
 # First calculator source file!
 
 # Variable initialization doesn't need type indication because there are literally only doubles in this language...
-VARX = (log_3.1(8) / log_3.1(2)) ^ 2 + 1.1 * 2;
+var VARX = (log_3.1(8) / log_3.1(2)) ^ 2 + 1.1 * 2;
 print(VARX);
 
-Y = VARX + 2;
+var Y = VARX + 2;
 print(Y);
 if (Y > 10) {
   Y = Y * 100;
@@ -21,14 +21,14 @@ print(2 - Y);
 print(2 - Y > 1 - Y == true);
 
 # Let's test out scoping in conditions.
-scopeTest1 = 1;
+var scopeTest1 = 1;
 print(scopeTest1);
 if (scopeTest1 == 1) {
-  scopeTest2 = 2;
+  var scopeTest2 = 2;
   print(scopeTest1);
   print(scopeTest2);
   if (scopeTest2 == 2) {
-    scopeTest3 = 3;
+    var scopeTest3 = 3;
     print(scopeTest1);
     print(scopeTest2);
     print(scopeTest3);
@@ -58,4 +58,4 @@ if (false) {
 }
 
 # Uncomment the line below to see an error for unused symbols.
-# UNUSED = 9;
+# var UNUSED = 9;

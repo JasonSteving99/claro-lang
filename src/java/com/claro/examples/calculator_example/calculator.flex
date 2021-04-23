@@ -99,6 +99,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "or"               { return symbol(Calc.OR); }
     "and"              { return symbol(Calc.AND); }
     "not"              { return symbol(Calc.NOT); }
+    "->"               { return symbol(Calc.ARROW); }
     "true"             { return symbol(Calc.TRUE); }
     "false"            { return symbol(Calc.FALSE); }
     "var"              { return symbol(Calc.VAR); }
@@ -109,6 +110,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }
     "while"            { return symbol(Calc.WHILE); }
+    "return"           { return symbol(Calc.RETURN); }
 
     // Builtin functions are currently processed at the grammar level.. maybe there's a better generalized way.
     "log_"             { return symbol(Calc.LOG_PREFIX); }
@@ -123,6 +125,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "float"            { return symbol(Calc.FLOAT_TYPE); }
     "boolean"          { return symbol(Calc.BOOLEAN_TYPE); }
     "string"           { return symbol(Calc.STRING_TYPE); }
+    "function"         { return symbol(Calc.FUNCTION_TYPE); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

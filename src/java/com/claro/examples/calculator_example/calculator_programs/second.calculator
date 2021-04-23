@@ -2,7 +2,7 @@
 
 # Print out and show a boolean.
 print(
-  log_2(9 ^ 2 + 51 - 4) == 7
+  log_2(9 ^ 2 + 51 - 4) == 7.0
 );
 
 # Show the ability to convert from boolean to a number (0 or 1).
@@ -10,13 +10,19 @@ print(
  numeric_bool(5 == 3 + 2) + 4
 );
 
-print("testing");
-Z = input("Sup bruh, gimme a number:");
+print("testing Z");
+var Z: string = input("Sup bruh, gimme a number:");
 print(Z);
-print(Z == 10);
-print(Z != 10);
-print(Z > 10);
-print(Z < 10);
-print(Z <= 10);
-print(Z >= 10);
-print((Z == 10 + 1) == true);
+print(Z == "10");
+print(Z != "10");
+
+print("");
+
+var z2: float = 11.0;
+print("testing z2");
+print(z2);
+print(z2 > 10);
+print(z2 < 10);
+print(z2 <= 10);
+print(z2 >= 10);
+print((z2 == 10.0 + 1) == true);

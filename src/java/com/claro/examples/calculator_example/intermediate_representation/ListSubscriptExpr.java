@@ -21,7 +21,7 @@ public class ListSubscriptExpr extends Expr {
     listExpr.assertExpectedBaseType(scopedHeap, BaseType.LIST);
     ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
 
-    return listExpr.getValidatedExprType(scopedHeap).parameterizedTypeArgs().get("values");
+    return listExpr.getValidatedExprType(scopedHeap).parameterizedTypeArgs().get("$values");
   }
 
   @Override

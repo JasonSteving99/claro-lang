@@ -4,7 +4,7 @@
 # if->else
 # if->else if->else
 
-var x;
+var x: int;
 
 if (true) {
   x = 1;

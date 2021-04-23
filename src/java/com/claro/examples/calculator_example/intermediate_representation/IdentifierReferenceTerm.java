@@ -30,17 +30,19 @@ public class IdentifierReferenceTerm extends Term {
         "Variable <%s> may not have been initialized!",
         this.identifier
     );
+    scopedHeap.markIdentifierUsed(this.identifier);
     return scopedHeap.getValidatedIdentifierType(this.identifier);
   }
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    scopedHeap.markIdentifierUsed(identifier);
+    scopedHeap.markIdentifierUsed(this.identifier);
     return new StringBuilder(this.identifier);
   }
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    scopedHeap.markIdentifierUsed(this.identifier);
     return scopedHeap.getIdentifierValue(this.identifier);
   }
 }

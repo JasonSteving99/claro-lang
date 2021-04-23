@@ -68,7 +68,7 @@ public class DeclarationStmt extends Stmt {
 
     // First time we're seeing the variable, so declare it.
     res.append(String.format("%s %s", identifierValidatedType.getJavaSourceType(), this.IDENTIFIER));
-    scopedHeap.declareIdentifier(this.IDENTIFIER);
+    scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
 
     // Maybe mark the identifier initialized.
     if (!this.getChildren().isEmpty()) {

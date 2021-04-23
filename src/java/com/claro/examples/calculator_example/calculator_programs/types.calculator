@@ -33,17 +33,23 @@ type(stringList);
 
 # **** Empty lists: ****
 
-# var emptyIntList: [int] = [];
+var emptyIntList: [int] = [];
 # emptyIntList.append(i).append(2 * i).append(4 * i);
 # print(emptyIntList == intList);
+print(emptyIntList);
+type(emptyIntList);
 
-# var emptyFloatList: [float] = [];
+var emptyFloatList: [float] = [];
 # emptyFloatList.append(f).append(2 * f).append(4 * f);
 # print(emptyFloatList == floatList);
+print(emptyFloatList);
+type(emptyFloatList);
 
-# var emptyStringList: [string] = [];
+var emptyStringList: [string] = [];
 # emptyStringList.append(s).append(s).append(s);
 # print(emptyStringList == stringList);
+print(emptyStringList);
+type(emptyStringList);
 
 ###############################################
 # Declaration w/o Simultaneous Initialization #
@@ -87,16 +93,22 @@ type(stringList2);
 # **** Empty lists: ****
 
 var emptyIntList2: [int];
-# emptyIntList2 = [];
+emptyIntList2 = [];
 # emptyIntList2.append(i).append(2 * i).append(4 * i);
 # print(emptyIntList2 == intList2);
+print(emptyIntList2);
+type(emptyIntList2);
 
 var emptyFloatList2: [float];
-# emptyFloatList2 = [];
+emptyFloatList2 = [];
 # emptyFloatList2.append(f).append(2 * f).append(4 * f);
 # print(emptyFloatList2 == floatList2);
+print(emptyFloatList2);
+type(emptyFloatList2);
 
 var emptyStringList2: [string];
-# emptyStringList2 = [];
+emptyStringList2 = [];
 # emptyStringList2.append(s).append(s).append(s);
 # print(emptyStringList2 == stringList);
+print(emptyStringList2);
+type(emptyStringList2);

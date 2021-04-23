@@ -9,7 +9,7 @@ public abstract class Type {
   // name -> Type.
   public abstract ImmutableMap<String, Type> parameterizedTypeArgs();
 
-  public final String getJavaSourceType() {
+  public String getJavaSourceType() {
     String res;
     if (parameterizedTypeArgs().isEmpty()) {
       res = baseType().getJavaSourceFmtStr();

@@ -22,6 +22,18 @@ java_calculator_library(
     java_name = "Conditions",
 )
 
+java_calculator_binary(
+    name = "functions_compiled_calculator_image",
+    srcs = [":functions_compiled_calculator"],
+    java_name = "Functions",
+)
+
+java_calculator_library(
+    name = "functions_compiled_calculator",
+    src = "functions.calculator",
+    java_name = "Functions",
+)
+
 
 java_calculator_binary(
     name = "list_compiled_calculator_image",

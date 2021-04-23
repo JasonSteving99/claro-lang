@@ -1,0 +1,11 @@
+var x: int = 1;
+print(x);
+
+function helloFunWorld(message: string) -> string {
+  # Swap the commented res declaration and you'll see a return type error message.
+  var res: string = message;
+  # var res: int = 1;
+  return res;
+}
+
+var y: string = "not in function's scope";

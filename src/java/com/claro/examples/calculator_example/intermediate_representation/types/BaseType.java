@@ -16,6 +16,15 @@ public enum BaseType {
   MAP,
   STRUCT, // Structure of associated values.
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
+
+  // Function reference. Remember, in Claro, Function specifically means a standalone procedure that doesn't depend on
+  // any manner of instance values.
+  FUNCTION(
+      "function<%s -> %s>",
+      // e.g. public static final Foo Bar(arg1, arg2, ...) {...impl...}
+      "public static final %s %s(%s) {\n%s\n}"
+  ),
+
   OBJECT, // Struct with associated procedures.
   ;
 

@@ -36,6 +36,8 @@ java_library(
         ":concrete_type",
         ":parameterized_type",
         ":type",
+        "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation:expr",
         "//:autovalue",
         "//:guava",
     ],
