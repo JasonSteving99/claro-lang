@@ -10,6 +10,7 @@ java_library(
     name = "expr_impls",
     srcs = [
         "DecrementExpr.java",
+        "FunctionCallExpr.java",
         "IncrementExpr.java",
         "InputExpr.java",
         "ListExpr.java",

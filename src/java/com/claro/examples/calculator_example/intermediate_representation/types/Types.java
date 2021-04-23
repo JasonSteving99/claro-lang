@@ -28,47 +28,34 @@ public final class Types {
 
   @AutoValue
   public abstract static class FunctionType extends Type {
-    private ImmutableMap<String, Type> argTypes;
-    private ImmutableList<Type> returnTypes;
-    private String functionName;
+    public abstract ImmutableMap<String, Type> getArgTypes();
+
+    public abstract ImmutableList<Type> getReturnTypes();
+
+    public abstract String getFunctionName();
 
     public static FunctionType forArgsAndReturnTypes(
         String functionName, ImmutableMap<String, Type> argTypes, ImmutableList<Type> returnTypes) {
       // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
       // parameterizedTypeArgs map used.
-      FunctionType res = new AutoValue_Types_FunctionType(BaseType.FUNCTION, ImmutableMap.of());
-
-      res.argTypes = argTypes;
-      res.returnTypes = returnTypes;
-      res.functionName = functionName;
+      FunctionType res =
+          new AutoValue_Types_FunctionType(BaseType.FUNCTION, ImmutableMap.of(), argTypes, returnTypes, functionName);
 
       return res;
-    }
-
-    public ImmutableMap<String, Type> getArgTypes() {
-      return this.argTypes;
-    }
-
-    public ImmutableList<Type> getReturnTypes() {
-      return returnTypes;
-    }
-
-    public String getFunctionName() {
-      return functionName;
     }
 
     @Override
     public final String getJavaSourceType() {
       return String.format(
           baseType().getJavaSourceFmtStr(),
-          returnTypes.size() > 1 ?
-          returnTypes.stream()
+          getReturnTypes().size() > 1 ?
+          getReturnTypes().stream()
               .map(Type::getJavaSourceType)
               .collect(
                   Collectors.joining(", ", "ImmutableSet<", ">")) :
-          returnTypes.stream().findFirst().get().getJavaSourceType(),
-          this.functionName,
-          this.argTypes.values().stream()
+          getReturnTypes().stream().findFirst().get().getJavaSourceType(),
+          this.getFunctionName(),
+          this.getArgTypes().values().stream()
               .map(Type::getJavaSourceType)
               .collect(Collectors.joining(", ")),
           "%s" // The caller still needs to substitute the actual generated source for this function definition.
@@ -86,8 +73,8 @@ public final class Types {
           };
       return String.format(
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
-          collectToInputOutputTypeListFormatFn.apply(this.argTypes.values()),
-          collectToInputOutputTypeListFormatFn.apply(this.returnTypes)
+          collectToInputOutputTypeListFormatFn.apply(this.getArgTypes().values()),
+          collectToInputOutputTypeListFormatFn.apply(this.getReturnTypes())
       );
     }
 

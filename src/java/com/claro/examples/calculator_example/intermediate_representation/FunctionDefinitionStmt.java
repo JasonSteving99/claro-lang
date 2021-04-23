@@ -4,12 +4,12 @@ import com.claro.examples.calculator_example.compiler_backends.interpreted.Scope
 import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.function.Function;
 
 public class FunctionDefinitionStmt extends Stmt {
 
@@ -86,10 +86,10 @@ public class FunctionDefinitionStmt extends Stmt {
     // Note that if you look closely and squint this below is actually dynamic code generation in Java. Like...duh cuz
     // this whole thing is code gen...that's what a compiler is...but this feels to be more code gen-y so ~shrug~ lol.
     // I think that's neat ;P.
-    Function<ImmutableMap<String, Expr>, StmtListNode> getArgDeclarationStmtsFn =
+    final ImmutableList<Map.Entry<String, Type>> backwardsArgTypes =
+        FunctionDefinitionStmt.this.type.getArgTypes().entrySet().asList().reverse();
+    final Function<ImmutableMap<String, Expr>, StmtListNode> getArgDeclarationStmtsFn =
         args -> {
-          ImmutableList<Map.Entry<String, Type>> backwardsArgTypes =
-              FunctionDefinitionStmt.this.type.getArgTypes().entrySet().asList().reverse();
           StmtListNode argDeclarationStmts =
               new StmtListNode(
                   new DeclarationStmt(

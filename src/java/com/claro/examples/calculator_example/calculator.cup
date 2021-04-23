@@ -108,7 +108,7 @@ nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
 nonterminal ListExpr                           list;
 nonterminal ListSubscriptExpr                  list_subscript;
-nonterminal ImmutableList.Builder<Node>        list_initializer_args;
+nonterminal ImmutableList.Builder<Node>        args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
 nonterminal IfStmt                             if_stmt;
 nonterminal IfStmt                             else_if_stmt_chain;
@@ -124,10 +124,11 @@ nonterminal IncrementStmt                      identifier_increment_stmt;
 nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
-nonterminal FunctionDefinitionStmt             function_stmt;
+nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal ImmutableMap.Builder<String, Type> function_args_types_list;
 nonterminal ImmutableList.Builder<Type>        types_list;
 nonterminal Expr                               return_stmt;
+nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal InputExpr                          input;
 nonterminal BoolExpr                           bool_expr;
 nonterminal BoolExpr                           equality;
@@ -185,7 +186,7 @@ stmt ::=
     {: RESULT = i; :}
   | while_stmt:w
     {: RESULT = w; :}
-  | function_stmt:f
+  | function_definition_stmt:f
     {: RESULT = f; :}
   ;
 
@@ -298,6 +299,8 @@ expr ::=
     {: RESULT = b; :}
   | term:t
     {: RESULT = t; :}
+  | function_call_expr:f
+    {: RESULT = f; :}
   ;
 
 input ::=
@@ -306,7 +309,7 @@ input ::=
   ;
 
 list ::=
-    LBRACKET list_initializer_args:args RBRACKET
+    LBRACKET args_list:args RBRACKET
     {:
        // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
        RESULT = new ListExpr(args.build().reverse());
@@ -315,8 +318,8 @@ list ::=
     {: RESULT = new ListExpr(); :}
   ;
 
-list_initializer_args ::=
-    expr:head COMMA list_initializer_args:tail
+args_list ::=
+    expr:head COMMA args_list:tail
     {:
        // Notice that we're building this list in reverse order, just by the order of the parser recursively identifying
        // each expr in the list.
@@ -406,7 +409,7 @@ while_stmt ::=
     {: RESULT = new WhileStmt(e, stmt_list); :}
   ;
 
-function_stmt ::=
+function_definition_stmt ::=
     FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW types_list:backwards_output_types LCURLY stmt_list:stmt_list return_stmt:return_expr RCURLY
     {:
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
@@ -445,6 +448,11 @@ types_list ::=
 return_stmt ::=
     RETURN expr:e SEMICOLON
     {: RESULT = e; :}
+  ;
+
+function_call_expr ::=
+    IDENTIFIER:function_name LPAR args_list:args RPAR
+    {: RESULT = new FunctionCallExpr(function_name, args.build().reverse()); :}
   ;
 
 inequality ::=
