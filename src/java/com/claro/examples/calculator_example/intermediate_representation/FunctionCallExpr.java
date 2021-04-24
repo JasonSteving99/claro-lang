@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
   private final String functionName;
@@ -55,13 +56,29 @@ public class FunctionCallExpr extends Expr {
     }
     argsExprMap = argsExprMapBuilder.build();
 
+    // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
+    scopedHeap.markIdentifierUsed(this.functionName);
+
     // TODO(steving) Add support for actual multi-return functions.
     return functionType.getReturnTypes().get(0);
   }
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    return null;
+    // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
+    // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
+    scopedHeap.markIdentifierUsed(this.functionName);
+
+    return new StringBuilder(
+        String.format(
+            "%s.apply(%s)",
+            this.functionName,
+            this.argsExprMap.values()
+                .stream()
+                .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
+                .collect(Collectors.joining(", "))
+        )
+    );
   }
 
   @Override

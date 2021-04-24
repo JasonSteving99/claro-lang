@@ -52,7 +52,10 @@ public class FunctionDefinitionStmt extends Stmt {
         String.format("Unexpected redeclaration of %s %s.", this.type, this.type.getFunctionName())
     );
 
-    // First I need to mark the args as observed identifiers within this new scope.
+    // First we need to mark the function declared within the original calling scope.
+    scopedHeap.observeIdentifier(this.type.getFunctionName(), this.type);
+
+    // Now from here step through the function body. I need to mark the args as observed identifiers within this new scope.
     scopedHeap.observeNewScope(false);
     this.type.getArgTypes().forEach(
         (argName, argType) ->
@@ -71,11 +74,54 @@ public class FunctionDefinitionStmt extends Stmt {
       // TODO(steving) Validate all of the Exprs once we implement multi-return functions.
       ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.type.getReturnTypes().get(0));
     }
+    // Leave the function body.
+    scopedHeap.exitCurrObservedScope(false);
   }
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    throw new RuntimeException("TODO(steving) Impl function definition javasource.");
+    scopedHeap.putIdentifierValue(this.type.getFunctionName(), this.type);
+    scopedHeap.initializeIdentifier(this.type.getFunctionName());
+
+    scopedHeap.enterNewScope();
+
+    // Since we're about to immediately execute some java source code gen, we'll need to init the local arg variables.
+    this.type.getArgTypes().entrySet().stream()
+        .forEach(stringTypeEntry -> {
+          // Since we don't have a value to store in the ScopedHeap we'll manually ack that the identifier is init'd.
+          scopedHeap.putIdentifierValue(stringTypeEntry.getKey(), stringTypeEntry.getValue());
+          scopedHeap.initializeIdentifier(stringTypeEntry.getKey());
+        });
+
+    StringBuilder javaSourceOutput;
+    String functionDefinitionJavaSourceFmtStr = this.type.getJavaSourceType();
+    if (this.getChildren().size() == 2) {
+      // There's a StmtListNode to generate code for before the return stmt.
+      javaSourceOutput = new StringBuilder(
+          String.format(
+              functionDefinitionJavaSourceFmtStr,
+              ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap)
+                  // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
+                  // some good ol' fashioned hardcoding?
+                  .append("return ")
+                  .append(((Expr) this.getChildren().get(1)).generateJavaSourceOutput(scopedHeap))
+                  .append(";")
+          )
+      );
+    } else {
+      // There's only a single return stmt in this function definition to gen code for.
+      javaSourceOutput = new StringBuilder(
+          String.format(
+              functionDefinitionJavaSourceFmtStr,
+              // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
+              // some good ol' fashioned hardcoding?
+              "return " + ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap) + ";"
+          )
+      );
+    }
+    scopedHeap.exitCurrScope();
+
+    return javaSourceOutput;
   }
 
   @Override
@@ -138,7 +184,7 @@ public class FunctionDefinitionStmt extends Stmt {
                   .generateInterpretedOutput(callTimeScopedHeap);
             } else {
               // Now we need to execute the return Expr right away since there's no body StmtListNode given.
-              returnValue = ((StmtListNode) FunctionDefinitionStmt.this.getChildren().get(0))
+              returnValue = ((Expr) FunctionDefinitionStmt.this.getChildren().get(0))
                   .generateInterpretedOutput(callTimeScopedHeap);
             }
 

@@ -48,17 +48,22 @@ public final class Types {
     public final String getJavaSourceType() {
       return String.format(
           baseType().getJavaSourceFmtStr(),
+          this.getFunctionName(),
           getReturnTypes().size() > 1 ?
           getReturnTypes().stream()
               .map(Type::getJavaSourceType)
               .collect(
                   Collectors.joining(", ", "ImmutableSet<", ">")) :
           getReturnTypes().stream().findFirst().get().getJavaSourceType(),
-          this.getFunctionName(),
-          this.getArgTypes().values().stream()
-              .map(Type::getJavaSourceType)
+          this.getArgTypes().entrySet().asList().stream()
+              .map(
+                  stringTypeEntry ->
+                      String.format("%s %s", stringTypeEntry.getValue().getJavaSourceType(), stringTypeEntry.getKey()))
               .collect(Collectors.joining(", ")),
-          "%s" // The caller still needs to substitute the actual generated source for this function definition.
+          "%s", // The caller still needs to substitute the actual generated source for this function definition.
+          this.getFunctionName(),
+          this.getFunctionName(),
+          this.getFunctionName()
       );
     }
 

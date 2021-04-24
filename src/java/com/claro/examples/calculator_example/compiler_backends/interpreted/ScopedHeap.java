@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public class ScopedHeap {
 
   private final Stack<Scope> scopeStack = new Stack<>();
-  private boolean checkUnused = true;
+  public boolean checkUnused = true;
 
   public void disableCheckUnused() {
     this.checkUnused = false;

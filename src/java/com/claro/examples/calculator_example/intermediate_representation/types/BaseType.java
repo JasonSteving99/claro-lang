@@ -21,8 +21,16 @@ public enum BaseType {
   // any manner of instance values.
   FUNCTION(
       "function<%s -> %s>",
-      // e.g. public static final Foo Bar(arg1, arg2, ...) {...impl...}
-      "public static final %s %s(%s) {\n%s\n}"
+      // Allow scoping rules to behave the same as they appear in Claro source since Claro allows function defs anywhere.
+      // so just define an inner class directly within the method where the generated java source lives.
+      "final class $%s {\n" +
+      "  %s apply(%s) {\n" +
+      "%s\n" +
+      "  }\n" +
+      "}\n" +
+      // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
+      // exists at all.
+      "final $%s %s = new $%s();\n"
   ),
 
   OBJECT, // Struct with associated procedures.

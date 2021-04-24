@@ -29,8 +29,27 @@ public class ProgramNode extends Node {
       throw new RuntimeException(e);
     }
 
-    // Now that we've validated that all types are valid, go to town!
-    return new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
+    // Manually exit the last observed scope which is the global scope, since nothing else will trigger its exit.
+    // BUT, because we need the scope to not be thrown away in the REPL case (since in that case we aren't actually
+    // exiting the scope, we're just temporarily bouncing out, with the ScopedHeap as the source of continuity between
+    // REPL stmts...) we won't do this if it's the repl case. This only loses us "unused" checking, which is disabled in
+    // the REPL anyways.
+    if (scopedHeap.checkUnused) {
+      // Finalize the type-checking phase.
+      scopedHeap.exitCurrScope();
+      // Now prepare for interpreted execution/javasource generation phase.
+      scopedHeap.enterNewScope();
+    }
+
+    // Now that we've validated that all types are valid, go to town in a fresh scope!
+    StringBuilder res =
+        new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
+
+    // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks
+    // that get run at that time at the last moment before we give the all good signal.
+    scopedHeap.exitCurrScope();
+
+    return res;
   }
 
   @Override

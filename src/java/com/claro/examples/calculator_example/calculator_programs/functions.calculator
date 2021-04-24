@@ -1,11 +1,38 @@
 var x: int = 1;
 print(x);
 
+# TODO(steving) in the future, change this from a function to a consumer so that it doesn't need a return val. We're not
+# TODO(steving) gonna add Void to this language.
+function callMeMaybe(userMessage: string) -> boolean {
+  print("This was the user message!:");
+  print(userMessage);
+  return true; # TODO(steving) Useless return that we'll drop in the future.
+}
+
 function helloFunWorld(message: string) -> string {
+  # For what it's worth, note that this function has access to the things declared above it.
+  print(x);
+
   # Swap the commented res declaration and you'll see a return type error message.
   var res: string = message;
   # var res: int = 1;
+
+  # Prompt the user for something and see if we should call the other function.
+  var userResponse = input("Should we call the other function? (y/n): ");
+  if (userResponse == "y") {
+    var useless = callMeMaybe(input("What's your message?: ")); # TODO(steving) Drop this once callMeMaybe is consumer.
+    print("Please ignore this next bit...Claro doesn't allow dead code so I'm using it....");
+    print(useless);
+  } else {
+    print("We're not gonna call the other function cuz your response was the following instead of 'y'");
+    print(userResponse);
+  }
+
   return res;
 }
 
+print(helloFunWorld("Functions in compiled java source Claro code!"));
+
 var y: string = "not in function's scope";
+print("Just gonna use y for the sake of satisfying the compiler on this one");
+print(y);

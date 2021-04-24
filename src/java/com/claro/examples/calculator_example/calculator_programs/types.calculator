@@ -17,6 +17,10 @@ var s: string = "one";
 print(s);
 type(s);
 
+var b: boolean = s == "one";
+print(b);
+type(b);
+
 # **** Non-empty lists. ****
 
 var intList: [int] = [i, 2 * i, 4 * i];
