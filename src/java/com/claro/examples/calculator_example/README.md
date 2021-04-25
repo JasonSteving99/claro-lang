@@ -35,7 +35,8 @@ Note that I haven't yet figured out how to get the Lanterna library to work with
 ### Cleanup After Yourself
 
 The above commands will have produced some artifact files that you probably don't want lying around:
-- FirstCalculator.java
-- FirstCalculator.class
+- `<classname>.java`
+- `<classname>.class`
+- Optionally, any class files for functions that you may have defined in your program. This is a JAVA_SOURCE CompilerBackend implementation detail... They'll look something like this: `<classname>$1$<functionName>.class`
 
-`$ rm FirstCalculator.java FirstCalculator.class`
+`$ rm FirstCalculator.java FirstCalculator*.class`
