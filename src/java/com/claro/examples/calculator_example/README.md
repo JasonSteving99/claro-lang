@@ -10,7 +10,7 @@ Claro's compiler is designed from the ground up to support multiple backends to 
 `$ bazel run calculator_compiler_binary -- --interpreted --silent`
 
 #### Java Source Target Output
-`$ bazel run calculator_compiler_binary -- --silent`
+`$ bazel run calculator_compiler_binary -- --java_source --silent`
 
 
 # Docker Hub
@@ -26,11 +26,11 @@ Note that I haven't yet figured out how to get the Lanterna library to work with
 
 ### Run the Compiler Over a .calculator File to Produce Compiled .java File
 
-`$ docker run -i clarolang/calculator:compiler --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java`
+`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java`
 
 ### Run the Compiler Over a .calculator File and Run It
 
-`$ docker run -i clarolang/calculator:compiler --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java && javac FirstCalculator.java && java FirstCalculator`
+`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java && javac FirstCalculator.java && java FirstCalculator`
 
 ### Cleanup After Yourself
 
