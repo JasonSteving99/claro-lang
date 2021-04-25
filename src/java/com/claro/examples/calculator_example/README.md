@@ -6,13 +6,17 @@ Follow these instructions to get running. Recommend getting started by just runn
 #### Compiler Backends
 Claro's compiler is designed from the ground up to support multiple backends to allow for various modes of handling the parsed AST Intermediate Representation. For now Claro supports the following Targets:
 
-#### REPL
+### REPL
 `$ bazel run calculator_compiler_binary -- --repl --silent`
 
-#### Interpreted
+(Note that this works, but when using the `input()` stmt in the REPL, you won't be able to see what you're typing as input, but it will successfully parse it..)
+
+### Interpreted
 `$ bazel run calculator_compiler_binary -- --interpreted --silent`
 
-#### Java Source Target Output
+(Turns out that this actually broken until we can make a change to allow the interpreted mode to read from files instead of System.in...since it steals input from the program itself meaning that any program using the `input()` stmt doesn't work...For now it hardcodes using the file `second.calculator`.)
+
+### Java Source Target Output
 `$ bazel run calculator_compiler_binary -- --java_source --silent`
 
 
