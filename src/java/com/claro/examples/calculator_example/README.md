@@ -1,5 +1,5 @@
 # Running Claro Programs
-Follow these instructions to get running. Recommend getting started by just running some of the demo programs in `./calculator_programs/`.
+Follow these instructions to get running. Recommend getting started by just running some of the demo programs in `./calculator_programs/` [here](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/examples/calculator_example/calculator_programs).
 
 This directory originated as a complete test dir learning about the lexer/parser tools by implementing a calculator but...it's grown beyond that and naming hasn't caught up lol. This is straight up Claro.
 
