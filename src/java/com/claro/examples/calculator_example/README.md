@@ -1,5 +1,7 @@
-# Running Executable Calculator Example
+# Running Claro Programs
 Follow these instructions to get running. Recommend getting started by just running some of the demo programs in `./calculator_programs/`.
+
+This directory originated as a complete test dir learning about the lexer/parser tools by implementing a calculator but...it's grown beyond that and naming hasn't caught up lol. This is straight up Claro.
 
 # Bazel (Highly Recommended)
 
