@@ -42,8 +42,14 @@ docker_push(
    tag = "second",
 )
 
-java_calculator_binary(
+java_calculator_image(
     name = "second_compiled_calculator_image",
+    srcs = [":second_compiled_calculator"],
+    java_name = "Second",
+)
+
+java_calculator_binary(
+    name = "second_compiled_calculator_binary",
     srcs = [":second_compiled_calculator"],
     java_name = "Second",
 )
