@@ -6,6 +6,10 @@ likely to be forever in flux, but we'll start somewhere.
 
 Read more detail in the in-progress [design doc](https://docs.google.com/document/d/1JvRXy-UwPjEAzVTCAtmVgBzj-tIEfVwIq6bOa3xGTRk/edit).
 
+# Try it Out!
+Ignore everything below here and jump straight to the actual [src](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/examples/calculator_example), and follow the real [README](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/examples/calculator_example#running-claro-programs).
+
+
 ### Compiler implementation decisions
 #### Lexer/Parser Generator
 Note that this project depends almost entirely on the work in the [JFlex-de Bazel Rules Repo](https://github.com/jflex-de/bazel_rules):
