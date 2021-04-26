@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load(":java_calculator.bzl", "gen_calculator_compiler", "java_calculator_library", "java_calculator_binary", "DEFAULT_CALCULATOR_NAME")
+load(":java_calculator.bzl", "gen_calculator_compiler", "java_calculator_library", "java_calculator_image", "java_calculator_binary", "DEFAULT_CALCULATOR_NAME")
 load("@io_bazel_rules_docker//docker:docker.bzl", "docker_push")
 
 # Manually run this target if you're feelin fancy and want to push this binary
@@ -13,8 +13,15 @@ docker_push(
    tag = "first",
 )
 
-java_calculator_binary(
+# This thing is useless unless you wanna push to docker.
+java_calculator_image(
     name = "first_compiled_calculator_image",
+    srcs = [":first_compiled_calculator"],
+    java_name = "First",
+)
+
+java_calculator_binary(
+    name = "first_compiled_calculator_binary",
     srcs = [":first_compiled_calculator"],
     java_name = "First",
 )
