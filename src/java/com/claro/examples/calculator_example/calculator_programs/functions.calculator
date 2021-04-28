@@ -1,5 +1,4 @@
 var x: int = 1;
-print(x);
 
 # TODO(steving) in the future, change this from a function to a consumer so that it doesn't need a return val. We're not
 # TODO(steving) gonna add Void to this language.
@@ -31,8 +30,38 @@ function helloFunWorld(message: string) -> string {
   return res;
 }
 
-print(helloFunWorld("Functions in compiled java source Claro code!"));
+# The keyword `function` is actually optional here to allow you to be extremely explicit.
+provider function gimmeInt() -> int {
+   return 9;
+}
+# Example of defining a Provider w/o using the `function` keyword.
+# provider gimmeAnothaInt() -> int {
+#   return -9;
+# }
+var providedInt = gimmeInt();
+print("Here's a provided result!");
+print(providedInt);
+
+# The keyword `function` is actually optional here to allow you to be extremely explicit.
+consumer function takeThis(arg: string) {
+  print(arg);
+}
+# Example of defining a Consumer w/o using the `function` keyword.
+consumer takeAnothaOne(arg: int) {
+  print(arg);
+}
+takeThis("we're calling takeThis!");
+takeAnothaOne(99);
+
+
+var helloFunWorldRes = helloFunWorld("Functions in compiled java source Claro code!");
+print(helloFunWorldRes);
 
 var y: string = "not in function's scope";
 print("Just gonna use y for the sake of satisfying the compiler on this one");
 print(y);
+
+print("This is what it looks like to print out the function reference itself");
+print(gimmeInt);
+var helloFunWorld2 = helloFunWorld;
+print(helloFunWorld2);

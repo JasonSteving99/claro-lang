@@ -13,52 +13,52 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class FunctionCallExpr extends Expr {
-  protected final String name;
-  protected ImmutableMap<String, Expr> argsExprMap;
+public class ConsumerFunctionCallStmt extends Stmt {
+  private final String consumerName;
+  private ImmutableMap<String, Expr> argsExprMap;
 
   // Java is legit so stupid with its type-erasure... args is in fact certainly an ImmutableList<Expr> but of course
   // Java doesn't want to play well with that *eye roll*.
-  public FunctionCallExpr(String name, ImmutableList<Node> args) {
+  public ConsumerFunctionCallStmt(String consumerName, ImmutableList<Node> args) {
     super(args);
-    this.name = name;
+    this.consumerName = consumerName;
   }
 
   @Override
-  protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+  protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Make sure we check this will actually be a valid reference before we allow it.
     Preconditions.checkState(
-        scopedHeap.isIdentifierDeclared(this.name),
-        "No function <%s> within the current scope!",
-        this.name
+        scopedHeap.isIdentifierDeclared(this.consumerName),
+        "No consumer <%s> within the current scope!",
+        this.consumerName
     );
-    Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.name);
+    Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.consumerName);
     Preconditions.checkState(
-        // Include CONSUMER_FUNCTION just so that later we can throw a more specific error for that case.
+        // Include *_FUNCTION just so that later we can throw a more specific error for that case.
         ImmutableSet.of(BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION)
             .contains(referencedIdentifierType.baseType()),
         "Non-function %s %s cannot be called!",
         referencedIdentifierType,
-        this.name
+        this.consumerName
     );
     Preconditions.checkState(
-        ((Types.ProcedureType) referencedIdentifierType).hasReturnValue(),
-        "%s %s does not return a value, it cannot be used as an expression!",
+        !((Types.ProcedureType) referencedIdentifierType).hasReturnValue(),
+        "%s %s returns a value, it cannot be used as a statement!",
         referencedIdentifierType,
-        this.name
+        this.consumerName
     );
 
-    Types.ProcedureType.FunctionType functionType =
-        (Types.ProcedureType.FunctionType) scopedHeap.getValidatedIdentifierType(this.name);
+    Types.ProcedureType.ConsumerType consumerType =
+        (Types.ProcedureType.ConsumerType) scopedHeap.getValidatedIdentifierType(this.consumerName);
 
-    ImmutableList<Map.Entry<String, Type>> definedArgTyps = functionType.getArgTypes().entrySet().asList();
+    ImmutableList<Map.Entry<String, Type>> definedArgTyps = consumerType.getArgTypes().entrySet().asList();
 
     // Make sure that we at least do due diligence and first check that we have the right number of args.
     Preconditions.checkState(
         definedArgTyps.size() == this.getChildren().size(),
         "Expected %s args for function %s, but found %s",
         definedArgTyps.size(),
-        this.name,
+        this.consumerName,
         this.getChildren().size()
     );
 
@@ -75,21 +75,19 @@ public class FunctionCallExpr extends Expr {
     argsExprMap = argsExprMapBuilder.build();
 
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
-    scopedHeap.markIdentifierUsed(this.name);
-
-    return functionType.getReturnType();
+    scopedHeap.markIdentifierUsed(this.consumerName);
   }
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
-    scopedHeap.markIdentifierUsed(this.name);
+    scopedHeap.markIdentifierUsed(this.consumerName);
 
     return new StringBuilder(
         String.format(
-            "%s.apply(%s)",
-            this.name,
+            "%s.apply(%s);\n",
+            this.consumerName,
             this.argsExprMap.values()
                 .stream()
                 .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
@@ -100,7 +98,7 @@ public class FunctionCallExpr extends Expr {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    return ((Types.ProcedureType.ProcedureWrapper) scopedHeap.getIdentifierValue(this.name))
+    return ((Types.ProcedureType.ProcedureWrapper) scopedHeap.getIdentifierValue(this.consumerName))
         .apply(this.argsExprMap, scopedHeap);
   }
 }

@@ -126,6 +126,8 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "boolean"          { return symbol(Calc.BOOLEAN_TYPE); }
     "string"           { return symbol(Calc.STRING_TYPE); }
     "function"         { return symbol(Calc.FUNCTION_TYPE); }
+    "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE); }
+    "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

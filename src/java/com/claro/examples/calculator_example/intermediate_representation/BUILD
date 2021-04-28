@@ -8,16 +8,13 @@ package(
 
 java_library(
     name = "expr_impls",
-    srcs = [
-        "DecrementExpr.java",
-        "FunctionCallExpr.java",
-        "IncrementExpr.java",
-        "InputExpr.java",
-        "ListExpr.java",
-        "ListSubscriptExpr.java",
-        "LenExpr.java",
-        "ParenthesizedExpr.java",
-    ],
+    srcs = glob(
+        ["*Expr.java"],
+        exclude = [
+            "Expr.java",
+            "*BoolExpr.java",
+            "*NumericExpr.java",
+        ]),
     deps = [
         ":bool_expr_impls",
         ":expr",
@@ -154,6 +151,7 @@ java_library(
         ":bool_expr",
         ":expr",
         ":expr_impls",
+        ":node",
         ":stmt",
         ":stmt_list_node",
         ":term_impls",
@@ -162,6 +160,7 @@ java_library(
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:base_type",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:types",
     ],

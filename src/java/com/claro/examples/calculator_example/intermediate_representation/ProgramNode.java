@@ -17,6 +17,8 @@ public class ProgramNode extends Node {
     this.generatedClassName = generatedClassName;
   }
 
+  // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
+  // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // At the program level, validate all types in the entire AST before execution.
