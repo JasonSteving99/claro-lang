@@ -77,13 +77,16 @@ public class IfStmt extends Stmt {
     boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
 
     // First thing first handle the one guaranteed present if-stmt.
-    IfStmt initialIfStmt = this.getConditionStack().pop();
+    IfStmt initialIfStmt = this.getConditionStack().peek();
     appendIfConditionStmtJavaSource(initialIfStmt, scopedHeap, false, enableBranchInspection, res);
 
-    // Now handle any remaining else-if-stmts.
-    while (!this.getConditionStack().isEmpty()) {
+    // Now handle any remaining else-if-stmts. Iterate over, instead of pop-ing things off the stack, cuz in the
+    // interpreted mode we need this Node to be reusable in the case of this being included for example in a loop or
+    // function etc and I just want to match the behavior here to be less destructive in case for some reason it's ever
+    // useful to code gen java source from the same IfStmt Node more than once...
+    for (int i = getConditionStack().size() - 2; i >= 0; i--) {
       appendIfConditionStmtJavaSource(
-          this.getConditionStack().pop(),
+          this.getConditionStack().get(i),
           scopedHeap,
           true,
           enableBranchInspection,
@@ -146,8 +149,10 @@ public class IfStmt extends Stmt {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    while (!getConditionStack().isEmpty()) {
-      IfStmt ifStmt = getConditionStack().pop();
+    // Iterate over, instead of pop-ing things off the stack, cuz we need this Node to be reusable in the case of this
+    // being included for example in a loop or function etc.
+    for (int i = getConditionStack().size() - 1; i >= 0; i--) {
+      IfStmt ifStmt = getConditionStack().get(i);
       if ((boolean) ifStmt.getChildren().get(0).generateInterpretedOutput(scopedHeap)) {
         // We've now entered a new scope.
         scopedHeap.enterNewScope();

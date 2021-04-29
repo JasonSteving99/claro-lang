@@ -41,3 +41,18 @@ if (true) {
 # Uncomment any of the assignment statements above and see Claro warn about possibly not initializing the var x! Branch
 # inspection to confirm initialization in every branch in the above branch group is crazy cool!
 print(x);
+
+# Turns out we need to make sure that the IfStmt Node is reusable, so throw it into a while loop and make sure it's
+# doing good things. It going wrong would look like the initial conditions being entirely skipped.
+var y = 3;
+while (y > 0) {
+  print(y);
+  if (y == 3) {
+    print("Found 3 as expected");
+  } else if (y == 2) {
+    print("Found 2 as expected");
+  } else {
+    print("Found 1 as expected");
+  }
+  y--;
+}
