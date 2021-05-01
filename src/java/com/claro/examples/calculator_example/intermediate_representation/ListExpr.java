@@ -13,33 +13,37 @@ import java.util.stream.Collectors;
 public class ListExpr extends Expr {
 
   private Optional<Type> emptyListValueType;
+  private final ImmutableList<Expr> initializerArgExprsList;
 
-  public ListExpr(ImmutableList<Node> listInitializerArgsList) {
-    super(listInitializerArgsList);
+  public ListExpr(ImmutableList<Expr> listInitializerArgsList) {
+    super(ImmutableList.of());
     this.emptyListValueType = Optional.empty();
+    this.initializerArgExprsList = listInitializerArgsList;
   }
 
   // TODO(steving) Drop this constructor option. We need the empty list type to be set. Use constructor below.
   public ListExpr() {
     super(ImmutableList.of());
     this.emptyListValueType = Optional.of(Types.UNDECIDED);
+    this.initializerArgExprsList = ImmutableList.of();
   }
 
   public ListExpr(Type emptyListValueType) {
     super(ImmutableList.of());
     this.emptyListValueType = Optional.of(emptyListValueType);
+    this.initializerArgExprsList = ImmutableList.of();
   }
 
   @Override
   protected Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Type listType;
-    if (getChildren().isEmpty()) {
+    if (this.initializerArgExprsList.isEmpty()) {
       // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
       listType = emptyListValueType.get();
     } else {
-      Type listValuesType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+      Type listValuesType = ((Expr) this.initializerArgExprsList.get(0)).getValidatedExprType(scopedHeap);
       // Need to assert that all values in the list are of the same type.
-      for (Node initialListValue : this.getChildren()) {
+      for (Node initialListValue : this.initializerArgExprsList) {
         ((Expr) initialListValue).assertExpectedExprType(scopedHeap, listValuesType);
       }
       listType = Types.ListType.forValueType(listValuesType);
@@ -49,25 +53,11 @@ public class ListExpr extends Expr {
 
   @Override
   protected void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
-    if (getChildren().isEmpty()) {
+    if (initializerArgExprsList.isEmpty()) {
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
       this.emptyListValueType = Optional.of(expectedExprType);
     } else {
       super.assertExpectedExprType(scopedHeap, expectedExprType);
-    }
-  }
-
-  // TODO(steving) Re-implement this in a standardized way instead of this hacky one-off way.
-  public String getJavaSourceType() {
-    if (getChildren().isEmpty()) {
-      return "Object";
-    }
-    Node firstChild = getChildren().get(0);
-    if (firstChild instanceof ListExpr) {
-      return String.format("ClaroList<%s>", ((ListExpr) firstChild).getJavaSourceType());
-    } else {
-      // TODO(steving) This needs to defer instead to the actual type of the type known by the Expr in the initializer list.
-      return "Integer";
     }
   }
 
@@ -76,11 +66,11 @@ public class ListExpr extends Expr {
     // Simply for parity with the interpreted implementation, this is how we'll get this ArrayList.
     String listFormatString = "initializeList(%s)";
     String formatArg;
-    if (getChildren().isEmpty()) {
+    if (initializerArgExprsList.isEmpty()) {
       formatArg = "";
     } else {
       formatArg =
-          this.getChildren().stream()
+          this.initializerArgExprsList.stream()
               .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
               .collect(Collectors.joining(", ")
               );
@@ -90,7 +80,7 @@ public class ListExpr extends Expr {
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    return this.getChildren().stream()
+    return this.initializerArgExprsList.stream()
         .map(expr -> expr.generateInterpretedOutput(scopedHeap))
         .collect(Collectors.toCollection(ArrayList::new));
   }

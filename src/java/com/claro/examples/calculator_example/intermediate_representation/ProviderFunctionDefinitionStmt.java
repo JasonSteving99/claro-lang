@@ -8,23 +8,25 @@ import com.google.common.collect.ImmutableList;
 public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
 
   public ProviderFunctionDefinitionStmt(
-      String functionName,
+      String providerName,
       Type outputType,
       StmtListNode stmtListNode,
       Expr returnExpr) {
     super(
-        ImmutableList.of(stmtListNode, returnExpr),
-        Types.ProcedureType.ProviderType.forReturnType(functionName, outputType)
+        providerName,
+        Types.ProcedureType.ProviderType.forReturnType(outputType),
+        ImmutableList.of(stmtListNode, returnExpr)
     );
   }
 
   public ProviderFunctionDefinitionStmt(
-      String functionName,
+      String providerName,
       Type outputType,
       Expr returnExpr) {
     super(
-        ImmutableList.of(returnExpr),
-        Types.ProcedureType.ProviderType.forReturnType(functionName, outputType)
+        providerName,
+        Types.ProcedureType.ProviderType.forReturnType(outputType),
+        ImmutableList.of(returnExpr)
     );
   }
 }

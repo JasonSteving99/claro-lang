@@ -1,16 +1,13 @@
 var x: int = 1;
 
-# TODO(steving) in the future, change this from a function to a consumer so that it doesn't need a return val. We're not
-# TODO(steving) gonna add Void to this language.
-function callMeMaybe(userMessage: string) -> boolean {
+consumer function callMeMaybe(userMessage: string) {
   print("This was the user message!:");
   print(userMessage);
-  return true; # TODO(steving) Useless return that we'll drop in the future.
 }
 
-function helloFunWorld(message: string) -> string {
+function helloFunWorld(message: string, someInt: int) -> string {
   # For what it's worth, note that this function has access to the things declared above it.
-  print(x);
+  print(x + someInt);
 
   # Swap the commented res declaration and you'll see a return type error message.
   var res: string = message;
@@ -19,9 +16,8 @@ function helloFunWorld(message: string) -> string {
   # Prompt the user for something and see if we should call the other function.
   var userResponse = input("Should we call the other function? (y/n): ");
   if (userResponse == "y") {
-    var useless = callMeMaybe(input("What's your message?: ")); # TODO(steving) Drop this once callMeMaybe is consumer.
+    callMeMaybe(input("What's your message?: "));
     print("Please ignore this next bit...Claro doesn't allow dead code so I'm using it....");
-    print(useless);
   } else {
     print("We're not gonna call the other function cuz your response was the following instead of 'y'");
     print(userResponse);
@@ -54,7 +50,7 @@ takeThis("we're calling takeThis!");
 takeAnothaOne(99);
 
 
-var helloFunWorldRes = helloFunWorld("Functions in compiled java source Claro code!");
+var helloFunWorldRes = helloFunWorld("Functions in compiled java source Claro code!", 10);
 print(helloFunWorldRes);
 
 var y: string = "not in function's scope";
@@ -63,5 +59,18 @@ print(y);
 
 print("This is what it looks like to print out the function reference itself");
 print(gimmeInt);
-var helloFunWorld2 = helloFunWorld;
+var helloFunWorld2: function<|string, int| -> string> = helloFunWorld;
 print(helloFunWorld2);
+
+print("We can actually call functions via indirection!");
+var gimmeInt2: provider<int> = gimmeInt;
+print(gimmeInt2());
+type(gimmeInt2);
+
+print("Higher Order functions exist!");
+consumer higher(consumerFn: consumer<int>, x: int) {
+  consumerFn(x);
+  print(consumerFn);
+  type(consumerFn);
+}
+higher(takeAnothaOne, 999);

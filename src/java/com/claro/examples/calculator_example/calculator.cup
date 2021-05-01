@@ -61,6 +61,7 @@ terminal         INCREMENT, DECREMENT;
 terminal         SEMICOLON;
 terminal         COLON;
 terminal         COMMA;
+terminal         BAR;
 terminal         EQUALS, NOT_EQUALS;
 terminal         VAR, ASSIGNMENT;
 terminal         L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
@@ -109,7 +110,7 @@ nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
 nonterminal ListExpr                           list;
 nonterminal ListSubscriptExpr                  list_subscript;
-nonterminal ImmutableList.Builder<Node>        args_list;
+nonterminal ImmutableList.Builder<Expr>        args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
 nonterminal IfStmt                             if_stmt;
 nonterminal IfStmt                             else_if_stmt_chain;
@@ -139,6 +140,8 @@ nonterminal BoolExpr                           equality;
 nonterminal BoolExpr                           inequality;
 nonterminal BoolExpr                           bool_arithmetic;
 nonterminal Type                               builtin_type;
+nonterminal ImmutableList<Type>                builtin_types_list;
+nonterminal ImmutableList.Builder<Type>        backwards_builtin_types_list;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -222,18 +225,34 @@ identifier_declaration ::=
 builtin_type ::=
     INT_TYPE:t
     {: RESULT = Types.INTEGER; :}
-  |
-    FLOAT_TYPE:t
+  | FLOAT_TYPE:t
     {: RESULT = Types.FLOAT; :}
-  |
-    BOOLEAN_TYPE:t
+  | BOOLEAN_TYPE:t
     {: RESULT = Types.BOOLEAN; :}
-  |
-    STRING_TYPE:t
+  | STRING_TYPE:t
     {: RESULT = Types.STRING; :}
-  |
-    LBRACKET builtin_type:t RBRACKET
+  | LBRACKET builtin_type:t RBRACKET
     {: RESULT = Types.ListType.forValueType(t); :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:arg ARROW builtin_type:output_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(arg), output_type); :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET BAR builtin_types_list:arg_types BAR ARROW builtin_type:output_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(arg_types, output_type); :}
+  | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types); :}
+  | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:return_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.ProviderType.forReturnType(return_type); :}
+  ;
+
+builtin_types_list ::=
+    backwards_builtin_types_list:b
+    {: RESULT = b.build().reverse(); :}
+  ;
+
+backwards_builtin_types_list ::=
+    builtin_type:t COMMA backwards_builtin_types_list:tail
+    {: RESULT = tail.add(t); :}
+  | builtin_type:t
+    {: RESULT = ImmutableList.<Type>builder().add(t); :}
   ;
 
 identifier_assignment ::=
@@ -338,7 +357,7 @@ args_list ::=
        RESULT = tail.add(head);
     :}
   | expr:e
-    {: RESULT = ImmutableList.<Node>builder().add(e); :}
+    {: RESULT = ImmutableList.<Expr>builder().add(e); :}
   ;
 
 list_subscript ::=

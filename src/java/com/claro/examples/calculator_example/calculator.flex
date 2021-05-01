@@ -107,6 +107,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     ";"                { return symbol(Calc.SEMICOLON); }
     ":"                { return symbol(Calc.COLON); }
     ","                { return symbol(Calc.COMMA); }
+    "|"                { return symbol(Calc.BAR); }
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }
     "while"            { return symbol(Calc.WHILE); }

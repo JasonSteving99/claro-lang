@@ -15,8 +15,10 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
       StmtListNode stmtListNode,
       Expr returnExpr) {
     super(
-        ImmutableList.of(stmtListNode, returnExpr),
-        Types.ProcedureType.FunctionType.forArgsAndReturnTypes(functionName, argTypes, outputType)
+        functionName,
+        argTypes,
+        Types.ProcedureType.FunctionType.forArgsAndReturnTypes(argTypes.values().asList(), outputType),
+        ImmutableList.of(stmtListNode, returnExpr)
     );
   }
 
@@ -26,8 +28,10 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
       Type outputType,
       Expr returnExpr) {
     super(
-        ImmutableList.of(returnExpr),
-        Types.ProcedureType.FunctionType.forArgsAndReturnTypes(functionName, argTypes, outputType)
+        functionName,
+        argTypes,
+        Types.ProcedureType.FunctionType.forArgsAndReturnTypes(argTypes.values().asList(), outputType),
+        ImmutableList.of(returnExpr)
     );
   }
 }

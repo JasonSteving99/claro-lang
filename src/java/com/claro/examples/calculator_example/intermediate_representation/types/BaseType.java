@@ -7,7 +7,7 @@ public enum BaseType {
   UNDECIDED,
   INTEGER("int", "Integer"),
   FLOAT("float", "Double"),
-  BOOLEAN("boolean"),
+  BOOLEAN("boolean", "Boolean"),
   STRING("string", "String"),
   ARRAY,
   LIST("list<%s>", "ClaroList<%s>"), // Linked. TODO(steving) Make this linked.
@@ -25,16 +25,16 @@ public enum BaseType {
   // and returns some value.
   FUNCTION(
       "function<%s -> %s>",
-      "$%s",
+      "ClaroFunction<%s>",
       // Allow scoping rules to behave the same as they appear in Claro source since Claro allows function defs anywhere.
       // so just define an inner class directly within the method where the generated java source lives.
-      "final class $%s {\n" +
-      "  %s apply(%s) {\n" +
+      "final class $%s extends ClaroFunction<%s> {\n" +
+      "  public %s apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +
-      "    return \"%s %s\";\n" +
+      "    return \"%s\";\n" +
       "  }\n" +
       "}\n" +
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
@@ -45,14 +45,14 @@ public enum BaseType {
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
   CONSUMER_FUNCTION(
       "consumer<%s>",
-      "$%s",
-      "final class $%s {\n" +
-      "  void apply(%s) {\n" +
+      "ClaroConsumerFunction",
+      "final class $%s extends ClaroConsumerFunction {\n" +
+      "  public void apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +
-      "    return \"%s %s\";\n" +
+      "    return \"%s\";\n" +
       "  }\n" +
       "}\n" +
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
@@ -63,14 +63,14 @@ public enum BaseType {
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
   PROVIDER_FUNCTION(
       "provider<%s>",
-      "$%s",
-      "final class $%s {\n" +
-      "  %s apply() {\n" +
+      "ClaroProviderFunction<%s>",
+      "final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "  public %s apply() {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +
-      "    return \"%s %s\";\n" +
+      "    return \"%s\";\n" +
       "  }\n" +
       "}\n" +
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it

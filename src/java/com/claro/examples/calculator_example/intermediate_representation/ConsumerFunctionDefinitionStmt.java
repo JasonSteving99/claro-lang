@@ -12,8 +12,10 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
       ImmutableMap<String, Type> argTypes,
       StmtListNode stmtListNode) {
     super(
-        ImmutableList.of(stmtListNode),
-        Types.ProcedureType.ConsumerType.forConsumerArgTypes(consumerName, argTypes)
+        consumerName,
+        argTypes,
+        Types.ProcedureType.ConsumerType.forConsumerArgTypes(argTypes.values().asList()),
+        ImmutableList.of(stmtListNode)
     );
   }
 }

@@ -115,6 +115,15 @@ public class ProgramNode extends Node {
         "      return ClaroList.this.size();\n" +
         "    }\n" +
         "  }\n" +
+        "  private abstract static class ClaroFunction<T> {\n" +
+        "    public abstract T apply(Object... args);\n" +
+        "  }\n" +
+        "  private abstract static class ClaroProviderFunction<T> {\n" +
+        "    public abstract T apply();\n" +
+        "  }\n" +
+        "  private abstract static class ClaroConsumerFunction {\n" +
+        "    public abstract void apply(Object... args);\n" +
+        "  }\n" +
         "}",
         this.packageString,
         this.generatedClassName,

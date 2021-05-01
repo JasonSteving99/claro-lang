@@ -7,18 +7,36 @@ import com.claro.examples.calculator_example.intermediate_representation.types.T
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
+  private final String procedureName;
+  private final Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
   private final Types.ProcedureType procedureType;
 
   public ProcedureDefinitionStmt(
-      ImmutableList<Node> children,
-      Types.ProcedureType procedureType) {
+      String procedureName,
+      ImmutableMap<String, Type> argTypes,
+      Types.ProcedureType procedureType,
+      ImmutableList<Node> children) {
     super(children);
+    this.procedureName = procedureName;
+    this.optionalArgTypesByNameMap = Optional.of(argTypes);
+    this.procedureType = procedureType;
+  }
+
+  public ProcedureDefinitionStmt(
+      String procedureName,
+      Types.ProcedureType procedureType,
+      ImmutableList<Node> children) {
+    super(children);
+    this.procedureName = procedureName;
+    this.optionalArgTypesByNameMap = Optional.empty();
     this.procedureType = procedureType;
   }
 
@@ -26,20 +44,20 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   protected void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Validate that this is not a redeclaration of an identifier.
     Preconditions.checkState(
-        !scopedHeap.isIdentifierDeclared(this.procedureType.getProcedureName()),
-        String.format("Unexpected redeclaration of %s %s.", this.procedureType, this.procedureType.getProcedureName())
+        !scopedHeap.isIdentifierDeclared(this.procedureName),
+        String.format("Unexpected redeclaration of %s %s.", this.procedureType, this.procedureName)
     );
 
     // First we need to mark the function declared and initialized within the original calling scope.
-    scopedHeap.observeIdentifier(this.procedureType.getProcedureName(), this.procedureType);
-    scopedHeap.initializeIdentifier(this.procedureType.getProcedureName());
+    scopedHeap.observeIdentifier(this.procedureName, this.procedureType);
+    scopedHeap.initializeIdentifier(this.procedureName);
 
     // Enter the new scope for this function.
     scopedHeap.observeNewScope(false);
 
     // I may need to mark the args as observed identifiers within this new scope.
     if (this.procedureType.hasArgs()) {
-      this.procedureType.getArgTypes().forEach(
+      this.optionalArgTypesByNameMap.get().forEach(
           (argName, argType) ->
           {
             scopedHeap.observeIdentifier(argName, argType);
@@ -67,19 +85,38 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    scopedHeap.putIdentifierValue(this.procedureType.getProcedureName(), this.procedureType);
-    scopedHeap.initializeIdentifier(this.procedureType.getProcedureName());
+    scopedHeap.putIdentifierValue(this.procedureName, this.procedureType);
+    scopedHeap.initializeIdentifier(this.procedureName);
 
     scopedHeap.enterNewScope();
 
     // Since we're about to immediately execute some java source code gen, we might need to init the local arg variables.
+    Optional<StringBuilder> optionalJavaSourceBodyBuilder = Optional.empty();
     if (this.procedureType.hasArgs()) {
-      this.procedureType.getArgTypes().entrySet().stream()
+      ImmutableSet<Map.Entry<String, Type>> argTypesByNameEntrySet = this.optionalArgTypesByNameMap.get().entrySet();
+      argTypesByNameEntrySet.stream()
           .forEach(stringTypeEntry -> {
             // Since we don't have a value to store in the ScopedHeap we'll manually ack that the identifier is init'd.
             scopedHeap.putIdentifierValue(stringTypeEntry.getKey(), stringTypeEntry.getValue());
             scopedHeap.initializeIdentifier(stringTypeEntry.getKey());
           });
+      // We need to gen code for initializing args to be used within the java source function body, since we're
+      // constrained to the java source function taking args as `Object... args`.
+      StringBuilder javaSourceBodyBuilder = new StringBuilder();
+      ImmutableList<Map.Entry<String, Type>> argsEntrySet = argTypesByNameEntrySet.asList();
+      for (int i = 0; i < argsEntrySet.size(); i++) {
+        String argJavaSourceType = argsEntrySet.get(i).getValue().getJavaSourceType();
+        javaSourceBodyBuilder.append(
+            String.format(
+                "%s %s = (%s) args[%s];\n",
+                argJavaSourceType,
+                argsEntrySet.get(i).getKey(),
+                argJavaSourceType,
+                i
+            )
+        );
+      }
+      optionalJavaSourceBodyBuilder = Optional.of(javaSourceBodyBuilder);
     }
 
     StringBuilder javaSourceOutput;
@@ -87,12 +124,15 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       // There's a StmtListNode to generate code for before the return stmt.
       javaSourceOutput = new StringBuilder(
           this.procedureType.getJavaNewTypeDefinitionStmt(
-              ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap)
-                  // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
-                  // some good ol' fashioned hardcoding?
-                  .append("return ")
-                  .append(((Expr) this.getChildren().get(1)).generateJavaSourceOutput(scopedHeap))
-                  .append(";")
+              this.procedureName,
+              optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
+                  ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap)
+                      // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
+                      // some good ol' fashioned hardcoding?
+                      .append("return ")
+                      .append(((Expr) this.getChildren().get(1)).generateJavaSourceOutput(scopedHeap))
+                      .append(";")
+              )
           )
       );
     } else {
@@ -104,9 +144,10 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
           "%s";
       javaSourceOutput = new StringBuilder(
           this.procedureType.getJavaNewTypeDefinitionStmt(
+              this.procedureName,
               // For more consistency and I guess avoiding the condition checking above, I could've definitely made a
               // new ReturnStmt.java file but....what's so bad about some good ol' fashioned hardcoding?
-              new StringBuilder(
+              optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
                   String.format(
                       javaBodyTemplate,
                       this.getChildren().get(0).generateJavaSourceOutput(scopedHeap)
@@ -128,38 +169,23 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // Note that if you look closely and squint this below is actually dynamic code generation in Java. Like...duh cuz
     // this whole thing is code gen...that's what a compiler is...but this feels to be more code gen-y so ~shrug~ lol.
     // I think that's neat ;P.
-    ImmutableList<Map.Entry<String, Type>> backwardsArgTypes =
-        this.procedureType.hasArgs() ?
-        ProcedureDefinitionStmt.this.procedureType.getArgTypes().entrySet().asList().reverse() :
-        null;
-    final Function<ImmutableMap<String, Expr>, StmtListNode> getArgDeclarationStmtsFn =
+    final Consumer<ImmutableList<Expr>> defineArgIdentifiersConsumerFn =
         args -> {
-          StmtListNode argDeclarationStmts =
-              new StmtListNode(
-                  new DeclarationStmt(
-                      backwardsArgTypes.get(0).getKey(),
-                      backwardsArgTypes.get(0).getValue(),
-                      args.get(backwardsArgTypes.get(0).getKey())
-                  )
-              );
-          for (int i = 1; i < backwardsArgTypes.size(); i++) {
-            Map.Entry<String, Type> currTailArg = backwardsArgTypes.get(i);
-            String currArgName = currTailArg.getKey();
-            argDeclarationStmts =
-                new StmtListNode(
-                    new DeclarationStmt(currArgName, currTailArg.getValue(), args.get(currArgName)),
-                    argDeclarationStmts
-                );
+          ImmutableList<Map.Entry<String, Type>> argTypes =
+              this.optionalArgTypesByNameMap.get().entrySet().asList();
+          for (int i = args.size() - 1; i >= 0; i--) {
+            Map.Entry<String, Type> currTailArg = argTypes.get(i);
+            new DeclarationStmt(currTailArg.getKey(), currTailArg.getValue(), args.get(i))
+                .generateInterpretedOutput(definitionTimeScopedHeap);
           }
-          return argDeclarationStmts;
         };
 
     definitionTimeScopedHeap.putIdentifierValue(
-        this.procedureType.getProcedureName(),
+        this.procedureName,
         this.procedureType,
         this.procedureType.new ProcedureWrapper() {
           @Override
-          public Object apply(ImmutableMap<String, Expr> args, ScopedHeap callTimeScopedHeap) {
+          public Object apply(ImmutableList<Expr> args, ScopedHeap callTimeScopedHeap) {
             // First things first, this function needs to operate within a totally new scope. NOTE that when this
             // actually finally EXECUTES, because it depends on the time when the function is finally CALLED rather than
             // this current moment where it's defined, the ScopedHeap very likely has additional identifiers present
@@ -171,7 +197,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
             if (ProcedureDefinitionStmt.this.procedureType.hasArgs()) {
               // Execute the arg declarations assigning them to their given values.
-              getArgDeclarationStmtsFn.apply(args).generateInterpretedOutput(callTimeScopedHeap);
+              defineArgIdentifiersConsumerFn.accept(args);
             }
 
             Object returnValue = null; // null, since we may or may not have a value to give.
