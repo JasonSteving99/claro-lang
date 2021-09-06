@@ -1,7 +1,10 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+
+import java.util.Optional;
 
 public abstract class Node {
   private final ImmutableList<Node> children;
@@ -14,36 +17,32 @@ public abstract class Node {
     return children;
   }
 
-  public StringBuilder generateTargetOutput(Target target) throws IllegalArgumentException {
-    ScopedHeap scopedHeap = new ScopedHeap();
-    scopedHeap.enterNewScope();
-    return generateTargetOutput(target, scopedHeap);
-  }
-
-  public StringBuilder generateTargetOutput(Target target, ScopedHeap scopedHeap) throws IllegalArgumentException {
-    StringBuilder generatedOutput;
-    switch (target) {
-      case JAVA_SOURCE:
-        generatedOutput = generateJavaSourceOutput(scopedHeap);
-        break;
-      case REPL:
-        // We can't check for unused identifiers in the REPL because we might just not yet have seen the instruction
-        // where a given identifier will be used.
-        scopedHeap.disableCheckUnused();
-        generatedOutput = new StringBuilder().append(generateInterpretedOutput(scopedHeap));
-        break;
-      case INTERPRETED:
-        generatedOutput = new StringBuilder().append(generateInterpretedOutput(scopedHeap));
-        break;
-      default:
-        throw new IllegalArgumentException("Unexpected Target: " + target);
-    }
-    return generatedOutput;
-  }
-
   // In this case the ScopedHeap is only getting used as a symbol table for lookups of whether the identifier is already
   // declared or not.
-  protected abstract StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap);
+  protected abstract GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap);
 
   protected abstract Object generateInterpretedOutput(ScopedHeap scopedHeap);
+
+  @AutoValue
+  abstract static class GeneratedJavaSource {
+    abstract StringBuilder javaSourceBody();
+
+    abstract Optional<StringBuilder> optionalStaticDefinitions();
+
+    GeneratedJavaSource withNewJavaSourceBody(StringBuilder javaSourceBody) {
+      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, optionalStaticDefinitions());
+    }
+
+    static GeneratedJavaSource forJavaSourceBody(StringBuilder javaSourceBody) {
+      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.empty());
+    }
+
+    static GeneratedJavaSource forStaticDefinitions(StringBuilder staticDefinitions) {
+      return new AutoValue_Node_GeneratedJavaSource(new StringBuilder(), Optional.of(staticDefinitions));
+    }
+
+    static GeneratedJavaSource create(StringBuilder javaSourceBody, StringBuilder staticDefinitions) {
+      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.of(staticDefinitions));
+    }
+  }
 }

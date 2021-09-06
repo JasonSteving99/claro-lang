@@ -22,6 +22,7 @@ java_library(
         "//:autovalue",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:base_type",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",
     ],
 )

@@ -17,7 +17,7 @@ final public class FalseTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder("false");
   }
 

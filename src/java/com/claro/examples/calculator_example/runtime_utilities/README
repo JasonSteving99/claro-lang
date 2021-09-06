@@ -1,0 +1,5 @@
+This package is to contain utility Java classes that are used *AT PROGRAM RUNTIME*
+by generated JavaSource and by the Interpreter. This is done to isolate logic that\'s
+shared by both and in order to make sure that they can reuse the exact same logical
+implementations without code duplication (which would be very error prone in this
+code base).

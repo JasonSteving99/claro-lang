@@ -71,19 +71,21 @@ public class ConsumerFunctionCallStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     scopedHeap.markIdentifierUsed(this.consumerName);
 
-    return new StringBuilder(
-        String.format(
-            "%s.apply(%s);\n",
-            this.consumerName,
-            this.argExprs
-                .stream()
-                .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
-                .collect(Collectors.joining(", "))
+    return GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "%s.apply(%s);\n",
+                this.consumerName,
+                this.argExprs
+                    .stream()
+                    .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
+                    .collect(Collectors.joining(", "))
+            )
         )
     );
   }

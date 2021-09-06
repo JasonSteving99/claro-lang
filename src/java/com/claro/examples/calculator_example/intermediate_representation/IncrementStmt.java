@@ -18,8 +18,9 @@ public class IncrementStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    return getChildren().get(0).generateJavaSourceOutput(scopedHeap).append(";");
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    return GeneratedJavaSource.forJavaSourceBody(
+        ((Expr) getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).append(";"));
   }
 
   @Override

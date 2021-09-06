@@ -35,7 +35,7 @@ public class IdentifierReferenceTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     scopedHeap.markIdentifierUsed(this.identifier);
     return new StringBuilder(this.identifier);
   }

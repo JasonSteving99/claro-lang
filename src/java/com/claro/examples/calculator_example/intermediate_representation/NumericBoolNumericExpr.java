@@ -21,11 +21,11 @@ public class NumericBoolNumericExpr extends NumericExpr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(
         String.format(
             "(%s ? 1 : 0)",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap)
+            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
         )
     );
   }

@@ -126,9 +126,14 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "float"            { return symbol(Calc.FLOAT_TYPE); }
     "boolean"          { return symbol(Calc.BOOLEAN_TYPE); }
     "string"           { return symbol(Calc.STRING_TYPE); }
+    "tuple"            { return symbol(Calc.TUPLE_TYPE); }
+    "struct"           { return symbol(Calc.STRUCT_TYPE); }
     "function"         { return symbol(Calc.FUNCTION_TYPE); }
     "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE); }
     "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE); }
+
+    // Modifiers go here.
+    "immutable"         { return symbol(Calc.IMMUTABLE); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

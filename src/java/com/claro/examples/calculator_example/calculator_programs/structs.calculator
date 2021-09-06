@@ -1,0 +1,16 @@
+print("We're gonna build a struct!");
+
+struct FirstStruct {
+  field1: int,
+  field2: string
+}
+
+
+immutable struct FirstImmutableStruct {
+  i: int,
+  s: string
+}
+
+# Anonymous struct definition. This will actually only be accepted in places where type declarations are found.
+# E.g. function Foo(i: int) -> {output_i: int, output_s: string} { ... }
+{field1: int, field2: string}

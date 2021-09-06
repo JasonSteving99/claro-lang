@@ -9,13 +9,13 @@ import java.util.ArrayList;
 
 public class ListElementAssignmentStmt extends Stmt {
 
-  public ListElementAssignmentStmt(ListSubscriptExpr listSubscriptExpr, Expr e) {
+  public ListElementAssignmentStmt(CollectionSubscriptExpr collectionSubscriptExpr, Expr e) {
     super(
         ImmutableList.of(
             // TODO(steving) Assert that this is an IdentifierReferenceTerm of type List.
-            /*listExpr=*/listSubscriptExpr.getChildren().get(0),
+            /*listExpr=*/collectionSubscriptExpr.getChildren().get(0),
             // TODO(steving) Assert that this is an Expr of type Integer.
-            /*subscriptExpr=*/listSubscriptExpr.getChildren().get(1),
+            /*subscriptExpr=*/collectionSubscriptExpr.getChildren().get(1),
             // TODO(steving) Assert that this is an Expr of the same type the referenced List is expecting.
             e
         )
@@ -36,15 +36,17 @@ public class ListElementAssignmentStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            // TODO(steving) After assertion that this Expr is ACTUALLY an Integer (once that's supported in Claro) then
-            // TODO(steving) this should be able to drop the downcast from Double -> Integer.
-            "%s.set((int) %s, %s);\n",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
-            this.getChildren().get(1).generateJavaSourceOutput(scopedHeap),
-            this.getChildren().get(2).generateJavaSourceOutput(scopedHeap)
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    return GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                // TODO(steving) After assertion that this Expr is ACTUALLY an Integer (once that's supported in Claro) then
+                // TODO(steving) this should be able to drop the downcast from Double -> Integer.
+                "%s.set((int) %s, %s);\n",
+                this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
+                this.getChildren().get(1).generateJavaSourceOutput(scopedHeap),
+                this.getChildren().get(2).generateJavaSourceOutput(scopedHeap)
+            )
         )
     );
   }

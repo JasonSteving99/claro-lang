@@ -11,6 +11,15 @@ def java_calculator_binary(name, srcs, java_name = "CompiledCalculator"):
         name = name,
         main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
         srcs = srcs,
+        deps = [
+            "//:autovalue",
+            "//:guava",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation/types/builtins_impls/collections:collections_impls",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:base_type",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:concrete_type",
+            "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:types",
+            "//src/java/com/claro/examples/calculator_example/runtime_utilities",
+        ]
     )
 
 def java_calculator_image(name, srcs, java_name = "CompiledCalculator"):

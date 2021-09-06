@@ -22,8 +22,8 @@ public class IncrementExpr extends Expr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    StringBuilder res = getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+    StringBuilder res = ((Expr) getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap);
     if (preIncrement) {
       res.insert(0, "++");
     } else {

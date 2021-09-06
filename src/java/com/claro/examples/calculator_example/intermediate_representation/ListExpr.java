@@ -4,6 +4,7 @@ import com.claro.examples.calculator_example.compiler_backends.interpreted.Scope
 import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
+import com.claro.examples.calculator_example.intermediate_representation.types.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -15,13 +16,16 @@ public class ListExpr extends Expr {
   private Optional<Type> emptyListValueType;
   private final ImmutableList<Expr> initializerArgExprsList;
 
+  // This type is only available after the type validation phase.
+  private Type validatedListType;
+
   public ListExpr(ImmutableList<Expr> listInitializerArgsList) {
     super(ImmutableList.of());
     this.emptyListValueType = Optional.empty();
     this.initializerArgExprsList = listInitializerArgsList;
   }
 
-  // TODO(steving) Drop this constructor option. We need the empty list type to be set. Use constructor below.
+  // When the grammar finds an empty list, it'll accept whatever type is asserted upon it by its surrounding context.
   public ListExpr() {
     super(ImmutableList.of());
     this.emptyListValueType = Optional.of(Types.UNDECIDED);
@@ -48,6 +52,7 @@ public class ListExpr extends Expr {
       }
       listType = Types.ListType.forValueType(listValuesType);
     }
+    this.validatedListType = listType;
     return listType;
   }
 
@@ -62,26 +67,29 @@ public class ListExpr extends Expr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // Simply for parity with the interpreted implementation, this is how we'll get this ArrayList.
-    String listFormatString = "initializeList(%s)";
-    String formatArg;
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+    String listFormatString = "ClaroList.initializeList(%s, %s)";
+    String initializerArgs;
     if (initializerArgExprsList.isEmpty()) {
-      formatArg = "";
+      initializerArgs = "";
     } else {
-      formatArg =
+      initializerArgs =
           this.initializerArgExprsList.stream()
-              .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
+              .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
               .collect(Collectors.joining(", ")
               );
     }
-    return new StringBuilder(String.format(listFormatString, formatArg));
+    return new StringBuilder(
+        String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs));
   }
 
   @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    return this.initializerArgExprsList.stream()
-        .map(expr -> expr.generateInterpretedOutput(scopedHeap))
-        .collect(Collectors.toCollection(ArrayList::new));
+    return ClaroList.initializeList(
+        this.validatedListType,
+        this.initializerArgExprsList.stream()
+            .map(expr -> expr.generateInterpretedOutput(scopedHeap))
+            .collect(Collectors.toCollection(ArrayList::new)).toArray()
+    );
   }
 }

@@ -2,6 +2,7 @@ package com.claro.examples.calculator_example.intermediate_representation.types;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public abstract class Type {
   public abstract BaseType baseType();
@@ -23,6 +24,11 @@ public abstract class Type {
       );
     }
     return res;
+  }
+
+  // This needs to return a JavaSource String that will construct an instance of this Type, i.e. *this* class.
+  public String getJavaSourceClaroType() {
+    throw new NotImplementedException();
   }
 
   // Convert to Claro's canonical user-facing builtin type name.

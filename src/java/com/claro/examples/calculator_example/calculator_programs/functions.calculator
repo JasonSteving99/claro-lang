@@ -31,12 +31,13 @@ provider function gimmeInt() -> int {
    return 9;
 }
 # Example of defining a Provider w/o using the `function` keyword.
-# provider gimmeAnothaInt() -> int {
-#   return -9;
-# }
+provider gimmeAnothaInt() -> int {
+  return -9;
+}
 var providedInt = gimmeInt();
 print("Here's a provided result!");
 print(providedInt);
+print(gimmeAnothaInt());
 
 # The keyword `function` is actually optional here to allow you to be extremely explicit.
 consumer function takeThis(arg: string) {

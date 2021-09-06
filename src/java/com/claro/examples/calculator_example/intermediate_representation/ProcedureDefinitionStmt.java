@@ -84,7 +84,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     scopedHeap.putIdentifierValue(this.procedureName, this.procedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
 
@@ -120,28 +120,26 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     }
 
     StringBuilder javaSourceOutput;
+    Optional<StringBuilder> optionalStaticDefinitions;
     if (this.getChildren().size() == 2) {
       // There's a StmtListNode to generate code for before the return stmt.
+      GeneratedJavaSource procedureBodyGeneratedJavaSource =
+          ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
       javaSourceOutput = new StringBuilder(
           this.procedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
-                  ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap)
+                  procedureBodyGeneratedJavaSource.javaSourceBody()
                       // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
                       // some good ol' fashioned hardcoding?
                       .append("return ")
-                      .append(((Expr) this.getChildren().get(1)).generateJavaSourceOutput(scopedHeap))
+                      .append(((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap))
                       .append(";")
               )
           )
       );
-    } else {
-      String javaBodyTemplate =
-          this.procedureType.hasReturnValue() ?
-          // There's only a single return stmt in this function definition to gen code for.
-          "return %s;" :
-          // There's only a single StmtListNode to gen code for.
-          "%s";
+      optionalStaticDefinitions = procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
+    } else if (this.procedureType.hasReturnValue()) {
       javaSourceOutput = new StringBuilder(
           this.procedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
@@ -149,16 +147,32 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
               // new ReturnStmt.java file but....what's so bad about some good ol' fashioned hardcoding?
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
                   String.format(
-                      javaBodyTemplate,
-                      this.getChildren().get(0).generateJavaSourceOutput(scopedHeap)
+                      "return %s;",
+                      ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
                   )
               )
           )
       );
+      optionalStaticDefinitions = Optional.empty();
+    } else {
+      // There's a StmtListNode to generate code for.
+      GeneratedJavaSource procedureBodyGeneratedJavaSource =
+          ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+      javaSourceOutput =
+          new StringBuilder(
+              this.procedureType.getJavaNewTypeDefinitionStmt(
+                  this.procedureName,
+                  optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
+                      .append(procedureBodyGeneratedJavaSource.javaSourceBody())
+              )
+          );
+      optionalStaticDefinitions = procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
     }
     scopedHeap.exitCurrScope();
 
-    return javaSourceOutput;
+    return optionalStaticDefinitions.isPresent()
+           ? GeneratedJavaSource.create(javaSourceOutput, optionalStaticDefinitions.get())
+           : GeneratedJavaSource.forJavaSourceBody(javaSourceOutput);
   }
 
   @Override

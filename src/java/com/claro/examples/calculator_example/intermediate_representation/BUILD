@@ -22,8 +22,12 @@ java_library(
         ":numeric_expr_impls",
         ":term_impls",
         "//:guava",
+        "//src/java/com/claro/examples/calculator_example/runtime_utilities",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:base_type",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types/builtins_impls",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types/builtins_impls/collections:collection_interface",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types/builtins_impls/collections:collections_impls",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:types",
@@ -37,8 +41,9 @@ java_library(
         exclude=["NumericExpr.java"]
     ),
     deps = [
-        ":numeric_expr",
         ":expr",
+        ":node",
+        ":numeric_expr",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
@@ -68,6 +73,7 @@ java_library(
     deps = [
         ":bool_expr",
         ":expr",
+        ":node",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
@@ -98,6 +104,7 @@ java_library(
         exclude = ["Term.java"],
     ),
     deps = [
+        ":node",
         ":term",
         "//:guava",
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
@@ -127,6 +134,7 @@ java_library(
         "//src/java/com/claro/examples/calculator_example:calculator_parser_exception",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:base_type",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:concrete_types",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:type",
         "//src/java/com/claro/examples/calculator_example/intermediate_representation/types:claro_type_exception",
     ],

@@ -28,12 +28,12 @@ public class ExponentiateNumericExpr extends NumericExpr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(
         String.format(
             "Math.pow(%s, %s)",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
-            this.getChildren().get(1).generateJavaSourceOutput(scopedHeap)
+            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
+            ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap)
         )
     );
   }

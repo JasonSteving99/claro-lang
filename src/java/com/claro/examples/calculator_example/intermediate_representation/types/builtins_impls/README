@@ -1,0 +1,3 @@
+Classes in this package are reused between the Generated Java Source output as part of the Claro stdlib and also used
+by the compiler internally in the Interpreted BE in order to have a guarantee of a common representation model for all
+Claro builtin types.

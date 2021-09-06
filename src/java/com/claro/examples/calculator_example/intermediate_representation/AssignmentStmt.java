@@ -30,17 +30,17 @@ public class AssignmentStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
     scopedHeap.initializeIdentifier(this.IDENTIFIER);
     res.append(
         String.format(
             "%s = %s;\n",
             this.IDENTIFIER,
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()
+            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
         )
     );
-    return res;
+    return GeneratedJavaSource.forJavaSourceBody(res);
   }
 
   @Override

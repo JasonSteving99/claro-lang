@@ -28,16 +28,18 @@ public class WhileStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    String conditionJavaSource = getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString();
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    String conditionJavaSource = ((Expr) getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString();
 
     // Body of the while
     scopedHeap.enterNewScope();
-    String bodyStmtListJavaSource = getChildren().get(1).generateJavaSourceOutput(scopedHeap).toString();
+    GeneratedJavaSource bodyStmtListJavaSource = getChildren().get(1).generateJavaSourceOutput(scopedHeap);
     scopedHeap.exitCurrScope();
 
-    return new StringBuilder(
-        String.format("while ( %s ) {\n%s\n}\n", conditionJavaSource, bodyStmtListJavaSource));
+    return bodyStmtListJavaSource.withNewJavaSourceBody(
+        new StringBuilder(
+            String.format("while ( %s ) {\n%s\n}\n", conditionJavaSource, bodyStmtListJavaSource.javaSourceBody()))
+    );
   }
 
   @Override

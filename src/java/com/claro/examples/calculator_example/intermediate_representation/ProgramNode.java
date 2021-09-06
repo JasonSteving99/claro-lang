@@ -2,28 +2,53 @@ package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
-import com.google.common.collect.ImmutableList;
 
-public class ProgramNode extends Node {
+public class ProgramNode {
   private final String packageString, generatedClassName;
+  private final StmtListNode stmtListNode;
 
   // TODO(steving) package and generatedClassName should probably be injected some cleaner way since this is a Target::JAVA_SOURCE-only artifact.
   public ProgramNode(
       StmtListNode stmtListNode,
       String packageString,
       String generatedClassName) {
-    super(ImmutableList.of(stmtListNode));
+    this.stmtListNode = stmtListNode;
     this.packageString = packageString;
     this.generatedClassName = generatedClassName;
   }
 
+  public StringBuilder generateTargetOutput(Target target) throws IllegalArgumentException {
+    ScopedHeap scopedHeap = new ScopedHeap();
+    scopedHeap.enterNewScope();
+    return generateTargetOutput(target, scopedHeap);
+  }
+
+  public StringBuilder generateTargetOutput(Target target, ScopedHeap scopedHeap) throws IllegalArgumentException {
+    StringBuilder generatedOutput;
+    switch (target) {
+      case JAVA_SOURCE:
+        generatedOutput = generateJavaSourceOutput(scopedHeap);
+        break;
+      case REPL:
+        // We can't check for unused identifiers in the REPL because we might just not yet have seen the instruction
+        // where a given identifier will be used.
+        scopedHeap.disableCheckUnused();
+        // We're gonna be a bit overly clever and allow fallthrough to the next case just for kicks.
+      case INTERPRETED:
+        generatedOutput = new StringBuilder().append(generateInterpretedOutput(scopedHeap));
+        break;
+      default:
+        throw new IllegalArgumentException("Unexpected Target: " + target);
+    }
+    return generatedOutput;
+  }
+
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
-  @Override
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // At the program level, validate all types in the entire AST before execution.
     try {
-      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+      stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
       // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
       // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
@@ -44,21 +69,21 @@ public class ProgramNode extends Node {
     }
 
     // Now that we've validated that all types are valid, go to town in a fresh scope!
-    StringBuilder res =
-        new StringBuilder(genJavaMain(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
+    Node.GeneratedJavaSource programJavaSource =
+        stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName);
 
     // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks
     // that get run at that time at the last moment before we give the all good signal.
     scopedHeap.exitCurrScope();
 
-    return res;
+    // Wrap the generated source code with the needed Java boilerplate.
+    return genJavaSource(programJavaSource);
   }
 
-  @Override
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     // At the program level, validate all types in the entire AST before execution.
     try {
-      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+      stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
       // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
       // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
@@ -67,7 +92,7 @@ public class ProgramNode extends Node {
     }
 
     // Now that we've validated that all types are valid, go to town!
-    this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
+    stmtListNode.generateInterpretedOutput(scopedHeap);
 
     // There's no output in the interpreting mode.
     return null;
@@ -75,59 +100,66 @@ public class ProgramNode extends Node {
 
   /**
    * In some ways this hardcoded class is basically a standard library for this language.
+   *
+   * @param stmtListJavaSource
+   * @return
    */
-  private String genJavaMain(String java_source_stmt_list) {
-    return String.format(
-        "%s" +
-        "import java.util.ArrayList;\n" +
-        "import java.util.Scanner;\n" +
-        "\n\n" +
-        "public class %s {\n" +
-        // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
-        "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
-        "  public static void main(String[] args) {\n" +
-        "/*******BEGIN AUTO-GENERATED: DO NOT MODIFY*******/\n" +
-        "%s" +
-        "/*******END AUTO-GENERATED*******/\n" +
-        "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
-        "  }\n\n" +
-        "  private static String promptUserInput(String prompt) {\n" +
-        "    System.out.println(prompt);\n" +
-        "    return INPUT_SCANNER.nextLine();\n" +
-        "  }\n" +
-        "  private static <T> ClaroList<T> initializeList() {\n" +
-        "    return new ClaroList<>();\n" +
-        "  }\n" +
-        "  private static <T> ClaroList<T> initializeList(T ... args) {\n" +
-        "    ClaroList<T> arrayList = new ClaroList<>(args.length);\n" +
-        "    for (T arg : args) arrayList.add(arg);\n" +
-        "    return arrayList;\n" +
-        "  }\n" +
-        "  private static class ClaroList<T> extends ArrayList<T> {\n" +
-        "    public ClaroList() {\n" +
-        "      super();\n" +
-        "    }\n" +
-        "    public ClaroList(int initialSize) {\n" +
-        "      super(initialSize);\n" +
-        "    }\n" +
-        "    // In Claro, this'll end up being a method defined on the Iterable interface.\n" +
-        "    public int length() {\n" +
-        "      return ClaroList.this.size();\n" +
-        "    }\n" +
-        "  }\n" +
-        "  private abstract static class ClaroFunction<T> {\n" +
-        "    public abstract T apply(Object... args);\n" +
-        "  }\n" +
-        "  private abstract static class ClaroProviderFunction<T> {\n" +
-        "    public abstract T apply();\n" +
-        "  }\n" +
-        "  private abstract static class ClaroConsumerFunction {\n" +
-        "    public abstract void apply(Object... args);\n" +
-        "  }\n" +
-        "}",
-        this.packageString,
-        this.generatedClassName,
-        java_source_stmt_list
+  // TODO(steving) Take a higher order structure than just a list for the body, allow the java generation steps to
+  // TODO(steving) specify code gen for different parts of the gen'd java file. This is just necessary for hacking
+  // TODO(steving) java's nuances as our underlying VM.
+  private StringBuilder genJavaSource(Node.GeneratedJavaSource stmtListJavaSource) {
+    return new StringBuilder(
+        String.format(
+            "%s" +
+            "import java.util.ArrayList;\n" +
+            "import java.util.Scanner;\n" +
+            "import com.google.auto.value.AutoValue;\n" +
+            "import com.google.common.collect.ImmutableList;\n" +
+            "import com.claro.examples.calculator_example.intermediate_representation.types.BaseType;\n" +
+            "import com.claro.examples.calculator_example.intermediate_representation.types.ConcreteType;\n" +
+            "import com.claro.examples.calculator_example.intermediate_representation.types.Types;\n" +
+            "import com.claro.examples.calculator_example.intermediate_representation.types.builtins_impls.collections.ClaroList;\n" +
+            "import com.claro.examples.calculator_example.intermediate_representation.types.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.examples.calculator_example.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "\n\n" +
+            "public class %s {\n" +
+            // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
+            "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
+            "/*******BEGIN AUTO-GENERATED: DO NOT MODIFY*******/\n" +
+            "%s\n" +
+            "  public static void main(String[] args) {\n" +
+            "%s" +
+            "  }\n\n" +
+            "/*******END AUTO-GENERATED*******/\n" +
+            "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
+            "  private static String promptUserInput(String prompt) {\n" +
+            "    System.out.println(prompt);\n" +
+            "    return INPUT_SCANNER.nextLine();\n" +
+            "  }\n" +
+//            // TODO(steving) There's no point having these initializeList() calls, just depend on the Type's constructor.
+//            "  private static <T> ClaroList<T> initializeList() {\n" +
+//            "    return new ClaroList<>();\n" +
+//            "  }\n" +
+//            "  private static <T> ClaroList<T> initializeList(T ... args) {\n" +
+//            "    ClaroList<T> arrayList = new ClaroList<>(args.length);\n" +
+//            "    for (T arg : args) arrayList.add(arg);\n" +
+//            "    return arrayList;\n" +
+//            "  }\n" +
+            "  private abstract static class ClaroFunction<T> {\n" +
+            "    public abstract T apply(Object... args);\n" +
+            "  }\n" +
+            "  private abstract static class ClaroProviderFunction<T> {\n" +
+            "    public abstract T apply();\n" +
+            "  }\n" +
+            "  private abstract static class ClaroConsumerFunction {\n" +
+            "    public abstract void apply(Object... args);\n" +
+            "  }\n" +
+            "}",
+            this.packageString,
+            this.generatedClassName,
+            stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
+            stmtListJavaSource.javaSourceBody()
+        )
     );
   }
 }

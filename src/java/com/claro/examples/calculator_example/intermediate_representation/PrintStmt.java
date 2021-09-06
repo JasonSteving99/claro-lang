@@ -20,12 +20,14 @@ public class PrintStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    String expr_java_source = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString();
-    return new StringBuilder(
-        String.format(
-            "System.out.println(%s);\n",
-            expr_java_source
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    String expr_java_source = ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString();
+    return GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "System.out.println(%s);\n",
+                expr_java_source
+            )
         )
     );
   }

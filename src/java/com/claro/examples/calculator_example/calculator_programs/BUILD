@@ -48,6 +48,30 @@ java_calculator_library(
 )
 
 java_calculator_binary(
+    name = "structs_compiled_calculator_image",
+    srcs = [":structs_compiled_calculator"],
+    java_name = "Structs",
+)
+
+java_calculator_library(
+    name = "structs_compiled_calculator",
+    src = "structs.calculator",
+    java_name = "Structs",
+)
+
+java_calculator_binary(
+    name = "tuples_compiled_calculator_image",
+    srcs = [":tuples_compiled_calculator"],
+    java_name = "Tuples",
+)
+
+java_calculator_library(
+    name = "tuples_compiled_calculator",
+    src = "tuples.calculator",
+    java_name = "Tuples",
+)
+
+java_calculator_binary(
     name = "types_compiled_calculator_image",
     srcs = [":types_compiled_calculator"],
     java_name = "Types",

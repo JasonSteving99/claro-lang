@@ -32,13 +32,13 @@ public class EqualsBoolExpr extends BoolExpr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(
         String.format(
             // All types except for JAVA primitives need to be compared with .equals().
             this.primitives ? "%s == %s" : "%s.equals(%s)",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
-            this.getChildren().get(1).generateJavaSourceOutput(scopedHeap)
+            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
+            ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap)
         )
     );
   }

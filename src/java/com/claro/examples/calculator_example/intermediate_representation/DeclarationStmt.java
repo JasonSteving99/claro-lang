@@ -61,7 +61,7 @@ public class DeclarationStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
 
     Type identifierValidatedType = optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType);
@@ -76,11 +76,13 @@ public class DeclarationStmt extends Stmt {
       // need to worry about other code branches where the identifier may not have been initialized yet.
       scopedHeap.initializeIdentifier(this.IDENTIFIER);
 
-      res.append(String.format(" = %s", this.getChildren().get(0).generateJavaSourceOutput(scopedHeap).toString()));
+      res.append(
+          String.format(
+              " = %s", ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString()));
     }
     res.append(";\n");
 
-    return res;
+    return GeneratedJavaSource.forJavaSourceBody(res);
   }
 
   @Override

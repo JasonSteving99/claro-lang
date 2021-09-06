@@ -22,7 +22,7 @@ final public class IntegerTerm extends Term {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder().append(this.value);
   }
 

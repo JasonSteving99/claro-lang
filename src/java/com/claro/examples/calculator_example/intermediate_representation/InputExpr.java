@@ -24,7 +24,7 @@ public class InputExpr extends Expr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(String.format("promptUserInput(\"%s\")", this.prompt));
   }
 

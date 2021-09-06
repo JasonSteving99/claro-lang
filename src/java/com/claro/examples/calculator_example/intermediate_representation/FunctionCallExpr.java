@@ -73,7 +73,7 @@ public class FunctionCallExpr extends Expr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     scopedHeap.markIdentifierUsed(this.name);
@@ -84,7 +84,7 @@ public class FunctionCallExpr extends Expr {
             this.name,
             this.argExprs
                 .stream()
-                .map(expr -> expr.generateJavaSourceOutput(scopedHeap))
+                .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
                 .collect(Collectors.joining(", "))
         )
     );

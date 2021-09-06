@@ -3,6 +3,7 @@ package com.claro.examples.calculator_example.intermediate_representation.types;
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
 import com.claro.examples.calculator_example.intermediate_representation.Expr;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -10,20 +11,147 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+// TODO(steving) This class needs refactoring into a standalone package.
 public final class Types {
   public static final Type INTEGER = ConcreteType.create(BaseType.INTEGER);
   public static final Type FLOAT = ConcreteType.create(BaseType.FLOAT);
   public static final Type STRING = ConcreteType.create(BaseType.STRING);
   public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
 
-  // Special type not to actually make it out of the type-checking phase of the compiler.
+  // Special type that indicates that the compiler won't be able to determine this type answer until runtime at which
+  // point it will potentially fail other runtime type checking. Anywhere where an "UNDECIDED" type is emitted by the
+  // compiler we'll require a cast on the expr causing the indecision for the programmer to assert they know what's up.
   public static final Type UNDECIDED = ConcreteType.create(BaseType.UNDECIDED);
 
+  public interface Collection {
+    public Type getElementType();
+  }
+
   @AutoValue
-  public abstract static class ListType extends Type {
+  public abstract static class ListType extends Type implements Collection {
+    private static final String PARAMETERIZED_TYPE_KEY = "$values";
+
     public static ListType forValueType(Type valueType) {
-      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of("$values", valueType));
+      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType));
     }
+
+    @Override
+    public Type getElementType() {
+      return this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.ListType.forValueType(%s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).getJavaSourceClaroType()
+      );
+    }
+  }
+
+  @AutoValue
+  public abstract static class TupleType extends Type implements Collection {
+
+    public abstract ImmutableList<Type> getValueTypes();
+
+    public static TupleType forValueTypes(ImmutableList<Type> valueTypes) {
+      return new AutoValue_Types_TupleType(BaseType.TUPLE, ImmutableMap.of(), valueTypes);
+    }
+
+    @Override
+    public Type getElementType() {
+      // We literally have no way of determining this type at compile time without knowing which index is being
+      // referenced so instead we'll mark this as UNDECIDED.
+      return UNDECIDED;
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          getValueTypes().stream().map(Type::toString).collect(Collectors.joining(", "))
+      );
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.TupleType.forValueTypes(ImmutableList.of(%s))",
+          Joiner.on(", ")
+              .join(this.getValueTypes()
+                        .stream()
+                        .map(Type::getJavaSourceClaroType)
+                        .collect(ImmutableList.toImmutableList()))
+      );
+    }
+  }
+
+  public abstract static class StructType extends Type {
+
+    public abstract ImmutableMap<String, Type> getFieldTypes();
+
+    @AutoValue
+    public abstract static class ImmutableStructType extends StructType {
+      public static ImmutableStructType forFieldTypes(ImmutableMap<String, Type> fieldTypes) {
+        return new AutoValue_Types_StructType_ImmutableStructType(BaseType.IMMUTABLE_STRUCT, ImmutableMap.of(), fieldTypes);
+      }
+
+      @Override
+      public String toString() {
+        return String.format(
+            this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            getFieldTypes().entrySet().stream()
+                .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
+                .collect(Collectors.joining(", "))
+        );
+      }
+
+      @Override
+      public String getJavaSourceClaroType() {
+        return String.format(
+            "Types.StructType.ImmutableStructType.forFieldTypes(ImmutableMap.<String, Type>builder().%s.build())",
+            this.getFieldTypes()
+                .entrySet()
+                .stream()
+                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .collect(Collectors.joining())
+        );
+      }
+
+      // TODO(steving) Put some manner of constructor code directly inside this type definition.
+    }
+
+    @AutoValue
+    public abstract static class MutableStructType extends StructType {
+      public static StructType forFieldTypes(ImmutableMap<String, Type> fieldTypes) {
+        return new AutoValue_Types_StructType_MutableStructType(BaseType.STRUCT, ImmutableMap.of(), fieldTypes);
+      }
+
+      @Override
+      public String toString() {
+        return String.format(
+            this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            getFieldTypes().entrySet().stream()
+                .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
+                .collect(Collectors.joining(", "))
+        );
+      }
+
+      @Override
+      public String getJavaSourceClaroType() {
+        return String.format(
+            "Types.StructType.MutableStructType.forFieldTypes(ImmutableMap.<String, Type>builder().%s.build())",
+            this.getFieldTypes()
+                .entrySet()
+                .stream()
+                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .collect(Collectors.joining())
+        );
+      }
+
+      // TODO(steving) Put some manner of constructor code directly inside this type definition.
+    }
+
   }
 
   public abstract static class ProcedureType extends Type {
@@ -115,6 +243,19 @@ public final class Types {
             this.getReturnType()
         );
       }
+
+      @Override
+      public String getJavaSourceClaroType() {
+        return String.format(
+            "Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s)",
+            this.parameterizedTypeArgs()
+                .entrySet()
+                .stream()
+                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .collect(Collectors.joining()),
+            this.getReturnType().getJavaSourceClaroType()
+        );
+      }
     }
 
     @AutoValue
@@ -159,6 +300,14 @@ public final class Types {
         return String.format(
             this.baseType().getClaroCanonicalTypeNameFmtStr(),
             this.getReturnType()
+        );
+      }
+
+      @Override
+      public String getJavaSourceClaroType() {
+        return String.format(
+            "Types.ProcedureType.ProviderType.forReturnType(%s)",
+            this.getReturnType().getJavaSourceClaroType()
         );
       }
     }
@@ -210,6 +359,18 @@ public final class Types {
             collectToArgTypesListFormatFn.apply(this.getArgTypes())
         );
       }
+
+      @Override
+      public String getJavaSourceClaroType() {
+        return String.format(
+            "Types.ProcedureType.ConsumerType.forConsumerArgTypes(ImmutableList.<Type>of(%s))",
+            this.parameterizedTypeArgs()
+                .entrySet()
+                .stream()
+                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .collect(Collectors.joining())
+        );
+      }
     }
 
     public abstract class ProcedureWrapper {
@@ -229,10 +390,11 @@ public final class Types {
       }
     }
 
-    // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly
-    // constructors and .equals() and .hashCode() methods.
-    // https://github.com/google/auto/blob/master/value/userguide/howto.md#nullable
-    @interface Nullable {
-    }
+  }
+
+  // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly
+  // constructors and .equals() and .hashCode() methods.
+  // https://github.com/google/auto/blob/master/value/userguide/howto.md#nullable
+  @interface Nullable {
   }
 }

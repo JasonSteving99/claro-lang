@@ -1,6 +1,7 @@
 package(
     default_visibility = [
         "//src/java/com/claro/examples/calculator_example/intermediate_representation:__pkg__",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/types/builtins_impls:__pkg__",
         "//src/java/com/claro/examples/calculator_example/compiler_backends/interpreted:__pkg__",
         "//src/java/com/claro/examples/calculator_example:__subpackages__",
     ]
@@ -14,6 +15,16 @@ java_library(
         ":type",
         "//:autovalue",
         "//:guava",
+    ],
+)
+
+java_library(
+    name = "concrete_types",
+    srcs = ["ConcreteTypes.java"],
+    deps = [
+        ":base_type",
+        ":concrete_type",
+        ":type",
     ],
 )
 

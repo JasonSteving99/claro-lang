@@ -1,0 +1,14 @@
+print("We're gonna build a named tuple!");
+
+var t: tuple<int, string> = (1, "at declaration");
+type(t);
+print(t);
+
+# Tuples can hold all kindsa things inside and can be arbitrary size.
+var t2 = ((2, "later after reassignment"), 0, [1,2]);
+print(t2);
+
+# Because of the undecidability problem for the general case of tuple-subscripting, the programmer must cast the
+# tuple-subscript Expr to a compile-time expected type.
+t = (tuple<int, string>) t2[0]; # Motivated by the thought experiment here of "What is the type of `t2[randomChoice(0,1)]` ?"
+print(t);

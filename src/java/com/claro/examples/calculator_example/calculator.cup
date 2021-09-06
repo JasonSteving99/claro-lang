@@ -94,9 +94,10 @@ terminal         TYPE;
 terminal         IF, ELSE;
 terminal         WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
-terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE,
+terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
 terminal         RETURN;
+terminal         IMMUTABLE;
 
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
@@ -109,7 +110,8 @@ nonterminal IntegerTerm                        integer;
 nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
 nonterminal ListExpr                           list;
-nonterminal ListSubscriptExpr                  list_subscript;
+nonterminal TupleExpr                          tuple;
+nonterminal CollectionSubscriptExpr                  collection_subscript;
 nonterminal ImmutableList.Builder<Expr>        args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
 nonterminal IfStmt                             if_stmt;
@@ -126,6 +128,8 @@ nonterminal IncrementStmt                      identifier_increment_stmt;
 nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
+nonterminal StructDefinitionStmt               struct_definition_stmt;
+nonterminal TupleDefinitionStmt                tuple_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal ImmutableMap.Builder<String, Type> function_args_types_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
@@ -193,6 +197,10 @@ stmt ::=
     {: RESULT = i; :}
   | while_stmt:w
     {: RESULT = w; :}
+  | struct_definition_stmt:s
+    {: RESULT = s; :}
+  | tuple_definition_stmt:t
+    {: RESULT = t; :}
   | function_definition_stmt:f
     {: RESULT = f; :}
   | consumer_function_definition_stmt:f
@@ -241,6 +249,8 @@ builtin_type ::=
     {: RESULT = Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types); :}
   | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:return_type R_ANGLE_BRACKET
     {: RESULT = Types.ProcedureType.ProviderType.forReturnType(return_type); :}
+  | TUPLE_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
+    {: RESULT = Types.TupleType.forValueTypes(arg_types); :}
   ;
 
 builtin_types_list ::=
@@ -285,7 +295,7 @@ identifier_decrement ::=
   ;
 
 list_element_assignment ::=
-    list_subscript:l ASSIGNMENT expr:e SEMICOLON
+    collection_subscript:l ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new ListElementAssignmentStmt(l, e); :}
   ;
 
@@ -320,7 +330,7 @@ expr ::=
     {: RESULT = i; :}
   | list:l
     {: RESULT = l; :}
-  | list_subscript:l
+  | collection_subscript:l
     {: RESULT = l; :}
   | LEN LPAR expr:e RPAR
     {: RESULT = new LenExpr(e); :}
@@ -332,6 +342,10 @@ expr ::=
     {: RESULT = f; :}
   | provider_function_call_expr:pf
     {: RESULT = pf; :}
+  | tuple:t
+    {: RESULT = t; :}
+  | LPAR builtin_type:asserted_type RPAR expr:casted_expr
+    {: RESULT = new CastExpr(asserted_type, casted_expr); :}
   ;
 
 input ::=
@@ -349,6 +363,17 @@ list ::=
     {: RESULT = new ListExpr(); :}
   ;
 
+tuple ::=
+    // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
+    LPAR expr:head COMMA args_list:tailValues RPAR
+    {:
+       ImmutableList.Builder<Expr> tupleValues = ImmutableList.builder();
+       tupleValues.add(head);
+       tupleValues.addAll(tailValues.build().reverse());
+       RESULT = new TupleExpr(tupleValues.build());
+    :}
+  ;
+
 args_list ::=
     expr:head COMMA args_list:tail
     {:
@@ -360,15 +385,15 @@ args_list ::=
     {: RESULT = ImmutableList.<Expr>builder().add(e); :}
   ;
 
-list_subscript ::=
-    // Support arbitrarily repeated subscripting. ListSubscriptExpr node will check that there's the right levels of
+collection_subscript ::=
+    // Support arbitrarily repeated subscripting. CollectionSubscriptExpr node will check that there's the right levels of
     // nesting available for the given number of subscripts in this specific context.
-    list_subscript:l LBRACKET expr:e RBRACKET
-    {: RESULT = new ListSubscriptExpr(l, e); :}
+    collection_subscript:l LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(l, e); :}
   | list:l LBRACKET expr:e RBRACKET
-    {: RESULT = new ListSubscriptExpr(l, e); :}
+    {: RESULT = new CollectionSubscriptExpr(l, e); :}
   | identifier:i LBRACKET expr:e RBRACKET
-    {: RESULT = new ListSubscriptExpr(i, e); :}
+    {: RESULT = new CollectionSubscriptExpr(i, e); :}
   ;
 
 bool_expr ::=
@@ -438,6 +463,49 @@ else_stmt ::=
 while_stmt ::=
     WHILE LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new WhileStmt(e, stmt_list); :}
+  ;
+
+tuple_definition_stmt ::=
+    LPAR builtin_types_list:field_types RPAR
+    {:
+       // This is an anonymous parameterized tuple type declaration.
+       RESULT = new TupleDefinitionStmt(field_types);
+    :}
+  ;
+
+struct_definition_stmt ::=
+    STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is a named struct definition. You can construct multiple instances of this type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ false);
+    :}
+  | LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ false);
+    :}
+  | IMMUTABLE STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is a named struct definition. You can construct multiple instances of this type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ true);
+    :}
+  | IMMUTABLE LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ true);
+    :}
   ;
 
 function_definition_stmt ::=

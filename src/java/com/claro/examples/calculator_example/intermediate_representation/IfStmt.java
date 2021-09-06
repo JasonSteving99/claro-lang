@@ -70,15 +70,17 @@ public class IfStmt extends Stmt {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    StringBuilder res = new StringBuilder();
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    StringBuilder javaSourceBodyRes = new StringBuilder();
+    StringBuilder staticDefinitionsRes = new StringBuilder();
 
     // If it's a guarantee that at least one of these branches will execute, then we need to enable branch inspection.
     boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
 
     // First thing first handle the one guaranteed present if-stmt.
     IfStmt initialIfStmt = this.getConditionStack().peek();
-    appendIfConditionStmtJavaSource(initialIfStmt, scopedHeap, false, enableBranchInspection, res);
+    appendIfConditionStmtJavaSource(
+        initialIfStmt, scopedHeap, false, enableBranchInspection, javaSourceBodyRes, staticDefinitionsRes);
 
     // Now handle any remaining else-if-stmts. Iterate over, instead of pop-ing things off the stack, cuz in the
     // interpreted mode we need this Node to be reusable in the case of this being included for example in a loop or
@@ -90,7 +92,8 @@ public class IfStmt extends Stmt {
           scopedHeap,
           true,
           enableBranchInspection,
-          res
+          javaSourceBodyRes,
+          staticDefinitionsRes
       );
     }
 
@@ -99,20 +102,25 @@ public class IfStmt extends Stmt {
         terminalElseClauseStmtList
             -> {
           scopedHeap.enterNewScope();
-          res.append(
+          GeneratedJavaSource terminalElseClauseStmtListJavaSource =
+              terminalElseClauseStmtList.generateJavaSourceOutput(scopedHeap);
+          javaSourceBodyRes.append(
               String.format(
                   "else {\n%s\n}",
-                  terminalElseClauseStmtList.generateJavaSourceOutput(scopedHeap).toString()
+                  terminalElseClauseStmtListJavaSource.javaSourceBody().toString()
               )
           );
+          terminalElseClauseStmtListJavaSource.optionalStaticDefinitions().ifPresent(staticDefinitionsRes::append);
           scopedHeap.exitCurrScope();
         }
     );
 
     // Add a final trailing newline to make the following code land after this condition chain.
-    res.append("\n");
+    javaSourceBodyRes.append("\n");
 
-    return res;
+    return staticDefinitionsRes.length() > 0
+           ? GeneratedJavaSource.create(javaSourceBodyRes, staticDefinitionsRes)
+           : GeneratedJavaSource.forJavaSourceBody(javaSourceBodyRes);
   }
 
   private void appendIfConditionStmtJavaSource(
@@ -120,29 +128,30 @@ public class IfStmt extends Stmt {
       ScopedHeap scopedHeap,
       boolean elseIf,
       boolean enableBranchInspection,
-      StringBuilder stringBuilder) {
-    stringBuilder.append(
+      StringBuilder javaSourceBody,
+      StringBuilder staticDefinitions) {
+    javaSourceBody.append(
         String.format(
             elseIf ? "else if ( %s )" : "if ( %s )",
             ifStmt
                 .getChildren()
                 .get(0)
                 .generateJavaSourceOutput(scopedHeap)
+                .javaSourceBody()
                 .toString()
         )
     );
     // We've now entered a new scope.
     scopedHeap.enterNewScope();
     // Do work in this new scope.
-    stringBuilder.append(
+    GeneratedJavaSource ifStmtBodyGeneratedJavaSource =
+        ifStmt.getChildren()
+            .get(1)
+            .generateJavaSourceOutput(scopedHeap);
+    javaSourceBody.append(
         String.format(
-            " {\n%s\n} ",
-            ifStmt.getChildren()
-                .get(1)
-                .generateJavaSourceOutput(scopedHeap)
-                .toString()
-        )
-    );
+            " {\n%s\n} ", ifStmtBodyGeneratedJavaSource.javaSourceBody().toString()));
+    ifStmtBodyGeneratedJavaSource.optionalStaticDefinitions().ifPresent(staticDefinitions::append);
     // And we're now leaving this scope.
     scopedHeap.exitCurrScope();
   }

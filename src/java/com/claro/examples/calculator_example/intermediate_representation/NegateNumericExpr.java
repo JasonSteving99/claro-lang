@@ -23,11 +23,11 @@ public class NegateNumericExpr extends NumericExpr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(
         String.format(
             "(-%s)",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap)
+            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
         )
     );
   }

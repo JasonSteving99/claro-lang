@@ -56,7 +56,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       System.out.print("= ");
     }
 
-    // In INTERPRETED mode don't print out the parser result, it doesn't have a value.
     System.out.println(((ProgramNode) parser.parse().value).generateTargetOutput(Target.JAVA_SOURCE));
   }
 }

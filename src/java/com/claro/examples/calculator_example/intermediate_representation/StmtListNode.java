@@ -7,6 +7,8 @@ import com.google.common.collect.ImmutableList;
 public class StmtListNode extends Node {
   private StmtListNode tail = null;
 
+  private String generatedJavaClassName;
+
   // This is the last stmt in the list.
   public StmtListNode(Stmt stmt) {
     super(ImmutableList.of(stmt));
@@ -27,11 +29,27 @@ public class StmtListNode extends Node {
     }
   }
 
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap, String generatedJavaClassName) {
+    this.generatedJavaClassName = generatedJavaClassName;
+    return generateJavaSourceOutput(scopedHeap);
+  }
+
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    StringBuilder res = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+  protected GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource res =
+        ((Stmt) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName);
     if (tail != null) {
-      res.append(tail.generateJavaSourceOutput(scopedHeap));
+      GeneratedJavaSource tailGeneratedJavaSource =
+          tail.generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName);
+      res.javaSourceBody().append(tailGeneratedJavaSource.javaSourceBody());
+      if (tailGeneratedJavaSource.optionalStaticDefinitions().isPresent()) {
+        if (res.optionalStaticDefinitions().isPresent()) {
+          res.optionalStaticDefinitions().get().append(tailGeneratedJavaSource.optionalStaticDefinitions().get());
+        } else {
+          res = GeneratedJavaSource.create(
+              res.javaSourceBody(), tailGeneratedJavaSource.optionalStaticDefinitions().get());
+        }
+      }
     }
     return res;
   }

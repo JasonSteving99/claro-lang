@@ -18,7 +18,7 @@ public class OrBoolExpr extends BoolExpr {
   }
 
   @Override
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  protected StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     return new StringBuilder(
         String.format(
             "(%s || %s)",
