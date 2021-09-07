@@ -102,6 +102,7 @@ terminal         IMMUTABLE;
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
 nonterminal Expr                               expr;
+nonterminal ParenthesizedExpr                  parenthesized_expr;
 nonterminal Term                               term;
 nonterminal Term                               primitive;
 nonterminal IdentifierReferenceTerm            identifier;
@@ -111,7 +112,7 @@ nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
 nonterminal ListExpr                           list;
 nonterminal TupleExpr                          tuple;
-nonterminal CollectionSubscriptExpr                  collection_subscript;
+nonterminal CollectionSubscriptExpr            collection_subscript;
 nonterminal ImmutableList.Builder<Expr>        args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
 nonterminal IfStmt                             if_stmt;
@@ -318,8 +319,8 @@ expr ::=
     {: RESULT = new DivideNumericExpr(a, b); :}
   | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
     {: RESULT = new ExponentiateNumericExpr(a, b); :}
-  | LPAR expr:e RPAR
-    {: RESULT = new ParenthesizedExpr(e); :}
+  | parenthesized_expr:p
+    {: RESULT = p; :}
   | LOG_PREFIX float:float_base LPAR expr:arg RPAR
     {: RESULT = new LogNumericExpr(arg, float_base); :}
   | LOG_PREFIX integer:int_base LPAR expr:arg RPAR
@@ -346,6 +347,11 @@ expr ::=
     {: RESULT = t; :}
   | LPAR builtin_type:asserted_type RPAR expr:casted_expr
     {: RESULT = new CastExpr(asserted_type, casted_expr); :}
+  ;
+
+parenthesized_expr ::=
+    LPAR expr:e RPAR
+    {: RESULT = new ParenthesizedExpr(e); :}
   ;
 
 input ::=
@@ -394,6 +400,12 @@ collection_subscript ::=
     {: RESULT = new CollectionSubscriptExpr(l, e); :}
   | identifier:i LBRACKET expr:e RBRACKET
     {: RESULT = new CollectionSubscriptExpr(i, e); :}
+  | function_call_expr:f LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(f, e); :}
+  | provider_function_call_expr:f LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(f, e); :}
+  | parenthesized_expr:p LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(p, e); :}
   ;
 
 bool_expr ::=
