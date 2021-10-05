@@ -3,6 +3,11 @@ package com.claro.intermediate_representation.types.builtins_impls.collections;
 import com.claro.intermediate_representation.types.Type;
 
 // TODO(steving) Make this into an AutoValue class.
+
+/**
+ * NOTE TO FUTURE OVER-ZEALOUS-JASON...You can't genericize this class (at least not while backing storage with a Java
+ * array), so don't bother going down that route.
+ */
 public class ClaroTuple implements Collection {
   private final Type claroType;
   // We store them in an array of object references.. this is lame because it's not contiguous memory but there's just
@@ -14,6 +19,7 @@ public class ClaroTuple implements Collection {
     this.values = values;
   }
 
+  @SuppressWarnings("unchecked") // The whole point is that we're already checking this.
   public <T> T getElement(int i) {
     return (T) this.values[i];
   }

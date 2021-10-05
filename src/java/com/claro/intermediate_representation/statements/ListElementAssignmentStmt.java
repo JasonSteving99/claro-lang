@@ -16,7 +16,7 @@ public class ListElementAssignmentStmt extends Stmt {
         ImmutableList.of(
             /*listExpr=*/collectionSubscriptExpr.getChildren().get(0),
             /*subscriptExpr=*/collectionSubscriptExpr.getChildren().get(1),
-            e
+                         e
         )
     );
   }
@@ -40,9 +40,9 @@ public class ListElementAssignmentStmt extends Stmt {
         new StringBuilder(
             String.format(
                 "%s.set(%s, %s);\n",
-                this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
-                this.getChildren().get(1).generateJavaSourceOutput(scopedHeap),
-                this.getChildren().get(2).generateJavaSourceOutput(scopedHeap)
+                ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
+                ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap),
+                ((Expr) this.getChildren().get(2)).generateJavaSourceBodyOutput(scopedHeap)
             )
         )
     );

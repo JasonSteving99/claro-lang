@@ -44,5 +44,10 @@ public abstract class Node {
     public static GeneratedJavaSource create(StringBuilder javaSourceBody, StringBuilder staticDefinitions) {
       return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.of(staticDefinitions));
     }
+
+    @Override
+    public String toString() {
+      throw new UnsupportedOperationException("Internal Compiler Error: GeneratedJavaSource is internal only.");
+    }
   }
 }

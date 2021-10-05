@@ -8,7 +8,6 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -46,7 +45,7 @@ public class ListExpr extends Expr {
       // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
       listType = emptyListValueType.get();
     } else {
-      Type listValuesType = ((Expr) this.initializerArgExprsList.get(0)).getValidatedExprType(scopedHeap);
+      Type listValuesType = this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap);
       // Need to assert that all values in the list are of the same type.
       for (Node initialListValue : this.initializerArgExprsList) {
         ((Expr) initialListValue).assertExpectedExprType(scopedHeap, listValuesType);
@@ -62,6 +61,7 @@ public class ListExpr extends Expr {
     if (initializerArgExprsList.isEmpty()) {
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
       this.emptyListValueType = Optional.of(expectedExprType);
+      this.validatedListType = expectedExprType;
     } else {
       super.assertExpectedExprType(scopedHeap, expectedExprType);
     }
@@ -69,7 +69,7 @@ public class ListExpr extends Expr {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    String listFormatString = "ClaroList.initializeList(%s, %s)";
+    String listFormatString = "ClaroList.initializeList(%s%s)";
     String initializerArgs;
     if (initializerArgExprsList.isEmpty()) {
       initializerArgs = "";
@@ -77,7 +77,7 @@ public class ListExpr extends Expr {
       initializerArgs =
           this.initializerArgExprsList.stream()
               .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
-              .collect(Collectors.joining(", ")
+              .collect(Collectors.joining(", ", ", ", "")
               );
     }
     return new StringBuilder(
@@ -90,7 +90,7 @@ public class ListExpr extends Expr {
         this.validatedListType,
         this.initializerArgExprsList.stream()
             .map(expr -> expr.generateInterpretedOutput(scopedHeap))
-            .collect(Collectors.toCollection(ArrayList::new)).toArray()
+            .toArray()
     );
   }
 }

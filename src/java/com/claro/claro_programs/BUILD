@@ -35,7 +35,6 @@ claro_library(
 )
 
 
-# TODO(steving) Investigate this breakage...
 claro_binary(
     name = "list_compiled_claro_image",
     srcs = [":list_compiled_claro"],
@@ -72,17 +71,16 @@ claro_library(
     java_name = "Tuples",
 )
 
-# TODO(steving) Investigate this breakage...
 claro_binary(
     name = "types_compiled_claro_image",
     srcs = [":types_compiled_claro"],
-    java_name = "Types",
+    java_name = "TypesTest",
 )
 
 claro_library(
     name = "types_compiled_claro",
     src = "types.claro",
-    java_name = "Types",
+    java_name = "TypesTest",
 )
 
 claro_binary(
