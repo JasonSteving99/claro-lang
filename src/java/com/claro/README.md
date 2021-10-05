@@ -1,7 +1,7 @@
 # Running Claro Programs
-Follow these instructions to get running. Recommend getting started by just running some of the demo programs in `./calculator_programs/` [here](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/examples/calculator_example/calculator_programs).
+Follow these instructions to get running. Recommend getting started by just running some of the demo programs in `./claro_programs/` [here](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/claro_programs).
 
-This directory originated as a complete test dir learning about the lexer/parser tools by implementing a calculator but...it's grown beyond that and naming hasn't caught up lol. This is straight up Claro.
+This directory originated as a complete test dir learning about the lexer/parser tools by implementing a calculator but...it's grown beyond that and it's possible that some naming still hasn't caught up lol. But this is straight up Claro.
 
 # Bazel (Highly Recommended)
 
@@ -9,17 +9,17 @@ This directory originated as a complete test dir learning about the lexer/parser
 Claro's compiler is designed from the ground up to support multiple backends to allow for various modes of handling the parsed AST Intermediate Representation. For now Claro supports the following Targets:
 
 ### REPL
-`$ bazel run calculator_compiler_binary -- --repl --silent`
+`$ bazel run claro_compiler_binary -- --repl --silent`
 
 (Note that this works, but when using the `input()` stmt in the REPL, you won't be able to see what you're typing as input, but it will successfully parse it..)
 
 ### Interpreted
-`$ bazel run calculator_compiler_binary -- --interpreted --silent`
+`$ bazel run claro_compiler_binary -- --interpreted --silent`
 
-(Turns out that this actually broken until we can make a change to allow the interpreted mode to read from files instead of System.in...since it steals input from the program itself meaning that any program using the `input()` stmt doesn't work...For now it hardcodes using the file `second.calculator`.)
+(Turns out that this actually broken until we can make a change to allow the interpreted mode to read from files instead of System.in...since it steals input from the program itself meaning that any program using the `input()` stmt doesn't work...For now it hardcodes using the file `second.claro`.)
 
 ### Java Source Target Output
-`$ bazel run calculator_compiler_binary -- --java_source --silent`
+`$ bazel run claro_compiler_binary -- --java_source --silent`
 
 
 # Docker Hub (only if you can't run Bazel)
@@ -35,11 +35,11 @@ Note that I haven't yet figured out how to get the Lanterna library to work with
 
 ### Run the Compiler Over a .calculator File to Produce Compiled .java File
 
-`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java`
+`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=First --package="" < first.claro > First.java`
 
 ### Run the Compiler Over a .calculator File and Run It
 
-`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=FirstCalculator --package="" < first.calculator > FirstCalculator.java && javac FirstCalculator.java && java FirstCalculator`
+`$ docker run -i clarolang/calculator:compiler --java_source --silent --classname=First --package="" < first.claro > First.java && javac First.java && java First`
 
 ### Cleanup After Yourself
 
@@ -48,4 +48,4 @@ The above commands will have produced some artifact files that you probably don'
 - `<classname>.class`
 - Optionally, any class files for functions that you may have defined in your program. This is a JAVA_SOURCE CompilerBackend implementation detail... They'll look something like this: `<classname>$1$<functionName>.class`
 
-`$ rm FirstCalculator.java FirstCalculator*.class`
+`$ rm First.java First*.class`
