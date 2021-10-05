@@ -2,7 +2,7 @@ package(
     default_visibility = [
         "//src/java/com/claro/examples/calculator_example:__pkg__",
         "//src/java/com/claro/examples/calculator_example/calculator_programs:__pkg__",
-        "//src/java/com/claro/examples/calculator_example/intermediate_representation:__pkg__",
+        "//src/java/com/claro/examples/calculator_example/intermediate_representation/expressions:__pkg__",
     ]
 )
 

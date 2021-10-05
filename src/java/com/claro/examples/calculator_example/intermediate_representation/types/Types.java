@@ -1,7 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation.types;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
-import com.claro.examples.calculator_example.intermediate_representation.Expr;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.Expr;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

@@ -1,6 +1,12 @@
 package com.claro.examples.calculator_example;
 
 import com.claro.examples.calculator_example.intermediate_representation.*;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.*;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.bool.*;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.numeric.*;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.procedures.*;
+import com.claro.examples.calculator_example.intermediate_representation.expressions.term.*;
+import com.claro.examples.calculator_example.intermediate_representation.statements.*;
 import com.claro.examples.calculator_example.intermediate_representation.types.Type;
 import com.claro.examples.calculator_example.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;

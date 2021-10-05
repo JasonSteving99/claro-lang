@@ -1,6 +1,7 @@
 package com.claro.examples.calculator_example.intermediate_representation;
 
 import com.claro.examples.calculator_example.compiler_backends.interpreted.ScopedHeap;
+import com.claro.examples.calculator_example.intermediate_representation.statements.StmtListNode;
 import com.claro.examples.calculator_example.intermediate_representation.types.ClaroTypeException;
 
 public class ProgramNode {
