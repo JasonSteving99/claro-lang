@@ -1,0 +1,44 @@
+# This file exists to test out support of lists and list operations.
+
+var l: [int] = [];
+print(l); # Print an empty list "[]".
+#
+#l = [1,2,3];
+#print(l); # Print the list "[1, 2, 3]".
+#
+## Print out 5.0, 4.0, 3.0 on separate lines.
+#print("1D list!");
+#var l2: [float] = [3.0, 4.0, 5.0];
+#var i = len(l2) - 1;
+#while (i >= 0) {
+#  print(l2[i--]);
+#}
+#
+## Show that 2D (ND) lists are supported.
+#print("2D list!");
+#var l3 = [
+#       [0,1,2,3,4],
+#       [5,6,7,8,9],
+#       [10,11,12,13,14],
+#       [15,16,17,18,19],
+#       [20,21,22,23,24]
+#     ];
+#var r = 0;
+#while (r < len(l3)) {
+#  var c = 0;
+#  while (c < len(l3[r])) {
+#    print(l3[r][c++]);
+#  }
+#  ++r;
+#}
+#
+## Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.
+#print("Now accumulate sum of all elements in the following list:");
+#var toAccumulate = [0,1,2,3,4,5];
+#print(toAccumulate);
+#i = 1;
+#while (i < len(toAccumulate)) {
+#  toAccumulate[i] = toAccumulate[i - 1] + toAccumulate[i];
+#  i++;
+#}
+#print(toAccumulate);

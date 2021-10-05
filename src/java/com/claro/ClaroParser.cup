@@ -1,0 +1,663 @@
+package com.claro;
+
+import com.claro.intermediate_representation.*;
+import com.claro.intermediate_representation.expressions.*;
+import com.claro.intermediate_representation.expressions.bool.*;
+import com.claro.intermediate_representation.expressions.numeric.*;
+import com.claro.intermediate_representation.expressions.procedures.*;
+import com.claro.intermediate_representation.expressions.term.*;
+import com.claro.intermediate_representation.statements.*;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java_cup.runtime.Symbol;
+import java.util.HashSet;
+import java.util.Map;
+
+/*
+ * Copyright (C) 2018 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+/**
+ * Parser for a simple calculator.
+ *
+ * <p>The grammar defines a simple arihmetic expressions that supports the addition,
+ * subtraction, multiplication, division, exponentiation, logarithms and parentheses.
+ *
+ * @author Jason Steving, derived from a simpler example by Régis Décamps
+ */
+
+action code {:
+  int indentationLevel = 1;
+
+  private String getIndents(int level) {
+    StringBuilder res = new StringBuilder();
+    for(int i = 0; i < level; i++) {
+      res.append("\t");
+    }
+    return res.toString();
+  }
+:}
+
+parser code {:
+  public String generatedClassName = "CompiledCalculator";  // default to be overridden.
+  public String package_string = "";  // default to be overridden.
+:}
+
+terminal         LPAR, RPAR;
+terminal         LCURLY, RCURLY, LBRACKET, RBRACKET;
+terminal         EXPONENTIATE;
+terminal         MULTIPLY, DIVIDE;
+terminal         PLUS, MINUS;
+terminal         INCREMENT, DECREMENT;
+terminal         SEMICOLON;
+terminal         COLON;
+terminal         COMMA;
+terminal         BAR;
+terminal         EQUALS, NOT_EQUALS;
+terminal         VAR, ASSIGNMENT;
+terminal         L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
+terminal         OR, AND, NOT;
+terminal         ARROW;
+terminal         TRUE, FALSE;
+// An integer is also a terminal, but it's of type Integer.
+terminal Integer INTEGER;
+// A float is also a terminal, but it's of type Double.
+terminal Double  FLOAT;
+// A string is also a terminal, but it's of type String.
+terminal String  STRING;
+// A variable identifier is just a sequence of chars.
+terminal String  IDENTIFIER;
+// The prefix "log_", of the function log_x(y), is also a terminal.
+// This is good practice for figuring out how to handle functions
+// once I get to Claro, consider this a function hard-coded into the
+// grammar.
+terminal         LOG_PREFIX;
+// This grammar also has a builtin print() function for printing expr values.
+terminal         PRINT;
+// This grammar also has a builtin numeric() function for casting booleans to doubles.
+terminal         NUMERIC_BOOL;
+// This grammar also has a builtin input() functino for reading a number from stdin.
+terminal         INPUT;
+// This grammar also has a builtin len() function for getting the length of an Iterable.
+terminal         LEN;
+// This grammar also has a builtin type() function for getting the type of an Expr.
+terminal         TYPE;
+terminal         IF, ELSE;
+terminal         WHILE;
+// Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
+terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
+                 FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
+terminal         RETURN;
+terminal         IMMUTABLE;
+
+// Declare which type will be returned by each nonterminal grammar production.
+nonterminal ProgramNode                        program;
+nonterminal Expr                               expr;
+nonterminal ParenthesizedExpr                  parenthesized_expr;
+nonterminal Term                               term;
+nonterminal Term                               primitive;
+nonterminal IdentifierReferenceTerm            identifier;
+nonterminal FloatTerm                          float;
+nonterminal IntegerTerm                        integer;
+nonterminal Stmt                               stmt;
+nonterminal StmtListNode                       stmt_list;
+nonterminal ListExpr                           list;
+nonterminal TupleExpr                          tuple;
+nonterminal CollectionSubscriptExpr            collection_subscript;
+nonterminal ImmutableList.Builder<Expr>        args_list;
+nonterminal IfStmt                             if_else_chain_stmt;
+nonterminal IfStmt                             if_stmt;
+nonterminal IfStmt                             else_if_stmt_chain;
+nonterminal IfStmt                             else_if_stmt;
+nonterminal StmtListNode                       else_stmt;
+nonterminal WhileStmt                          while_stmt;
+nonterminal PrintStmt                          print;
+nonterminal ShowTypeStmt                       show_type;
+nonterminal DeclarationStmt                    identifier_declaration;
+nonterminal AssignmentStmt                     identifier_assignment;
+nonterminal IncrementExpr                      identifier_increment;
+nonterminal IncrementStmt                      identifier_increment_stmt;
+nonterminal DecrementExpr                      identifier_decrement;
+nonterminal DecrementStmt                      identifier_decrement_stmt;
+nonterminal ListElementAssignmentStmt          list_element_assignment;
+nonterminal StructDefinitionStmt               struct_definition_stmt;
+nonterminal TupleDefinitionStmt                tuple_definition_stmt;
+nonterminal FunctionDefinitionStmt             function_definition_stmt;
+nonterminal ImmutableMap.Builder<String, Type> function_args_types_list;
+nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
+nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
+nonterminal Expr                               return_stmt;
+nonterminal FunctionCallExpr                   function_call_expr;
+nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
+nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
+nonterminal InputExpr                          input;
+nonterminal BoolExpr                           bool_expr;
+nonterminal BoolExpr                           equality;
+nonterminal BoolExpr                           inequality;
+nonterminal BoolExpr                           bool_arithmetic;
+nonterminal Type                               builtin_type;
+nonterminal ImmutableList<Type>                builtin_types_list;
+nonterminal ImmutableList.Builder<Type>        backwards_builtin_types_list;
+
+// Lower precedence things at the top, higher precedence things at the bottom.
+// ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence left COMMA;
+precedence left IDENTIFIER;
+precedence left SEMICOLON;
+precedence left ASSIGNMENT;
+precedence left COLON;
+precedence left EQUALS, NOT_EQUALS;
+precedence left AND, OR, NOT;
+precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
+precedence left PLUS, MINUS;
+precedence left MULTIPLY, DIVIDE;
+precedence left EXPONENTIATE;
+precedence left LOG_PREFIX, IF, ELSE;
+precedence left WHILE;
+
+// This is where the grammar starts.
+program ::=
+    stmt_list:s
+    {:
+       RESULT = new ProgramNode(s, package_string, generatedClassName);
+    :}
+  ;
+
+stmt_list ::=
+    stmt:head stmt_list:tail
+    {: RESULT = new StmtListNode(head, tail); :}
+  | stmt:s
+    {: RESULT = new StmtListNode(s); :}
+  ;
+
+stmt ::=
+    print:p
+    {: RESULT = p; :}
+  | show_type:s
+    {: RESULT = s; :}
+  | identifier_declaration:d
+    {: RESULT = d; :}
+  | identifier_assignment:a
+    {: RESULT = a; :}
+  | identifier_increment_stmt:i
+    {: RESULT = i; :}
+  | identifier_decrement_stmt:i
+    {: RESULT = i; :}
+  | list_element_assignment:l
+    {: RESULT = l; :}
+  | if_else_chain_stmt:i
+    {: RESULT = i; :}
+  | while_stmt:w
+    {: RESULT = w; :}
+  | struct_definition_stmt:s
+    {: RESULT = s; :}
+  | tuple_definition_stmt:t
+    {: RESULT = t; :}
+  | function_definition_stmt:f
+    {: RESULT = f; :}
+  | consumer_function_definition_stmt:f
+    {: RESULT = f; :}
+  | provider_function_definition_stmt:pf
+    {: RESULT = pf; :}
+  | consumer_function_call_stmt:cf
+    {: RESULT = cf; :}
+  ;
+
+print ::=
+    PRINT LPAR expr:e RPAR SEMICOLON
+    {: RESULT = new PrintStmt(e); :}
+  ;
+
+show_type ::=
+    TYPE LPAR expr:e RPAR SEMICOLON
+    {: RESULT = new ShowTypeStmt(e); :}
+  ;
+
+identifier_declaration ::=
+    VAR IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier, e); :}
+  | VAR IDENTIFIER:identifier COLON builtin_type:t SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier, t); :}
+  | VAR IDENTIFIER:identifier COLON builtin_type:t ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier, t, e); :}
+  ;
+
+builtin_type ::=
+    INT_TYPE:t
+    {: RESULT = Types.INTEGER; :}
+  | FLOAT_TYPE:t
+    {: RESULT = Types.FLOAT; :}
+  | BOOLEAN_TYPE:t
+    {: RESULT = Types.BOOLEAN; :}
+  | STRING_TYPE:t
+    {: RESULT = Types.STRING; :}
+  | LBRACKET builtin_type:t RBRACKET
+    {: RESULT = Types.ListType.forValueType(t); :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:arg ARROW builtin_type:output_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(arg), output_type); :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET BAR builtin_types_list:arg_types BAR ARROW builtin_type:output_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(arg_types, output_type); :}
+  | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types); :}
+  | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:return_type R_ANGLE_BRACKET
+    {: RESULT = Types.ProcedureType.ProviderType.forReturnType(return_type); :}
+  | TUPLE_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
+    {: RESULT = Types.TupleType.forValueTypes(arg_types); :}
+  ;
+
+builtin_types_list ::=
+    backwards_builtin_types_list:b
+    {: RESULT = b.build().reverse(); :}
+  ;
+
+backwards_builtin_types_list ::=
+    builtin_type:t COMMA backwards_builtin_types_list:tail
+    {: RESULT = tail.add(t); :}
+  | builtin_type:t
+    {: RESULT = ImmutableList.<Type>builder().add(t); :}
+  ;
+
+identifier_assignment ::=
+    IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new AssignmentStmt(identifier, e); :}
+  ;
+
+identifier_increment_stmt ::=
+    identifier_increment:i SEMICOLON
+    {: RESULT = new IncrementStmt(i); :}
+  ;
+
+identifier_increment ::=
+    INCREMENT identifier:i
+    {: RESULT = new IncrementExpr(i, /*preIncrement=*/true); :}
+  | identifier:i INCREMENT
+    {: RESULT = new IncrementExpr(i, /*preIncrement=*/false); :}
+  ;
+
+identifier_decrement_stmt ::=
+    identifier_decrement:i SEMICOLON
+    {: RESULT = new DecrementStmt(i); :}
+  ;
+
+identifier_decrement ::=
+    DECREMENT identifier:i
+    {: RESULT = new DecrementExpr(i, /*preDecrement=*/true); :}
+  | identifier:i DECREMENT
+    {: RESULT = new DecrementExpr(i, /*preDecrement=*/false); :}
+  ;
+
+list_element_assignment ::=
+    collection_subscript:l ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new ListElementAssignmentStmt(l, e); :}
+  ;
+
+// In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
+// language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
+expr ::=
+    MINUS expr:e
+    {: RESULT = new NegateNumericExpr(e); :}
+  | expr:a PLUS expr:b
+    {: RESULT = new AddNumericExpr(a, b); :}
+  | identifier_increment:i
+    {: RESULT = i; :}
+  | identifier_decrement:i
+    {: RESULT = i; :}
+  | expr:a MINUS expr:b
+    {: RESULT = new SubtractNumericExpr(a, b); :}
+  | expr:a MULTIPLY expr:b
+    {: RESULT = new MultiplyNumericExpr(a, b); :}
+  | expr:a DIVIDE expr:b // Only support int-division right now...
+    {: RESULT = new DivideNumericExpr(a, b); :}
+  | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
+    {: RESULT = new ExponentiateNumericExpr(a, b); :}
+  | parenthesized_expr:p
+    {: RESULT = p; :}
+  | LOG_PREFIX float:float_base LPAR expr:arg RPAR
+    {: RESULT = new LogNumericExpr(arg, float_base); :}
+  | LOG_PREFIX integer:int_base LPAR expr:arg RPAR
+    {: RESULT = new LogNumericExpr(arg, int_base); :}
+  | NUMERIC_BOOL LPAR bool_expr:b RPAR
+    {: RESULT = new NumericBoolNumericExpr(b); :}
+  | input:i
+    {: RESULT = i; :}
+  | list:l
+    {: RESULT = l; :}
+  | collection_subscript:l
+    {: RESULT = l; :}
+  | LEN LPAR expr:e RPAR
+    {: RESULT = new LenExpr(e); :}
+  | bool_expr:b
+    {: RESULT = b; :}
+  | term:t
+    {: RESULT = t; :}
+  | function_call_expr:f
+    {: RESULT = f; :}
+  | provider_function_call_expr:pf
+    {: RESULT = pf; :}
+  | tuple:t
+    {: RESULT = t; :}
+  | LPAR builtin_type:asserted_type RPAR expr:casted_expr
+    {: RESULT = new CastExpr(asserted_type, casted_expr); :}
+  ;
+
+parenthesized_expr ::=
+    LPAR expr:e RPAR
+    {: RESULT = new ParenthesizedExpr(e); :}
+  ;
+
+input ::=
+    INPUT LPAR STRING:prompt RPAR
+    {: RESULT = new InputExpr(prompt); :}
+  ;
+
+list ::=
+    LBRACKET args_list:args RBRACKET
+    {:
+       // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
+       RESULT = new ListExpr(args.build().reverse());
+    :}
+  | LBRACKET RBRACKET
+    {: RESULT = new ListExpr(); :}
+  ;
+
+tuple ::=
+    // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
+    LPAR expr:head COMMA args_list:tailValues RPAR
+    {:
+       ImmutableList.Builder<Expr> tupleValues = ImmutableList.builder();
+       tupleValues.add(head);
+       tupleValues.addAll(tailValues.build().reverse());
+       RESULT = new TupleExpr(tupleValues.build());
+    :}
+  ;
+
+args_list ::=
+    expr:head COMMA args_list:tail
+    {:
+       // Notice that we're building this list in reverse order, just by the order of the parser recursively identifying
+       // each expr in the list.
+       RESULT = tail.add(head);
+    :}
+  | expr:e
+    {: RESULT = ImmutableList.<Expr>builder().add(e); :}
+  ;
+
+collection_subscript ::=
+    // Support arbitrarily repeated subscripting. CollectionSubscriptExpr node will check that there's the right levels of
+    // nesting available for the given number of subscripts in this specific context.
+    collection_subscript:l LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(l, e); :}
+  | list:l LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(l, e); :}
+  | identifier:i LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(i, e); :}
+  | function_call_expr:f LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(f, e); :}
+  | provider_function_call_expr:f LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(f, e); :}
+  | parenthesized_expr:p LBRACKET expr:e RBRACKET
+    {: RESULT = new CollectionSubscriptExpr(p, e); :}
+  ;
+
+bool_expr ::=
+    equality:b
+    {: RESULT = b; :}
+  | inequality:b
+    {: RESULT = b; :}
+  | bool_arithmetic:b
+    {: RESULT = b; :}
+  ;
+
+// This calculator can evaluate an equality check of expressions.
+equality ::=
+    expr:a EQUALS expr:b
+    {: RESULT = new EqualsBoolExpr(a, b); :}
+  | expr:a NOT_EQUALS expr:b
+    {: RESULT = new NotEqualsBoolExpr(a, b); :}
+  ;
+
+if_else_chain_stmt ::=
+    if_stmt:leading_if_stmt else_if_stmt_chain:else_if_chain
+    {:
+       leading_if_stmt.setNextCondition(else_if_chain);
+       RESULT = leading_if_stmt;
+    :}
+  | if_stmt:if_stmt else_stmt:trailing_else_stmt
+    {:
+       if_stmt.setTerminalElseClause(trailing_else_stmt);
+       RESULT = if_stmt;
+    :}
+  | if_stmt:if_stmt
+    {: RESULT = if_stmt; :}
+  ;
+
+if_stmt ::=
+    IF LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = new IfStmt(e, stmt_list); :}
+  ;
+
+else_if_stmt_chain ::=
+    else_if_stmt:head else_if_stmt_chain:tail
+    {:
+       head.setNextCondition(tail);
+       RESULT = head;
+    :}
+  | else_if_stmt:else_if_stmt else_stmt:trailing_else_stmt
+    {:
+       else_if_stmt.setTerminalElseClause(trailing_else_stmt);
+       RESULT = else_if_stmt;
+    :}
+  | else_if_stmt:else_if_stmt
+    {: RESULT = else_if_stmt; :}
+  ;
+
+else_if_stmt ::=
+    ELSE if_stmt:else_if_stmt
+    {: RESULT = else_if_stmt; :}
+  ;
+
+// We can simply return the StmtListNode itself because this is actually gonna be run by the IfStmt it's associated
+// with.
+else_stmt ::=
+    ELSE LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = stmt_list; :}
+  ;
+
+while_stmt ::=
+    WHILE LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = new WhileStmt(e, stmt_list); :}
+  ;
+
+tuple_definition_stmt ::=
+    LPAR builtin_types_list:field_types RPAR
+    {:
+       // This is an anonymous parameterized tuple type declaration.
+       RESULT = new TupleDefinitionStmt(field_types);
+    :}
+  ;
+
+struct_definition_stmt ::=
+    STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is a named struct definition. You can construct multiple instances of this type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ false);
+    :}
+  | LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ false);
+    :}
+  | IMMUTABLE STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is a named struct definition. You can construct multiple instances of this type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ true);
+    :}
+  | IMMUTABLE LCURLY function_args_types_list:backwards_field_types RCURLY
+    {:
+       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
+      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> fieldTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ true);
+    :}
+  ;
+
+function_definition_stmt ::=
+    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list return_stmt:return_expr RCURLY
+    {:
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> argTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new FunctionDefinitionStmt(name, argTypesMap, output_type, stmt_list, return_expr);
+    :}
+  | FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY return_stmt:return_expr RCURLY
+    {:
+      // This production matched a function defined by just a single return Expr to eval.
+      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> argTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new FunctionDefinitionStmt(name, argTypesMap, output_type, return_expr);
+    :}
+  ;
+
+consumer_function_definition_stmt ::=
+    CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> argTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
+    :}
+  | CONSUMER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, Type> argTypesMap =
+          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
+    :}
+  ;
+
+provider_function_definition_stmt ::=
+    PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list return_stmt:return_expr RCURLY
+    {: RESULT = new ProviderFunctionDefinitionStmt(name, output_type, stmt_list, return_expr); :}
+  | PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY return_stmt:return_expr RCURLY
+    {: RESULT = new ProviderFunctionDefinitionStmt(name, output_type, return_expr); :}
+  | PROVIDER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list return_stmt:return_expr RCURLY
+    {: RESULT = new ProviderFunctionDefinitionStmt(name, output_type, stmt_list, return_expr); :}
+  | PROVIDER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY return_stmt:return_expr RCURLY
+    {: RESULT = new ProviderFunctionDefinitionStmt(name, output_type, return_expr); :}
+  ;
+
+// TODO(steving) Be less lazy and don't bother using a Map where we should just be using a List of pairs....but Java is so garbage it doesn't have tuples so.....
+// Note that we're again building this up backwards for convenience (remember that all guava collections respect ordering).
+function_args_types_list ::=
+    IDENTIFIER:arg_name COLON builtin_type:t COMMA function_args_types_list:tail
+    {: RESULT = tail.put(arg_name, t); :}
+  | IDENTIFIER:arg_name COLON builtin_type:t
+    {: RESULT = ImmutableMap.<String, Type>builder().put(arg_name, t); :}
+  ;
+
+return_stmt ::=
+    RETURN expr:e SEMICOLON
+    {: RESULT = e; :}
+  ;
+
+function_call_expr ::=
+    IDENTIFIER:function_name LPAR args_list:args RPAR
+    {: RESULT = new FunctionCallExpr(function_name, args.build().reverse()); :}
+  ;
+
+provider_function_call_expr ::=
+    IDENTIFIER:provider_name LPAR RPAR
+    {: RESULT = new ProviderFunctionCallExpr(provider_name); :}
+  ;
+
+consumer_function_call_stmt ::=
+    IDENTIFIER:consumer_name LPAR args_list:args RPAR SEMICOLON
+    {: RESULT = new ConsumerFunctionCallStmt(consumer_name, args.build().reverse()); :}
+  ;
+
+inequality ::=
+    expr:a L_ANGLE_BRACKET expr:b
+    {: RESULT = new LessThanBoolExpr(a, b); :}
+  | expr:a R_ANGLE_BRACKET expr:b
+    {: RESULT = new GreaterThanBoolExpr(a, b); :}
+  | expr:a LTE expr:b
+    {: RESULT = new LessThanOrEqualToBoolExpr(a, b); :}
+  | expr:a GTE expr:b
+    {: RESULT = new GreaterThanOrEqualToBoolExpr(a, b); :}
+  ;
+
+// TODO(steving) Address this. This action causes type-unsafety in this language...allows doubles where really
+// there should only be booleans.
+bool_arithmetic ::=
+    expr:a AND expr:b
+    {: RESULT = new AndBoolExpr(a, b); :}
+  | expr:a OR expr:b
+    {: RESULT = new OrBoolExpr(a, b); :}
+  | NOT expr:a
+    {: RESULT = new NotBoolExpr(a); :}
+  ;
+
+// The last production 'term' closes the grammar. It's a primitive or identifier.
+term ::=
+    primitive:p
+    {: RESULT = p; :}
+  | identifier:i
+    {: RESULT = i; :}
+  ;
+
+identifier ::=
+    IDENTIFIER:identifier
+    {: RESULT = new IdentifierReferenceTerm(identifier); :}
+  ;
+
+primitive ::=
+    float:f
+    {: RESULT = f; :}
+  | integer:i
+    {: RESULT = i; :}
+  | STRING:s
+    {: RESULT = new StringTerm(s); :}
+  | TRUE
+    {: RESULT = new TrueTerm(); :}
+  | FALSE
+    {: RESULT = new FalseTerm(); :}
+  ;
+
+float ::=
+    FLOAT:f
+    {: RESULT = new FloatTerm(f); :}
+  ;
+
+integer ::=
+    INTEGER:i
+    {: RESULT = new IntegerTerm(i); :}
+  ;
