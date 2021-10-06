@@ -40,3 +40,33 @@ java_library(
 ################################################################################
 # END: Setup AutoValue.
 ################################################################################
+
+
+################################################################################
+# BEGIN: Setup Lombok.
+################################################################################
+
+# Export the lombok plugin as a simple java_library dep.
+java_plugin(
+    name = "lombok_plugin",
+    processor_class = "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+    generates_api = True,
+    deps = [
+        "@maven//:org_projectlombok_lombok",
+    ],
+)
+
+java_library(
+    name = "lombok",
+    exported_plugins = [
+        ":lombok_plugin",
+    ],
+    neverlink = 1,
+    exports = [
+        "@maven//:org_projectlombok_lombok"
+    ],
+)
+
+################################################################################
+# END: Setup Lombok.
+################################################################################

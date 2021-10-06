@@ -112,8 +112,6 @@ public class ProgramNode {
     return new StringBuilder(
         String.format(
             "%s" +
-            "import java.util.ArrayList;\n" +
-            "import java.util.Scanner;\n" +
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
@@ -122,6 +120,12 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroList;\n" +
             "import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroTuple;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "import java.util.ArrayList;\n" +
+            "import java.util.Scanner;\n" +
+            "import lombok.Builder;\n" +
+            "import lombok.Data;\n" +
+            "import lombok.ToString;\n" +
+            "import lombok.Value;\n" +
             "\n\n" +
             "public class %s {\n" +
             // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
@@ -133,19 +137,13 @@ public class ProgramNode {
             "  }\n\n" +
             "/*******END AUTO-GENERATED*******/\n" +
             "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
+            // TODO(steving) Create a native Claro function implementation for this. Need some manner of stdlib function
+            //  references that refer out to Java implementations.
             "  private static String promptUserInput(String prompt) {\n" +
             "    System.out.println(prompt);\n" +
             "    return INPUT_SCANNER.nextLine();\n" +
             "  }\n" +
-//            // TODO(steving) There's no point having these initializeList() calls, just depend on the Type's constructor.
-//            "  private static <T> ClaroList<T> initializeList() {\n" +
-//            "    return new ClaroList<>();\n" +
-//            "  }\n" +
-//            "  private static <T> ClaroList<T> initializeList(T ... args) {\n" +
-//            "    ClaroList<T> arrayList = new ClaroList<>(args.length);\n" +
-//            "    for (T arg : args) arrayList.add(arg);\n" +
-//            "    return arrayList;\n" +
-//            "  }\n" +
+            // TODO(steving) Create native classes in the com.claro.intermediate_representation.types package.
             "  private abstract static class ClaroFunction<T> {\n" +
             "    public abstract T apply(Object... args);\n" +
             "  }\n" +

@@ -33,6 +33,7 @@ maven_install(
         THIRD_PARTY_ARTIFACTS +
         [
             "org.apache.commons:commons-text:jar:1.1",
+            "org.projectlombok:lombok:1.18.20",
             "com.google.auto.value:auto-value:1.5.3",
             "com.google.guava:guava:jar:23.5-jre",
             "com.googlecode.lanterna:lanterna:3.1.1",

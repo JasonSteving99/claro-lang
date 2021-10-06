@@ -14,6 +14,7 @@ def claro_binary(name, srcs, java_name = "CompiledCalculator"):
         deps = [
             "//:autovalue",
             "//:guava",
+            "//:lombok",
             "//src/java/com/claro/intermediate_representation/types/builtins_impls/collections:collections_impls",
             "//src/java/com/claro/intermediate_representation/types:base_type",
             "//src/java/com/claro/intermediate_representation/types:concrete_type",

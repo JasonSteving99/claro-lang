@@ -22,28 +22,26 @@ public enum BaseType {
   STRUCT(
       "struct{%s}", // E.g. struct{i: int, s: string}.
       "%s", // E.g. Foo.
-      // TODO(steving) Might want to not be lazy and actually just implement equality checking myself because I don't
-      // TODO(steving) think that I actually want immutable structs, kinda defeats the purpose, it's just a named tuple.
-      // We're defining structs in java source using AutoValue to inherit immutability and equality checking free.
-      "@AutoValue\n" +
-      "abstract static class %s {\n" +
-      "  %s\n" +
-      "  %s build(%s) {\n" +
-      "    return new AutoValue_%s_%s(%s);\n" +
-      "  }\n" +
+      // We're defining structs in java source using Lombok's @Data to inherit hashcode and equality checking for free.
+      "" +
+      "@ToString(includeFieldNames=true)\n" +
+      "@Data\n" +
+      "@Builder\n" +
+      "static class %s {\n" +
+      "%s\n" +
       "}\n"
   ),
   // Immutable structure of associated values.
   IMMUTABLE_STRUCT(
       "immutable struct{%s}", // E.g. immutable struct{i: int, s: string}.
       "%s", // E.g. ClaroImmutableStruct.
-      // We're defining structs in java source using AutoValue to inherit immutability and equality checking free.
-      "@AutoValue\n" +
-      "abstract static class %s {\n" +
-      "  %s\n" +
-      "  %s build(%s) {\n" +
-      "    return new AutoValue_%s_%s(%s);\n" +
-      "  }\n" +
+      // We're defining structs in java source using Lombok's @Value to inherit immutability and equality checking free.
+      "" +
+      "@ToString(includeFieldNames=true)\n" +
+      "@Value\n" +
+      "@Builder\n" +
+      "static class %s {\n" +
+      "%s\n" +
       "}\n"
   ),
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.

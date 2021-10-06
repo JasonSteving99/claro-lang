@@ -15,8 +15,7 @@ public class StructDefinitionStmt extends Stmt {
   private final Types.StructType structType;
   private static int anonymousStructInternalCount;
 
-  private String generatedJavaClassName;
-  private static final String AUTO_VALUE_MEMBER_FUNCTION_FMT_STR = "  abstract %s %s();";
+  private static final String PUBLIC_FIELD_FMT_STR = "  public %s %s;";
 
   public StructDefinitionStmt(String structName, ImmutableMap<String, Type> fieldTypesMap, boolean immutable) {
     super(ImmutableList.of());
@@ -50,13 +49,8 @@ public class StructDefinitionStmt extends Stmt {
   }
 
   @Override
-  public Node.GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap, String generatedJavaClassName) {
-    this.generatedJavaClassName = generatedJavaClassName;
-    return generateJavaSourceOutput(scopedHeap);
-  }
-
-  @Override
   public Node.GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Mutable and Immutable Structs are based on different java source implementations.
     return Node.GeneratedJavaSource.forStaticDefinitions(
         new StringBuilder(
             String.format(
@@ -66,24 +60,11 @@ public class StructDefinitionStmt extends Stmt {
                     .map(
                         stringTypeEntry ->
                             String.format(
-                                AUTO_VALUE_MEMBER_FUNCTION_FMT_STR,
+                                PUBLIC_FIELD_FMT_STR,
                                 stringTypeEntry.getValue().getJavaSourceType(),
                                 stringTypeEntry.getKey()
                             ))
-                    .collect(Collectors.joining("\n")),
-                this.structName,
-                this.structType.getFieldTypes().entrySet().stream()
-                    .map(
-                        stringTypeEntry ->
-                            String.format(
-                                "%s %s",
-                                stringTypeEntry.getValue().getJavaSourceType(),
-                                stringTypeEntry.getKey()
-                            ))
-                    .collect(Collectors.joining(",")),
-                this.generatedJavaClassName,
-                this.structName,
-                this.structType.getFieldTypes().keySet().stream().collect(Collectors.joining(","))
+                    .collect(Collectors.joining("\n"))
             )
         )
     );
