@@ -24,7 +24,7 @@ public final class Types {
   public static final Type UNDECIDED = ConcreteType.create(BaseType.UNDECIDED);
 
   public interface Collection {
-    public Type getElementType();
+    Type getElementType();
   }
 
   @AutoValue
@@ -88,18 +88,22 @@ public final class Types {
 
   public abstract static class StructType extends Type {
 
+    public abstract String getName();
+
     public abstract ImmutableMap<String, Type> getFieldTypes();
 
     @AutoValue
     public abstract static class ImmutableStructType extends StructType {
-      public static ImmutableStructType forFieldTypes(ImmutableMap<String, Type> fieldTypes) {
-        return new AutoValue_Types_StructType_ImmutableStructType(BaseType.IMMUTABLE_STRUCT, ImmutableMap.of(), fieldTypes);
+      public static ImmutableStructType forFieldTypes(String name, ImmutableMap<String, Type> fieldTypes) {
+        return new AutoValue_Types_StructType_ImmutableStructType(
+            BaseType.IMMUTABLE_STRUCT, ImmutableMap.of(), name, fieldTypes);
       }
 
       @Override
       public String toString() {
         return String.format(
             this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            getName(),
             getFieldTypes().entrySet().stream()
                 .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
                 .collect(Collectors.joining(", "))
@@ -123,14 +127,18 @@ public final class Types {
 
     @AutoValue
     public abstract static class MutableStructType extends StructType {
-      public static StructType forFieldTypes(ImmutableMap<String, Type> fieldTypes) {
-        return new AutoValue_Types_StructType_MutableStructType(BaseType.STRUCT, ImmutableMap.of(), fieldTypes);
+      public static StructType forFieldTypes(
+          String name,
+          ImmutableMap<String, Type> fieldTypes) {
+        return new AutoValue_Types_StructType_MutableStructType(
+            BaseType.STRUCT, ImmutableMap.of(), name, fieldTypes);
       }
 
       @Override
       public String toString() {
         return String.format(
             this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            getName(),
             getFieldTypes().entrySet().stream()
                 .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
                 .collect(Collectors.joining(", "))
@@ -152,6 +160,34 @@ public final class Types {
       // TODO(steving) Put some manner of constructor code directly inside this type definition.
     }
 
+  }
+
+  @AutoValue
+  public abstract static class BuilderType extends Type {
+    public abstract String getBuiltTypeName();
+
+    abstract String getBuiltTypeJavaSourceClaroType();
+
+    public static BuilderType forStructType(StructType structType) {
+      return new AutoValue_Types_BuilderType(
+          BaseType.BUILDER, ImmutableMap.of(), structType.getName(), structType.getJavaSourceClaroType());
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          this.getBuiltTypeName()
+      );
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.BuilderType.forStructType(%s)",
+          this.getBuiltTypeJavaSourceClaroType()
+      );
+    }
   }
 
   public abstract static class ProcedureType extends Type {
@@ -181,13 +217,12 @@ public final class Types {
     public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
 
     private static final Function<ImmutableList<Type>, String> collectToArgTypesListFormatFn =
-        typesByNameMap -> {
-          return typesByNameMap.size() > 1 ?
-                 typesByNameMap.stream()
-                     .map(Type::toString)
-                     .collect(Collectors.joining(", ", "|", "|")) :
-                 typesByNameMap.stream().findFirst().map(Type::toString).get();
-        };
+        typesByNameMap ->
+            typesByNameMap.size() > 1 ?
+            typesByNameMap.stream()
+                .map(Type::toString)
+                .collect(Collectors.joining(", ", "|", "|")) :
+            typesByNameMap.stream().findFirst().map(Type::toString).get();
 
     @Override
     @Nullable

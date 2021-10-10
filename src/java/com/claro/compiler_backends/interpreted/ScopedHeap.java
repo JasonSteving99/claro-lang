@@ -3,10 +3,10 @@ package com.claro.compiler_backends.interpreted;
 import com.claro.ClaroParserException;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 // TODO(steving) There should be a ScopedSymbolTable interface with 2 impls. 1: ScopedHeap used for Interpreter and
@@ -64,7 +64,7 @@ public class ScopedHeap {
     scopeStack
         .elementAt(
             optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1))
-        .scopedHeap
+        .scopedSymbolTable
         .put(identifier, new IdentifierData(type, value, true));
     if (value != null) {
       scopeStack.peek().initializedIdentifiers.add(identifier);
@@ -83,7 +83,7 @@ public class ScopedHeap {
         identifierScopeLevel.isPresent(),
         "Internal Compiler Error: attempting to mark usage of an undeclared identifier."
     );
-    scopeStack.elementAt(identifierScopeLevel.get()).scopedHeap.get(identifier).used = true;
+    scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
   }
 
   // TODO(steving) For now, acknowledging that (enter|exit)NewScope() is actually *only* covering the case of
@@ -126,7 +126,7 @@ public class ScopedHeap {
     Optional<Integer> identifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
     return
         identifierScopeLevel.isPresent() &&
-        scopeStack.elementAt(identifierScopeLevel.get()).scopedHeap.get(identifier).declared;
+        scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).declared;
   }
 
   public boolean isIdentifierInitialized(String identifier) {
@@ -136,14 +136,14 @@ public class ScopedHeap {
   private IdentifierData getIdentifierData(String identifier) throws ClaroParserException {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
     if (optionalIdentifierScopeLevel.isPresent()) {
-      return scopeStack.elementAt(optionalIdentifierScopeLevel.get()).scopedHeap.get(identifier);
+      return scopeStack.elementAt(optionalIdentifierScopeLevel.get()).scopedSymbolTable.get(identifier);
     }
     throw new ClaroParserException(String.format("No variable <%s> within the current scope!", identifier));
 
   }
 
   private Optional<Integer> findIdentifierDeclaredScopeLevel(String identifier) {
-    return findScopeStackLevel(scopeLevel -> scopeLevel.scopedHeap.containsKey(identifier));
+    return findScopeStackLevel(scopeLevel -> scopeLevel.scopedSymbolTable.containsKey(identifier));
   }
 
   private Optional<Integer> findIdentifierInitializedScopeLevel(String identifier) {
@@ -163,7 +163,7 @@ public class ScopedHeap {
 
   private void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
     HashSet<String> unusedSymbolSet = new HashSet<>();
-    for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedHeap.entrySet()) {
+    for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedSymbolTable.entrySet()) {
       if (!identifierEntry.getValue().used) {
         if (identifierEntry.getValue().type.baseType().equals(BaseType.STRUCT) ||
             identifierEntry.getValue().type.baseType().equals(BaseType.IMMUTABLE_STRUCT)) {
@@ -205,11 +205,11 @@ public class ScopedHeap {
     // This is a map that contains all declared identifiers. An entry will be made in this map for every identifier
     // immediately following its declaration. Its type and value will be logged at the first scope level where it was
     // declared because further code branches (scopes) may still need to update its value as a desired side-effect.
-    final HashMap<String, IdentifierData> scopedHeap = new HashMap<>();
+    final HashMap<String, IdentifierData> scopedSymbolTable = new HashMap<>();
 
     // This is a set containing all identifiers that have been initialized at this current scope level for the first
     // time along the given code branch (AST subtree) corresponding to this current scope level. This exists separate
-    // from the above scopedHeap so that we're able to separately identify whether it's valid to reference a certain
+    // from the above scopedSymbolTable so that we're able to separately identify whether it's valid to reference a certain
     // identifier within certain code branches where the identifier may have been originally declared without an
     // initializer value.
     final HashSet<String> initializedIdentifiers = new HashSet<>();
@@ -245,9 +245,9 @@ public class ScopedHeap {
       // Filter out the identifiers that were actually declared in the given branchScope since those aren't known at
       // this current Scope.
       HashSet<String> knownIdentifiersInitializedInBranchGroup = branchScope.initializedIdentifiers.stream()
-          // If the inititializedIdentifier is found in the branchScope's scopedHeap, then it was declared at that
+          // If the inititializedIdentifier is found in the branchScope's scopedSymbolTable, then it was declared at that
           // lower scope-level and we're not concerned with it.
-          .filter(initializedIdentifier -> !branchScope.scopedHeap.containsKey(initializedIdentifier))
+          .filter(initializedIdentifier -> !branchScope.scopedSymbolTable.containsKey(initializedIdentifier))
           .collect(Collectors.toCollection(HashSet::new));
 
       if (identifiersInitializedInBranchGroup == null) {

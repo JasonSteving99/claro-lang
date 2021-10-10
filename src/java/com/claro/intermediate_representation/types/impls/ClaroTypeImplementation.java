@@ -1,4 +1,4 @@
-package com.claro.intermediate_representation.types.builtins_impls;
+package com.claro.intermediate_representation.types.impls;
 
 import com.claro.intermediate_representation.types.Type;
 
@@ -6,5 +6,5 @@ import com.claro.intermediate_representation.types.Type;
 // certain assumptions about the types that we're dealing with in Claro. This is important because native-Java interop
 // is a top-level priority for Claro, so some special handling may be needed to make that interop possible.
 public interface ClaroTypeImplementation {
-  public Type getClaroType();
+  Type getClaroType();
 }

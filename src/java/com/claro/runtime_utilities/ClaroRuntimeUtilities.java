@@ -3,7 +3,7 @@ package com.claro.runtime_utilities;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.ConcreteType;
 import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.builtins_impls.ClaroTypeImplementation;
+import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
 
 public class ClaroRuntimeUtilities {
   public static <T> T assertedTypeValue(Type assertedType, T evaluatedCastedExprValue) {

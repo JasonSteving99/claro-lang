@@ -1,4 +1,4 @@
-package com.claro.intermediate_representation.types.builtins_impls.collections;
+package com.claro.intermediate_representation.types.impls.builtins_impls.collections;
 
 import com.claro.intermediate_representation.types.Type;
 

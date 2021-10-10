@@ -18,6 +18,9 @@ public class ClaroTypeException extends Exception {
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the expected type to assert this type at compile-time.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
       "Invalid cast: Found <%s> which cannot be converted to <%s>.";
+  private static final String INVALID_MEMBER_REFERENCE = "Invalid Member Reference: %s has no such member %s.";
+  private static final String UNSET_REQUIRED_STRUCT_MEMBER =
+      "Builder Missing Required Struct Member: While building %s, required field%s %s need%s to be set before calling build().";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -85,6 +88,31 @@ public class ClaroTypeException extends Exception {
             INVALID_CAST_ERROR_MESSAGE_FMT_STR,
             actualType,
             assertedType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidMemberReference(Type structType, String identifier) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_MEMBER_REFERENCE,
+            structType,
+            identifier
+        )
+    );
+  }
+
+  public static ClaroTypeException forUnsetRequiredStructMember(
+      Type structType, ImmutableSet<?> unsetFields) {
+    boolean plural = unsetFields.size() > 1;
+    return new ClaroTypeException(
+        String.format(
+            UNSET_REQUIRED_STRUCT_MEMBER,
+            structType,
+            // English is weird.
+            plural ? "s" : "",
+            Joiner.on(", ").join(unsetFields),
+            plural ? "" : "s"
         )
     );
   }

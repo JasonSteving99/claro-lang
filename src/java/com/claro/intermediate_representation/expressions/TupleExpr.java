@@ -4,7 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroTuple;
+import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;
 import com.google.common.collect.ImmutableList;
 
 import java.util.stream.Collectors;

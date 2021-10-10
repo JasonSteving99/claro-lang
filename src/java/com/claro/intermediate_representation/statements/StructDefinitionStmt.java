@@ -22,8 +22,8 @@ public class StructDefinitionStmt extends Stmt {
     this.structName = structName;
     this.structType =
         immutable ?
-        Types.StructType.ImmutableStructType.forFieldTypes(fieldTypesMap) :
-        Types.StructType.MutableStructType.forFieldTypes(fieldTypesMap);
+        Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
+        Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
   }
 
   public StructDefinitionStmt(ImmutableMap<String, Type> fieldTypesMap, boolean immutable) {
@@ -32,8 +32,8 @@ public class StructDefinitionStmt extends Stmt {
     this.structName = (immutable ? "$Immutable_Struct" : "$Struct_") + anonymousStructInternalCount++;
     this.structType =
         immutable ?
-        Types.StructType.ImmutableStructType.forFieldTypes(fieldTypesMap) :
-        Types.StructType.MutableStructType.forFieldTypes(fieldTypesMap);
+        Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
+        Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
   }
 
   @Override
@@ -64,7 +64,9 @@ public class StructDefinitionStmt extends Stmt {
                                 stringTypeEntry.getValue().getJavaSourceType(),
                                 stringTypeEntry.getKey()
                             ))
-                    .collect(Collectors.joining("\n"))
+                    .collect(Collectors.joining("\n")),
+                this.structName,
+                this.structName
             )
         )
     );

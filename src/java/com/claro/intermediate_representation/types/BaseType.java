@@ -18,31 +18,67 @@ public enum BaseType {
   TUPLE("tuple<%s>", "ClaroTuple"),
   IMMUTABLE_MAP,
   MAP,
+  BUILDER(
+      "builder<%s>", // E.g. builder<Foo>
+      "%s.Builder" // E.g. Foo.Builder
+  ),
   // Structure of associated values.
   STRUCT(
-      "struct{%s}", // E.g. struct{i: int, s: string}.
+      "%s{%s}", // E.g. struct{i: int, s: string}.
       "%s", // E.g. Foo.
       // We're defining structs in java source using Lombok's @Data to inherit hashcode and equality checking for free.
       "" +
+      // TODO(steving) Standardize the toString representation with the interpreted output..
       "@ToString(includeFieldNames=true)\n" +
       "@Data\n" +
-      "@Builder\n" +
-      "static class %s {\n" +
+      "@EqualsAndHashCode(callSuper=false)\n" +
+      "@Builder(builderMethodName = \"\")\n" +
+      "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
+      "  public final Types.StructType claroType;\n" +
       "%s\n" +
-      "}\n"
+      "  public Builder builder() {\n" +
+      "    return new Builder(this.claroType);\n" +
+      "  }\n" +
+      "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
+      "    private final Types.BuilderType builderType;\n" +
+      "    public Builder(Types.StructType structType) {\n" +
+      "      super();\n" +
+      "      this.builderType = Types.BuilderType.forStructType(structType);\n" +
+      "    }\n" +
+      "    public Type getClaroType() {\n" +
+      "      return this.builderType;\n" +
+      "    }\n" +
+      "  }\n" +
+      "}\n\n"
   ),
   // Immutable structure of associated values.
   IMMUTABLE_STRUCT(
-      "immutable struct{%s}", // E.g. immutable struct{i: int, s: string}.
+      "immutable %s{%s}", // E.g. immutable struct{i: int, s: string}.
       "%s", // E.g. ClaroImmutableStruct.
       // We're defining structs in java source using Lombok's @Value to inherit immutability and equality checking free.
       "" +
+      // TODO(steving) Standardize the toString representation with the interpreted output..
       "@ToString(includeFieldNames=true)\n" +
       "@Value\n" +
-      "@Builder\n" +
-      "static class %s {\n" +
+      "@EqualsAndHashCode(callSuper=false)\n" +
+      "@Builder(builderMethodName = \"\")\n" +
+      "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
+      "  public final Types.StructType claroType;\n" +
       "%s\n" +
-      "}\n"
+      "  public Builder builder() {\n" +
+      "    return new Builder(this.claroType);\n" +
+      "  }\n" +
+      "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
+      "    private final Types.BuilderType builderType;\n" +
+      "    public Builder(Types.StructType structType) {\n" +
+      "      super();\n" +
+      "      this.builderType = Types.BuilderType.forStructType(structType);\n" +
+      "    }\n" +
+      "    public Type getClaroType() {\n" +
+      "      return this.builderType;\n" +
+      "    }\n" +
+      "  }\n" +
+      "}\n\n"
   ),
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
 

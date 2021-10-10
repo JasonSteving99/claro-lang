@@ -13,6 +13,6 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:concrete_type",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
-        "//src/java/com/claro/intermediate_representation/types/builtins_impls:builtins_impls",
+        "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
     ],
 )

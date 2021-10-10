@@ -9,14 +9,10 @@ import com.claro.compiler_backends.repl.repl_terminal.ReplTerminal;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 
-import java.util.HashSet;
-
 public class Repl implements CompilerBackend {
 
   // To maintain REPL state, we're gonna keep a heap to reuse across all REPL statements.
   private final ScopedHeap SCOPED_HEAP = new ScopedHeap();
-  private final HashSet<String> SYMBOL_TABLE = new HashSet<>();
-  private final HashSet<String> USED_SYMBOL_TABLE = new HashSet<>();
 
   public Repl() {
     // Make sure that the REPL's heap is ready.

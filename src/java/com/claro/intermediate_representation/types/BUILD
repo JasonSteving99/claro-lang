@@ -51,6 +51,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//:autovalue",
         "//:guava",
+        "//:lombok",
     ],
 )
 

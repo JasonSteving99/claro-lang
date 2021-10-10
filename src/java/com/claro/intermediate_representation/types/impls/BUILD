@@ -1,0 +1,14 @@
+package(
+    default_visibility = [
+        "//src/java/com/claro/intermediate_representation/types/impls:__subpackages__",
+        "//src/java/com/claro/runtime_utilities:__pkg__",
+    ]
+)
+
+java_library(
+    name = "claro_type_implementation",
+    srcs = ["ClaroTypeImplementation.java"],
+    deps = [
+        "//src/java/com/claro/intermediate_representation/types:type",
+    ],
+)

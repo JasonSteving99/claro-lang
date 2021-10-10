@@ -5,7 +5,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.intermediate_representation.types.builtins_impls.collections.Collection;
+import com.claro.intermediate_representation.types.impls.builtins_impls.collections.Collection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 

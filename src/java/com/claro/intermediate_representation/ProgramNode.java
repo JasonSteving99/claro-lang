@@ -116,14 +116,17 @@ public class ProgramNode {
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
             "import com.claro.intermediate_representation.types.ConcreteType;\n" +
+            "import com.claro.intermediate_representation.types.Type;\n" +
             "import com.claro.intermediate_representation.types.Types;\n" +
-            "import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroList;\n" +
-            "import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
             "import java.util.ArrayList;\n" +
             "import java.util.Scanner;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +
+            "import lombok.EqualsAndHashCode;\n" +
             "import lombok.ToString;\n" +
             "import lombok.Value;\n" +
             "\n\n" +

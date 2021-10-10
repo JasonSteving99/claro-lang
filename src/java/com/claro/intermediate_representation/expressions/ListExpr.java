@@ -5,7 +5,7 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.intermediate_representation.types.builtins_impls.collections.ClaroList;
+import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -77,8 +77,7 @@ public class ListExpr extends Expr {
       initializerArgs =
           this.initializerArgExprsList.stream()
               .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
-              .collect(Collectors.joining(", ", ", ", "")
-              );
+              .collect(Collectors.joining(", ", ", ", ""));
     }
     return new StringBuilder(
         String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs));

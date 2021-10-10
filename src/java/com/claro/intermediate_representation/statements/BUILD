@@ -36,7 +36,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:types",
-        "//src/java/com/claro/intermediate_representation/types/builtins_impls/collections:collections_impls",
+        "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
     ],
 )
 
