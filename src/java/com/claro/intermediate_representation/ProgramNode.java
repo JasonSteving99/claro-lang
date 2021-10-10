@@ -114,6 +114,7 @@ public class ProgramNode {
             "%s" +
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
+            "import com.google.common.collect.ImmutableMap;\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
             "import com.claro.intermediate_representation.types.ConcreteType;\n" +
             "import com.claro.intermediate_representation.types.Type;\n" +

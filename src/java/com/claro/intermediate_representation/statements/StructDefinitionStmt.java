@@ -50,12 +50,13 @@ public class StructDefinitionStmt extends Stmt {
 
   @Override
   public Node.GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // Mutable and Immutable Structs are based on different java source implementations.
+    String javaSourceClaroType = this.structType.getJavaSourceClaroType();
     return Node.GeneratedJavaSource.forStaticDefinitions(
         new StringBuilder(
             String.format(
                 this.structType.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
                 this.structName,
+                javaSourceClaroType,
                 this.structType.getFieldTypes().entrySet().stream()
                     .map(
                         stringTypeEntry ->

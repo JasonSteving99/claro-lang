@@ -34,19 +34,17 @@ public enum BaseType {
       "@EqualsAndHashCode(callSuper=false)\n" +
       "@Builder(builderMethodName = \"\")\n" +
       "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
-      "  public final Types.StructType claroType;\n" +
+      "  public static final Types.StructType claroType = %s;\n" +
       "%s\n" +
-      "  public Builder builder() {\n" +
-      "    return new Builder(this.claroType);\n" +
+      "  public static Builder builder() {\n" +
+      "    return new Builder();\n" +
+      "  }\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
       "  }\n" +
       "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
-      "    private final Types.BuilderType builderType;\n" +
-      "    public Builder(Types.StructType structType) {\n" +
-      "      super();\n" +
-      "      this.builderType = Types.BuilderType.forStructType(structType);\n" +
-      "    }\n" +
       "    public Type getClaroType() {\n" +
-      "      return this.builderType;\n" +
+      "      return Types.BuilderType.forStructType(claroType);\n" +
       "    }\n" +
       "  }\n" +
       "}\n\n"
@@ -63,24 +61,23 @@ public enum BaseType {
       "@EqualsAndHashCode(callSuper=false)\n" +
       "@Builder(builderMethodName = \"\")\n" +
       "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
-      "  public final Types.StructType claroType;\n" +
+      "  public static final Types.StructType claroType = %s;\n" +
       "%s\n" +
-      "  public Builder builder() {\n" +
-      "    return new Builder(this.claroType);\n" +
+      "  public static Builder builder() {\n" +
+      "    return new Builder();\n" +
+      "  }\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
       "  }\n" +
       "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
-      "    private final Types.BuilderType builderType;\n" +
-      "    public Builder(Types.StructType structType) {\n" +
-      "      super();\n" +
-      "      this.builderType = Types.BuilderType.forStructType(structType);\n" +
-      "    }\n" +
       "    public Type getClaroType() {\n" +
-      "      return this.builderType;\n" +
+      "      return Types.BuilderType.forStructType(claroType);\n" +
       "    }\n" +
       "  }\n" +
       "}\n\n"
   ),
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
+  ONEOF, // A quasi union type that selects for one of a finite set of types.
 
   /********************************************************************************************************************/
   // Function references. Remember, in Claro, Function specifically means a standalone procedure that doesn't depend on

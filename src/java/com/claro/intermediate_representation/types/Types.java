@@ -113,11 +113,13 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.StructType.ImmutableStructType.forFieldTypes(ImmutableMap.<String, Type>builder().%s.build())",
+            "Types.StructType.ImmutableStructType.forFieldTypes(\"%s\", ImmutableMap.<String, Type>builder()%s.build())",
+            this.getName(),
             this.getFieldTypes()
                 .entrySet()
                 .stream()
-                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .map(entry -> String.format(".put(\"%s\", %s)", entry.getKey(), entry.getValue()
+                    .getJavaSourceClaroType()))
                 .collect(Collectors.joining())
         );
       }
@@ -127,11 +129,8 @@ public final class Types {
 
     @AutoValue
     public abstract static class MutableStructType extends StructType {
-      public static StructType forFieldTypes(
-          String name,
-          ImmutableMap<String, Type> fieldTypes) {
-        return new AutoValue_Types_StructType_MutableStructType(
-            BaseType.STRUCT, ImmutableMap.of(), name, fieldTypes);
+      public static StructType forFieldTypes(String name, ImmutableMap<String, Type> fieldTypes) {
+        return new AutoValue_Types_StructType_MutableStructType(BaseType.STRUCT, ImmutableMap.of(), name, fieldTypes);
       }
 
       @Override
@@ -148,11 +147,13 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.StructType.MutableStructType.forFieldTypes(ImmutableMap.<String, Type>builder().%s.build())",
+            "Types.StructType.MutableStructType.forFieldTypes(\"%s\", ImmutableMap.<String, Type>builder()%s.build())",
+            this.getName(),
             this.getFieldTypes()
                 .entrySet()
                 .stream()
-                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
+                .map(entry -> String.format(".put(\"%s\", %s)", entry.getKey(), entry.getValue()
+                    .getJavaSourceClaroType()))
                 .collect(Collectors.joining())
         );
       }
@@ -164,20 +165,17 @@ public final class Types {
 
   @AutoValue
   public abstract static class BuilderType extends Type {
-    public abstract String getBuiltTypeName();
-
-    abstract String getBuiltTypeJavaSourceClaroType();
+    public abstract StructType getBuiltType();
 
     public static BuilderType forStructType(StructType structType) {
-      return new AutoValue_Types_BuilderType(
-          BaseType.BUILDER, ImmutableMap.of(), structType.getName(), structType.getJavaSourceClaroType());
+      return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), structType);
     }
 
     @Override
     public String toString() {
       return String.format(
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
-          this.getBuiltTypeName()
+          this.getBuiltType().getName()
       );
     }
 
@@ -185,7 +183,7 @@ public final class Types {
     public String getJavaSourceClaroType() {
       return String.format(
           "Types.BuilderType.forStructType(%s)",
-          this.getBuiltTypeJavaSourceClaroType()
+          this.getBuiltType().getJavaSourceClaroType()
       );
     }
   }
