@@ -5,11 +5,22 @@ struct FirstStruct {
   field2: string
 }
 
+var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
+type(firstStructBuilder);
+print(firstStructBuilder);
 
 immutable struct FirstImmutableStruct {
   i: int,
   s: string
 }
+
+var firstImmutableStructBuilder = FirstImmutableStruct.builder().i(-999).s("negative nine-hundred-ninety-nine");
+type(firstImmutableStructBuilder);
+print(firstImmutableStructBuilder);
+
+var firstBuiltImmutableStruct = FirstImmutableStruct.builder().i(27).s("age").build();
+type(firstBuiltImmutableStruct);
+print(firstBuiltImmutableStruct);
 
 # Anonymous struct definition. This will actually only be accepted in places where type declarations are found.
 # E.g. function Foo(i: int) -> {output_i: int, output_s: string} { ... }

@@ -11,6 +11,10 @@ public final class MutableClaroStruct extends ClaroStruct<MutableClaroStruct> {
     super(structType, new HashMap<>(delegateFieldMap));
   }
 
+  static MutableClaroStruct of(Types.StructType structType, Map<String, Object> delegateFieldMap) {
+    return new MutableClaroStruct(structType, delegateFieldMap);
+  }
+
   @Override
   public void set(String identifier, Object value) throws ClaroTypeException {
     if (this.delegateFieldMap.containsKey(identifier)) {

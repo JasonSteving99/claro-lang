@@ -11,6 +11,10 @@ public final class ImmutableClaroStruct extends ClaroStruct<ImmutableClaroStruct
     super(structType, ImmutableMap.copyOf(delegateFieldMap));
   }
 
+  static ImmutableClaroStruct of(Types.StructType structType, Map<String, Object> delegateFieldMap) {
+    return new ImmutableClaroStruct(structType, delegateFieldMap);
+  }
+
   @Override
   public void set(String identifier, Object value) {
     throw new UnsupportedOperationException(

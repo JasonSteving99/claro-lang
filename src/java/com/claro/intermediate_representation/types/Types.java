@@ -6,6 +6,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -92,22 +93,28 @@ public final class Types {
 
     public abstract ImmutableMap<String, Type> getFieldTypes();
 
+
+    @Override
+    public String toString() {
+      return String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          getName(),
+          getFieldTypes().entrySet().stream()
+              .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
+              .collect(Collectors.joining(", "))
+      );
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return String.format(this.baseType().getJavaSourceFmtStr(), this.getName());
+    }
+
     @AutoValue
     public abstract static class ImmutableStructType extends StructType {
       public static ImmutableStructType forFieldTypes(String name, ImmutableMap<String, Type> fieldTypes) {
         return new AutoValue_Types_StructType_ImmutableStructType(
             BaseType.IMMUTABLE_STRUCT, ImmutableMap.of(), name, fieldTypes);
-      }
-
-      @Override
-      public String toString() {
-        return String.format(
-            this.baseType().getClaroCanonicalTypeNameFmtStr(),
-            getName(),
-            getFieldTypes().entrySet().stream()
-                .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
-                .collect(Collectors.joining(", "))
-        );
       }
 
       @Override
@@ -134,17 +141,6 @@ public final class Types {
       }
 
       @Override
-      public String toString() {
-        return String.format(
-            this.baseType().getClaroCanonicalTypeNameFmtStr(),
-            getName(),
-            getFieldTypes().entrySet().stream()
-                .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
-                .collect(Collectors.joining(", "))
-        );
-      }
-
-      @Override
       public String getJavaSourceClaroType() {
         return String.format(
             "Types.StructType.MutableStructType.forFieldTypes(\"%s\", ImmutableMap.<String, Type>builder()%s.build())",
@@ -165,10 +161,31 @@ public final class Types {
 
   @AutoValue
   public abstract static class BuilderType extends Type {
+    private static final ImmutableSet<BaseType> SUPPORTED_BUILT_TYPES =
+        ImmutableSet.of(BaseType.STRUCT, BaseType.IMMUTABLE_STRUCT);
+
     public abstract StructType getBuiltType();
 
     public static BuilderType forStructType(StructType structType) {
       return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), structType);
+    }
+
+    /**
+     * This function exists for late binding of user-defined types in the symbol table. This is necessary since we don't
+     * have all type information until we parse the entire file and create symbol table entries for all
+     * user-defined types.
+     *
+     * @param structTypeName The name of the (potentially user-defined) type to look for in the symbol table.
+     * @return a function that provides the actual resolved BuilderType once the symbol table has all types.
+     */
+    public static Function<ScopedHeap, BuilderType> forStructTypeName(String structTypeName) {
+      return (scopedHeap) -> {
+        Type structType = scopedHeap.getValidatedIdentifierType(structTypeName);
+        if (!SUPPORTED_BUILT_TYPES.contains(structType.baseType())) {
+          throw new RuntimeException(new ClaroTypeException(structType, SUPPORTED_BUILT_TYPES));
+        }
+        return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), (StructType) structType);
+      };
     }
 
     @Override
@@ -177,6 +194,11 @@ public final class Types {
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
           this.getBuiltType().getName()
       );
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return String.format(this.baseType().getJavaSourceFmtStr(), this.getBuiltType().getJavaSourceType());
     }
 
     @Override

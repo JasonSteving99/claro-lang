@@ -4,7 +4,8 @@ import com.claro.intermediate_representation.*;
 import com.claro.intermediate_representation.expressions.*;
 import com.claro.intermediate_representation.expressions.bool.*;
 import com.claro.intermediate_representation.expressions.numeric.*;
-import com.claro.intermediate_representation.expressions.procedures.*;
+import com.claro.intermediate_representation.expressions.procedures.functions.*;
+import com.claro.intermediate_representation.expressions.procedures.methods.*;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.types.Type;
@@ -104,6 +105,9 @@ terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, ST
                  FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
 terminal         RETURN;
 terminal         IMMUTABLE;
+terminal         DOT;
+// TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
+terminal         BUILDER, DOTBUILD;
 
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
@@ -141,6 +145,10 @@ nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal ImmutableMap.Builder<String, Type> function_args_types_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
+nonterminal BuilderMethodCallExpr              builder_method_call_expr;
+nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
+nonterminal ImmutableMap.Builder<String, Expr> builder_setter_call;
+nonterminal ImmutableMap.Builder<String, Expr> builder_setter_chain;
 nonterminal Expr                               return_stmt;
 nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
@@ -150,6 +158,10 @@ nonterminal BoolExpr                           bool_expr;
 nonterminal BoolExpr                           equality;
 nonterminal BoolExpr                           inequality;
 nonterminal BoolExpr                           bool_arithmetic;
+// TODO(steving) In order to support the delayed parsing of all user-defined types, just replace this type with
+// TODO(steving) Function<ScopedHeap, Type> or some other equivalent functional interface and then you'll be good to add
+// TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
+// TODO(steving) and parses all of those before moving on to the other stmts in the StmtList.
 nonterminal Type                               builtin_type;
 nonterminal ImmutableList<Type>                builtin_types_list;
 nonterminal ImmutableList.Builder<Type>        backwards_builtin_types_list;
@@ -258,6 +270,10 @@ builtin_type ::=
     {: RESULT = Types.ProcedureType.ProviderType.forReturnType(return_type); :}
   | TUPLE_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
     {: RESULT = Types.TupleType.forValueTypes(arg_types); :}
+// TODO(steving) You need to had some additional compiler stages so that we can complete identifying all user-defined
+// TODO(steving) types before we actually do type validation. builder<Foo> depends on Foo already having been parsed.
+//  | BUILDER L_ANGLE_BRACKET IDENTIFIER:built_type_name R_ANGLE_BRACKET
+//    {: RESULT = Types.BuilderType.forStructTypeName(built_type_name); :}
   ;
 
 builtin_types_list ::=
@@ -349,6 +365,10 @@ expr ::=
     {: RESULT = f; :}
   | provider_function_call_expr:pf
     {: RESULT = pf; :}
+  | builder_method_call_expr:b
+    {: RESULT = b; :}
+  | builder_full_build:b
+    {: RESULT = b; :}
   | tuple:t
     {: RESULT = t; :}
   | LPAR builtin_type:asserted_type RPAR expr:casted_expr
@@ -602,6 +622,32 @@ provider_function_call_expr ::=
 consumer_function_call_stmt ::=
     IDENTIFIER:consumer_name LPAR args_list:args RPAR SEMICOLON
     {: RESULT = new ConsumerFunctionCallStmt(consumer_name, args.build().reverse()); :}
+  ;
+
+// TODO(steving) Generalize this to use the same approach as method calls.
+// TODO(steving) We have no classes yet - so do this once classes & methods exist.
+builder_full_build ::=
+    builder_method_call_expr:b DOTBUILD
+    {: RESULT = new BuilderFullBuildMethodCallExpr(b); :}
+  ;
+
+builder_method_call_expr ::=
+    IDENTIFIER:built_type_name DOT BUILDER LPAR RPAR
+    {: RESULT = new BuilderMethodCallExpr(built_type_name); :}
+  | IDENTIFIER:built_type_name DOT BUILDER LPAR RPAR builder_setter_chain:set_field_values
+    {: RESULT = new BuilderMethodCallExpr(built_type_name, set_field_values.build()); :}
+  ;
+
+builder_setter_call ::=
+    DOT IDENTIFIER:set_field_name LPAR expr:e RPAR
+    {: RESULT = ImmutableMap.<String, Expr>builder().put(set_field_name, e); :}
+  ;
+
+builder_setter_chain ::=
+    builder_setter_call:head builder_setter_chain:tail
+    {: RESULT = head.putAll(tail.build()); :}
+  | builder_setter_call:setter_call
+    {: RESULT = setter_call; :}
   ;
 
 inequality ::=

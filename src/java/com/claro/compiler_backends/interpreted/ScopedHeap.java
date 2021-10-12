@@ -138,7 +138,7 @@ public class ScopedHeap {
     if (optionalIdentifierScopeLevel.isPresent()) {
       return scopeStack.elementAt(optionalIdentifierScopeLevel.get()).scopedSymbolTable.get(identifier);
     }
-    throw new ClaroParserException(String.format("No variable <%s> within the current scope!", identifier));
+    throw new ClaroParserException(String.format("No identifier <%s> within the current scope!", identifier));
 
   }
 

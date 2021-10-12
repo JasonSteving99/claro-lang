@@ -1,4 +1,4 @@
-package com.claro.intermediate_representation.expressions.procedures;
+package com.claro.intermediate_representation.expressions.procedures.functions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;

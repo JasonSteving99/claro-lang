@@ -8,7 +8,7 @@ package(
 
 
 java_library(
-    name = "procedures",
+    name = "functions",
     srcs = glob(["*FunctionCallExpr.java"]),
     deps = [
         "//:guava",

@@ -107,6 +107,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     ";"                { return symbol(Calc.SEMICOLON); }
     ":"                { return symbol(Calc.COLON); }
     ","                { return symbol(Calc.COMMA); }
+    "."                { return symbol(Calc.DOT); }
     "|"                { return symbol(Calc.BAR); }
     "if"               { return symbol(Calc.IF); }
     "else"             { return symbol(Calc.ELSE); }
@@ -131,6 +132,10 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "function"         { return symbol(Calc.FUNCTION_TYPE); }
     "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE); }
     "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE); }
+
+    // Builders are builtin at the language level.
+    "builder"          { return symbol(Calc.BUILDER); }
+    ".build()"            { return symbol(Calc.DOTBUILD); }
 
     // Modifiers go here.
     "immutable"         { return symbol(Calc.IMMUTABLE); }

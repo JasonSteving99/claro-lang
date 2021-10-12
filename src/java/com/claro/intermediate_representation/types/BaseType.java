@@ -32,7 +32,7 @@ public enum BaseType {
       "@ToString(includeFieldNames=true)\n" +
       "@Data\n" +
       "@EqualsAndHashCode(callSuper=false)\n" +
-      "@Builder(builderMethodName = \"\")\n" +
+      "@Builder(builderClassName = \"Builder\", builderMethodName = \"\")\n" +
       "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
       "  public static final Types.StructType claroType = %s;\n" +
       "%s\n" +
@@ -42,7 +42,7 @@ public enum BaseType {
       "  public Type getClaroType() {\n" +
       "    return claroType;\n" +
       "  }\n" +
-      "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
+      "  public static class Builder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
       "    public Type getClaroType() {\n" +
       "      return Types.BuilderType.forStructType(claroType);\n" +
       "    }\n" +
@@ -59,7 +59,7 @@ public enum BaseType {
       "@ToString(includeFieldNames=true)\n" +
       "@Value\n" +
       "@EqualsAndHashCode(callSuper=false)\n" +
-      "@Builder(builderMethodName = \"\")\n" +
+      "@Builder(builderClassName = \"Builder\", builderMethodName = \"\")\n" +
       "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
       "  public static final Types.StructType claroType = %s;\n" +
       "%s\n" +
@@ -69,7 +69,7 @@ public enum BaseType {
       "  public Type getClaroType() {\n" +
       "    return claroType;\n" +
       "  }\n" +
-      "  public static class Builder extends %sBuilder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
+      "  public static class Builder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
       "    public Type getClaroType() {\n" +
       "      return Types.BuilderType.forStructType(claroType);\n" +
       "    }\n" +

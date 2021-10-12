@@ -49,6 +49,7 @@ java_library(
         ":type",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
+        "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//:autovalue",
         "//:guava",
         "//:lombok",
