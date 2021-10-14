@@ -1,7 +1,7 @@
 package com.claro.intermediate_representation.statements;
 
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
@@ -10,23 +10,23 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
 
   public ProviderFunctionDefinitionStmt(
       String providerName,
-      Type outputType,
+      TypeProvider outputTypeProvider,
       StmtListNode stmtListNode,
       Expr returnExpr) {
     super(
         providerName,
-        Types.ProcedureType.ProviderType.forReturnType(outputType),
+        (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(outputTypeProvider.resolveType(scopedHeap)),
         ImmutableList.of(stmtListNode, returnExpr)
     );
   }
 
   public ProviderFunctionDefinitionStmt(
       String providerName,
-      Type outputType,
+      TypeProvider outputTypeProvider,
       Expr returnExpr) {
     super(
         providerName,
-        Types.ProcedureType.ProviderType.forReturnType(outputType),
+        (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(outputTypeProvider.resolveType(scopedHeap)),
         ImmutableList.of(returnExpr)
     );
   }

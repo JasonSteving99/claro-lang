@@ -8,7 +8,9 @@ import com.claro.intermediate_representation.expressions.procedures.functions.*;
 import com.claro.intermediate_representation.expressions.procedures.methods.*;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
-import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -140,9 +142,8 @@ nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal StructDefinitionStmt               struct_definition_stmt;
-nonterminal TupleDefinitionStmt                tuple_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
-nonterminal ImmutableMap.Builder<String, Type> function_args_types_list;
+nonterminal ImmutableMap.Builder<String, TypeProvider> function_args_types_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
@@ -159,12 +160,12 @@ nonterminal BoolExpr                           equality;
 nonterminal BoolExpr                           inequality;
 nonterminal BoolExpr                           bool_arithmetic;
 // TODO(steving) In order to support the delayed parsing of all user-defined types, just replace this type with
-// TODO(steving) Function<ScopedHeap, Type> or some other equivalent functional interface and then you'll be good to add
+// TODO(steving) Function<ScopedHeap, TypeProvider> or some other equivalent functional interface and then you'll be good to add
 // TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
 // TODO(steving) and parses all of those before moving on to the other stmts in the StmtList.
-nonterminal Type                               builtin_type;
-nonterminal ImmutableList<Type>                builtin_types_list;
-nonterminal ImmutableList.Builder<Type>        backwards_builtin_types_list;
+nonterminal TypeProvider                       builtin_type;
+nonterminal ImmutableList<TypeProvider>        builtin_types_list;
+nonterminal ImmutableList.Builder<TypeProvider> backwards_builtin_types_list;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -218,8 +219,6 @@ stmt ::=
     {: RESULT = w; :}
   | struct_definition_stmt:s
     {: RESULT = s; :}
-  | tuple_definition_stmt:t
-    {: RESULT = t; :}
   | function_definition_stmt:f
     {: RESULT = f; :}
   | consumer_function_definition_stmt:f
@@ -251,29 +250,29 @@ identifier_declaration ::=
 
 builtin_type ::=
     INT_TYPE:t
-    {: RESULT = Types.INTEGER; :}
+    {: RESULT = ImmediateTypeProvider.of(Types.INTEGER); :}
   | FLOAT_TYPE:t
-    {: RESULT = Types.FLOAT; :}
+    {: RESULT = ImmediateTypeProvider.of(Types.FLOAT); :}
   | BOOLEAN_TYPE:t
-    {: RESULT = Types.BOOLEAN; :}
+    {: RESULT = ImmediateTypeProvider.of(Types.BOOLEAN); :}
   | STRING_TYPE:t
-    {: RESULT = Types.STRING; :}
+    {: RESULT = ImmediateTypeProvider.of(Types.STRING); :}
   | LBRACKET builtin_type:t RBRACKET
-    {: RESULT = Types.ListType.forValueType(t); :}
+    {: RESULT = (scopedHeap) -> Types.ListType.forValueType(t.resolveType(scopedHeap)); :}
   | FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:arg ARROW builtin_type:output_type R_ANGLE_BRACKET
-    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(arg), output_type); :}
+    {: RESULT = (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(arg.resolveType(scopedHeap)), output_type.resolveType(scopedHeap)); :}
   | FUNCTION_TYPE:t L_ANGLE_BRACKET BAR builtin_types_list:arg_types BAR ARROW builtin_type:output_type R_ANGLE_BRACKET
-    {: RESULT = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(arg_types, output_type); :}
+    {: RESULT = (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), output_type.resolveType(scopedHeap)); :}
   | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
-    {: RESULT = Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types); :}
+    {: RESULT = (scopedHeap) -> Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())); :}
   | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:return_type R_ANGLE_BRACKET
-    {: RESULT = Types.ProcedureType.ProviderType.forReturnType(return_type); :}
+    {: RESULT = (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(return_type.resolveType(scopedHeap)); :}
   | TUPLE_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
-    {: RESULT = Types.TupleType.forValueTypes(arg_types); :}
-// TODO(steving) You need to had some additional compiler stages so that we can complete identifying all user-defined
-// TODO(steving) types before we actually do type validation. builder<Foo> depends on Foo already having been parsed.
-//  | BUILDER L_ANGLE_BRACKET IDENTIFIER:built_type_name R_ANGLE_BRACKET
-//    {: RESULT = Types.BuilderType.forStructTypeName(built_type_name); :}
+    {: RESULT = (scopedHeap) -> Types.TupleType.forValueTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())); :}
+  // TODO(steving) We need to now add a type for arbitrary identifiers. We also need to actually check that the types
+  // TODO(steving) referenced by name are in fact *actually* defined types and not just random keys in the symbol table.
+  | BUILDER L_ANGLE_BRACKET IDENTIFIER:built_type_name R_ANGLE_BRACKET
+    {: RESULT = Types.BuilderType.forStructTypeName(built_type_name); :}
   ;
 
 builtin_types_list ::=
@@ -285,7 +284,7 @@ backwards_builtin_types_list ::=
     builtin_type:t COMMA backwards_builtin_types_list:tail
     {: RESULT = tail.add(t); :}
   | builtin_type:t
-    {: RESULT = ImmutableList.<Type>builder().add(t); :}
+    {: RESULT = ImmutableList.<TypeProvider>builder().add(t); :}
   ;
 
 identifier_assignment ::=
@@ -503,45 +502,37 @@ while_stmt ::=
     {: RESULT = new WhileStmt(e, stmt_list); :}
   ;
 
-tuple_definition_stmt ::=
-    LPAR builtin_types_list:field_types RPAR
-    {:
-       // This is an anonymous parameterized tuple type declaration.
-       RESULT = new TupleDefinitionStmt(field_types);
-    :}
-  ;
-
 struct_definition_stmt ::=
     STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> fieldTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ false);
     :}
   | LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> fieldTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ false);
     :}
   | IMMUTABLE STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> fieldTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ true);
     :}
   | IMMUTABLE LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, Type>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> fieldTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ true);
     :}
   ;
@@ -550,17 +541,17 @@ function_definition_stmt ::=
     FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list return_stmt:return_expr RCURLY
     {:
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> argTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new FunctionDefinitionStmt(name, argTypesMap, output_type, stmt_list, return_expr);
     :}
   | FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY return_stmt:return_expr RCURLY
     {:
       // This production matched a function defined by just a single return Expr to eval.
-      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> argTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new FunctionDefinitionStmt(name, argTypesMap, output_type, return_expr);
     :}
   ;
@@ -569,17 +560,17 @@ consumer_function_definition_stmt ::=
     CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> argTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
     :}
   | CONSUMER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, Type>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
-      ImmutableMap<String, Type> argTypesMap =
-          ImmutableMap.<String, Type>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
     :}
   ;
@@ -601,7 +592,7 @@ function_args_types_list ::=
     IDENTIFIER:arg_name COLON builtin_type:t COMMA function_args_types_list:tail
     {: RESULT = tail.put(arg_name, t); :}
   | IDENTIFIER:arg_name COLON builtin_type:t
-    {: RESULT = ImmutableMap.<String, Type>builder().put(arg_name, t); :}
+    {: RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name, t); :}
   ;
 
 return_stmt ::=

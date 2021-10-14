@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -178,13 +179,26 @@ public final class Types {
      * @param structTypeName The name of the (potentially user-defined) type to look for in the symbol table.
      * @return a function that provides the actual resolved BuilderType once the symbol table has all types.
      */
-    public static Function<ScopedHeap, BuilderType> forStructTypeName(String structTypeName) {
+    public static TypeProvider forStructTypeName(String structTypeName) {
       return (scopedHeap) -> {
-        Type structType = scopedHeap.getValidatedIdentifierType(structTypeName);
+        // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
+        // So it's possible that the named struct either is or isn't already resolved. Check whether it's already
+        // resolved, and if so, move on using that concrete StructType. If it wasn't already resolved, then you
+        // need to now resolve this type. In this was, all actually referenced types will end up resolving the entire
+        // referenced dependency graph in the order of reference. This algorithm ensures that we'll only resolve each
+        // type definition exactly once. We can also warn/error on unused user-defined types using this approach.
+        Optional.ofNullable(scopedHeap.getIdentifierValue(structTypeName))
+            .filter(o -> o instanceof TypeProvider).ifPresent(
+            structTypeProvider ->
+                // Replace the TypeProvider found in the symbol table with the actual resolved type.
+                scopedHeap.putIdentifierValue(
+                    structTypeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
+
+        StructType structType = (StructType) scopedHeap.getValidatedIdentifierType(structTypeName);
         if (!SUPPORTED_BUILT_TYPES.contains(structType.baseType())) {
           throw new RuntimeException(new ClaroTypeException(structType, SUPPORTED_BUILT_TYPES));
         }
-        return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), (StructType) structType);
+        return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), structType);
       };
     }
 

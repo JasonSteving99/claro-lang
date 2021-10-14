@@ -47,6 +47,7 @@ java_library(
         ":concrete_type",
         ":parameterized_type",
         ":type",
+        ":type_provider",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
@@ -62,6 +63,16 @@ java_library(
     deps = [
         ":base_type",
         "//:guava",
+    ],
+)
+
+java_library(
+    name = "type_provider",
+    srcs = ["TypeProvider.java"],
+    deps = [
+        ":type",
+        "//:guava",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
     ],
 )
 

@@ -3,6 +3,7 @@ package com.claro.compiler_backends.interpreted;
 import com.claro.ClaroParserException;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 import java.util.*;
@@ -13,7 +14,8 @@ import java.util.stream.Collectors;
 // TODO(steving) 2: ScopedSymbolTableImpl for the compiler impl. B/c only Interpreter needs actual values stored.
 public class ScopedHeap {
 
-  private final Stack<Scope> scopeStack = new Stack<>();
+  @VisibleForTesting
+  public final Stack<Scope> scopeStack = new Stack<>();
   public boolean checkUnused = true;
 
   public void disableCheckUnused() {
@@ -161,7 +163,7 @@ public class ScopedHeap {
     return Optional.empty(); // Not found.
   }
 
-  private void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
+  public void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
     HashSet<String> unusedSymbolSet = new HashSet<>();
     for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedSymbolTable.entrySet()) {
       if (!identifierEntry.getValue().used) {
@@ -201,18 +203,21 @@ public class ScopedHeap {
     }
   }
 
-  private static class Scope {
+  @VisibleForTesting
+  public static class Scope {
     // This is a map that contains all declared identifiers. An entry will be made in this map for every identifier
     // immediately following its declaration. Its type and value will be logged at the first scope level where it was
     // declared because further code branches (scopes) may still need to update its value as a desired side-effect.
-    final HashMap<String, IdentifierData> scopedSymbolTable = new HashMap<>();
+    @VisibleForTesting
+    public final HashMap<String, IdentifierData> scopedSymbolTable = new HashMap<>();
 
     // This is a set containing all identifiers that have been initialized at this current scope level for the first
     // time along the given code branch (AST subtree) corresponding to this current scope level. This exists separate
     // from the above scopedSymbolTable so that we're able to separately identify whether it's valid to reference a certain
     // identifier within certain code branches where the identifier may have been originally declared without an
     // initializer value.
-    final HashSet<String> initializedIdentifiers = new HashSet<>();
+    @VisibleForTesting
+    public final HashSet<String> initializedIdentifiers = new HashSet<>();
 
     boolean branchDetectionEnabled = false;
     private HashSet<String> identifiersInitializedInBranchGroup = null;

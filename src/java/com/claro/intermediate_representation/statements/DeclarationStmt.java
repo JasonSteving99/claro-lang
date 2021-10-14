@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -14,28 +15,28 @@ public class DeclarationStmt extends Stmt {
   private final String IDENTIFIER;
 
   // Only oneof these should be set.
-  private final Optional<Type> optionalIdentifierDeclaredType;
+  private final Optional<TypeProvider> optionalIdentifierDeclaredTypeProvider;
   private Type identifierValidatedInferredType;
 
   // Constructor for var initialization requesting type inference.
   public DeclarationStmt(String identifier, Expr e) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
-    this.optionalIdentifierDeclaredType = Optional.empty();
+    this.optionalIdentifierDeclaredTypeProvider = Optional.empty();
   }
 
   // Allow typed declarations with initialization.
-  public DeclarationStmt(String identifier, Type declaredType, Expr e) {
+  public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider, Expr e) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
-    this.optionalIdentifierDeclaredType = Optional.of(declaredType);
+    this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
   }
 
   // Allow typed declarations without initialization.
-  public DeclarationStmt(String identifier, Type declaredType) {
+  public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider) {
     super(ImmutableList.of());
     this.IDENTIFIER = identifier;
-    this.optionalIdentifierDeclaredType = Optional.of(declaredType);
+    this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
   }
 
   @Override
@@ -47,12 +48,14 @@ public class DeclarationStmt extends Stmt {
     );
 
     // Determine which type this identifier was declared as, validating initializer Expr as necessary.
-    if (optionalIdentifierDeclaredType.isPresent()) {
+    if (optionalIdentifierDeclaredTypeProvider.isPresent()) {
       if (!this.getChildren().isEmpty()) {
-        ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, optionalIdentifierDeclaredType.get());
+        ((Expr) this.getChildren().get(0))
+            .assertExpectedExprType(scopedHeap, optionalIdentifierDeclaredTypeProvider.get().resolveType(scopedHeap));
         scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
-      scopedHeap.observeIdentifier(this.IDENTIFIER, optionalIdentifierDeclaredType.get());
+      scopedHeap.observeIdentifier(this.IDENTIFIER, optionalIdentifierDeclaredTypeProvider.get()
+          .resolveType(scopedHeap));
     } else {
       // Infer the identifier's type only the first time it's assigned to.
       this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
@@ -65,7 +68,9 @@ public class DeclarationStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
 
-    Type identifierValidatedType = optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType);
+    Type identifierValidatedType =
+        optionalIdentifierDeclaredTypeProvider.orElse((unused) -> identifierValidatedInferredType)
+            .resolveType(scopedHeap);
 
     // First time we're seeing the variable, so declare it.
     res.append(String.format("%s %s", identifierValidatedType.getJavaSourceType(), this.IDENTIFIER));
@@ -88,7 +93,9 @@ public class DeclarationStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    Type identifierValidatedType = optionalIdentifierDeclaredType.orElse(identifierValidatedInferredType);
+    Type identifierValidatedType =
+        optionalIdentifierDeclaredTypeProvider.orElse((unused) -> identifierValidatedInferredType)
+            .resolveType(scopedHeap);
 
     // Put the declared variable directly in the heap, with its computed value if initialized.
     if (this.getChildren().isEmpty()) {

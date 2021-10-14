@@ -43,6 +43,13 @@ public class BuilderMethodCallExpr extends Expr {
     if (!SUPPORTED_BUILD_TYPES.contains(actualIdentifierType.baseType())) {
       throw new ClaroTypeException(actualIdentifierType, SUPPORTED_BUILD_TYPES);
     }
+
+    // Ensure that all the fields set are the expected corresponding type.
+    for (Map.Entry<String, Expr> entry : setFieldValues.entrySet()) {
+      entry.getValue().assertExpectedExprType(
+          scopedHeap, ((Types.StructType) actualIdentifierType).getFieldTypes().get(entry.getKey()));
+    }
+
     this.builderType = Types.BuilderType.forStructType((Types.StructType) actualIdentifierType);
     return builderType;
   }

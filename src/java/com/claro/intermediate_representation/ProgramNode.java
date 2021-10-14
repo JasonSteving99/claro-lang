@@ -1,7 +1,9 @@
 package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 
 public class ProgramNode {
@@ -47,6 +49,10 @@ public class ProgramNode {
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // TYPE DISCOVERY PHASE:
+    performTypeDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // TYPE VALIDATION PHASE:
     // At the program level, validate all types in the entire AST before execution.
     try {
       stmtListNode.assertExpectedExprTypes(scopedHeap);
@@ -57,18 +63,21 @@ public class ProgramNode {
       throw new RuntimeException(e);
     }
 
+    // UNUSED CHECKING PHASE:
     // Manually exit the last observed scope which is the global scope, since nothing else will trigger its exit.
     // BUT, because we need the scope to not be thrown away in the REPL case (since in that case we aren't actually
     // exiting the scope, we're just temporarily bouncing out, with the ScopedHeap as the source of continuity between
     // REPL stmts...) we won't do this if it's the repl case. This only loses us "unused" checking, which is disabled in
     // the REPL anyways.
     if (scopedHeap.checkUnused) {
-      // Finalize the type-checking phase.
-      scopedHeap.exitCurrScope();
-      // Now prepare for interpreted execution/javasource generation phase.
-      scopedHeap.enterNewScope();
+      // Finalize the type-checking phase. In this special case we explicitly want to maintain all of the top level
+      // user-defined type data that we evaluated in the preceding phases, so instead of depending on exiting this last
+      // scope to trigger checking unused, we'll just manually check unused, but keep the scope so that we keep the type
+      // definitions.
+      scopedHeap.checkAllIdentifiersInCurrScopeUsed();
     }
 
+    // CODE GEN PHASE:
     // Now that we've validated that all types are valid, go to town in a fresh scope!
     Node.GeneratedJavaSource programJavaSource =
         stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName);
@@ -82,8 +91,12 @@ public class ProgramNode {
   }
 
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    // TYPE DISCOVERY PHASE:
+    performTypeDiscoveryPhase(stmtListNode, scopedHeap);
+
     // At the program level, validate all types in the entire AST before execution.
     try {
+      // TYPE VALIDATION PHASE:
       stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
       // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
@@ -97,6 +110,21 @@ public class ProgramNode {
 
     // There's no output in the interpreting mode.
     return null;
+  }
+
+  private void performTypeDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof UserDefinedTypeDefinitionStmt) {
+        ((UserDefinedTypeDefinitionStmt) currStmt).registerTypeProvider(scopedHeap);
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
   }
 
   /**

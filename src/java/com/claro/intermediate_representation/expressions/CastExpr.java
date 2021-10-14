@@ -4,16 +4,17 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.google.common.collect.ImmutableList;
 
 public class CastExpr extends Expr {
-  private final Type assertedType;
+  private final TypeProvider assertedTypeProvider;
   private final Expr castedExpr;
 
-  public CastExpr(Type assertedType, Expr castedExpr) {
+  public CastExpr(TypeProvider assertedTypeProvider, Expr castedExpr) {
     super(ImmutableList.of(castedExpr));
-    this.assertedType = assertedType;
+    this.assertedTypeProvider = assertedTypeProvider;
     this.castedExpr = castedExpr;
   }
 
@@ -28,7 +29,7 @@ public class CastExpr extends Expr {
 
     // We're trusting the programmer by contract at compile-time. At runtime we'll generate code to check if they were
     // actually right.
-    return this.assertedType;
+    return this.assertedTypeProvider.resolveType(scopedHeap);
   }
 
   @Override
@@ -36,7 +37,7 @@ public class CastExpr extends Expr {
     return new StringBuilder(
         String.format(
             "ClaroRuntimeUtilities.assertedTypeValue(%s, %s)",
-            this.assertedType.getJavaSourceClaroType(),
+            this.assertedTypeProvider.resolveType(scopedHeap).getJavaSourceClaroType(),
             this.castedExpr.generateJavaSourceBodyOutput(scopedHeap)
         )
     );
@@ -45,6 +46,7 @@ public class CastExpr extends Expr {
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     Object evaluatedCastedExprValue = this.castedExpr.generateInterpretedOutput(scopedHeap);
-    return ClaroRuntimeUtilities.assertedTypeValue(assertedType, evaluatedCastedExprValue);
+    return ClaroRuntimeUtilities.assertedTypeValue(
+        assertedTypeProvider.resolveType(scopedHeap), evaluatedCastedExprValue);
   }
 }

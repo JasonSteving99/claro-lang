@@ -5,7 +5,9 @@ struct FirstStruct {
   field2: string
 }
 
-var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
+#var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
+# For some reason the above line works but this explicit type def line still doesn't.
+var firstStructBuilder: builder<FirstStruct> = FirstStruct.builder().field1(99).field2("ninety-nine");
 type(firstStructBuilder);
 print(firstStructBuilder);
 
@@ -25,3 +27,22 @@ print(firstBuiltImmutableStruct);
 # Anonymous struct definition. This will actually only be accepted in places where type declarations are found.
 # E.g. function Foo(i: int) -> {output_i: int, output_s: string} { ... }
 {field1: int, field2: string}
+
+
+# Structs can reference each other.
+struct Foo{
+  i: int,
+  s: string
+}
+struct Bar{
+  fooBuilder: builder<Foo>
+}
+var b = Bar.builder().fooBuilder(Foo.builder().i(9).s("nine")).build();
+print(b);
+
+
+# Functions can be parameterized by, and return StructTypes.
+function getBar(f: builder<Foo>) -> builder<Bar> {
+  return Bar.builder().fooBuilder(f);
+}
+print(getBar(Foo.builder().i(-9)));

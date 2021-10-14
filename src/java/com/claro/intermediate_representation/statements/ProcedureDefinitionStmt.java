@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -18,47 +19,58 @@ import java.util.function.Consumer;
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
   private final String procedureName;
-  private final Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
-  private final Types.ProcedureType procedureType;
+  private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
+  private final TypeProvider procedureTypeProvider;
+  private Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
+  private Types.ProcedureType resolvedProcedureType;
 
   public ProcedureDefinitionStmt(
       String procedureName,
-      ImmutableMap<String, Type> argTypes,
-      Types.ProcedureType procedureType,
+      ImmutableMap<String, TypeProvider> argTypeProviders,
+      TypeProvider procedureTypeProvider,
       ImmutableList<Node> children) {
     super(children);
     this.procedureName = procedureName;
-    this.optionalArgTypesByNameMap = Optional.of(argTypes);
-    this.procedureType = procedureType;
+    this.optionalArgTypeProvidersByNameMap = Optional.of(argTypeProviders);
+    this.procedureTypeProvider = procedureTypeProvider;
   }
 
   public ProcedureDefinitionStmt(
       String procedureName,
-      Types.ProcedureType procedureType,
+      TypeProvider procedureTypeProvider,
       ImmutableList<Node> children) {
     super(children);
     this.procedureName = procedureName;
-    this.optionalArgTypesByNameMap = Optional.empty();
-    this.procedureType = procedureType;
+    this.optionalArgTypeProvidersByNameMap = Optional.empty();
+    this.procedureTypeProvider = procedureTypeProvider;
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // Get the resolved procedure type.
+    this.resolvedProcedureType =
+        (Types.ProcedureType) this.procedureTypeProvider.resolveType(scopedHeap);
+    this.optionalArgTypesByNameMap = this.optionalArgTypeProvidersByNameMap.map(
+        argTypeProvidersByNameMap ->
+            argTypeProvidersByNameMap.entrySet().stream()
+                .collect(
+                    ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().resolveType(scopedHeap))));
+
     // Validate that this is not a redeclaration of an identifier.
     Preconditions.checkState(
         !scopedHeap.isIdentifierDeclared(this.procedureName),
-        String.format("Unexpected redeclaration of %s %s.", this.procedureType, this.procedureName)
+        String.format("Unexpected redeclaration of %s %s.", resolvedProcedureType, this.procedureName)
     );
 
     // First we need to mark the function declared and initialized within the original calling scope.
-    scopedHeap.observeIdentifier(this.procedureName, this.procedureType);
+    scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
 
     // Enter the new scope for this function.
     scopedHeap.observeNewScope(false);
 
     // I may need to mark the args as observed identifiers within this new scope.
-    if (this.procedureType.hasArgs()) {
+    if (resolvedProcedureType.hasArgs()) {
       this.optionalArgTypesByNameMap.get().forEach(
           (argName, argType) ->
           {
@@ -71,11 +83,11 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     if (this.getChildren().size() == 2) {
       // We have a stmt list to deal with, in addition to the return Expr.
       ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
-      ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, this.procedureType.getReturnType());
+      ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, resolvedProcedureType.getReturnType());
     } else {
-      if (this.procedureType.hasReturnValue()) {
+      if (resolvedProcedureType.hasReturnValue()) {
         // We only have to check the return Expr.
-        ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.procedureType.getReturnType());
+        ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, resolvedProcedureType.getReturnType());
       } else {
         // We only have to check the StmtListNode.
         ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
@@ -87,14 +99,14 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    scopedHeap.putIdentifierValue(this.procedureName, this.procedureType);
+    scopedHeap.putIdentifierValue(this.procedureName, this.resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
 
     scopedHeap.enterNewScope();
 
     // Since we're about to immediately execute some java source code gen, we might need to init the local arg variables.
     Optional<StringBuilder> optionalJavaSourceBodyBuilder = Optional.empty();
-    if (this.procedureType.hasArgs()) {
+    if (this.resolvedProcedureType.hasArgs()) {
       ImmutableSet<Map.Entry<String, Type>> argTypesByNameEntrySet = this.optionalArgTypesByNameMap.get().entrySet();
       argTypesByNameEntrySet.stream()
           .forEach(stringTypeEntry -> {
@@ -128,7 +140,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       GeneratedJavaSource procedureBodyGeneratedJavaSource =
           ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
       javaSourceOutput = new StringBuilder(
-          this.procedureType.getJavaNewTypeDefinitionStmt(
+          this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
                   procedureBodyGeneratedJavaSource.javaSourceBody()
@@ -141,9 +153,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
           )
       );
       optionalStaticDefinitions = procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
-    } else if (this.procedureType.hasReturnValue()) {
+    } else if (this.resolvedProcedureType.hasReturnValue()) {
       javaSourceOutput = new StringBuilder(
-          this.procedureType.getJavaNewTypeDefinitionStmt(
+          this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
               // For more consistency and I guess avoiding the condition checking above, I could've definitely made a
               // new ReturnStmt.java file but....what's so bad about some good ol' fashioned hardcoding?
@@ -162,7 +174,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
           ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
       javaSourceOutput =
           new StringBuilder(
-              this.procedureType.getJavaNewTypeDefinitionStmt(
+              this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
                   this.procedureName,
                   optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
                       .append(procedureBodyGeneratedJavaSource.javaSourceBody())
@@ -191,15 +203,18 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
               this.optionalArgTypesByNameMap.get().entrySet().asList();
           for (int i = args.size() - 1; i >= 0; i--) {
             Map.Entry<String, Type> currTailArg = argTypes.get(i);
-            new DeclarationStmt(currTailArg.getKey(), currTailArg.getValue(), args.get(i))
-                .generateInterpretedOutput(definitionTimeScopedHeap);
+            new DeclarationStmt(
+                currTailArg.getKey(),
+                TypeProvider.ImmediateTypeProvider.of(currTailArg.getValue()),
+                args.get(i)
+            ).generateInterpretedOutput(definitionTimeScopedHeap);
           }
         };
 
     definitionTimeScopedHeap.putIdentifierValue(
         this.procedureName,
-        this.procedureType,
-        this.procedureType.new ProcedureWrapper() {
+        this.resolvedProcedureType,
+        this.resolvedProcedureType.new ProcedureWrapper() {
           @Override
           public Object apply(ImmutableList<Expr> args, ScopedHeap callTimeScopedHeap) {
             // First things first, this function needs to operate within a totally new scope. NOTE that when this
@@ -211,7 +226,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
             // weirdness if you're the type to open up a debugger and step through data... don't be that person.
             callTimeScopedHeap.enterNewScope();
 
-            if (ProcedureDefinitionStmt.this.procedureType.hasArgs()) {
+            if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasArgs()) {
               // Execute the arg declarations assigning them to their given values.
               defineArgIdentifiersConsumerFn.accept(args);
             }
@@ -225,7 +240,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
               returnValue = ((Expr) ProcedureDefinitionStmt.this.getChildren().get(1))
                   .generateInterpretedOutput(callTimeScopedHeap);
             } else {
-              if (ProcedureDefinitionStmt.this.procedureType.hasReturnValue()) {
+              if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasReturnValue()) {
                 // Now we need to execute the return Expr right away since there's no body StmtListNode given.
                 returnValue = ((Expr) ProcedureDefinitionStmt.this.getChildren().get(0))
                     .generateInterpretedOutput(callTimeScopedHeap);

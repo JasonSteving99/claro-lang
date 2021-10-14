@@ -6,7 +6,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.google.common.collect.ImmutableList;
 
 public class StmtListNode extends Node {
-  private StmtListNode tail = null;
+  public StmtListNode tail = null;
 
   private String generatedJavaClassName;
 

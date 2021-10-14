@@ -1,43 +1,60 @@
-package com.claro.intermediate_representation.statements;
+package com.claro.intermediate_representation.statements.user_defined_type_def_stmts;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
+import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class StructDefinitionStmt extends Stmt {
+public class StructDefinitionStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   private final String structName;
-  private final Types.StructType structType;
+  private final Function<ScopedHeap, Types.StructType> structTypeProvider;
+  private Types.StructType structType;
   private static int anonymousStructInternalCount;
 
   private static final String PUBLIC_FIELD_FMT_STR = "  public %s %s;";
 
-  public StructDefinitionStmt(String structName, ImmutableMap<String, Type> fieldTypesMap, boolean immutable) {
+  public StructDefinitionStmt(String structName, ImmutableMap<String, TypeProvider> fieldTypeProvidersMap, boolean immutable) {
     super(ImmutableList.of());
     this.structName = structName;
-    this.structType =
-        immutable ?
-        Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
-        Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
+    this.structTypeProvider =
+        (scopedHeap) -> {
+          ImmutableMap<String, Type> fieldTypesMap =
+              TypeProvider.Util.resolveTypeProviderMap(scopedHeap, fieldTypeProvidersMap);
+          return immutable ?
+                 Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
+                 Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
+        };
   }
 
-  public StructDefinitionStmt(ImmutableMap<String, Type> fieldTypesMap, boolean immutable) {
-    super(ImmutableList.of());
-    // We don't actually want any anonymous structs in practice. We'll just give it a name to avoid ambiguity.
-    this.structName = (immutable ? "$Immutable_Struct" : "$Struct_") + anonymousStructInternalCount++;
-    this.structType =
-        immutable ?
-        Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
-        Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
+  public StructDefinitionStmt(ImmutableMap<String, TypeProvider> fieldTypeProvidersMap, boolean immutable) {
+    this(
+        // We don't actually want any anonymous structs in practice. We'll just give it a name to avoid ambiguity.
+        (immutable ? "$Immutable_Struct" : "$Struct_") + anonymousStructInternalCount++,
+        fieldTypeProvidersMap,
+        immutable
+    );
+  }
+
+  @Override
+  public void registerTypeProvider(ScopedHeap scopedHeap) {
+    // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
+    // TypeProvider that will be used for type-resolution in the later phase.
+    scopedHeap.putIdentifierValue(this.structName, null, this.structTypeProvider);
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // Resolve the actual type of this Struct.
+    this.structType = this.structTypeProvider.apply(scopedHeap);
+
     // We just need to mark the struct type declared and initialized within the original calling scope.
     // Note that we're putting a *Type* in the symbol table because we want users to have easy native
     // access to type data without doing some fancy backflips for reflection.
