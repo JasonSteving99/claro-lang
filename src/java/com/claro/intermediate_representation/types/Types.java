@@ -94,6 +94,19 @@ public final class Types {
 
     public abstract ImmutableMap<String, Type> getFieldTypes();
 
+    private static TypeProvider forFieldTypeProvidersMap(
+        ImmutableMap<String, TypeProvider> fieldTypeProvidersMap, String structName, boolean immutable) {
+      return (scopedHeap) -> {
+        ImmutableMap<String, Type> fieldTypesMap =
+            TypeProvider.Util.resolveTypeProviderMap(scopedHeap, fieldTypeProvidersMap);
+        Types.StructType resultStructType =
+            immutable ?
+            Types.StructType.ImmutableStructType.forFieldTypes(structName, fieldTypesMap) :
+            Types.StructType.MutableStructType.forFieldTypes(structName, fieldTypesMap);
+        scopedHeap.putIdentifierValue(structName, resultStructType, null);
+        return resultStructType;
+      };
+    }
 
     @Override
     public String toString() {
@@ -132,6 +145,9 @@ public final class Types {
         );
       }
 
+      public static TypeProvider forFieldTypeProvidersMap(String structName, ImmutableMap<String, TypeProvider> fieldTypeProvidersMap) {
+        return StructType.forFieldTypeProvidersMap(fieldTypeProvidersMap, structName, /*immutable=*/true);
+      }
       // TODO(steving) Put some manner of constructor code directly inside this type definition.
     }
 
@@ -155,6 +171,9 @@ public final class Types {
         );
       }
 
+      public static TypeProvider forFieldTypeProvidersMap(String structName, ImmutableMap<String, TypeProvider> fieldTypeProvidersMap) {
+        return StructType.forFieldTypeProvidersMap(fieldTypeProvidersMap, structName, /*immutable=*/false);
+      }
       // TODO(steving) Put some manner of constructor code directly inside this type definition.
     }
 
@@ -188,11 +207,12 @@ public final class Types {
         // referenced dependency graph in the order of reference. This algorithm ensures that we'll only resolve each
         // type definition exactly once. We can also warn/error on unused user-defined types using this approach.
         Optional.ofNullable(scopedHeap.getIdentifierValue(structTypeName))
-            .filter(o -> o instanceof TypeProvider).ifPresent(
-            structTypeProvider ->
-                // Replace the TypeProvider found in the symbol table with the actual resolved type.
-                scopedHeap.putIdentifierValue(
-                    structTypeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
+            .filter(o -> o instanceof TypeProvider)
+            .ifPresent(
+                structTypeProvider ->
+                    // Replace the TypeProvider found in the symbol table with the actual resolved type.
+                    scopedHeap.putIdentifierValue(
+                        structTypeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
 
         StructType structType = (StructType) scopedHeap.getValidatedIdentifierType(structTypeName);
         if (!SUPPORTED_BUILT_TYPES.contains(structType.baseType())) {

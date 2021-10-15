@@ -33,7 +33,7 @@ public abstract class ClaroStruct<T extends ClaroStruct<T>> extends ClaroUserDef
   @Override
   public String toString() {
     return delegateFieldMap.entrySet().stream()
-        .map(entry -> String.format("%s: %s", entry.getKey(), entry.getValue()))
+        .map(entry -> String.format("%s=%s", entry.getKey(), entry.getValue()))
         .collect(Collectors.joining(", ", this.structType.getName() + "{", "}"));
   }
 
@@ -120,7 +120,7 @@ public abstract class ClaroStruct<T extends ClaroStruct<T>> extends ClaroUserDef
               .map(
                   type ->
                       String.format(
-                          "%s: %s",
+                          "%s=%s",
                           type,
                           this.builderFieldMap.getOrDefault(type, "unset")
                       )

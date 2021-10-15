@@ -4,18 +4,17 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.function.Function;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class StructDefinitionStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   private final String structName;
-  private final Function<ScopedHeap, Types.StructType> structTypeProvider;
+  private final TypeProvider structTypeProvider;
   private Types.StructType structType;
   private static int anonymousStructInternalCount;
 
@@ -25,13 +24,9 @@ public class StructDefinitionStmt extends Stmt implements UserDefinedTypeDefinit
     super(ImmutableList.of());
     this.structName = structName;
     this.structTypeProvider =
-        (scopedHeap) -> {
-          ImmutableMap<String, Type> fieldTypesMap =
-              TypeProvider.Util.resolveTypeProviderMap(scopedHeap, fieldTypeProvidersMap);
-          return immutable ?
-                 Types.StructType.ImmutableStructType.forFieldTypes(this.structName, fieldTypesMap) :
-                 Types.StructType.MutableStructType.forFieldTypes(this.structName, fieldTypesMap);
-        };
+        immutable ?
+        Types.StructType.ImmutableStructType.forFieldTypeProvidersMap(this.structName, fieldTypeProvidersMap) :
+        Types.StructType.MutableStructType.forFieldTypeProvidersMap(this.structName, fieldTypeProvidersMap);
   }
 
   public StructDefinitionStmt(ImmutableMap<String, TypeProvider> fieldTypeProvidersMap, boolean immutable) {
@@ -52,8 +47,11 @@ public class StructDefinitionStmt extends Stmt implements UserDefinedTypeDefinit
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // Resolve the actual type of this Struct.
-    this.structType = this.structTypeProvider.apply(scopedHeap);
+    // Resolve the actual type of this Struct IF IT HAS NOT ALREADY BEEN RESOLVED BY A PRIOR REFERENCE.
+    this.structType =
+        (Types.StructType) Optional.ofNullable((TypeProvider) scopedHeap.getIdentifierValue(this.structName))
+            .map(typeProvider -> typeProvider.resolveType(scopedHeap))
+            .orElse(scopedHeap.getValidatedIdentifierType(this.structName));
 
     // We just need to mark the struct type declared and initialized within the original calling scope.
     // Note that we're putting a *Type* in the symbol table because we want users to have easy native
