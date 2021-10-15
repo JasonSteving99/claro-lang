@@ -273,6 +273,8 @@ builtin_type ::=
   // TODO(steving) referenced by name are in fact *actually* defined types and not just random keys in the symbol table.
   | BUILDER L_ANGLE_BRACKET IDENTIFIER:built_type_name R_ANGLE_BRACKET
     {: RESULT = Types.BuilderType.forStructTypeName(built_type_name); :}
+  | IDENTIFIER:type_name
+    {: RESULT = TypeProvider.Util.getTypeByName(type_name); :}
   ;
 
 builtin_types_list ::=

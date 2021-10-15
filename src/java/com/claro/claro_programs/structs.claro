@@ -32,18 +32,18 @@ print(firstBuiltImmutableStruct);
 # Structs can reference each other.
 # And the definitions can come in ANY ORDER IN THE FILE thanks to multi-phase parsing!!!
 struct Bar{
-  fooBuilder: builder<Foo>
+  foo: Foo
 }
 struct Foo{
   i: int,
   s: string
 }
-var b = Bar.builder().fooBuilder(Foo.builder().i(9).s("nine")).build();
+var b: Bar = Bar.builder().foo(Foo.builder().i(9).s("nine").build()).build();
 print(b);
 
 
 # Functions can be parameterized by, and return StructTypes.
-function getBar(f: builder<Foo>) -> builder<Bar> {
-  return Bar.builder().fooBuilder(f);
+function getBar(f: Foo) -> builder<Bar> {
+  return Bar.builder().foo(f);
 }
-print(getBar(Foo.builder().i(-9)));
+print(getBar(Foo.builder().i(-9).s("negative-nine").build()));

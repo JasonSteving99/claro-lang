@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -200,25 +199,11 @@ public final class Types {
      */
     public static TypeProvider forStructTypeName(String structTypeName) {
       return (scopedHeap) -> {
-        // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
-        // So it's possible that the named struct either is or isn't already resolved. Check whether it's already
-        // resolved, and if so, move on using that concrete StructType. If it wasn't already resolved, then you
-        // need to now resolve this type. In this was, all actually referenced types will end up resolving the entire
-        // referenced dependency graph in the order of reference. This algorithm ensures that we'll only resolve each
-        // type definition exactly once. We can also warn/error on unused user-defined types using this approach.
-        Optional.ofNullable(scopedHeap.getIdentifierValue(structTypeName))
-            .filter(o -> o instanceof TypeProvider)
-            .ifPresent(
-                structTypeProvider ->
-                    // Replace the TypeProvider found in the symbol table with the actual resolved type.
-                    scopedHeap.putIdentifierValue(
-                        structTypeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
-
-        StructType structType = (StructType) scopedHeap.getValidatedIdentifierType(structTypeName);
-        if (!SUPPORTED_BUILT_TYPES.contains(structType.baseType())) {
-          throw new RuntimeException(new ClaroTypeException(structType, SUPPORTED_BUILT_TYPES));
+        Type resolvedTypeFromName = TypeProvider.Util.getTypeByName(structTypeName).resolveType(scopedHeap);
+        if (!SUPPORTED_BUILT_TYPES.contains(resolvedTypeFromName.baseType())) {
+          throw new RuntimeException(new ClaroTypeException(resolvedTypeFromName, SUPPORTED_BUILT_TYPES));
         }
-        return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), structType);
+        return BuilderType.forStructType((StructType) resolvedTypeFromName);
       };
     }
 

@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * This functional-interface exists to allow for multi-stage lazy type resolution. This allows user-defined types to be
@@ -35,6 +36,27 @@ public interface TypeProvider {
     public static <K> ImmutableMap<K, Type> resolveTypeProviderMap(ScopedHeap scopedHeap, ImmutableMap<K, TypeProvider> typeProviderMap) {
       return typeProviderMap.entrySet().stream()
           .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().resolveType(scopedHeap)));
+    }
+
+    public static TypeProvider getTypeByName(String typeName) {
+      // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
+      // So it's possible that the named struct either is or isn't already resolved. Check whether it's already
+      // resolved, and if so, move on using that concrete StructType. If it wasn't already resolved, then you
+      // need to now resolve this type. In this way, all actually referenced types will end up resolving the entire
+      // referenced dependency graph in the depth-first order of reference. This algorithm ensures that we'll only
+      // resolve each type definition exactly once. We can also warn/error on unused user-defined types using this
+      // approach.
+      return (scopedHeap) -> {
+        Optional.ofNullable(scopedHeap.getIdentifierValue(typeName))
+            .filter(o -> o instanceof TypeProvider)
+            .ifPresent(
+                structTypeProvider ->
+                    // Replace the TypeProvider found in the symbol table with the actual resolved type.
+                    scopedHeap.putIdentifierValue(
+                        typeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
+
+        return scopedHeap.getValidatedIdentifierType(typeName);
+      };
     }
   }
 }
