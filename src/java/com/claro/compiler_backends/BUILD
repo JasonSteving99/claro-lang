@@ -1,6 +1,7 @@
 package(
     default_visibility = [
         "//src/java/com/claro/compiler_backends:__subpackages__",
+        "//src/java/com/claro/repl_site/server/handlers:__subpackages__",
     ]
 )
 

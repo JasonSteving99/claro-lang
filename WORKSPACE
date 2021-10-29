@@ -26,17 +26,21 @@ load("@jflex_rules//third_party:third_party_deps.bzl", "THIRD_PARTY_ARTIFACTS")
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
 # https://github.com/bazelbuild/rules_jvm_external
+# When you add a new maven dep run the following command to update new deps:
+# $ bazel run @unpinned_maven//:pin
 maven_install(
     name = "maven",
     artifacts =
         JFLEX_ARTIFACTS +
         THIRD_PARTY_ARTIFACTS +
         [
-            "org.apache.commons:commons-text:jar:1.1",
-            "org.projectlombok:lombok:1.18.20",
             "com.google.auto.value:auto-value:1.5.3",
             "com.google.guava:guava:jar:23.5-jre",
             "com.googlecode.lanterna:lanterna:3.1.1",
+            "io.javalin:javalin:4.1.1",
+            "org.apache.commons:commons-text:jar:1.1",
+            "org.projectlombok:lombok:1.18.20",
+            "org.slf4j:slf4j-simple:1.7.31",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [

@@ -5,10 +5,19 @@ import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Consumer;
+
 public class PrintStmt extends Stmt {
 
-  public PrintStmt(Expr e) {
+  // This is part of a hack to collect the printed output from this program without a strict dep on the stdout
+  // stream for the specific OS that the interpreter happens to be running on at the moment. That is important
+  // only for the sake of the REPL-site since we need to print output on the browser rather than to the stdout
+  // stream on the server-side.
+  private final Consumer<String> printerDelegate;
+
+  public PrintStmt(Expr e, Consumer<String> printerDelegate) {
     super(ImmutableList.of(e));
+    this.printerDelegate = printerDelegate;
   }
 
   @Override
@@ -35,7 +44,7 @@ public class PrintStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    System.out.println(this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+    printerDelegate.accept(this.getChildren().get(0).generateInterpretedOutput(scopedHeap).toString());
     return null;
   }
 }
