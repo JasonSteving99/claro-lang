@@ -19,6 +19,11 @@ http_archive(
     sha256 = "bd41584dd1d9d99ef72909b3c1af8ba301a89c1d8fdc59becab5d2db1d006455",
     strip_prefix = "bazel_rules-1.8.2",
     url = "https://github.com/jflex-de/bazel_rules/archive/v1.8.2.tar.gz",
+    # In order to hack in my own modification to the jflex repo's CUP rules,
+    # I'm following the http_archive patching example here:
+    # https://bazelbuild.github.io/rules_nodejs/changing-rules.html#patching-the-built-in-release
+    patch_args = ["-p1"],
+    patches = ["//:cup_rule_diff.patch"],
 )
 
 load("@jflex_rules//jflex:deps.bzl", "JFLEX_ARTIFACTS")

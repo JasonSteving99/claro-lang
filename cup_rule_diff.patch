@@ -1,0 +1,34 @@
+diff --git a/cup/cup.bzl b/cup/cup.bzl
+index 58f2fa3..a23383d 100644
+--- a/cup/cup.bzl
++++ b/cup/cup.bzl
+@@ -21,11 +21,15 @@ def _cup_impl(ctx):
+     args.extend(["-symbols", ctx.attr.symbols])
+     args.extend(["-destdir", output_dir])
+     args.extend(["-nosummary"])
++
++    ### PATCH FOR CLARO LANG TO BE ABLE TO HACK AT SOME EXPERIMENTAL GRAMMAR PRODUCTIONS ###
++    args.extend(["-expect", str(ctx.attr.expected_conflicts)])
++
+     if ctx.attr.interface:
+         args.append("-interface")
+     args.extend([ctx.file.src.path])
+ 
+-    # TODO(regisd): Add support for CUP options.
++    # TODO(regisd): Add support for CUP options. YOU'RE WELCOME regisd@ -clarolang
+     parser_file = ctx.actions.declare_file(ctx.attr.parser + ".java")
+     sym_file = ctx.actions.declare_file(ctx.attr.symbols + ".java")
+     ctx.actions.run(
+@@ -64,6 +68,12 @@ cup = rule(
+         "interface": attr.bool(
+             doc = "Outputs the symbol constant code as an interface rather than as a class.",
+         ),
++
++        ### PATCH FOR CLARO LANG TO BE ABLE TO HACK AT SOME EXPERIMENTAL GRAMMAR PRODUCTIONS ###
++        "expected_conflicts": attr.int(
++            default = 0,
++            doc = "The expected number of conflicts.",
++        ),
+     },
+     output_to_genfiles = True,  # JFlex generates java files, not bin files
+ )
