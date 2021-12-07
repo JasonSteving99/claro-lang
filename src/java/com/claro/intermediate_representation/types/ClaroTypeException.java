@@ -16,6 +16,8 @@ public class ClaroTypeException extends Exception {
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the contextually expected type <%s> to assert this type at compile-time or fix a bug if the contextually expected type isn't applicable.";
   private static final String UNDECIDED_TYPE_LEAK_GENERIC_ERROR_MESSAGE_FMT_STR =
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the expected type to assert this type at compile-time.";
+  private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION =
+      "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
       "Invalid cast: Found <%s> which cannot be converted to <%s>.";
   private static final String INVALID_MEMBER_REFERENCE = "Invalid Member Reference: %s has no such member %s.";
@@ -80,6 +82,10 @@ public class ClaroTypeException extends Exception {
             Joiner.on(", ").join(contextuallySupportedExpectedType)
         )
     );
+  }
+
+  public static ClaroTypeException forUndecidedTypeLeakEmptyListInitialization() {
+    return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION);
   }
 
   public static ClaroTypeException forInvalidCast(Object actualType, Type assertedType) {

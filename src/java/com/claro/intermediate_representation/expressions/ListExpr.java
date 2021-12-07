@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
@@ -42,6 +43,13 @@ public class ListExpr extends Expr {
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Type listType;
     if (this.initializerArgExprsList.isEmpty()) {
+      // If this empty list was incorrectly used in a context that does not statically specify a type at compile-time
+      // such as in the case of the invalid statement `var l = [];` then throw because the type of the empty list is
+      // undecidable. Remember that in this situation, Claro demands that the types of values held by variables are
+      // known unambiguously at the end of the line on which their declaration takes place.
+      if (emptyListValueType.get().baseType().equals(BaseType.UNDECIDED)) {
+        throw ClaroTypeException.forUndecidedTypeLeakEmptyListInitialization();
+      }
       // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
       listType = emptyListValueType.get();
     } else {

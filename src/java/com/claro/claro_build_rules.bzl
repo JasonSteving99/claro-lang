@@ -5,7 +5,6 @@ load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
-
 def claro_binary(name, srcs, java_name = "CompiledCalculator"):
     native.java_binary(
         name = name,
