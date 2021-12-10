@@ -4,7 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 
-final public class StringTerm extends Term {
+public class StringTerm extends Term {
   private final String value;
 
   public StringTerm(String value) {

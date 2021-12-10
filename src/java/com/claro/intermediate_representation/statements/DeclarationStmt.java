@@ -18,11 +18,16 @@ public class DeclarationStmt extends Stmt {
   private final Optional<TypeProvider> optionalIdentifierDeclaredTypeProvider;
   private Type identifierValidatedInferredType;
 
+  // Determines whether this variable declaration should allow variable hiding or not. This is not always desirable,
+  // so it must be explicitly set if this is desirable in this case.
+  private final boolean allowVariableHiding;
+
   // Constructor for var initialization requesting type inference.
   public DeclarationStmt(String identifier, Expr e) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.empty();
+    this.allowVariableHiding = false;
   }
 
   // Allow typed declarations with initialization.
@@ -30,6 +35,15 @@ public class DeclarationStmt extends Stmt {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
+    this.allowVariableHiding = false;
+  }
+
+  // Allow typed declarations with initialization that can hide variables in outer scopes.
+  public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider, Expr e, boolean allowVariableHiding) {
+    super(ImmutableList.of(e));
+    this.IDENTIFIER = identifier;
+    this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
+    this.allowVariableHiding = allowVariableHiding;
   }
 
   // Allow typed declarations without initialization.
@@ -37,6 +51,7 @@ public class DeclarationStmt extends Stmt {
     super(ImmutableList.of());
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
+    this.allowVariableHiding = false;
   }
 
   @Override
@@ -101,8 +116,13 @@ public class DeclarationStmt extends Stmt {
     if (this.getChildren().isEmpty()) {
       scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
     } else {
-      scopedHeap.putIdentifierValue(
-          this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+      if (allowVariableHiding) {
+        scopedHeap.putIdentifierValueAllowingHiding(
+            this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+      } else {
+        scopedHeap.putIdentifierValue(
+            this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
+      }
       scopedHeap.initializeIdentifier(this.IDENTIFIER);
     }
     return null;

@@ -82,6 +82,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         ],
         deps = [
             ":claro_parser_exception",
+            "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
             "//src/java/com/claro/intermediate_representation:node",
             "//src/java/com/claro/intermediate_representation:program_node",
             "//src/java/com/claro/intermediate_representation/expressions:expr",

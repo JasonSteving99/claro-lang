@@ -75,3 +75,11 @@ consumer higher(consumerFn: consumer<int>, x: int) {
   type(consumerFn);
 }
 higher(takeAnothaOne, 999);
+
+# Validate that scopes are preserved, and a function can internal hide variables defined in outer scopes.
+var test99: string = "THIS IS A STRING";
+consumer checkVariableHiding(test99: int) {
+  print(test99);
+}
+higher(checkVariableHiding, 3);
+takeThis(test99);

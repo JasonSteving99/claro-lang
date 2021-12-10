@@ -122,6 +122,9 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "len"              { return symbol(Calc.LEN); }
     "type"             { return symbol(Calc.TYPE); }
 
+    // DEBUGGING keywords that should be removed when we want a real release...
+    "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE); }
+
     // Builtin Types.
     "int"              { return symbol(Calc.INT_TYPE); }
     "float"            { return symbol(Calc.FLOAT_TYPE); }

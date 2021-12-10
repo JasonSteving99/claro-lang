@@ -21,6 +21,7 @@ java_library(
     deps = [
         "//:autovalue",
         "//:guava",
+        "//:lombok",
         "//src/java/com/claro:claro_parser_exception",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:type",

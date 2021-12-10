@@ -1,5 +1,6 @@
 package com.claro;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.*;
 import com.claro.intermediate_representation.expressions.*;
 import com.claro.intermediate_representation.expressions.bool.*;
@@ -113,6 +114,9 @@ terminal         DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal         BUILDER, DOTBUILD;
 
+// DEBUGGING keywords which should be removed when we want a real release....
+terminal         DEBUG_DUMP_SCOPE;
+
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
 nonterminal Expr                               expr;
@@ -168,6 +172,7 @@ nonterminal BoolExpr                           bool_arithmetic;
 nonterminal TypeProvider                       builtin_type;
 nonterminal ImmutableList<TypeProvider>        builtin_types_list;
 nonterminal ImmutableList.Builder<TypeProvider> backwards_builtin_types_list;
+nonterminal Stmt                               debug_stmts;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -198,6 +203,24 @@ stmt_list ::=
     {: RESULT = new StmtListNode(head, tail); :}
   | stmt:s
     {: RESULT = new StmtListNode(s); :}
+  | debug_stmts:d
+    {: RESULT = new StmtListNode(d); :}
+  ;
+
+debug_stmts ::=
+    DEBUG_DUMP_SCOPE LPAR RPAR SEMICOLON
+    {:
+       RESULT =
+         new PrintStmt(
+           new StringTerm(null) {
+             @Override
+             public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+               return scopedHeap;
+             }
+           },
+           printerDelegate
+         );
+    :}
   ;
 
 stmt ::=

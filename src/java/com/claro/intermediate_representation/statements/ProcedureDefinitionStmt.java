@@ -14,7 +14,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
@@ -74,7 +74,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       this.optionalArgTypesByNameMap.get().forEach(
           (argName, argType) ->
           {
-            scopedHeap.observeIdentifier(argName, argType);
+            scopedHeap.observeIdentifierAllowingHiding(argName, argType);
             scopedHeap.initializeIdentifier(argName);
           });
     }
@@ -197,8 +197,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // Note that if you look closely and squint this below is actually dynamic code generation in Java. Like...duh cuz
     // this whole thing is code gen...that's what a compiler is...but this feels to be more code gen-y so ~shrug~ lol.
     // I think that's neat ;P.
-    final Consumer<ImmutableList<Expr>> defineArgIdentifiersConsumerFn =
-        args -> {
+    final BiConsumer<ImmutableList<Expr>, ScopedHeap> defineArgIdentifiersConsumerFn =
+        (args, callTimeScopedHeap) -> {
           ImmutableList<Map.Entry<String, Type>> argTypes =
               this.optionalArgTypesByNameMap.get().entrySet().asList();
           for (int i = args.size() - 1; i >= 0; i--) {
@@ -206,8 +206,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
             new DeclarationStmt(
                 currTailArg.getKey(),
                 TypeProvider.ImmediateTypeProvider.of(currTailArg.getValue()),
-                args.get(i)
-            ).generateInterpretedOutput(definitionTimeScopedHeap);
+                args.get(i),
+                true
+            ).generateInterpretedOutput(callTimeScopedHeap);
           }
         };
 
@@ -228,7 +229,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
             if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasArgs()) {
               // Execute the arg declarations assigning them to their given values.
-              defineArgIdentifiersConsumerFn.accept(args);
+              defineArgIdentifiersConsumerFn.accept(args, callTimeScopedHeap);
             }
 
             Object returnValue = null; // null, since we may or may not have a value to give.

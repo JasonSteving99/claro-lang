@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import lombok.ToString;
 
 import java.util.*;
 import java.util.function.Function;
@@ -39,6 +40,10 @@ public class ScopedHeap {
     putIdentifierValue(identifier, type);
   }
 
+  public void observeIdentifierAllowingHiding(String identifier, Type type) {
+    putIdentifierValueAllowingHiding(identifier, type, null);
+  }
+
   // This should honestly only be used by the Target.JAVA_SOURCE path where the values won't be known to the
   // CompilerBackend itself.
   public void declareIdentifier(String identifier) {
@@ -66,6 +71,21 @@ public class ScopedHeap {
     scopeStack
         .elementAt(
             optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1))
+        .scopedSymbolTable
+        .put(identifier, new IdentifierData(type, value, true));
+    if (value != null) {
+      scopeStack.peek().initializedIdentifiers.add(identifier);
+    }
+  }
+
+  // This is the same as the above ScopedHeap::putIdentifierValue, with the difference that it allows variable
+  // hiding. I.e. if there is already a variable defined in an outer scope named `foo`, this method allows the
+  // declaration of another new variable named `foo` in an inner scope that will hide the outer variable from
+  // references within this scope since searching for declared identifiers will stop at the first found in a
+  // bottom-up search.
+  public void putIdentifierValueAllowingHiding(String identifier, Type type, Object value) {
+    scopeStack
+        .peek()
         .scopedSymbolTable
         .put(identifier, new IdentifierData(type, value, true));
     if (value != null) {
@@ -183,6 +203,7 @@ public class ScopedHeap {
     }
   }
 
+  @ToString
   private static class IdentifierData {
     Type type;
     // This value is only meaningful in interpreted modes where values are tracked.
@@ -267,5 +288,19 @@ public class ScopedHeap {
       branchDetectionEnabled = false;
       identifiersInitializedInBranchGroup = null;
     }
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder res = new StringBuilder();
+
+    int i = scopeStack.size();
+    while (--i >= 0) {
+      res.append(String.format("Scope Level: %s\n", scopeStack.size() - i));
+      res.append(scopeStack.get(i).scopedSymbolTable.entrySet());
+      res.append("\n\n");
+    }
+
+    return res.toString();
   }
 }
