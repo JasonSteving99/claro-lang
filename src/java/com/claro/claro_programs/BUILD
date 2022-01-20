@@ -34,7 +34,6 @@ claro_library(
     java_name = "Functions",
 )
 
-
 claro_binary(
     name = "list_compiled_claro_image",
     srcs = [":list_compiled_claro"],
@@ -45,6 +44,18 @@ claro_library(
     name = "list_compiled_claro",
     src = "list.claro",
     java_name = "List",
+)
+
+claro_binary(
+    name = "recursion_compiled_claro_image",
+    srcs = [":recursion_compiled_claro"],
+    java_name = "Recursion",
+)
+
+claro_library(
+    name = "recursion_compiled_claro",
+    src = "recursion.claro",
+    java_name = "Recursion",
 )
 
 claro_binary(

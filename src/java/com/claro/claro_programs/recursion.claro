@@ -1,0 +1,39 @@
+# Currently recursion is only supported in the interpreted modes, let's start
+# figuring out how to get recursion working in the JAVA_SOURCE backend as well.
+
+# Validate that recursion works with functions.
+function factorial(i: int) -> int {
+  var res: int = i;
+
+  if (i > 1) {
+    res = res * factorial(i - 1);
+  }
+
+  return res;
+}
+
+print(factorial(6) == 6 * 5 * 4 * 3 * 2 * 1);
+# Sadly we still don't have any ability to throw exceptions for something like IllegalArgumentException...
+print(factorial(-1) == -1);
+
+# Validate that recursion works with consumer functions.
+consumer printDescending(i: int) {
+  if (i > 0) {
+    print(i);
+    printDescending(i - 1);
+  }
+}
+
+printDescending(5);
+
+# Validate that recursion works with provider functions.
+provider countUserNonEmptyInputs() -> int {
+  var res = 0;
+  var externalState = input("Gimme non-empty if you want me to keep counting.");
+  if (externalState != "") {
+    res = 1 + countUserNonEmptyInputs();
+  }
+  return res;
+}
+
+print(countUserNonEmptyInputs());

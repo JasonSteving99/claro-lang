@@ -88,9 +88,8 @@ public enum BaseType {
   FUNCTION(
       "function<%s -> %s>",
       "ClaroFunction<%s>",
-      // Allow scoping rules to behave the same as they appear in Claro source since Claro allows function defs anywhere.
-      // so just define an inner class directly within the method where the generated java source lives.
       "final class $%s extends ClaroFunction<%s> {\n" +
+      "  final $%s %s = this;\n" +
       "  public %s apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
@@ -109,6 +108,7 @@ public enum BaseType {
       "consumer<%s>",
       "ClaroConsumerFunction",
       "final class $%s extends ClaroConsumerFunction {\n" +
+      "  final $%s %s = this;\n" +
       "  public void apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
@@ -127,6 +127,7 @@ public enum BaseType {
       "provider<%s>",
       "ClaroProviderFunction<%s>",
       "final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "  final $%s %s = this;\n" +
       "  public %s apply() {\n" +
       "%s\n" +
       "  }\n" +

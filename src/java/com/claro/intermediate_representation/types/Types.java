@@ -300,9 +300,12 @@ public final class Types {
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             functionName,
             getReturnType().getJavaSourceType(),
+            functionName,
+            functionName,
             getReturnType().getJavaSourceType(),
             body,
             this,
+            functionName,
             functionName,
             functionName,
             functionName
@@ -359,6 +362,8 @@ public final class Types {
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             providerName,
             returnTypeJavaSource,
+            providerName,
+            providerName,
             returnTypeJavaSource,
             body,
             this,
@@ -418,8 +423,11 @@ public final class Types {
         return String.format(
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             consumerName,
+            consumerName,
+            consumerName,
             body,
             this.toString(),
+            consumerName,
             consumerName,
             consumerName,
             consumerName
