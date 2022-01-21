@@ -89,9 +89,14 @@ public enum BaseType {
       "function<%s -> %s>",
       "ClaroFunction<%s>",
       "final class $%s extends ClaroFunction<%s> {\n" +
-      "  final $%s %s = this;\n" +
+      "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
+      "  private final $%s %s = this;\n" +
       "  public %s apply(Object... args) {\n" +
       "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +
@@ -108,9 +113,14 @@ public enum BaseType {
       "consumer<%s>",
       "ClaroConsumerFunction",
       "final class $%s extends ClaroConsumerFunction {\n" +
+      "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public void apply(Object... args) {\n" +
       "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +
@@ -127,9 +137,14 @@ public enum BaseType {
       "provider<%s>",
       "ClaroProviderFunction<%s>",
       "final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public %s apply() {\n" +
       "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
       "  }\n" +
       "  @Override\n" +
       "  public String toString() {\n" +

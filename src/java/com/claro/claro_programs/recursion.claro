@@ -15,6 +15,7 @@ function factorial(i: int) -> int {
 print(factorial(6) == 6 * 5 * 4 * 3 * 2 * 1);
 # Sadly we still don't have any ability to throw exceptions for something like IllegalArgumentException...
 print(factorial(-1) == -1);
+type(factorial);
 
 # Validate that recursion works with consumer functions.
 consumer printDescending(i: int) {
@@ -25,6 +26,7 @@ consumer printDescending(i: int) {
 }
 
 printDescending(5);
+type(printDescending);
 
 # Validate that recursion works with provider functions.
 provider countUserNonEmptyInputs() -> int {
@@ -37,3 +39,4 @@ provider countUserNonEmptyInputs() -> int {
 }
 
 print(countUserNonEmptyInputs());
+type(countUserNonEmptyInputs);

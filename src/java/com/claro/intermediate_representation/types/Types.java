@@ -300,6 +300,7 @@ public final class Types {
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             functionName,
             getReturnType().getJavaSourceType(),
+            getJavaSourceClaroType(),
             functionName,
             functionName,
             getReturnType().getJavaSourceType(),
@@ -325,11 +326,7 @@ public final class Types {
       public String getJavaSourceClaroType() {
         return String.format(
             "Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s)",
-            this.parameterizedTypeArgs()
-                .entrySet()
-                .stream()
-                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
-                .collect(Collectors.joining()),
+            this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", ")),
             this.getReturnType().getJavaSourceClaroType()
         );
       }
@@ -362,6 +359,7 @@ public final class Types {
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             providerName,
             returnTypeJavaSource,
+            getJavaSourceClaroType(),
             providerName,
             providerName,
             returnTypeJavaSource,
@@ -423,6 +421,7 @@ public final class Types {
         return String.format(
             this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
             consumerName,
+            getJavaSourceClaroType(),
             consumerName,
             consumerName,
             body,
@@ -446,11 +445,7 @@ public final class Types {
       public String getJavaSourceClaroType() {
         return String.format(
             "Types.ProcedureType.ConsumerType.forConsumerArgTypes(ImmutableList.<Type>of(%s))",
-            this.parameterizedTypeArgs()
-                .entrySet()
-                .stream()
-                .map(entry -> String.format(".put(%s, %s)", entry.getKey(), entry.getValue().getJavaSourceClaroType()))
-                .collect(Collectors.joining())
+            this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", "))
         );
       }
     }

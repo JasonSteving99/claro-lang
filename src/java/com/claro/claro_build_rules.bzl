@@ -15,12 +15,14 @@ def claro_binary(name, srcs, java_name = "CompiledCalculator"):
             "//:guava",
             "//:lombok",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
             "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
             "//src/java/com/claro/intermediate_representation/types:base_type",
             "//src/java/com/claro/intermediate_representation/types:concrete_type",
             "//src/java/com/claro/intermediate_representation/types:type",
             "//src/java/com/claro/intermediate_representation/types:types",
             "//src/java/com/claro/runtime_utilities:runtime_utilities",
+            "//src/java/com/claro/stdlib/userinput",
         ]
     )
 

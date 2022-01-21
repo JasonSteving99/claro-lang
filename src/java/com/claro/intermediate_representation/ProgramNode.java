@@ -139,7 +139,11 @@ public class ProgramNode {
   private StringBuilder genJavaSource(Node.GeneratedJavaSource stmtListJavaSource) {
     return new StringBuilder(
         String.format(
+            "/*******AUTO-GENERATED: DO NOT MODIFY*******/\n\n" +
             "%s" +
+            "\n" +
+            "import static com.claro.stdlib.userinput.UserInput.promptUserInput;\n" +
+            "\n" +
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +
@@ -149,10 +153,12 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.Types;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
             "import java.util.ArrayList;\n" +
-            "import java.util.Scanner;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +
             "import lombok.EqualsAndHashCode;\n" +
@@ -160,31 +166,10 @@ public class ProgramNode {
             "import lombok.Value;\n" +
             "\n\n" +
             "public class %s {\n" +
-            // Programs can prompt users for input, they'll read that input using this Scanner over stdin.
-            "  private static final Scanner INPUT_SCANNER = new Scanner(System.in);\n\n" +
-            "/*******BEGIN AUTO-GENERATED: DO NOT MODIFY*******/\n" +
             "%s\n" +
             "  public static void main(String[] args) {\n" +
             "%s" +
             "  }\n\n" +
-            "/*******END AUTO-GENERATED*******/\n" +
-            "/*******BELOW THIS POINT IS THE STANDARD LIBRARY IMPLEMENTATION ESSENTIALLY*******/\n" +
-            // TODO(steving) Create a native Claro function implementation for this. Need some manner of stdlib function
-            //  references that refer out to Java implementations.
-            "  private static String promptUserInput(String prompt) {\n" +
-            "    System.out.println(prompt);\n" +
-            "    return INPUT_SCANNER.nextLine();\n" +
-            "  }\n" +
-            // TODO(steving) Create native classes in the com.claro.intermediate_representation.types package.
-            "  private abstract static class ClaroFunction<T> {\n" +
-            "    public abstract T apply(Object... args);\n" +
-            "  }\n" +
-            "  private abstract static class ClaroProviderFunction<T> {\n" +
-            "    public abstract T apply();\n" +
-            "  }\n" +
-            "  private abstract static class ClaroConsumerFunction {\n" +
-            "    public abstract void apply(Object... args);\n" +
-            "  }\n" +
             "}",
             this.packageString,
             this.generatedClassName,

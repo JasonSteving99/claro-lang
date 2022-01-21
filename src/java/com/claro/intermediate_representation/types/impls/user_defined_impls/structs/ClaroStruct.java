@@ -46,7 +46,6 @@ public abstract class ClaroStruct<T extends ClaroStruct<T>> extends ClaroUserDef
     return new Builder<>(structType);
   }
 
-  // TODO(steving) Add a toString for this builder. But also add a Type for the type system.
   public static class Builder<T extends ClaroUserDefinedTypeImplementation>
       implements ClaroUserDefinedTypeImplementationBuilder<T> {
 

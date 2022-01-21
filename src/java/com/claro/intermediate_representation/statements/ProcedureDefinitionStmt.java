@@ -184,10 +184,6 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     }
     scopedHeap.exitCurrScope();
 
-    // We declare procedures in the static scope, there's no reason for them to be generated within
-    // the main method in the generated Java source.
-//    return GeneratedJavaSource.forStaticDefinitions(
-//        optionalStaticDefinitions.orElse(new StringBuilder()).append(javaSourceOutput));
     return optionalStaticDefinitions.isPresent()
            ? GeneratedJavaSource.create(javaSourceOutput, optionalStaticDefinitions.get())
            : GeneratedJavaSource.forJavaSourceBody(javaSourceOutput);
