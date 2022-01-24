@@ -88,7 +88,7 @@ public enum BaseType {
   FUNCTION(
       "function<%s -> %s>",
       "ClaroFunction<%s>",
-      "final class $%s extends ClaroFunction<%s> {\n" +
+      "private static final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
       "  private final $%s %s = this;\n" +
       "  public %s apply(Object... args) {\n" +
@@ -102,17 +102,17 @@ public enum BaseType {
       "  public String toString() {\n" +
       "    return \"%s\";\n" +
       "  }\n" +
-      "}\n" +
+      "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "final $%s %s = new $%s();\n"
+      "private static final $%s %s = new $%s();\n"
   ),
   // A `consumer function` is one that takes args but doesn't have any return'd value. Consumer functions should have an
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
   CONSUMER_FUNCTION(
       "consumer<%s>",
       "ClaroConsumerFunction",
-      "final class $%s extends ClaroConsumerFunction {\n" +
+      "private static final class $%s extends ClaroConsumerFunction {\n" +
       "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public void apply(Object... args) {\n" +
@@ -126,17 +126,17 @@ public enum BaseType {
       "  public String toString() {\n" +
       "    return \"%s\";\n" +
       "  }\n" +
-      "}\n" +
+      "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "final $%s %s = new $%s();\n"
+      "private static final $%s %s = new $%s();\n"
   ),
   // A `consumer function` is one that takes args but doesn't have any return'd value. Consumer functions should have an
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
   PROVIDER_FUNCTION(
       "provider<%s>",
       "ClaroProviderFunction<%s>",
-      "final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "private static final class $%s extends ClaroProviderFunction<%s> {\n" +
       "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public %s apply() {\n" +
@@ -150,10 +150,10 @@ public enum BaseType {
       "  public String toString() {\n" +
       "    return \"%s\";\n" +
       "  }\n" +
-      "}\n" +
+      "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "final $%s %s = new $%s();\n"
+      "private static final $%s %s = new $%s();\n"
   ),
   /********************************************************************************************************************/
 
@@ -162,20 +162,40 @@ public enum BaseType {
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;
+  // Fmt string for the definition of the new type.
   private final String javaNewTypeDefinitionStmtFmtStr;
+  // Fmt string setting up the use of the new type which must be placed at the *very beginning* of the generated output.
+  private final Optional<String> javaNewTypeStaticPreambleFormatStr;
   private final Optional<Class<?>> nativeJavaSourceImplClazz;
 
   BaseType(String typeName) {
     this.claroCanonicalTypeNameFmtStr = typeName;
     this.javaSourceFmtStr = typeName;
     this.javaNewTypeDefinitionStmtFmtStr = null;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.empty();
     this.nativeJavaSourceImplClazz = Optional.empty();
   }
 
-  BaseType(String claroCanonicalTypeNameFmtStr, String javaSourceFmtStr, String javaNewTypeDefinitionStmtFmtStr) {
+  BaseType(
+      String claroCanonicalTypeNameFmtStr,
+      String javaSourceFmtStr,
+      String javaNewTypeDefinitionStmtFmtStr) {
     this.claroCanonicalTypeNameFmtStr = claroCanonicalTypeNameFmtStr;
     this.javaSourceFmtStr = javaSourceFmtStr;
     this.javaNewTypeDefinitionStmtFmtStr = javaNewTypeDefinitionStmtFmtStr;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.empty();
+    this.nativeJavaSourceImplClazz = Optional.empty();
+  }
+
+  BaseType(
+      String claroCanonicalTypeNameFmtStr,
+      String javaSourceFmtStr,
+      String javaNewTypeDefinitionStmtFmtStr,
+      String javaNewTypeStaticPreambleFormatStr) {
+    this.claroCanonicalTypeNameFmtStr = claroCanonicalTypeNameFmtStr;
+    this.javaSourceFmtStr = javaSourceFmtStr;
+    this.javaNewTypeDefinitionStmtFmtStr = javaNewTypeDefinitionStmtFmtStr;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.of(javaNewTypeStaticPreambleFormatStr);
     this.nativeJavaSourceImplClazz = Optional.empty();
   }
 
@@ -183,6 +203,7 @@ public enum BaseType {
     this.claroCanonicalTypeNameFmtStr = claroCanonicalTypeNameFmtStr;
     this.javaSourceFmtStr = javaSourceFmtStr;
     this.javaNewTypeDefinitionStmtFmtStr = null;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.empty();
     this.nativeJavaSourceImplClazz = Optional.of(nativeJavaSourceImplClazz);
   }
 
@@ -190,6 +211,7 @@ public enum BaseType {
     this.claroCanonicalTypeNameFmtStr = claroCanonicalTypeNameFmtStr;
     this.javaSourceFmtStr = javaSourceFmtStr;
     this.javaNewTypeDefinitionStmtFmtStr = null;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.empty();
     this.nativeJavaSourceImplClazz = Optional.empty();
   }
 
@@ -197,6 +219,7 @@ public enum BaseType {
     this.claroCanonicalTypeNameFmtStr = null;
     this.javaSourceFmtStr = null;
     this.javaNewTypeDefinitionStmtFmtStr = null;
+    this.javaNewTypeStaticPreambleFormatStr = Optional.empty();
     this.nativeJavaSourceImplClazz = Optional.empty();
   }
 
@@ -222,6 +245,14 @@ public enum BaseType {
           String.format("Internal Compiler Error: The BaseType <%s> is not yet supported in Claro!", this));
     }
     return javaNewTypeDefinitionStmtFmtStr;
+  }
+
+  public String getJavaNewTypeStaticPreambleFormatStr() {
+    if (!this.javaNewTypeStaticPreambleFormatStr.isPresent()) {
+      throw new UnsupportedOperationException(
+          String.format("Internal Compiler Error: The BaseType <%s> is not yet supported in Claro!", this));
+    }
+    return javaNewTypeStaticPreambleFormatStr.get();
   }
 
   public Class<?> getNativeJavaSourceImplClazz() {

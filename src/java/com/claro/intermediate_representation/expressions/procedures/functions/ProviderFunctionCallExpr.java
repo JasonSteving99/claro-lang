@@ -45,8 +45,7 @@ public class ProviderFunctionCallExpr extends Expr {
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.functionName);
 
-    return ((Types.ProcedureType.ProviderType) scopedHeap.getValidatedIdentifierType(this.functionName))
-        .getReturnType();
+    return ((Types.ProcedureType.ProviderType) referencedIdentifierType).getReturnType();
   }
 
   @Override

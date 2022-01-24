@@ -255,6 +255,15 @@ public final class Types {
 
     public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
 
+    public String getStaticFunctionReferenceDefinitionStmt(String procedureName) {
+      return String.format(
+          baseType().getJavaNewTypeStaticPreambleFormatStr(),
+          procedureName,
+          procedureName,
+          procedureName
+      );
+    }
+
     private static final Function<ImmutableList<Type>, String> collectToArgTypesListFormatFn =
         typesByNameMap ->
             typesByNameMap.size() > 1 ?

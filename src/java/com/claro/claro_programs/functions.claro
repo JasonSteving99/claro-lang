@@ -1,13 +1,17 @@
 var x: int = 1;
+print(x);
 
+callMeMaybe("Can call functions defined below.");
 consumer function callMeMaybe(userMessage: string) {
   print("This was the user message!:");
   print(userMessage);
 }
 
 function helloFunWorld(message: string, someInt: int) -> string {
-  # For what it's worth, note that this function has access to the things declared above it.
-  print(x + someInt);
+  # For what it's worth, note that this function does not have access to the things declared above it.
+  # Uncomment this line to see an exception.
+#  print(x + someInt);
+  print(someInt);
 
   # Swap the commented res declaration and you'll see a return type error message.
   var res: string = message;

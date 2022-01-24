@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
@@ -49,11 +50,20 @@ public class ProgramNode {
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
+    // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
+    // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
     // TYPE DISCOVERY PHASE:
     performTypeDiscoveryPhase(stmtListNode, scopedHeap);
 
-    // TYPE VALIDATION PHASE:
-    // At the program level, validate all types in the entire AST before execution.
+    // PROCEDURE DISCOVERY PHASE:
+    performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // PROCEDURE TYPE VALIDATION PHASE:
+    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // NON-PROCEDURE STATEMENT TYPE VALIDATION PHASE:
+    // Validate all types in the entire remaining AST before execution.
     try {
       stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
@@ -94,7 +104,13 @@ public class ProgramNode {
     // TYPE DISCOVERY PHASE:
     performTypeDiscoveryPhase(stmtListNode, scopedHeap);
 
-    // At the program level, validate all types in the entire AST before execution.
+    // PROCEDURE DISCOVERY PHASE:
+    performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // PROCEDURE TYPE VALIDATION PHASE:
+    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // Validate all types in the entire remaining AST before execution.
     try {
       // TYPE VALIDATION PHASE:
       stmtListNode.assertExpectedExprTypes(scopedHeap);
@@ -125,6 +141,46 @@ public class ProgramNode {
       }
       currStmtListNode = currStmtListNode.tail;
     }
+  }
+
+  private void performProcedureDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ProcedureDefinitionStmt) {
+        ((ProcedureDefinitionStmt) currStmt).registerProcedureTypeProvider(scopedHeap);
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+  }
+
+  private void performProcedureTypeValidationPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ProcedureDefinitionStmt) {
+        try {
+          currStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
+    // definitions live in their own scope and cannot reference variables below.
+    scopedHeap.enterNewScope();
   }
 
   /**
@@ -166,13 +222,17 @@ public class ProgramNode {
             "import lombok.Value;\n" +
             "\n\n" +
             "public class %s {\n" +
-            "%s\n" +
+            "// Static preamble statements first thing.\n" +
+            "%s\n\n" +
+            "// Now the static definitions.\n" +
+            "%s\n\n" +
             "  public static void main(String[] args) {\n" +
             "%s" +
             "  }\n\n" +
             "}",
             this.packageString,
             this.generatedClassName,
+            stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
             stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
             stmtListJavaSource.javaSourceBody()
         )

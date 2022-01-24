@@ -40,3 +40,33 @@ provider countUserNonEmptyInputs() -> int {
 
 print(countUserNonEmptyInputs());
 type(countUserNonEmptyInputs);
+
+
+# Let's validate that mutual recursion works, which depends on being able to call procedures
+# out of the order of definition.
+print(mutualRecursionA(5));
+type(mutualRecursionA);
+type(mutualRecursionB);
+
+function mutualRecursionA(x: int) -> int {
+  var res: int;
+  if (x == 0) {
+    res = 0;
+  } else {
+    print(x);
+    res = mutualRecursionB(x - 1);
+  }
+  return res;
+}
+
+function mutualRecursionB(x: int) -> int {
+  var res: int;
+  if (x == 0) {
+    res = 0;
+  } else {
+    print(x);
+    res = mutualRecursionA(x - 1);
+  }
+  return res;
+}
+

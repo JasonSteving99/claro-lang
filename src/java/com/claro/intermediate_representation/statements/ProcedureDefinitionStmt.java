@@ -20,7 +20,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   private final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
-  private final TypeProvider procedureTypeProvider;
+  public final TypeProvider procedureTypeProvider;
   private Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
   private Types.ProcedureType resolvedProcedureType;
 
@@ -45,8 +45,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     this.procedureTypeProvider = procedureTypeProvider;
   }
 
-  @Override
-  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+  // Register this procedure's type during the procedure resolution phase so that functions may reference each
+  // other out of declaration order, to support things like mutual recursion.
+  public void registerProcedureTypeProvider(ScopedHeap scopedHeap) {
     // Get the resolved procedure type.
     this.resolvedProcedureType =
         (Types.ProcedureType) this.procedureTypeProvider.resolveType(scopedHeap);
@@ -62,9 +63,15 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
         String.format("Unexpected redeclaration of %s %s.", resolvedProcedureType, this.procedureName)
     );
 
-    // First we need to mark the function declared and initialized within the original calling scope.
+    // Finally mark the function declared and initialized within the original calling scope.
     scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
+  }
+
+  @Override
+  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // this::registerTypeProvider should've already been called during the procedure resolution phase, so we
+    // can now already assume that this type is registered in this scope.
 
     // Enter the new scope for this function.
     scopedHeap.observeNewScope(false);
@@ -184,9 +191,12 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     }
     scopedHeap.exitCurrScope();
 
-    return optionalStaticDefinitions.isPresent()
-           ? GeneratedJavaSource.create(javaSourceOutput, optionalStaticDefinitions.get())
-           : GeneratedJavaSource.forJavaSourceBody(javaSourceOutput);
+    return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
+        optionalStaticDefinitions
+            .orElse(new StringBuilder())
+            .append(javaSourceOutput),
+        new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
+    );
   }
 
   @Override

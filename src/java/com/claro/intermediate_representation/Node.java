@@ -29,20 +29,32 @@ public abstract class Node {
 
     public abstract Optional<StringBuilder> optionalStaticDefinitions();
 
+    public abstract Optional<StringBuilder> optionalStaticPreambleStmts();
+
     public GeneratedJavaSource withNewJavaSourceBody(StringBuilder javaSourceBody) {
-      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, optionalStaticDefinitions());
+      return new AutoValue_Node_GeneratedJavaSource(
+          javaSourceBody, optionalStaticDefinitions(), optionalStaticPreambleStmts());
     }
 
     public static GeneratedJavaSource forJavaSourceBody(StringBuilder javaSourceBody) {
-      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.empty());
+      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.empty(), Optional.empty());
     }
 
     public static GeneratedJavaSource forStaticDefinitions(StringBuilder staticDefinitions) {
-      return new AutoValue_Node_GeneratedJavaSource(new StringBuilder(), Optional.of(staticDefinitions));
+      return new AutoValue_Node_GeneratedJavaSource(
+          new StringBuilder(), Optional.of(staticDefinitions), Optional.empty());
     }
 
-    public static GeneratedJavaSource create(StringBuilder javaSourceBody, StringBuilder staticDefinitions) {
-      return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, Optional.of(staticDefinitions));
+    public static GeneratedJavaSource forStaticDefinitionsAndPreamble(
+        StringBuilder staticDefinitions, StringBuilder staticPreamble) {
+      return new AutoValue_Node_GeneratedJavaSource(
+          new StringBuilder(), Optional.of(staticDefinitions), Optional.of(staticPreamble));
+    }
+
+    public static GeneratedJavaSource create(
+        StringBuilder javaSourceBody, StringBuilder staticDefinitions, StringBuilder staticPreamble) {
+      return new AutoValue_Node_GeneratedJavaSource(
+          javaSourceBody, Optional.of(staticDefinitions), Optional.of(staticPreamble));
     }
 
     @Override

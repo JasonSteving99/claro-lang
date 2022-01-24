@@ -74,6 +74,7 @@ public class IfStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder javaSourceBodyRes = new StringBuilder();
     StringBuilder staticDefinitionsRes = new StringBuilder();
+    StringBuilder staticPreambleRes = new StringBuilder();
 
     // If it's a guarantee that at least one of these branches will execute, then we need to enable branch inspection.
     boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
@@ -81,7 +82,7 @@ public class IfStmt extends Stmt {
     // First thing first handle the one guaranteed present if-stmt.
     IfStmt initialIfStmt = this.getConditionStack().peek();
     appendIfConditionStmtJavaSource(
-        initialIfStmt, scopedHeap, false, enableBranchInspection, javaSourceBodyRes, staticDefinitionsRes);
+        initialIfStmt, scopedHeap, false, enableBranchInspection, javaSourceBodyRes, staticDefinitionsRes, staticPreambleRes);
 
     // Now handle any remaining else-if-stmts. Iterate over, instead of pop-ing things off the stack, cuz in the
     // interpreted mode we need this Node to be reusable in the case of this being included for example in a loop or
@@ -94,7 +95,8 @@ public class IfStmt extends Stmt {
           true,
           enableBranchInspection,
           javaSourceBodyRes,
-          staticDefinitionsRes
+          staticDefinitionsRes,
+          staticPreambleRes
       );
     }
 
@@ -112,6 +114,7 @@ public class IfStmt extends Stmt {
               )
           );
           terminalElseClauseStmtListJavaSource.optionalStaticDefinitions().ifPresent(staticDefinitionsRes::append);
+          terminalElseClauseStmtListJavaSource.optionalStaticPreambleStmts().ifPresent(staticPreambleRes::append);
           scopedHeap.exitCurrScope();
         }
     );
@@ -120,7 +123,7 @@ public class IfStmt extends Stmt {
     javaSourceBodyRes.append("\n");
 
     return staticDefinitionsRes.length() > 0
-           ? GeneratedJavaSource.create(javaSourceBodyRes, staticDefinitionsRes)
+           ? GeneratedJavaSource.create(javaSourceBodyRes, staticDefinitionsRes, staticPreambleRes)
            : GeneratedJavaSource.forJavaSourceBody(javaSourceBodyRes);
   }
 
@@ -130,7 +133,8 @@ public class IfStmt extends Stmt {
       boolean elseIf,
       boolean enableBranchInspection,
       StringBuilder javaSourceBody,
-      StringBuilder staticDefinitions) {
+      StringBuilder staticDefinitions,
+      StringBuilder staticPreamble) {
     javaSourceBody.append(
         String.format(
             elseIf ? "else if ( %s )" : "if ( %s )",
@@ -153,6 +157,7 @@ public class IfStmt extends Stmt {
         String.format(
             " {\n%s\n} ", ifStmtBodyGeneratedJavaSource.javaSourceBody().toString()));
     ifStmtBodyGeneratedJavaSource.optionalStaticDefinitions().ifPresent(staticDefinitions::append);
+    ifStmtBodyGeneratedJavaSource.optionalStaticPreambleStmts().ifPresent(staticPreamble::append);
     // And we're now leaving this scope.
     scopedHeap.exitCurrScope();
   }
