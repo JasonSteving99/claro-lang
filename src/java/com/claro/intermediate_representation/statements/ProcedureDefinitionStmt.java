@@ -1,7 +1,6 @@
 package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
-import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
@@ -28,8 +27,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       String procedureName,
       ImmutableMap<String, TypeProvider> argTypeProviders,
       TypeProvider procedureTypeProvider,
-      ImmutableList<Node> children) {
-    super(children);
+      StmtListNode procedureBodyStmtListNode) {
+    super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
     this.optionalArgTypeProvidersByNameMap = Optional.of(argTypeProviders);
     this.procedureTypeProvider = procedureTypeProvider;
@@ -38,8 +37,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public ProcedureDefinitionStmt(
       String procedureName,
       TypeProvider procedureTypeProvider,
-      ImmutableList<Node> children) {
-    super(children);
+      StmtListNode procedureBodyStmtListNode) {
+    super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
     this.optionalArgTypeProvidersByNameMap = Optional.empty();
     this.procedureTypeProvider = procedureTypeProvider;
@@ -86,20 +85,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
           });
     }
 
-    // Now from here step through the function body.
-    if (this.getChildren().size() == 2) {
-      // We have a stmt list to deal with, in addition to the return Expr.
-      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
-      ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, resolvedProcedureType.getReturnType());
-    } else {
-      if (resolvedProcedureType.hasReturnValue()) {
-        // We only have to check the return Expr.
-        ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, resolvedProcedureType.getReturnType());
-      } else {
-        // We only have to check the StmtListNode.
-        ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
-      }
-    }
+    // Now from here step through the function body. Just assert expected types on the StmtListNode.
+    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+
     // Leave the function body.
     scopedHeap.exitCurrObservedScope(false);
   }
@@ -140,55 +128,18 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       optionalJavaSourceBodyBuilder = Optional.of(javaSourceBodyBuilder);
     }
 
-    StringBuilder javaSourceOutput;
-    Optional<StringBuilder> optionalStaticDefinitions;
-    if (this.getChildren().size() == 2) {
-      // There's a StmtListNode to generate code for before the return stmt.
-      GeneratedJavaSource procedureBodyGeneratedJavaSource =
-          ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
-      javaSourceOutput = new StringBuilder(
-          this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
-              this.procedureName,
-              optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
-                  procedureBodyGeneratedJavaSource.javaSourceBody()
-                      // For more consistency I could've definitely made a new ReturnStmt.java file but....what's so bad about
-                      // some good ol' fashioned hardcoding?
-                      .append("return ")
-                      .append(((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap))
-                      .append(";")
-              )
-          )
-      );
-      optionalStaticDefinitions = procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
-    } else if (this.resolvedProcedureType.hasReturnValue()) {
-      javaSourceOutput = new StringBuilder(
-          this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
-              this.procedureName,
-              // For more consistency and I guess avoiding the condition checking above, I could've definitely made a
-              // new ReturnStmt.java file but....what's so bad about some good ol' fashioned hardcoding?
-              optionalJavaSourceBodyBuilder.orElse(new StringBuilder()).append(
-                  String.format(
-                      "return %s;",
-                      ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
-                  )
-              )
-          )
-      );
-      optionalStaticDefinitions = Optional.empty();
-    } else {
-      // There's a StmtListNode to generate code for.
-      GeneratedJavaSource procedureBodyGeneratedJavaSource =
-          ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
-      javaSourceOutput =
-          new StringBuilder(
-              this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
-                  this.procedureName,
-                  optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
-                      .append(procedureBodyGeneratedJavaSource.javaSourceBody())
-              )
-          );
-      optionalStaticDefinitions = procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
-    }
+    // There's a StmtListNode to generate code for.
+    GeneratedJavaSource procedureBodyGeneratedJavaSource =
+        ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+    String javaSourceOutput =
+        this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
+            this.procedureName,
+            optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
+                .append(procedureBodyGeneratedJavaSource.javaSourceBody())
+        );
+    Optional<StringBuilder> optionalStaticDefinitions =
+        procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
+
     scopedHeap.exitCurrScope();
 
     return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
@@ -242,25 +193,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
               defineArgIdentifiersConsumerFn.accept(args, callTimeScopedHeap);
             }
 
-            Object returnValue = null; // null, since we may or may not have a value to give.
-            if (ProcedureDefinitionStmt.this.getChildren().size() == 2) {
-              // Now we need to execute the function body StmtListNode given.
-              ((StmtListNode) ProcedureDefinitionStmt.this.getChildren().get(0))
-                  .generateInterpretedOutput(callTimeScopedHeap);
-              // Now we need to execute the return Expr.
-              returnValue = ((Expr) ProcedureDefinitionStmt.this.getChildren().get(1))
-                  .generateInterpretedOutput(callTimeScopedHeap);
-            } else {
-              if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasReturnValue()) {
-                // Now we need to execute the return Expr right away since there's no body StmtListNode given.
-                returnValue = ((Expr) ProcedureDefinitionStmt.this.getChildren().get(0))
-                    .generateInterpretedOutput(callTimeScopedHeap);
-              } else {
-                // We just need to execute the single StmtListNode.
-                ((StmtListNode) ProcedureDefinitionStmt.this.getChildren().get(0))
-                    .generateInterpretedOutput(callTimeScopedHeap);
-              }
-            }
+            // Now we need to execute the function body StmtListNode given.
+            Object returnValue = ((StmtListNode) ProcedureDefinitionStmt.this.getChildren().get(0))
+                .generateInterpretedOutput(callTimeScopedHeap);
 
             // We're done executing this function body now, so we can exit this function's scope.
             callTimeScopedHeap.exitCurrScope();

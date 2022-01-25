@@ -20,7 +20,7 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     .stream()
                     .map(t -> t.resolveType(scopedHeap))
                     .collect(ImmutableList.toImmutableList())),
-        ImmutableList.of(stmtListNode)
+        stmtListNode
     );
   }
 }

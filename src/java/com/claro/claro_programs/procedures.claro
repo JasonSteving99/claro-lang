@@ -87,3 +87,22 @@ consumer checkVariableHiding(test99: int) {
 }
 higher(checkVariableHiding, 3);
 takeThis(test99);
+
+
+# Procedures support multiple return statements.
+print(testMultipleReturns(-99));
+# TODO(steving) This is currently broken, I need to figure out how to ban return statements outside of procedures.
+#return "this should be invalid but I don't necessarily know how to make that happen.";
+function testMultipleReturns(x: int) -> string {
+  if (x > 0) {
+    return "positive";
+  } else if (x == 0) {
+    return "zero";
+    # TODO(steving) I need to come up with some way to disallow unreachable code.
+#    print("BROKEN! BROKEN! BROKEN! BROKEN! BROKEN!");
+  } else {
+    return "negative";
+  }
+  # TODO(steving) I need to come up with some way to disallow unreachable code.
+#  print("BROKEN! BROKEN! BROKEN! BROKEN! BROKEN!");
+}

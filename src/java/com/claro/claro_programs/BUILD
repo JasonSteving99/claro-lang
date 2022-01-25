@@ -23,18 +23,6 @@ claro_library(
 )
 
 claro_binary(
-    name = "functions_compiled_claro_image",
-    srcs = [":functions_compiled_claro"],
-    java_name = "Functions",
-)
-
-claro_library(
-    name = "functions_compiled_claro",
-    src = "functions.claro",
-    java_name = "Functions",
-)
-
-claro_binary(
     name = "list_compiled_claro_image",
     srcs = [":list_compiled_claro"],
     java_name = "List",
@@ -44,6 +32,18 @@ claro_library(
     name = "list_compiled_claro",
     src = "list.claro",
     java_name = "List",
+)
+
+claro_binary(
+    name = "procedures_compiled_claro_image",
+    srcs = [":procedures_compiled_claro"],
+    java_name = "Procedures",
+)
+
+claro_library(
+    name = "procedures_compiled_claro",
+    src = "procedures.claro",
+    java_name = "Procedures",
 )
 
 claro_binary(

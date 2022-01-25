@@ -73,11 +73,16 @@ public class StmtListNode extends Node {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // Simply execute the statements. Statements don't return values.
-    this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
+    // Simply execute the statements. Statements don't return values UNLESS we're in a procedure scope and the
+    // Stmt we're executing happens to be a ReturnStmt in which case...return that value. We don't want to slow
+    // everything down by checking every single Stmt to see if it is of type ReturnStmt, or if the value is
+    // non-null, so we'll just depend on the fact that ReturnStmts should necessarily be the final stmt in their
+    // StmtList (validated elsewhere) to just hold onto this current Stmt's return value and return it at the end.
+    Object maybeReturnValue = this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
     if (tail != null) {
       tail.generateInterpretedOutput(scopedHeap);
     }
-    return null;
+    // This return value is probably `null` unless the last executed Stmt happened to be a ReturnStmt.
+    return maybeReturnValue;
   }
 }
