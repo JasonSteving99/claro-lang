@@ -164,6 +164,7 @@ public class IfStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    Object maybeReturnValue = null;
     // Iterate over, instead of pop-ing things off the stack, cuz we need this Node to be reusable in the case of this
     // being included for example in a loop or function etc.
     for (int i = getConditionStack().size() - 1; i >= 0; i--) {
@@ -172,18 +173,20 @@ public class IfStmt extends Stmt {
         // We've now entered a new scope.
         scopedHeap.enterNewScope();
         // Do work in this new scope.
-        ifStmt.getChildren().get(1).generateInterpretedOutput(scopedHeap);
+        maybeReturnValue = ifStmt.getChildren().get(1).generateInterpretedOutput(scopedHeap);
         // And we're now leaving this scope.
         scopedHeap.exitCurrScope();
 
         // Ok, we're done with this whole chain. Short-circuit and literally don't even look at the rest of the code.
-        return null;
+        // This return value is probably `null` unless the last executed Stmt happened to be a ReturnStmt.
+        return maybeReturnValue;
       }
     }
 
     // Didn't match any given condition, if there's an else clause, just run that code.
-    optionalTerminalElseClause.ifPresent(
-        terminalElseClauseStmtList -> terminalElseClauseStmtList.generateInterpretedOutput(scopedHeap));
-    return null;
+    if (optionalTerminalElseClause.isPresent()) {
+      maybeReturnValue = optionalTerminalElseClause.get().generateInterpretedOutput(scopedHeap);
+    }
+    return maybeReturnValue;
   }
 }

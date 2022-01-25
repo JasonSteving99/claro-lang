@@ -55,13 +55,21 @@ public class WhileStmt extends Stmt {
     // are actually initialized before access, therefore we don't need to clear the while body's
     // scope, since everything will be reinitialized by the code itself.
     Expr whileCondExpr = (Expr) getChildren().get(0);
+    Object maybeReturnValue = null;
     if ((boolean) whileCondExpr.generateInterpretedOutput(scopedHeap)) {
       scopedHeap.enterNewScope();
       do {
-        getChildren().get(1).generateInterpretedOutput(scopedHeap);
+        maybeReturnValue = getChildren().get(1).generateInterpretedOutput(scopedHeap);
+
+        if (maybeReturnValue != null) {
+          // The last executed Stmt happened to be a ReturnStmt. We therefore need to break out
+          // of this loop so that no more potential side effects happen when they shouldn't.
+          break;
+        }
       } while ((boolean) whileCondExpr.generateInterpretedOutput(scopedHeap));
       scopedHeap.exitCurrScope();
     }
-    return null;
+    // This return value is probably `null` unless the last executed Stmt happened to be a ReturnStmt.
+    return maybeReturnValue;
   }
 }

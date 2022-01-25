@@ -49,24 +49,18 @@ type(mutualRecursionA);
 type(mutualRecursionB);
 
 function mutualRecursionA(x: int) -> int {
-  var res: int;
   if (x == 0) {
-    res = 0;
-  } else {
-    print(x);
-    res = mutualRecursionB(x - 1);
+    return 0;
   }
-  return res;
+  print(x);
+  return mutualRecursionB(x - 1);
 }
 
 function mutualRecursionB(x: int) -> int {
-  var res: int;
   if (x == 0) {
-    res = 0;
-  } else {
-    print(x);
-    res = mutualRecursionA(x - 1);
+    return 0;
   }
-  return res;
+  print(x);
+  return mutualRecursionA(x - 1);
 }
 
