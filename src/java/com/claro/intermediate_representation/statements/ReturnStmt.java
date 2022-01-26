@@ -14,19 +14,37 @@ public class ReturnStmt extends Stmt {
   // it's not possible to know the type that we should be returning when the ReturnStmt is identified
   // during bottom-up parsing. So it needs to be set during the top-down AST traversal.
   private AtomicReference<TypeProvider> expectedTypeProvider;
+  // ReturnStmts should only be valid w/in Procedure scopes, so during top-down AST traversal once we enter
+  // a definition scope of a (non-Consumer) Procedure, this should be set to true in order to allow the
+  // ReturnStmt, and will reset it to false upon leaving the Procedure definition scope. If a ReturnStmt
+  // is reached during the type validation phase while this boolean is false, then that will let us know that
+  // we are outside of a Procedure scope and this is an invalid ReturnStmt.
+  private static boolean withinProcedureScopeSupportingReturnStmt = false;
 
   public ReturnStmt(Expr returnExpr, AtomicReference<TypeProvider> expectedTypeProvider) {
     super(ImmutableList.of(returnExpr));
     this.expectedTypeProvider = expectedTypeProvider;
   }
 
+  public static void allowReturnStmts() {
+    ReturnStmt.withinProcedureScopeSupportingReturnStmt = true;
+  }
+
+  public static void disallowReturnStmts() {
+    ReturnStmt.withinProcedureScopeSupportingReturnStmt = false;
+  }
+
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    if (expectedTypeProvider == null || expectedTypeProvider.get() == null) {
-      throw new ClaroParserException("Invalid usage of `return` unexpected.");
+    if (!withinProcedureScopeSupportingReturnStmt || expectedTypeProvider == null ||
+        expectedTypeProvider.get() == null) {
+      throw new ClaroParserException("Invalid usage of `return` outside of a procedure body.");
     }
     ((Expr) getChildren().get(0)).assertExpectedExprType(scopedHeap, expectedTypeProvider.get()
         .resolveType(scopedHeap));
+    // Mark the hidden variable flag tracking whether there's a return in every branch of this procedure
+    // as initialized on this branch.
+    scopedHeap.initializeIdentifier(String.format("$RETURNS"));
   }
 
   @Override

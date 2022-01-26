@@ -1,5 +1,6 @@
 package com.claro.intermediate_representation.statements;
 
+import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
@@ -72,8 +73,22 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // this::registerTypeProvider should've already been called during the procedure resolution phase, so we
     // can now already assume that this type is registered in this scope.
 
-    // Enter the new scope for this function.
+    // Enter the new scope for this procedure.
     scopedHeap.observeNewScope(false);
+
+    // There's some setup we'll need to do if this procedure expects an output.
+    String hiddenReturnTypeVariableFlagName = "$RETURNS";
+    if (this.resolvedProcedureType.hasReturnValue()) {
+      // Now that we're in the procedure's scope, let's allow ReturnStmts temporarily.
+      ReturnStmt.allowReturnStmts();
+      // We'll abuse the variable usage checking implementation to validate that we've put a ReturnStmt
+      // along every branch of the procedure. So we'll put a hidden variable in the procedure's Scope
+      // and then everywhere where a ReturnStmt is located, we'll mark that variable as "initialized".
+      // By this approach, we simply need to check if that hidden variable "is initialized" on the last
+      // line of the function, and if it's not, then we know there must be a ReturnStmt missing! Damn,
+      // sometimes I even impress myself with my laziness...err creativity....
+      scopedHeap.observeIdentifier(hiddenReturnTypeVariableFlagName, Types.BOOLEAN);
+    }
 
     // I may need to mark the args as observed identifiers within this new scope.
     if (resolvedProcedureType.hasArgs()) {
@@ -88,8 +103,22 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // Now from here step through the function body. Just assert expected types on the StmtListNode.
     ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
 
+    // Just before we leave the procedure body, let's make sure that we check for required returns.
+    if (this.resolvedProcedureType.hasReturnValue()) {
+      if (!scopedHeap.isIdentifierInitialized(hiddenReturnTypeVariableFlagName)) {
+        // The hidden variable marking whether or not this procedure returns along every branch is
+        // uninitialized meaning that there's guaranteed to be a missing return somewhere.
+        throw new ClaroParserException(
+            String.format("Missing return in %s %s.", this.resolvedProcedureType, this.procedureName));
+      }
+      // Just to get the compiler not to yell about our hidden variable being unused, mark it used.
+      scopedHeap.markIdentifierUsed(hiddenReturnTypeVariableFlagName);
+    }
+
     // Leave the function body.
     scopedHeap.exitCurrObservedScope(false);
+    // Now that we've left the procedure's scope, let's disallow ReturnStmts again.
+    ReturnStmt.disallowReturnStmts();
   }
 
   @Override

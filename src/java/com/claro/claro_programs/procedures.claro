@@ -90,19 +90,19 @@ takeThis(test99);
 
 
 # Procedures support multiple return statements.
-print(testMultipleReturns(-99));
-# TODO(steving) This is currently broken, I need to figure out how to ban return statements outside of procedures.
+print(testMultipleReturns(0));
+# Try uncommenting the below invalid return stmt (not w/in a procedure body) and you'll see a compile-time error.
 #return "this should be invalid but I don't necessarily know how to make that happen.";
 function testMultipleReturns(x: int) -> string {
   if (x > 0) {
     return "positive";
   } else if (x == 0) {
     return "zero";
-    # TODO(steving) I need to come up with some way to disallow unreachable code.
-#    print("BROKEN! BROKEN! BROKEN! BROKEN! BROKEN!");
+    # Try uncommenting the below invalid unreachable code and you'll see a compile-time error.
+#    print("Unreachable stmts immediately following a return stmt are disallowed.");
   } else {
     return "negative";
   }
-  # TODO(steving) I need to come up with some way to disallow unreachable code.
-#  print("BROKEN! BROKEN! BROKEN! BROKEN! BROKEN!");
+   # Try uncommenting the below invalid unreachable code and you'll see a compile-time error.
+#  print("Unreachable stmts are disallowed.");
 }

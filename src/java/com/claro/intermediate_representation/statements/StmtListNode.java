@@ -1,5 +1,6 @@
 package com.claro.intermediate_representation.statements;
 
+import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.types.ClaroTypeException;
@@ -24,6 +25,15 @@ public class StmtListNode extends Node {
 
   // Called after complete construction of AST-IR, but before evaluating any program values.
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // If the hidden variable tracking ReturnStmts is initialized in the current scope,
+    // then it's indicating that this Stmt is located after a ReturnStmt which is invalid.
+    if (scopedHeap.scopeStack.peek().initializedIdentifiers.contains("$RETURNS")) {
+      // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
+      //  implementing better error messages with line numbers etc, I get a feeling that
+      //  throwing this manner of error here will make it hard to get line numbers right.
+      throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
+    }
+
     ((Stmt) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
     if (tail != null) {
       tail.assertExpectedExprTypes(scopedHeap);
@@ -80,8 +90,7 @@ public class StmtListNode extends Node {
     // StmtList (validated elsewhere) to just hold onto this current Stmt's return value and return it at the end.
     Object maybeReturnValue = this.getChildren().get(0).generateInterpretedOutput(scopedHeap);
     if (tail != null) {
-      tail.generateInterpretedOutput(scopedHeap);
-//      maybeReturnValue = tail.generateInterpretedOutput(scopedHeap);
+      maybeReturnValue = tail.generateInterpretedOutput(scopedHeap);
     }
     // This return value is probably `null` unless the last executed Stmt happened to be a ReturnStmt.
     return maybeReturnValue;
