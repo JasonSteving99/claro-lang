@@ -106,3 +106,22 @@ function testMultipleReturns(x: int) -> string {
    # Try uncommenting the below invalid unreachable code and you'll see a compile-time error.
 #  print("Unreachable stmts are disallowed.");
 }
+
+
+# This provider tests that returns that are hidden from branch inspection are handled properly giving
+# the correct returned value.
+provider testReturnsHiddenFromBranchInspection() -> int {
+  if (true) {
+    return 99;
+  }
+  # As a human, I'm aware that this return is unnecessary and that makes me sad that Claro doesn't
+  # know the same thing yet...
+  # TODO (steving) improve Claro's branch detection so that it would know that this unreachable return is...unreachable.
+  return -1;
+}
+var testReturnsHiddenFromBranchInspectionRes = testReturnsHiddenFromBranchInspection();
+if (testReturnsHiddenFromBranchInspectionRes  == -1) {
+  print("BROKEN! BROKEN! BROKEN! - Hidden return was skipped and fell through to a return that should be unreachable.");
+} else if (testReturnsHiddenFromBranchInspectionRes == 99) {
+  print("Return stmts hidden from branch inspection work :).");
+}

@@ -19,29 +19,37 @@ public class ReturnStmt extends Stmt {
   // ReturnStmt, and will reset it to false upon leaving the Procedure definition scope. If a ReturnStmt
   // is reached during the type validation phase while this boolean is false, then that will let us know that
   // we are outside of a Procedure scope and this is an invalid ReturnStmt.
-  private static boolean withinProcedureScopeSupportingReturnStmt = false;
+  private static boolean withinProcedureScope = false;
+  private static boolean supportReturnStmt = false;
 
   public ReturnStmt(Expr returnExpr, AtomicReference<TypeProvider> expectedTypeProvider) {
     super(ImmutableList.of(returnExpr));
     this.expectedTypeProvider = expectedTypeProvider;
   }
 
-  public static void allowReturnStmts() {
-    ReturnStmt.withinProcedureScopeSupportingReturnStmt = true;
+  public static void enterProcedureScope(boolean allowReturnStmts) {
+    ReturnStmt.withinProcedureScope = true;
+    ReturnStmt.supportReturnStmt = allowReturnStmts;
   }
 
-  public static void disallowReturnStmts() {
-    ReturnStmt.withinProcedureScopeSupportingReturnStmt = false;
+  public static void exitProcedureScope() {
+    ReturnStmt.withinProcedureScope = false;
+    ReturnStmt.supportReturnStmt = false;
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    if (!withinProcedureScopeSupportingReturnStmt || expectedTypeProvider == null ||
-        expectedTypeProvider.get() == null) {
-      throw new ClaroParserException("Invalid usage of `return` outside of a procedure body.");
+    if (!(withinProcedureScope && supportReturnStmt)) {
+      String invalidReturnReason;
+      if (withinProcedureScope) {
+        invalidReturnReason = "Invalid usage of `return` in a procedure body that does not provide output.";
+      } else {
+        invalidReturnReason = "Invalid usage of `return` outside of a procedure body.";
+      }
+      throw new ClaroParserException(invalidReturnReason);
     }
-    ((Expr) getChildren().get(0)).assertExpectedExprType(scopedHeap, expectedTypeProvider.get()
-        .resolveType(scopedHeap));
+    ((Expr) getChildren().get(0))
+        .assertExpectedExprType(scopedHeap, expectedTypeProvider.get().resolveType(scopedHeap));
     // Mark the hidden variable flag tracking whether there's a return in every branch of this procedure
     // as initialized on this branch.
     scopedHeap.initializeIdentifier(String.format("$RETURNS"));
