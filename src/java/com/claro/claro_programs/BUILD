@@ -23,6 +23,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "lambdas_compiled_claro_image",
+    srcs = [":lambdas_compiled_claro"],
+    java_name = "Lambdas",
+)
+
+claro_library(
+    name = "lambdas_compiled_claro",
+    src = "lambdas.claro",
+    java_name = "Lambdas",
+)
+
+claro_binary(
     name = "list_compiled_claro_image",
     srcs = [":list_compiled_claro"],
     java_name = "List",

@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -253,6 +254,13 @@ public final class Types {
       return autoValueIgnoredHasReturnValue.get();
     }
 
+    final AtomicReference<Optional<BaseType>> autoValueIgnoredOptionalOverrideBaseType =
+        new AtomicReference<>(Optional.empty());
+
+    public BaseType getPossiblyOverridenBaseType() {
+      return this.autoValueIgnoredOptionalOverrideBaseType.get().orElse(this.baseType());
+    }
+
     public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
 
     public String getStaticFunctionReferenceDefinitionStmt(String procedureName) {
@@ -282,8 +290,14 @@ public final class Types {
 
     @AutoValue
     public abstract static class FunctionType extends ProcedureType {
-      // Factory method for a function that takes args and returns a value.
+
       public static FunctionType forArgsAndReturnTypes(ImmutableList<Type> argTypes, Type returnType) {
+        return FunctionType.forArgsAndReturnTypes(argTypes, returnType, BaseType.FUNCTION);
+      }
+
+      // Factory method for a function that takes args and returns a value.
+      public static FunctionType forArgsAndReturnTypes(
+          ImmutableList<Type> argTypes, Type returnType, BaseType overrideBaseType) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -295,18 +309,29 @@ public final class Types {
         functionType.autoValueIgnoredHasArgs.set(true);
         functionType.autoValueIgnoredHasReturnValue.set(true);
 
+        if (overrideBaseType != BaseType.FUNCTION) {
+          functionType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        }
+
         return functionType;
       }
 
       @Override
       public String getJavaSourceType() {
-        return String.format(this.baseType().getJavaSourceFmtStr(), this.getReturnType().getJavaSourceType());
+        return String.format(
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaSourceFmtStr(),
+            this.getReturnType().getJavaSourceType()
+        );
       }
 
       @Override
       public String getJavaNewTypeDefinitionStmt(String functionName, StringBuilder body) {
         return String.format(
-            this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaNewTypeDefinitionStmtFmtStr(),
             functionName,
             getReturnType().getJavaSourceType(),
             getJavaSourceClaroType(),
@@ -325,7 +350,9 @@ public final class Types {
       @Override
       public String toString() {
         return String.format(
-            this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getClaroCanonicalTypeNameFmtStr(),
             collectToArgTypesListFormatFn.apply(this.getArgTypes()),
             this.getReturnType()
         );
@@ -344,6 +371,10 @@ public final class Types {
     @AutoValue
     public abstract static class ProviderType extends ProcedureType {
       public static ProviderType forReturnType(Type returnType) {
+        return ProviderType.forReturnType(returnType, BaseType.PROVIDER_FUNCTION);
+      }
+
+      public static ProviderType forReturnType(Type returnType, BaseType overrideBaseType) {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
@@ -353,19 +384,30 @@ public final class Types {
         providerType.autoValueIgnoredHasArgs.set(false);
         providerType.autoValueIgnoredHasReturnValue.set(true);
 
+        if (overrideBaseType != BaseType.PROVIDER_FUNCTION) {
+          providerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        }
+
         return providerType;
       }
 
       @Override
       public String getJavaSourceType() {
-        return String.format(this.baseType().getJavaSourceFmtStr(), this.getReturnType().getJavaSourceType());
+        return String.format(
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaSourceFmtStr(),
+            this.getReturnType().getJavaSourceType()
+        );
       }
 
       @Override
       public String getJavaNewTypeDefinitionStmt(String providerName, StringBuilder body) {
         String returnTypeJavaSource = getReturnType().getJavaSourceType();
         return String.format(
-            this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaNewTypeDefinitionStmtFmtStr(),
             providerName,
             returnTypeJavaSource,
             getJavaSourceClaroType(),
@@ -384,7 +426,9 @@ public final class Types {
       @Override
       public String toString() {
         return String.format(
-            this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getClaroCanonicalTypeNameFmtStr(),
             this.getReturnType()
         );
       }
@@ -409,6 +453,10 @@ public final class Types {
       }
 
       public static ConsumerType forConsumerArgTypes(ImmutableList<Type> argTypes) {
+        return ConsumerType.forConsumerArgTypes(argTypes, BaseType.CONSUMER_FUNCTION);
+      }
+
+      public static ConsumerType forConsumerArgTypes(ImmutableList<Type> argTypes, BaseType overrideBaseType) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
             argTypes
@@ -417,18 +465,26 @@ public final class Types {
         consumerType.autoValueIgnoredHasArgs.set(true);
         consumerType.autoValueIgnoredHasReturnValue.set(false);
 
+        if (overrideBaseType != BaseType.CONSUMER_FUNCTION) {
+          consumerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        }
+
         return consumerType;
       }
 
       @Override
       public String getJavaSourceType() {
-        return this.baseType().getJavaSourceFmtStr();
+        return this.autoValueIgnoredOptionalOverrideBaseType.get()
+            .orElse(this.baseType())
+            .getJavaSourceFmtStr();
       }
 
       @Override
       public String getJavaNewTypeDefinitionStmt(String consumerName, StringBuilder body) {
         return String.format(
-            this.baseType().getJavaNewTypeDefinitionStmtFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaNewTypeDefinitionStmtFmtStr(),
             consumerName,
             getJavaSourceClaroType(),
             consumerName,
@@ -445,7 +501,9 @@ public final class Types {
       @Override
       public String toString() {
         return String.format(
-            this.baseType().getClaroCanonicalTypeNameFmtStr(),
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getClaroCanonicalTypeNameFmtStr(),
             collectToArgTypesListFormatFn.apply(this.getArgTypes())
         );
       }

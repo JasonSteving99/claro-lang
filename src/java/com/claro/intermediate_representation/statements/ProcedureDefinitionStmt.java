@@ -18,7 +18,7 @@ import java.util.function.BiConsumer;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
-  private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME = "$RETURNS";
+  private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
   private final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
@@ -79,7 +79,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     scopedHeap.observeNewScope(false);
 
     // Now that we're in the procedure's scope, let's allow ReturnStmts temporarily.
-    ReturnStmt.enterProcedureScope(this.resolvedProcedureType.hasReturnValue());
+    ReturnStmt.enterProcedureScope(this.procedureName, this.resolvedProcedureType.hasReturnValue());
+    String hiddenReturnTypeVariableFlagName = getHiddenReturnTypeVariableFlagName();
     // There's some setup we'll need to do if this procedure expects an output.
     if (this.resolvedProcedureType.hasReturnValue()) {
       // We'll abuse the variable usage checking implementation to validate that we've put a ReturnStmt
@@ -88,7 +89,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       // By this approach, we simply need to check if that hidden variable "is initialized" on the last
       // line of the function, and if it's not, then we know there must be a ReturnStmt missing! Damn,
       // sometimes I even impress myself with my laziness...err creativity....
-      scopedHeap.observeIdentifier(HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME, Types.BOOLEAN);
+      scopedHeap.observeIdentifier(hiddenReturnTypeVariableFlagName, Types.BOOLEAN);
     }
 
     // I may need to mark the args as observed identifiers within this new scope.
@@ -106,14 +107,14 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
     // Just before we leave the procedure body, let's make sure that we check for required returns.
     if (this.resolvedProcedureType.hasReturnValue()) {
-      if (!scopedHeap.isIdentifierInitialized(HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME)) {
+      if (!scopedHeap.isIdentifierInitialized(hiddenReturnTypeVariableFlagName)) {
         // The hidden variable marking whether or not this procedure returns along every branch is
         // uninitialized meaning that there's guaranteed to be a missing return somewhere.
         throw new ClaroParserException(
             String.format("Missing return in %s %s.", this.resolvedProcedureType, this.procedureName));
       }
       // Just to get the compiler not to yell about our hidden variable being unused, mark it used.
-      scopedHeap.markIdentifierUsed(HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME);
+      scopedHeap.markIdentifierUsed(hiddenReturnTypeVariableFlagName);
     }
 
     // Leave the function body.
@@ -172,12 +173,28 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
     scopedHeap.exitCurrScope();
 
-    return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
-        optionalStaticDefinitions
-            .orElse(new StringBuilder())
-            .append(javaSourceOutput),
-        new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
-    );
+    switch (this.resolvedProcedureType.getPossiblyOverridenBaseType()) {
+      case FUNCTION:
+      case PROVIDER_FUNCTION:
+      case CONSUMER_FUNCTION:
+        return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
+            optionalStaticDefinitions
+                .orElse(new StringBuilder())
+                .append(javaSourceOutput),
+            new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
+        );
+      case LAMBDA_FUNCTION:
+      case LAMBDA_PROVIDER_FUNCTION:
+      case LAMBDA_CONSUMER_FUNCTION:
+        return GeneratedJavaSource.create(
+            new StringBuilder(javaSourceOutput),
+            optionalStaticDefinitions.orElse(new StringBuilder()),
+            new StringBuilder()
+        );
+      default:
+        throw new ClaroParserException(
+            "Internal Compiler Error: Unsupported procedure type" + this.resolvedProcedureType.baseType());
+    }
   }
 
   @Override
@@ -237,5 +254,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
     // This is just the function definition (Stmt), not the call-site (Expr), return no value.
     return null;
+  }
+
+  private final String getHiddenReturnTypeVariableFlagName() {
+    return String.format(HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR, this.procedureName);
   }
 }

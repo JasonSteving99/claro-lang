@@ -14,8 +14,9 @@ java_library(
         ["*Expr.java"],
         exclude = [
             "Expr.java",
-            "*NumericExpr.java",
-        ]),
+            "LambdaExpr.java",
+        ]
+    ),
     deps = [
         "//:guava",
         "//src/java/com/claro/runtime_utilities:runtime_utilities",
@@ -35,6 +36,25 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
+    ],
+)
+
+java_library(
+    name = "lambda_expr_impl",
+    srcs = ["LambdaExpr.java"],
+    deps = [
+        ":expr",
+        "//:guava",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
+        "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+        "//src/java/com/claro/intermediate_representation/statements:stmt",
+        "//src/java/com/claro/intermediate_representation/statements:stmt_impls",
+        "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
+        "//src/java/com/claro/intermediate_representation/types",
+        "//src/java/com/claro/intermediate_representation/types:base_type",
+        "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/intermediate_representation/types:type_provider",
     ],
 )
 

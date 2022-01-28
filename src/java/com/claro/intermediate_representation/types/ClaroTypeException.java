@@ -18,11 +18,15 @@ public class ClaroTypeException extends Exception {
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the expected type to assert this type at compile-time.";
   private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION =
       "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
+  private static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
+      "The type of this lambda is UNDECIDED at compile-time! You must explicitly declare the type of a variable with a lambda expression assigned to it to assert this type statically at compile-time.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
       "Invalid cast: Found <%s> which cannot be converted to <%s>.";
   private static final String INVALID_MEMBER_REFERENCE = "Invalid Member Reference: %s has no such member %s.";
   private static final String UNSET_REQUIRED_STRUCT_MEMBER =
       "Builder Missing Required Struct Member: While building %s, required field%s %s need%s to be set before calling build().";
+  private static final String WRONG_NUMBER_OF_ARGS_FOR_LAMBDA_DEFINITION =
+      "Lambda expression definition contains the incorrect number of args. Expected %s.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -88,6 +92,10 @@ public class ClaroTypeException extends Exception {
     return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION);
   }
 
+  public static ClaroTypeException forUndecidedTypeLeakMissingTypeDeclarationForLambdaInitialization() {
+    return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION);
+  }
+
   public static ClaroTypeException forInvalidCast(Object actualType, Type assertedType) {
     return new ClaroTypeException(
         String.format(
@@ -121,5 +129,9 @@ public class ClaroTypeException extends Exception {
             plural ? "" : "s"
         )
     );
+  }
+
+  public static ClaroTypeException forWrongNumberOfArgsForLambdaDefinition(Type expectedType) {
+    return new ClaroTypeException(String.format(WRONG_NUMBER_OF_ARGS_FOR_LAMBDA_DEFINITION, expectedType));
   }
 }

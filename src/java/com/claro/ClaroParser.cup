@@ -111,7 +111,7 @@ terminal         IF, ELSE;
 terminal         WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
-                 FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
+                 FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal         RETURN;
 terminal         IMMUTABLE;
 terminal         DOT;
@@ -153,14 +153,15 @@ nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
+nonterminal LambdaExpr                         lambda_function_expr;
 nonterminal ImmutableMap.Builder<String, TypeProvider> function_args_types_list;
+nonterminal ImmutableList.Builder<String>      lambda_arg_names_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
 nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
 nonterminal ImmutableMap.Builder<String, Expr> builder_setter_call;
 nonterminal ImmutableMap.Builder<String, Expr> builder_setter_chain;
-nonterminal ImmutableList<Object>              procedure_stmt_list_allowing_returns;
 nonterminal ReturnStmt                         return_stmt;
 nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
@@ -396,6 +397,8 @@ expr ::=
     {: RESULT = t; :}
   | function_call_expr:f
     {: RESULT = f; :}
+  | lambda_function_expr:lf
+    {: RESULT = lf; :}
   | provider_function_call_expr:pf
     {: RESULT = pf; :}
   | builder_method_call_expr:b
@@ -585,6 +588,13 @@ function_definition_stmt ::=
     :}
   ;
 
+lambda_function_expr ::=
+    LAMBDA LPAR IDENTIFIER:arg_name RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+    {:
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name), stmt_list);
+    :}
+  ;
+
 consumer_function_definition_stmt ::=
     CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -638,6 +648,13 @@ function_args_types_list ::=
     {: RESULT = tail.put(arg_name, t); :}
   | IDENTIFIER:arg_name COLON builtin_type:t
     {: RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name, t); :}
+  ;
+
+lambda_arg_names_list ::=
+    identifier:arg_name COMMA lambda_arg_names_list:tail
+    {: RESULT = tail.add(arg_name.getIdentifier()); :}
+  | identifier:arg_name
+    {: RESULT = ImmutableList.<String>builder().add(arg_name.getIdentifier()); :}
   ;
 
 return_stmt ::=

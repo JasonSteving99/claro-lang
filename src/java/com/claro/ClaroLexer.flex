@@ -135,6 +135,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "function"         { return symbol(Calc.FUNCTION_TYPE); }
     "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE); }
     "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE); }
+    "lambda"           { return symbol(Calc.LAMBDA); }
 
     // Builders are builtin at the language level.
     "builder"          { return symbol(Calc.BUILDER); }

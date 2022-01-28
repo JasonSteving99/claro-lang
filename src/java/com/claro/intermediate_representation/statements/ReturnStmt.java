@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ReturnStmt extends Stmt {
@@ -19,30 +20,33 @@ public class ReturnStmt extends Stmt {
   // ReturnStmt, and will reset it to false upon leaving the Procedure definition scope. If a ReturnStmt
   // is reached during the type validation phase while this boolean is false, then that will let us know that
   // we are outside of a Procedure scope and this is an invalid ReturnStmt.
-  private static boolean withinProcedureScope = false;
-  private static boolean supportReturnStmt = false;
+  public static Optional<String> withinProcedureScope = Optional.empty();
+  public static boolean supportReturnStmt = false;
 
   public ReturnStmt(Expr returnExpr, AtomicReference<TypeProvider> expectedTypeProvider) {
     super(ImmutableList.of(returnExpr));
     this.expectedTypeProvider = expectedTypeProvider;
   }
 
-  public static void enterProcedureScope(boolean allowReturnStmts) {
-    ReturnStmt.withinProcedureScope = true;
+  public static void enterProcedureScope(String procedureName, boolean allowReturnStmts) {
+    ReturnStmt.withinProcedureScope = Optional.of(procedureName);
     ReturnStmt.supportReturnStmt = allowReturnStmts;
   }
 
   public static void exitProcedureScope() {
-    ReturnStmt.withinProcedureScope = false;
+    ReturnStmt.withinProcedureScope = Optional.empty();
     ReturnStmt.supportReturnStmt = false;
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    if (!(withinProcedureScope && supportReturnStmt)) {
+    if (!(withinProcedureScope.isPresent() && supportReturnStmt)) {
       String invalidReturnReason;
-      if (withinProcedureScope) {
-        invalidReturnReason = "Invalid usage of `return` in a procedure body that does not provide output.";
+      if (withinProcedureScope.isPresent()) {
+        invalidReturnReason = String.format(
+            "Invalid usage of `return` in a body of procedure <%s> that does not provide output.",
+            withinProcedureScope.get()
+        );
       } else {
         invalidReturnReason = "Invalid usage of `return` outside of a procedure body.";
       }
@@ -52,7 +56,14 @@ public class ReturnStmt extends Stmt {
         .assertExpectedExprType(scopedHeap, expectedTypeProvider.get().resolveType(scopedHeap));
     // Mark the hidden variable flag tracking whether there's a return in every branch of this procedure
     // as initialized on this branch.
-    scopedHeap.initializeIdentifier(String.format("$RETURNS"));
+    scopedHeap.initializeIdentifier(String.format("$%sRETURNS", withinProcedureScope.get()));
+  }
+
+  // This is overridden simply to hide ReturnStmt from the custom logic in Stmt for this method, since
+  // ReturnStmt is a very strange Stmt that shows up within other Stmt's sub-expressions.
+  @Override
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap, String unusedGeneratedJavaClassName) {
+    return generateJavaSourceOutput(scopedHeap);
   }
 
   @Override
@@ -85,5 +96,9 @@ public class ReturnStmt extends Stmt {
     // lift to implement branch analysis to determine whether or not a function with a declared return type
     // definitely returns in all of its branches.
     return getChildren().get(0).generateInterpretedOutput(scopedHeap);
+  }
+
+  public void setExpectedTypeProvider(TypeProvider expectedTypeProvider) {
+    this.expectedTypeProvider.set(expectedTypeProvider);
   }
 }

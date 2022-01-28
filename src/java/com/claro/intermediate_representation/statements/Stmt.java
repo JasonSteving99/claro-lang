@@ -6,6 +6,8 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.google.common.collect.ImmutableList;
 
 public abstract class Stmt extends Node {
+  private static final StringBuilder prefixJavaSourceStmts = new StringBuilder();
+
   public Stmt(ImmutableList<Node> children) {
     super(children);
   }
@@ -17,6 +19,26 @@ public abstract class Stmt extends Node {
 
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap, String generatedJavaClassName) {
     // Most Stmts don't actually need this data so we'll drop the class name.
-    return generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource generatedJavaSource = generateJavaSourceOutput(scopedHeap);
+
+    // Before we return this GeneratedJavaSource, we need to ensure that any potential prefix Stmts requested
+    // by sub-Exprs of this current Stmt get prepended to this returned GeneratedJavaSource output.
+    if (prefixJavaSourceStmts.length() > 0) {
+      generatedJavaSource = generatedJavaSource.withNewJavaSourceBody(
+          new StringBuilder(prefixJavaSourceStmts.toString()).append(generatedJavaSource.javaSourceBody()));
+
+      // Ready the prefix StringBuilder for the next Stmt.
+      prefixJavaSourceStmts.delete(0, prefixJavaSourceStmts.length());
+    }
+
+    return generatedJavaSource;
+  }
+
+  // This method allows Stmt sub-Exprs to inject a Stmt that should be generated before the CURRENT Stmt
+  // for which JavaSource codegen is currently happening. This enabled situations such as a LambdaExpr
+  // needing to generate a procedure class on the line before the current statement so that in the place
+  // where the lambda was passed as an Expr, a reference to that class is available in scope.
+  public static void addGeneratedJavaSourceStmtBeforeCurrentStmt(String prefixGeneratedJavaSourceStmt) {
+    Stmt.prefixJavaSourceStmts.append(prefixGeneratedJavaSourceStmt);
   }
 }

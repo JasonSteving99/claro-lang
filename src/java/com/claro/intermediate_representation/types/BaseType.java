@@ -107,6 +107,30 @@ public enum BaseType {
       // exists at all.
       "private static final $%s %s = new $%s();\n"
   ),
+  // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
+  // callers don't need to know.
+  LAMBDA_FUNCTION(
+      "function<%s -> %s>",
+      "ClaroFunction<%s>",
+      "final class $%s extends ClaroFunction<%s> {\n" +
+      "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
+      "  private final $%s %s = this;\n" +
+      "  public %s apply(Object... args) {\n" +
+      "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public String toString() {\n" +
+      "    return \"%s\";\n" +
+      "  }\n" +
+      "}\n" +
+      // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
+      // it exists at all.
+      "final $%s %s = new $%s();\n"
+  ),
   // A `consumer function` is one that takes args but doesn't have any return'd value. Consumer functions should have an
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
   CONSUMER_FUNCTION(
@@ -131,8 +155,33 @@ public enum BaseType {
       // exists at all.
       "private static final $%s %s = new $%s();\n"
   ),
-  // A `consumer function` is one that takes args but doesn't have any return'd value. Consumer functions should have an
-  // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
+  // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
+  // callers don't need to know.
+  LAMBDA_CONSUMER_FUNCTION(
+      "consumer<%s>",
+      "ClaroConsumerFunction",
+      "final class $%s extends ClaroConsumerFunction {\n" +
+      "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
+      "  final $%s %s = this;\n" +
+      "  public void apply(Object... args) {\n" +
+      "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public String toString() {\n" +
+      "    return \"%s\";\n" +
+      "  }\n" +
+      "}\n" +
+      // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
+      // it exists at all.
+      "final $%s %s = new $%s();\n"
+  ),
+  // A `provider function` is one that takes no args but return's a value. A provider function is truly only useful if
+  // it observes some state in the outside world, for example by taking input from a user in some way. If you don't
+  // observe state in the outside world you should've just created a constant variable...be better.
   PROVIDER_FUNCTION(
       "provider<%s>",
       "ClaroProviderFunction<%s>",
@@ -154,6 +203,30 @@ public enum BaseType {
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
       "private static final $%s %s = new $%s();\n"
+  ),
+  // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
+  // callers don't need to know.
+  LAMBDA_PROVIDER_FUNCTION(
+      "provider<%s>",
+      "ClaroProviderFunction<%s>",
+      "final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
+      "  final $%s %s = this;\n" +
+      "  public %s apply() {\n" +
+      "%s\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public Type getClaroType() {\n" +
+      "    return claroType;\n" +
+      "  }\n" +
+      "  @Override\n" +
+      "  public String toString() {\n" +
+      "    return \"%s\";\n" +
+      "  }\n" +
+      "}\n" +
+      // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
+      // it exists at all.
+      "final $%s %s = new $%s();\n"
   ),
   /********************************************************************************************************************/
 
@@ -248,11 +321,17 @@ public enum BaseType {
   }
 
   public String getJavaNewTypeStaticPreambleFormatStr() {
-    if (!this.javaNewTypeStaticPreambleFormatStr.isPresent()) {
+    if (!hasJavaNewTypeStaticPreambleFormatStr()) {
       throw new UnsupportedOperationException(
           String.format("Internal Compiler Error: The BaseType <%s> is not yet supported in Claro!", this));
     }
     return javaNewTypeStaticPreambleFormatStr.get();
+  }
+
+  // For this field, allow some procedures (lambdas) to not actually support this when others (explicit functions)
+  // don't, but allow them a cleaner way than an exception to determine that.
+  public boolean hasJavaNewTypeStaticPreambleFormatStr() {
+    return this.javaNewTypeStaticPreambleFormatStr.isPresent();
   }
 
   public Class<?> getNativeJavaSourceImplClazz() {

@@ -1,0 +1,29 @@
+consumer testPassingLambdasAsArgs(x: int, f: function<int -> int>) {
+  print(f(x));
+}
+
+testPassingLambdasAsArgs(
+  900,
+  lambda (x) -> {return 2 * x;});
+
+
+function foo(x: int, f: function<int -> int>) -> int {
+  return f(x);
+}
+
+print(foo(2, lambda (y) -> {return -5 * y;}) + foo(10, lambda (x) -> {return 10 * x;}));
+print(foo(2, lambda (y) -> {return -5 * y;}));
+print(foo(10, lambda (x) -> {return 10 * x;}));
+
+
+# Lambdas can capture state defined before them.
+var i = "hello";
+print(
+  foo(
+    111,
+    lambda (z) -> {
+      print(i);
+      return z;
+    }
+  )
+);
