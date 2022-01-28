@@ -27,7 +27,7 @@ public class StmtListNode extends Node {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // If the hidden variable tracking ReturnStmts is initialized in the current scope,
     // then it's indicating that this Stmt is located after a ReturnStmt which is invalid.
-    if (scopedHeap.scopeStack.peek().initializedIdentifiers.contains("$RETURNS")) {
+    if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream().anyMatch(i -> i.matches("\\$.*RETURNS"))) {
       // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
       //  implementing better error messages with line numbers etc, I get a feeling that
       //  throwing this manner of error here will make it hard to get line numbers right.

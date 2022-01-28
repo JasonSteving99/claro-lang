@@ -14,7 +14,7 @@ public class ReturnStmt extends Stmt {
   // Unfortunately, because CUP is a context free grammar (or some other reason, look I'm no expert),
   // it's not possible to know the type that we should be returning when the ReturnStmt is identified
   // during bottom-up parsing. So it needs to be set during the top-down AST traversal.
-  private AtomicReference<TypeProvider> expectedTypeProvider;
+  public AtomicReference<TypeProvider> expectedTypeProvider;
   // ReturnStmts should only be valid w/in Procedure scopes, so during top-down AST traversal once we enter
   // a definition scope of a (non-Consumer) Procedure, this should be set to true in order to allow the
   // ReturnStmt, and will reset it to false upon leaving the Procedure definition scope. If a ReturnStmt
@@ -57,13 +57,6 @@ public class ReturnStmt extends Stmt {
     // Mark the hidden variable flag tracking whether there's a return in every branch of this procedure
     // as initialized on this branch.
     scopedHeap.initializeIdentifier(String.format("$%sRETURNS", withinProcedureScope.get()));
-  }
-
-  // This is overridden simply to hide ReturnStmt from the custom logic in Stmt for this method, since
-  // ReturnStmt is a very strange Stmt that shows up within other Stmt's sub-expressions.
-  @Override
-  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap, String unusedGeneratedJavaClassName) {
-    return generateJavaSourceOutput(scopedHeap);
   }
 
   @Override

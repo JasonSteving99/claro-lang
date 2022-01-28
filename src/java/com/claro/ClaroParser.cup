@@ -589,10 +589,31 @@ function_definition_stmt ::=
   ;
 
 lambda_function_expr ::=
-    LAMBDA LPAR IDENTIFIER:arg_name RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+    IDENTIFIER:arg_name ARROW expr:implicit_return_expr
+    {:
+      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, new AtomicReference<>(null));
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name), new StmtListNode(implicitReturnStmt));
+    :}
+  | IDENTIFIER:arg_name ARROW LCURLY stmt_list:stmt_list RCURLY
     {:
       RESULT = new LambdaExpr(ImmutableList.of(arg_name), stmt_list);
     :}
+  | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW expr:implicit_return_expr
+    {:
+      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, new AtomicReference<>(null));
+      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), new StmtListNode(implicitReturnStmt));
+    :}
+  | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+    {:
+      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), stmt_list);
+    :}
+  ;
+
+lambda_arg_names_list ::=
+    IDENTIFIER:arg_name COMMA lambda_arg_names_list:tail
+    {: RESULT = tail.add(arg_name); :}
+  | IDENTIFIER:arg_name
+    {: RESULT = ImmutableList.<String>builder().add(arg_name); :}
   ;
 
 consumer_function_definition_stmt ::=

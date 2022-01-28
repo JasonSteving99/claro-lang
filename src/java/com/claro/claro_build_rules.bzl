@@ -121,7 +121,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         symbols = "Calc",
         # TODO(steving) This is getting dangerous. This arose from a reduce/reduce conflict between identifier and user
         # TODO(steving) defined type name reference (which is also just an identifier). Hopefully eliminate the conflict.
-        expected_conflicts = 1,
+        expected_conflicts = 2,
     )
 
     jflex(

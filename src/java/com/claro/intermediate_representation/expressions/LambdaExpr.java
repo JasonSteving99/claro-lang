@@ -77,10 +77,6 @@ public class LambdaExpr extends Expr {
     this(ImmutableList.of(), returnExpr);
   }
 
-  // TODO(steving) I THINK THE ANSWER TO THIS IS RETURNING BASE_TYPE.UNDECIDED IF THE TYPE ISN'T ASSERTED.
-  // TODO(steving) I'm going to need to find some way to mandate that this Expr always has its Type asserted
-  //  onto it instead of having to produce its own Type, since it only knows how to validate Types within it
-  //  based on context in the assignment statement.
   // Lambda Expressions MUST have their types asserted on them by their surrounding context, in order to allow
   // syntax that doesn't require lambda expressions to define their types inline since this would typically be
   // redundant just requiring that the programmer typed in the same thing that the enclosing scope has declared,
@@ -88,13 +84,24 @@ public class LambdaExpr extends Expr {
   // function declaration site.
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
-    // Before we even do any other assertions, we need to finish setting up the ReturnStmts in this lambda
-    // to configure the Type that they're expected to return.
+    // Before we delegate to our ProcedureDefinitionStmt, we need to make sure that we're able to preserve
+    // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
+    Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;
+    boolean outerScopeSupportsReturnStmt = ReturnStmt.supportReturnStmt;
+    // TODO(steving) These have to be initialized to null because we might not find hidden ReturnStmts. Make ReturnStmt's AtomicReference static.
+    AtomicReference<TypeProvider> outerScopeExpectedReturnTypeProviderReference = new AtomicReference<>(null);
+    TypeProvider outerScopeExpectedReturnTypeProvider = null;
     if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
+      // Before we even do any other assertions, we need to finish setting up the ReturnStmts in this lambda
+      // to configure the Type that they're expected to return.
+      // TODO(steving) This approach will break with any hidden ReturnStmts. I really should be setting all
+      //  return types lazily during the AST traversal phases. This is also slow anyways..
       StmtListNode currHead = this.stmtListNode;
       do {
         Stmt currStmt = (Stmt) currHead.getChildren().get(0);
         if (currStmt instanceof ReturnStmt) {
+          outerScopeExpectedReturnTypeProviderReference = ((ReturnStmt) currStmt).expectedTypeProvider;
+          outerScopeExpectedReturnTypeProvider = outerScopeExpectedReturnTypeProviderReference.get();
           ((ReturnStmt) currStmt)
               .setExpectedTypeProvider(
                   TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()));
@@ -152,11 +159,6 @@ public class LambdaExpr extends Expr {
       }
     }
 
-    // Before we delegate to our ProcedureDefinitionStmt, we need to make sure that we're able to preserve
-    // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
-    Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;
-    boolean outerScopeSupportsReturnStmt = ReturnStmt.supportReturnStmt;
-
     // Now delegate to our internal ProcedureDefinitionStmt instance to see if it approves the types.
     delegateProcedureDefinitionStmt.registerProcedureTypeProvider(scopedHeap);
     delegateProcedureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
@@ -165,6 +167,7 @@ public class LambdaExpr extends Expr {
     // this LambdaExpr.
     ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
     ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
+    outerScopeExpectedReturnTypeProviderReference.set(outerScopeExpectedReturnTypeProvider);
 
     // Now to model the last thing we'll do during codegen, setup our lambda reference.
     this.lambdaReferenceTerm = new IdentifierReferenceTerm(this.lambdaName);

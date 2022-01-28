@@ -4,16 +4,16 @@ consumer testPassingLambdasAsArgs(x: int, f: function<int -> int>) {
 
 testPassingLambdasAsArgs(
   900,
-  lambda (x) -> {return 2 * x;});
+  x -> 2 * x);
 
 
 function foo(x: int, f: function<int -> int>) -> int {
   return f(x);
 }
 
-print(foo(2, lambda (y) -> {return -5 * y;}) + foo(10, lambda (x) -> {return 10 * x;}));
-print(foo(2, lambda (y) -> {return -5 * y;}));
-print(foo(10, lambda (x) -> {return 10 * x;}));
+print(foo(2, y -> -5 * y) + foo(10, x -> 10 * x));
+print(foo(2, y -> -5 * y));
+print(foo(10, x -> 10 * x));
 
 
 # Lambdas can capture state defined before them.
@@ -21,9 +21,43 @@ var i = "hello";
 print(
   foo(
     111,
-    lambda (z) -> {
+    z -> {
       print(i);
+      # And you can even recursively use lambdas w/in lambdas.
+      testPassingLambdasAsArgs(100000, x -> x);
       return z;
     }
   )
 );
+
+provider testProcedureCanReturnLambda() -> function<int -> int> {
+#  var f: function<int -> int> = x -> x;
+#  return f;
+  return x -> x;
+}
+
+var returnedLambda = testProcedureCanReturnLambda();
+print(returnedLambda(8));
+
+# Lambdas can be defined within procedure bodies as well.
+function testLambdasWithinProcedureBodies(x: int) -> string {
+  testPassingLambdasAsArgs(x, arg1 -> 100 * arg1);
+  return "returns work even after lambda return";
+}
+print(testLambdasWithinProcedureBodies(23));
+
+
+# This shows the power of lambdas in Claro. You can even now define your own partial application function.
+function partial(first: int, f: function<|int, int| -> int>) -> function<int -> int> {
+  return second -> {
+    print("This print is here just to show off that Claro supports multi-line lambdas too!");
+    return f(first, second);
+  };
+}
+function add(first: int, second: int) -> int {
+  return first + second;
+}
+
+var add10 = partial(10, lambda (first, second) -> {return first + second;});
+print(add10(20));  # 30
+print(add10(30));  # 40
