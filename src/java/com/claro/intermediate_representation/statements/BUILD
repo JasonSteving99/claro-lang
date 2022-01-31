@@ -8,20 +8,41 @@ package(
 
 java_library(
     name = "stmt_list_node",
-    srcs = ["StmtListNode.java"],
+    srcs = [
+        # We're bringing in all of these classes other than StmtListNode here because we need a Java-supported
+        # circular dependency from StmtListNode <-> ProcedureDefinitionStmt, but Bazel can't handle that since
+        # it has no way of knowing that it's valid.
+        "DeclarationStmt.java",
+        "ProcedureDefinitionStmt.java",
+        "ReturnStmt.java",
+        "StmtListNode.java",
+    ],
     deps = [
         ":stmt",
         "//:guava",
         "//src/java/com/claro:claro_parser_exception",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
+        "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/intermediate_representation/types:type_provider",
+        "//src/java/com/claro/intermediate_representation/types:types",
     ],
 )
 
 java_library(
     name = "stmt_impls",
-    srcs = glob(["*Stmt.java"], exclude = ["Stmt.java"]),
+    srcs = glob(
+        ["*Stmt.java"],
+        exclude = [
+            "Stmt.java",
+            # We need a circular dependency that Java can resolve in StmtListNode, but Bazel can't handle it.
+            "DeclarationStmt.java",
+            "ProcedureDefinitionStmt.java",
+            "ReturnStmt.java",
+        ]
+    ),
     deps = [
         ":stmt",
         ":stmt_list_node",

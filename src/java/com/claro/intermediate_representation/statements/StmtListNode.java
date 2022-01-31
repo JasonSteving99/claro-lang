@@ -34,7 +34,12 @@ public class StmtListNode extends Node {
       throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
     }
 
-    ((Stmt) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    // ProcedureDefinitionStmts were already validated during an earlier parsing phase, don't waste time
+    // validating them again, skip them now.
+    Stmt currStmt = ((Stmt) this.getChildren().get(0));
+    if (!(currStmt instanceof ProcedureDefinitionStmt)) {
+      currStmt.assertExpectedExprTypes(scopedHeap);
+    }
     if (tail != null) {
       tail.assertExpectedExprTypes(scopedHeap);
     }

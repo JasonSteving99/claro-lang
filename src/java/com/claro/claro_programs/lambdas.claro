@@ -50,14 +50,22 @@ print(testLambdasWithinProcedureBodies(23));
 # This shows the power of lambdas in Claro. You can even now define your own partial application function.
 function partial(first: int, f: function<|int, int| -> int>) -> function<int -> int> {
   return second -> {
-    print("This print is here just to show off that Claro supports multi-line lambdas too!");
-    return f(first, second);
+    # This variable is here just to show off that Claro supports multi-line lambdas too!
+    var res = f(first, second);
+    return res;
   };
-}
-function add(first: int, second: int) -> int {
-  return first + second;
 }
 
 var add10 = partial(10, lambda (first, second) -> {return first + second;});
 print(add10(20));  # 30
 print(add10(30));  # 40
+
+# TODO(steving) Implement Type Aliases to make type declarations like this one easier to read.
+#  alias IntFunction : function<int -> int>
+#  alias IntBiFunction : function<|int, int| -> int>
+#  var partialLambda: function<|int, IntBiFunction| -> IntFunction>;
+var partialLambda: function<|int, function<|int, int| -> int>| -> function<int -> int>> =
+  lambda (first, l) -> second -> l(first, second);
+
+var add10Partial = partialLambda(10, lambda (first, second) -> first + second);
+print(add10Partial(100));  # 110

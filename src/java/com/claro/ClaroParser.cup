@@ -591,21 +591,27 @@ function_definition_stmt ::=
 lambda_function_expr ::=
     IDENTIFIER:arg_name ARROW expr:implicit_return_expr
     {:
-      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, new AtomicReference<>(null));
-      RESULT = new LambdaExpr(ImmutableList.of(arg_name), new StmtListNode(implicitReturnStmt));
+      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name), new StmtListNode(implicitReturnStmt), returnTypeReference);
     :}
   | IDENTIFIER:arg_name ARROW LCURLY stmt_list:stmt_list RCURLY
     {:
-      RESULT = new LambdaExpr(ImmutableList.of(arg_name), stmt_list);
+      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name), stmt_list, returnTypeHolder);
     :}
   | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW expr:implicit_return_expr
     {:
-      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, new AtomicReference<>(null));
-      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), new StmtListNode(implicitReturnStmt));
+      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), new StmtListNode(implicitReturnStmt), returnTypeReference);
     :}
   | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
     {:
-      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), stmt_list);
+      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), stmt_list, returnTypeHolder);
     :}
   ;
 

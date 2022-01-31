@@ -17,6 +17,7 @@ public class LambdaExpr extends Expr {
   private final String lambdaName;
   private final StmtListNode stmtListNode;
   private final ImmutableList<String> argNameList;
+  private final AtomicReference<TypeProvider> returnTypeReference;
   // We'll base this implementation around the existing logic common to all procedures.
   private ProcedureDefinitionStmt delegateProcedureDefinitionStmt;
   // We'll also need to defer to an IdentifierReferenceTerm since we'll pass a reference to the lambda.
@@ -28,10 +29,12 @@ public class LambdaExpr extends Expr {
   //     var y = 2 * x;
   //     return y;
   //   }
-  public LambdaExpr(ImmutableList<String> argNameList, StmtListNode stmtListNode) {
+  public LambdaExpr(
+      ImmutableList<String> argNameList, StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference) {
     super(ImmutableList.of());
     this.stmtListNode = stmtListNode;
     this.argNameList = argNameList;
+    this.returnTypeReference = returnTypeReference;
 
     // Keep track of all the lambdas that are created so we can generate unambiguous aliases for the objects
     // generated for the lambdas.
@@ -46,26 +49,24 @@ public class LambdaExpr extends Expr {
   //     var y = 2 * x;
   //     return y;
   //   }
-  public LambdaExpr(StmtListNode stmtListNode) {
-    this(ImmutableList.of(), stmtListNode);
+  public LambdaExpr(StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference) {
+    this(ImmutableList.of(), stmtListNode, returnTypeReference);
   }
 
   // Support the following syntax:
   //   x -> 2 * x;
   // The lambda body being a single Expr is enough information for us to know that the programmer wants
   // to return whatever value is produced by that single Expr.
-  public LambdaExpr(ImmutableList<String> argNameList, Expr returnExpr) {
+  public LambdaExpr(ImmutableList<String> argNameList, Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference) {
     this(
         argNameList,
         new StmtListNode(
             new ReturnStmt(
                 returnExpr,
-                // We'll already need to search all Lambda body StmtListNodes for ReturnStmts during the
-                // Type validation phase to assert the return Type, so for now we can explicitly decide
-                // that we'll figure out later, not during the parsing phase.
-                new AtomicReference<TypeProvider>()
+                returnTypeReference
             )
-        )
+        ),
+        returnTypeReference
     );
   }
 
@@ -73,8 +74,8 @@ public class LambdaExpr extends Expr {
   //   () -> input("Hey user, gimme some input: ");
   // The lambda body being a single Expr is enough information for us to know that the programmer wants
   // to return whatever value is produced by that single Expr.
-  public LambdaExpr(Expr returnExpr) {
-    this(ImmutableList.of(), returnExpr);
+  public LambdaExpr(Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference) {
+    this(ImmutableList.of(), returnExpr, returnTypeReference);
   }
 
   // Lambda Expressions MUST have their types asserted on them by their surrounding context, in order to allow
@@ -88,28 +89,11 @@ public class LambdaExpr extends Expr {
     // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
     Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;
     boolean outerScopeSupportsReturnStmt = ReturnStmt.supportReturnStmt;
-    // TODO(steving) These have to be initialized to null because we might not find hidden ReturnStmts. Make ReturnStmt's AtomicReference static.
-    AtomicReference<TypeProvider> outerScopeExpectedReturnTypeProviderReference = new AtomicReference<>(null);
     TypeProvider outerScopeExpectedReturnTypeProvider = null;
     if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
-      // Before we even do any other assertions, we need to finish setting up the ReturnStmts in this lambda
-      // to configure the Type that they're expected to return.
-      // TODO(steving) This approach will break with any hidden ReturnStmts. I really should be setting all
-      //  return types lazily during the AST traversal phases. This is also slow anyways..
-      StmtListNode currHead = this.stmtListNode;
-      do {
-        Stmt currStmt = (Stmt) currHead.getChildren().get(0);
-        if (currStmt instanceof ReturnStmt) {
-          outerScopeExpectedReturnTypeProviderReference = ((ReturnStmt) currStmt).expectedTypeProvider;
-          outerScopeExpectedReturnTypeProvider = outerScopeExpectedReturnTypeProviderReference.get();
-          ((ReturnStmt) currStmt)
-              .setExpectedTypeProvider(
-                  TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()));
-          // We only need to set the expected Type on the first ReturnStmt that we come across because during
-          // the grammar parsing phase, all ReturnStmts are passed the same AtomicReference instance.
-          break;
-        }
-      } while ((currHead = currHead.tail) != null);
+      outerScopeExpectedReturnTypeProvider = returnTypeReference.get();
+      returnTypeReference.set(
+          TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()));
     }
 
     if (this.argNameList.isEmpty()) {
@@ -167,7 +151,7 @@ public class LambdaExpr extends Expr {
     // this LambdaExpr.
     ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
     ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
-    outerScopeExpectedReturnTypeProviderReference.set(outerScopeExpectedReturnTypeProvider);
+    returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
 
     // Now to model the last thing we'll do during codegen, setup our lambda reference.
     this.lambdaReferenceTerm = new IdentifierReferenceTerm(this.lambdaName);
