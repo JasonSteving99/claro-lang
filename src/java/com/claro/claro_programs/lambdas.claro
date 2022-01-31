@@ -69,3 +69,17 @@ var partialLambda: function<|int, function<|int, int| -> int>| -> function<int -
 
 var add10Partial = partialLambda(10, lambda (first, second) -> first + second);
 print(add10Partial(100));  # 110
+
+# TODO(steving) Lambdas should only be able to capture variables that are effectively final.
+# TODO(steving) That or we should make the semantic such that you'll grab the value *currently* in the captured variable.
+#var notEffectivelyFinal: int = 0;
+#var testOnlyEffectivelyFinal: consumer<int> = x -> { print(x + notEffectivelyFinal); };
+#testOnlyEffectivelyFinal(100);
+#notEffectivelyFinal = -999;
+
+
+# Lambda Provider Functions are supported.
+var p: provider<string> = () -> "yay!"; # This would be much more useful if it was taking user input...
+# Lambda Consumer Functions are supported as well.
+var c: consumer<string> = s -> { print(s); };
+c(p());

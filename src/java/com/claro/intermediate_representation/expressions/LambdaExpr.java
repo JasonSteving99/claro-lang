@@ -151,7 +151,9 @@ public class LambdaExpr extends Expr {
     // this LambdaExpr.
     ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
     ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
-    returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
+    if (returnTypeReference != null) {
+      returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
+    }
 
     // Now to model the last thing we'll do during codegen, setup our lambda reference.
     this.lambdaReferenceTerm = new IdentifierReferenceTerm(this.lambdaName);

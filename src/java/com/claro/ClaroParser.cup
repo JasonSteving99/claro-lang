@@ -613,6 +613,18 @@ lambda_function_expr ::=
       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
       RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), stmt_list, returnTypeHolder);
     :}
+  | LPAR RPAR ARROW expr:implicit_return_expr
+    {:
+      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+      RESULT = new LambdaExpr(new StmtListNode(implicitReturnStmt), returnTypeReference);
+    :}
+  | LPAR RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+      RESULT = new LambdaExpr(stmt_list, returnTypeHolder);
+    :}
   ;
 
 lambda_arg_names_list ::=
