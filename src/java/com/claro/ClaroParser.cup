@@ -112,6 +112,7 @@ terminal         WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
+terminal         ALIAS;
 terminal         RETURN;
 terminal         IMMUTABLE;
 terminal         DOT;
@@ -142,6 +143,7 @@ nonterminal IfStmt                             else_if_stmt_chain;
 nonterminal IfStmt                             else_if_stmt;
 nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
+nonterminal AliasStmt                          alias_stmt;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
@@ -260,6 +262,8 @@ stmt ::=
     {: RESULT = cf; :}
   | return_stmt:r
     {: RESULT = r; :}
+  | alias_stmt:a
+    {: RESULT = a; :}
   ;
 
 print ::=
@@ -279,6 +283,11 @@ identifier_declaration ::=
     {: RESULT = new DeclarationStmt(identifier, t); :}
   | VAR IDENTIFIER:identifier COLON builtin_type:t ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new DeclarationStmt(identifier, t, e); :}
+  ;
+
+alias_stmt ::=
+    ALIAS IDENTIFIER:alias COLON builtin_type:aliased_type
+    {: RESULT = new AliasStmt(alias, aliased_type); :}
   ;
 
 builtin_type ::=

@@ -231,6 +231,7 @@ public enum BaseType {
   /********************************************************************************************************************/
 
   OBJECT, // Struct with associated procedures.
+  TYPE, // This is a meta-type that represents another Type.
   ;
 
   private final String javaSourceFmtStr;

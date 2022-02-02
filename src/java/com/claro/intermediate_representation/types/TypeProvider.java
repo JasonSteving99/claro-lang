@@ -50,10 +50,10 @@ public interface TypeProvider {
         Optional.ofNullable(scopedHeap.getIdentifierValue(typeName))
             .filter(o -> o instanceof TypeProvider)
             .ifPresent(
-                structTypeProvider ->
+                typeProvider ->
                     // Replace the TypeProvider found in the symbol table with the actual resolved type.
                     scopedHeap.putIdentifierValue(
-                        typeName, ((TypeProvider) structTypeProvider).resolveType(scopedHeap), null));
+                        typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null));
 
         return scopedHeap.getValidatedIdentifierType(typeName);
       };
