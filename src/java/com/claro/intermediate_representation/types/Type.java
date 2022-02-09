@@ -1,5 +1,6 @@
 package com.claro.intermediate_representation.types;
 
+import com.claro.ClaroParserException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -47,4 +48,13 @@ public abstract class Type {
     }
     return res;
   }
+
+  // This method truly only exists to allow the interface to the types declared in the Types class
+  // to be accessed by the Type interface exclusively, and we'll make sure to call this method only
+  // in cases where it makes sense. Probably this shows some categorical design flaw..but I'll find
+  // a cleaner solution later.
+  public BaseType getPossiblyOverridenBaseType() {
+    throw new ClaroParserException("Internal Compiler Error: This method is unsupported.");
+  }
+
 }

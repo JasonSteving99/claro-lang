@@ -40,7 +40,7 @@ public interface TypeProvider {
 
     public static TypeProvider getTypeByName(String typeName) {
       // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
-      // So it's possible that the named struct either is or isn't already resolved. Check whether it's already
+      // So it's possible that the user-defined type either is or isn't already resolved. Check whether it's already
       // resolved, and if so, move on using that concrete StructType. If it wasn't already resolved, then you
       // need to now resolve this type. In this way, all actually referenced types will end up resolving the entire
       // referenced dependency graph in the depth-first order of reference. This algorithm ensures that we'll only
@@ -50,10 +50,14 @@ public interface TypeProvider {
         Optional.ofNullable(scopedHeap.getIdentifierValue(typeName))
             .filter(o -> o instanceof TypeProvider)
             .ifPresent(
-                typeProvider ->
-                    // Replace the TypeProvider found in the symbol table with the actual resolved type.
-                    scopedHeap.putIdentifierValue(
-                        typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null));
+                typeProvider -> {
+                  // Replace the TypeProvider found in the symbol table with the actual resolved type.
+                  scopedHeap.putIdentifierValue(
+                      typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null);
+                  scopedHeap.markIdentifierAsTypeDefinition(typeName);
+                });
+        // If this Type is getting referenced, it was used.
+        scopedHeap.markIdentifierUsed(typeName);
 
         return scopedHeap.getValidatedIdentifierType(typeName);
       };

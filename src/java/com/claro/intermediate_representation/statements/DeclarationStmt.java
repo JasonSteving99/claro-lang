@@ -114,7 +114,11 @@ public class DeclarationStmt extends Stmt {
 
     // Put the declared variable directly in the heap, with its computed value if initialized.
     if (this.getChildren().isEmpty()) {
-      scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
+      if (allowVariableHiding) {
+        scopedHeap.putIdentifierValueAllowingHiding(this.IDENTIFIER, identifierValidatedType, null);
+      } else {
+        scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
+      }
     } else {
       if (allowVariableHiding) {
         scopedHeap.putIdentifierValueAllowingHiding(

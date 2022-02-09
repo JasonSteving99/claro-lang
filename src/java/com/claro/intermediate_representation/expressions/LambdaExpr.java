@@ -151,7 +151,7 @@ public class LambdaExpr extends Expr {
     // this LambdaExpr.
     ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
     ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
-    if (returnTypeReference != null) {
+    if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
       returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
     }
 

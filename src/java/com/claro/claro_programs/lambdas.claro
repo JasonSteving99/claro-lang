@@ -70,15 +70,34 @@ type(partialLambda);  # function<|int, function<|int, int| -> int>| -> function<
 var add10Partial = partialLambda(10, lambda (first, second) -> first + second);
 print(add10Partial(100));  # 110
 
-# TODO(steving) I need to make the lambda semantic such that you'll grab the value *currently* in the captured variable.
-#var notEffectivelyFinal: int = 0;
-#var testOnlyEffectivelyFinal: consumer<int> = x -> { print(x + notEffectivelyFinal); };
-#testOnlyEffectivelyFinal(100);
-#notEffectivelyFinal = -999;
-
-
 # Lambda Provider Functions are supported.
-var p: provider<string> = () -> "yay!"; # This would be much more useful if it was taking user input...
+var testP: provider<string> = () -> "yay!"; # This would be much more useful if it was taking user input...
 # Lambda Consumer Functions are supported as well.
-var c: consumer<string> = s -> { print(s); };
-c(p());
+var testC: consumer<string> = s -> { print(testP); print(s); };
+testC(testP());
+
+# Probably the most important characteristic of Lambdas is their scope "Capturing" semantics.
+# The below example shows that lambdas are able to reference variables that are initialized in outer
+# scopes, but they "Capture" the current value of that variable, rather than a true "Closure" over
+# that variable. I'd argue that a true "Closure" where the variable itself travels with the lambda
+# would do nothing but lead to ErrorProne code. Instead, "Captured Variables" are better thought of
+# as variables implicitly passed as constructor arguments to the underlying Lambda object (take this
+# as your reminder that Lambdas are objects if you've forgotten that).
+
+var testOuterScopeVar = -1;
+var p: provider<int> = () -> {return testOuterScopeVar;};
+testOuterScopeVar = 99;
+print(p());
+provider testOuterScopeInFunction() -> provider<int> {
+  var testFunctionOuterScopeVar = 1;
+  # Lambdas are able to capture values defined in outer function scopes as well.
+  var p: provider<int> = () -> 99 + testFunctionOuterScopeVar;
+  # Unlike java, you can keep using variables as usual even after their values were captured in a lambda.
+  # This has no effect on the value that was captured in the lambda body.
+  testFunctionOuterScopeVar++;
+  print(testFunctionOuterScopeVar);
+  return p;
+}
+p = testOuterScopeInFunction();
+print(p());
+print(testOuterScopeVar);

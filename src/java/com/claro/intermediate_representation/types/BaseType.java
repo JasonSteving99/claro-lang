@@ -115,6 +115,10 @@ public enum BaseType {
       "final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
       "  private final $%s %s = this;\n" +
+      "%s\n" + // Add final instance variables for any/all captured variables.
+      "  $%s(%s) { \n" +
+      "%s" + // Instantiate instance variables for any/all captured variables.
+      "  }\n" +
       "  public %s apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
@@ -129,7 +133,7 @@ public enum BaseType {
       "}\n" +
       // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
       // it exists at all.
-      "final $%s %s = new $%s();\n"
+      "final $%s %s = new $%s(%s);\n"
   ),
   // A `consumer function` is one that takes args but doesn't have any return'd value. Consumer functions should have an
   // observable side-effect or they're literally just wasting electricity and global warming is entirely your fault.
@@ -163,6 +167,10 @@ public enum BaseType {
       "final class $%s extends ClaroConsumerFunction {\n" +
       "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
+      "%s\n" + // Add final instance variables for any/all captured variables.
+      "  $%s(%s) { \n" +
+      "%s" + // Instantiate instance variables for any/all captured variables.
+      "  }\n" +
       "  public void apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
@@ -177,7 +185,7 @@ public enum BaseType {
       "}\n" +
       // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
       // it exists at all.
-      "final $%s %s = new $%s();\n"
+      "final $%s %s = new $%s(%s);\n"
   ),
   // A `provider function` is one that takes no args but return's a value. A provider function is truly only useful if
   // it observes some state in the outside world, for example by taking input from a user in some way. If you don't
@@ -212,6 +220,10 @@ public enum BaseType {
       "final class $%s extends ClaroProviderFunction<%s> {\n" +
       "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
+      "%s\n" + // Add final instance variables for any/all captured variables.
+      "  $%s(%s) { \n" +
+      "%s" + // Instantiate instance variables for any/all captured variables.
+      "  }\n" +
       "  public %s apply() {\n" +
       "%s\n" +
       "  }\n" +
@@ -226,7 +238,7 @@ public enum BaseType {
       "}\n" +
       // We just want a single instance of this lambda function's wrapper class to exist... it's already obnoxious that
       // it exists at all.
-      "final $%s %s = new $%s();\n"
+      "final $%s %s = new $%s(%s);\n"
   ),
   /********************************************************************************************************************/
 

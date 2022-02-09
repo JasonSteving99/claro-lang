@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import lombok.ToString;
 
 import java.util.*;
@@ -58,6 +59,12 @@ public class ScopedHeap {
     scopeStack.peek().initializedIdentifiers.add(identifier);
   }
 
+  public void markIdentifierAsTypeDefinition(String identifier) {
+    findIdentifierDeclaredScopeLevel(identifier).ifPresent(
+        level -> scopeStack.get(level).scopedSymbolTable.get(identifier).isTypeDefinition = true
+    );
+  }
+
   // This should honestly only be used by the Target.INTERPRETED path where the values will actually be known to the
   // CompilerBackend itself.
   public void putIdentifierValue(String identifier, Type type) {
@@ -93,6 +100,17 @@ public class ScopedHeap {
     }
   }
 
+  // Put a copy of an existing identifier's IdentifierData in the current Scope. This should be used for
+  // intentional hiding of captured variables (e.g. for a lambda implicitly capturing outer variables).
+  public void putCapturedIdentifierData(Map<String, IdentifierData> lambdaScopeCapturedIdentifierData) {
+    lambdaScopeCapturedIdentifierData.forEach(
+        (identifier, identifierData) ->
+            scopeStack
+                .peek()
+                .scopedSymbolTable
+                .put(identifier, identifierData));
+  }
+
   // Simply update the value but don't change any other metadata associated with the symbol.
   public void updateIdentifierValue(String identifier, Object updatedIdentifierValue) {
     IdentifierData identifierData = getIdentifierData(identifier);
@@ -108,16 +126,17 @@ public class ScopedHeap {
     scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
   }
 
-  // TODO(steving) For now, acknowledging that (enter|exit)NewScope() is actually *only* covering the case of
-  // TODO(steving) *BRANCHING*. This is because there are no such things as classes or functions which would require
-  // TODO(steving) expanded scoping rules.
-
   // For use only during the type-checking phase.
   public void observeNewScope(boolean beginIdentifierInitializationBranchInspection) {
+    observeNewScope(beginIdentifierInitializationBranchInspection, Scope.ScopeType.DEFAULT_SCOPE);
+  }
+
+  // For use only during the type-checking phase.
+  public void observeNewScope(boolean beginIdentifierInitializationBranchInspection, Scope.ScopeType scopeType) {
     if (beginIdentifierInitializationBranchInspection) {
       scopeStack.peek().branchDetectionEnabled = true;
     }
-    scopeStack.push(new Scope());
+    scopeStack.push(new Scope(scopeType));
   }
 
   public void exitCurrObservedScope(boolean finalizeIdentifiersInitializedInBranchGroup) {
@@ -134,7 +153,11 @@ public class ScopedHeap {
   }
 
   public void enterNewScope() {
-    scopeStack.push(new Scope());
+    enterNewScope(Scope.ScopeType.DEFAULT_SCOPE);
+  }
+
+  public void enterNewScope(Scope.ScopeType scopeType) {
+    scopeStack.push(new Scope(scopeType));
   }
 
   public void exitCurrScope() {
@@ -155,32 +178,124 @@ public class ScopedHeap {
     return findIdentifierInitializedScopeLevel(identifier).isPresent();
   }
 
-  private IdentifierData getIdentifierData(String identifier) throws ClaroParserException {
+  public IdentifierData getIdentifierData(String identifier) throws ClaroParserException {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
     if (optionalIdentifierScopeLevel.isPresent()) {
       return scopeStack.elementAt(optionalIdentifierScopeLevel.get()).scopedSymbolTable.get(identifier);
     }
     throw new ClaroParserException(String.format("No identifier <%s> within the current scope!", identifier));
-
   }
 
   private Optional<Integer> findIdentifierDeclaredScopeLevel(String identifier) {
-    return findScopeStackLevel(scopeLevel -> scopeLevel.scopedSymbolTable.containsKey(identifier));
+    return findScopeStackLevel(scopeLevel -> scopeLevel.scopedSymbolTable.containsKey(identifier), identifier);
   }
 
   private Optional<Integer> findIdentifierInitializedScopeLevel(String identifier) {
-    return findScopeStackLevel(scopeLevel -> scopeLevel.initializedIdentifiers.contains(identifier));
+    return findScopeStackLevel(scopeLevel -> scopeLevel.initializedIdentifiers.contains(identifier), identifier);
   }
 
-  private Optional<Integer> findScopeStackLevel(Function<Scope, Boolean> checkScopeLevelFn) {
+  // This method searches from the current Scope outwards, trying to find any scope that matches the given
+  // predicate. This method also takes responsibility of honoring the unique Scoping rules applicable to
+  // each Scope.ScopeType so this method's behavior differs based on the ScopeType of the current (and outer)
+  // Scopes to simulate visibility rules. Namely, once a FUNCTION_SCOPE is reached, it will ignore any
+  // non-Function-Type identifiers that it finds outside.
+  private Optional<Integer> findScopeStackLevel(Function<Scope, Boolean> checkScopeLevelFn, String identifier) {
     // Start searching first in the innermost scope, that is, the last map in our stack.
     int scopeLevel = scopeStack.size();
+    Optional<Integer> pastFunctionScopeBoundary = Optional.empty();
+    Optional<Integer> pastLambdaScopeBoundary = Optional.empty();
     while (--scopeLevel >= 0) {
-      if (checkScopeLevelFn.apply(scopeStack.elementAt(scopeLevel))) {
-        return Optional.of(scopeLevel);
+      Scope currScope = scopeStack.elementAt(scopeLevel);
+      Scope.ScopeType currScopeType = currScope.scopeType;
+      boolean checkScopeLevelFnResult = checkScopeLevelFn.apply(currScope);
+      switch (currScopeType) {
+        case DEFAULT_SCOPE:
+          if (checkScopeLevelFnResult) {
+            if (pastFunctionScopeBoundary.isPresent() || pastLambdaScopeBoundary.isPresent()) {
+              ImmutableSet<BaseType> functionBaseTypes =
+                  ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION);
+              IdentifierData identifierData = currScope.scopedSymbolTable.get(identifier);
+              if ((functionBaseTypes.contains(identifierData.type.baseType()) &&
+                   functionBaseTypes.contains(identifierData.type.getPossiblyOverridenBaseType()))
+                  || identifierData.isTypeDefinition) {
+                // In either of these cases, we should accept Function type references and Type definitions.
+                return Optional.of(scopeLevel);
+              } else if (pastFunctionScopeBoundary.isPresent()) {
+                // Functions can only access other Functions and Type definitions in outer scopes.
+                return Optional.empty();
+              } else {
+                // Lambdas can reference anything in outer scopes, but they need to re-declare a hiding variable
+                // copying the value from the outer scope. This method can handle that implicitly here adding
+                // a new hiding identifier at the scope level that the lambda was found at.
+                redeclareCaptureVariable(identifier, pastLambdaScopeBoundary.get(), identifierData);
+
+                // Point the caller to the newly declared value rather than the one found in the outer scope
+                // since that's been hidden and copied now.
+                return pastLambdaScopeBoundary;
+              }
+            } else {
+              return Optional.of(scopeLevel);
+            }
+          }
+          break;
+        case FUNCTION_SCOPE:
+          if (checkScopeLevelFnResult) {
+            // Lambdas can reference anything in outer scopes, but they need to re-declare a hiding variable
+            // copying the value from the outer scope. This method can handle that implicitly here adding
+            // a new hiding identifier at the scope level that the lambda was found at.
+            pastLambdaScopeBoundary.ifPresent(
+                lambdaScopeLevel ->
+                    redeclareCaptureVariable(
+                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier)));
+            return Optional.of(scopeLevel);
+          } else {
+            // If we don't find what we're looking for before going outside the Function scope boundary,
+            // we have to mark that we just did that. Let's just make sure that we keep only the first one
+            // we come across in case I ever want to support nested Functions.
+            if (!pastFunctionScopeBoundary.isPresent()) {
+              pastFunctionScopeBoundary = Optional.of(scopeLevel);
+            }
+          }
+          break;
+        case LAMBDA_SCOPE:
+          if (checkScopeLevelFnResult) {
+            // Lambdas can reference anything in outer scopes, but they need to re-declare a hiding variable
+            // copying the value from the outer scope. This method can handle that implicitly here adding
+            // a new hiding identifier at the scope level that the lambda was found at.
+            pastLambdaScopeBoundary.ifPresent(
+                lambdaScopeLevel ->
+                    redeclareCaptureVariable(
+                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier)));
+            return Optional.of(scopeLevel);
+          } else {
+            // If we don't find what we're looking for before going outside the Lambda scope boundary,
+            // we have to mark that we just did that. Let's just make sure that we keep only the first one
+            // we come across.
+            if (!pastLambdaScopeBoundary.isPresent()) {
+              pastLambdaScopeBoundary = Optional.of(scopeLevel);
+            }
+          }
+          break;
+        default:
+          throw new ClaroParserException("Internal Compiler Error: Unsupported ScopeType " + currScopeType);
       }
     }
     return Optional.empty(); // Not found.
+  }
+
+  // Need to re-declare a hiding variable copying the value from the outer scope. This method can
+  // handle that implicitly here adding a new hiding identifier at the requested scope level.
+  private void redeclareCaptureVariable(String identifier, int scopeLevel, IdentifierData identifierData) {
+    IdentifierData redeclaredCaptureIdentifierData =
+        new IdentifierData(identifierData.type, identifierData.interpretedValue, identifierData.declared);
+    scopeStack.get(scopeLevel)
+        .scopedSymbolTable
+        .put(identifier, redeclaredCaptureIdentifierData);
+    // I need to mark this newly initialized capture variable.
+    scopeStack.get(scopeLevel).lambdaScopeCapturedVariables.add(identifier);
+    // That implicit copy that we just did, definitely counts as "using" the identifier.
+    identifierData.used = true;
+    redeclaredCaptureIdentifierData.used = true;
   }
 
   public void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
@@ -204,14 +319,15 @@ public class ScopedHeap {
   }
 
   @ToString
-  private static class IdentifierData {
-    Type type;
+  public static class IdentifierData {
+    public Type type;
     // This value is only meaningful in interpreted modes where values are tracked.
     Object interpretedValue;
     // This should be set to True when this identifier is referenced.
     boolean used = false;
     // This should be set when this identifier is first observed to during the compiler's type checking phase.
     boolean declared;
+    public boolean isTypeDefinition;
 
     public IdentifierData(Type type, Object interpretedValue) {
       this(type, interpretedValue, false);
@@ -221,6 +337,13 @@ public class ScopedHeap {
       this.type = type;
       this.interpretedValue = interpretedValue;
       this.declared = declared;
+    }
+
+    public IdentifierData getShallowCopy() {
+      IdentifierData shallowCopy = new IdentifierData(this.type, this.interpretedValue, this.declared);
+      shallowCopy.used = this.used;
+      shallowCopy.isTypeDefinition = this.isTypeDefinition;
+      return shallowCopy;
     }
   }
 
@@ -242,6 +365,24 @@ public class ScopedHeap {
 
     boolean branchDetectionEnabled = false;
     private HashSet<String> identifiersInitializedInBranchGroup = null;
+
+    // This set of identifiers is intended to track all identifiers that were dynamically added to this Scope
+    // for the sake of "capturing" the current state of a variable, and "hiding" the variable itself.
+    public HashSet<String> lambdaScopeCapturedVariables = new HashSet<>();
+
+    // Track whether this represents the top-level of a Function or Lambda Scope (or in the future a Method Scope).
+    // There are certain special limitations on what may or may not be accessed from outer scopes in these cases.
+    public enum ScopeType {
+      DEFAULT_SCOPE, // In this scope, there is free access to outer scopes (restrictions may be applied by scopes above).
+      FUNCTION_SCOPE, // NO ACCESS to anything in the outer scope WITH THE EXCEPTION of other procedures.
+      LAMBDA_SCOPE, // FREE ACCESS to anything in the outer scope, but SHOULD MAKE COPIES of all non-procedures.
+    }
+
+    final ScopeType scopeType;
+
+    Scope(ScopeType scopeType) {
+      this.scopeType = scopeType;
+    }
 
     /*
      * The below code handling code branches allows us to do branch inspection to determine at compile-time whether we

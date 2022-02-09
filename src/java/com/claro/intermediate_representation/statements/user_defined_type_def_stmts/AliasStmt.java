@@ -28,6 +28,7 @@ public class AliasStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
     // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
     // TypeProvider that will be used for type-resolution in the later phase. Mimicking the StructDefinitionStmt approach.
     scopedHeap.putIdentifierValue(this.alias, null, aliasedType);
+    scopedHeap.markIdentifierAsTypeDefinition(this.alias);
   }
 
   @Override

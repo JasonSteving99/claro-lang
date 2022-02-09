@@ -232,10 +232,10 @@ public final class Types {
 
   public abstract static class ProcedureType extends Type {
 
-    @Nullable
+    @Types.Nullable
     public abstract ImmutableList<Type> getArgTypes();
 
-    @Nullable
+    @Types.Nullable
     public abstract Type getReturnType();
 
     // When comparing Types we don't ever want to care about *names* (or other metadata), these are meaningless to the
@@ -262,6 +262,9 @@ public final class Types {
     }
 
     public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
+
+    public abstract String getJavaNewTypeDefinitionStmtForLambda(
+        String procedureName, StringBuilder body, ImmutableMap<String, Type> capturedVariables);
 
     public String getStaticFunctionReferenceDefinitionStmt(String procedureName) {
       return String.format(
@@ -348,6 +351,36 @@ public final class Types {
       }
 
       @Override
+      public String getJavaNewTypeDefinitionStmtForLambda(String functionName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+        return String.format(
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .orElse(this.baseType())
+                .getJavaNewTypeDefinitionStmtFmtStr(),
+            functionName,
+            getReturnType().getJavaSourceType(),
+            getJavaSourceClaroType(),
+            functionName,
+            functionName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining()),
+            functionName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("%s %s", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining(", ")),
+            capturedVariables.keySet().stream()
+                .map(s -> String.format("    this.%s = %s;\n", s, s)).collect(Collectors.joining()),
+            getReturnType().getJavaSourceType(),
+            body,
+            this,
+            functionName,
+            functionName,
+            functionName,
+            String.join(", ", capturedVariables.keySet())
+        );
+      }
+
+      @Override
       public String toString() {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
@@ -424,6 +457,38 @@ public final class Types {
       }
 
       @Override
+      public String getJavaNewTypeDefinitionStmtForLambda(
+          String providerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+        String returnTypeJavaSource = getReturnType().getJavaSourceType();
+        return String.format(
+            this.autoValueIgnoredOptionalOverrideBaseType.get()
+                .get()
+                .getJavaNewTypeDefinitionStmtFmtStr(),
+            providerName,
+            returnTypeJavaSource,
+            getJavaSourceClaroType(),
+            providerName,
+            providerName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining()),
+            providerName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("%s %s", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining(", ")),
+            capturedVariables.keySet().stream()
+                .map(s -> String.format("    this.%s = %s;\n", s, s)).collect(Collectors.joining()),
+            returnTypeJavaSource,
+            body,
+            this,
+            providerName,
+            providerName,
+            providerName,
+            String.join(", ", capturedVariables.keySet())
+        );
+      }
+
+      @Override
       public String toString() {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
@@ -495,6 +560,33 @@ public final class Types {
             consumerName,
             consumerName,
             consumerName
+        );
+      }
+
+      @Override
+      public String getJavaNewTypeDefinitionStmtForLambda(
+          String consumerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+        return String.format(
+            this.autoValueIgnoredOptionalOverrideBaseType.get().get().getJavaNewTypeDefinitionStmtFmtStr(),
+            consumerName,
+            getJavaSourceClaroType(),
+            consumerName,
+            consumerName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining()),
+            consumerName,
+            capturedVariables.entrySet().stream()
+                .map(e -> String.format("%s %s", e.getValue().getJavaSourceType(), e.getKey()))
+                .collect(Collectors.joining(", ")),
+            capturedVariables.keySet().stream()
+                .map(s -> String.format("    this.%s = %s;\n", s, s)).collect(Collectors.joining()),
+            body,
+            this.toString(),
+            consumerName,
+            consumerName,
+            consumerName,
+            String.join(", ", capturedVariables.keySet())
         );
       }
 

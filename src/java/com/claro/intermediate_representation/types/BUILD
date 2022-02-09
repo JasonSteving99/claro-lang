@@ -63,6 +63,7 @@ java_library(
     deps = [
         ":base_type",
         "//:guava",
+        "//src/java/com/claro:claro_parser_exception",
     ],
 )
 

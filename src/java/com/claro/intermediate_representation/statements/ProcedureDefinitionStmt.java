@@ -3,10 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -15,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
@@ -25,6 +23,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public final TypeProvider procedureTypeProvider;
   private Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
   private Types.ProcedureType resolvedProcedureType;
+  private boolean isLambdaType;
+  private ImmutableSet<String> lambdaScopeCapturedVariables = ImmutableSet.of();
 
   public ProcedureDefinitionStmt(
       String procedureName,
@@ -47,12 +47,29 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     this.procedureTypeProvider = procedureTypeProvider;
   }
 
+  private static boolean isLambdaType(BaseType procedureBaseType) {
+    switch (procedureBaseType) {
+      case FUNCTION:
+      case PROVIDER_FUNCTION:
+      case CONSUMER_FUNCTION:
+        return false;
+      case LAMBDA_FUNCTION:
+      case LAMBDA_PROVIDER_FUNCTION:
+      case LAMBDA_CONSUMER_FUNCTION:
+        return true;
+      default:
+        throw new ClaroParserException(
+            "Internal Compiler Error: Unsupported procedure type " + procedureBaseType);
+    }
+  }
+
   // Register this procedure's type during the procedure resolution phase so that functions may reference each
   // other out of declaration order, to support things like mutual recursion.
   public void registerProcedureTypeProvider(ScopedHeap scopedHeap) {
     // Get the resolved procedure type.
     this.resolvedProcedureType =
         (Types.ProcedureType) this.procedureTypeProvider.resolveType(scopedHeap);
+    this.isLambdaType = isLambdaType(this.resolvedProcedureType.getPossiblyOverridenBaseType());
     this.optionalArgTypesByNameMap = this.optionalArgTypeProvidersByNameMap.map(
         argTypeProvidersByNameMap ->
             argTypeProvidersByNameMap.entrySet().stream()
@@ -76,7 +93,10 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // can now already assume that this type is registered in this scope.
 
     // Enter the new scope for this procedure.
-    scopedHeap.observeNewScope(false);
+    scopedHeap.observeNewScope(
+        false,
+        isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
+    );
 
     // Now that we're in the procedure's scope, let's allow ReturnStmts temporarily.
     ReturnStmt.enterProcedureScope(this.procedureName, this.resolvedProcedureType.hasReturnValue());
@@ -104,6 +124,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
     // Now from here step through the function body. Just assert expected types on the StmtListNode.
     ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+    // In case this was a lambda expression that made reference to implicitly captured variables
+    // in the outer scope, we need to find and mark them so that we can handle them during interpretation.
+    lambdaScopeCapturedVariables = ImmutableSet.copyOf(scopedHeap.scopeStack.peek().lambdaScopeCapturedVariables);
 
     // Just before we leave the procedure body, let's make sure that we check for required returns.
     if (this.resolvedProcedureType.hasReturnValue()) {
@@ -128,7 +151,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     scopedHeap.putIdentifierValue(this.procedureName, this.resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
 
-    scopedHeap.enterNewScope();
+    scopedHeap.enterNewScope(
+        isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
+    );
 
     // Since we're about to immediately execute some java source code gen, we might need to init the local arg variables.
     Optional<StringBuilder> optionalJavaSourceBodyBuilder = Optional.empty();
@@ -162,38 +187,49 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // There's a StmtListNode to generate code for.
     GeneratedJavaSource procedureBodyGeneratedJavaSource =
         ((StmtListNode) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
-    String javaSourceOutput =
-        this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
-            this.procedureName,
-            optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
-                .append(procedureBodyGeneratedJavaSource.javaSourceBody())
-        );
+    String javaSourceOutput;
+    if (isLambdaType) {
+      javaSourceOutput =
+          this.resolvedProcedureType.getJavaNewTypeDefinitionStmtForLambda(
+              this.procedureName,
+              optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
+                  .append(procedureBodyGeneratedJavaSource.javaSourceBody()),
+              this.lambdaScopeCapturedVariables
+                  .stream()
+                  .collect(
+                      ImmutableMap.toImmutableMap(
+                          id -> id,
+                          id -> {
+                            return scopedHeap.getIdentifierData(id).type;
+                          }
+                      ))
+          );
+    } else {
+      javaSourceOutput =
+          this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
+              this.procedureName,
+              optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
+                  .append(procedureBodyGeneratedJavaSource.javaSourceBody())
+          );
+    }
     Optional<StringBuilder> optionalStaticDefinitions =
         procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
 
     scopedHeap.exitCurrScope();
 
-    switch (this.resolvedProcedureType.getPossiblyOverridenBaseType()) {
-      case FUNCTION:
-      case PROVIDER_FUNCTION:
-      case CONSUMER_FUNCTION:
-        return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
-            optionalStaticDefinitions
-                .orElse(new StringBuilder())
-                .append(javaSourceOutput),
-            new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
-        );
-      case LAMBDA_FUNCTION:
-      case LAMBDA_PROVIDER_FUNCTION:
-      case LAMBDA_CONSUMER_FUNCTION:
-        return GeneratedJavaSource.create(
-            new StringBuilder(javaSourceOutput),
-            optionalStaticDefinitions.orElse(new StringBuilder()),
-            new StringBuilder()
-        );
-      default:
-        throw new ClaroParserException(
-            "Internal Compiler Error: Unsupported procedure type" + this.resolvedProcedureType.baseType());
+    if (isLambdaType) {
+      return GeneratedJavaSource.create(
+          new StringBuilder(javaSourceOutput),
+          optionalStaticDefinitions.orElse(new StringBuilder()),
+          new StringBuilder()
+      );
+    } else {
+      return GeneratedJavaSource.forStaticDefinitionsAndPreamble(
+          optionalStaticDefinitions
+              .orElse(new StringBuilder())
+              .append(javaSourceOutput),
+          new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
+      );
     }
   }
 
@@ -220,6 +256,23 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
           }
         };
 
+    // If this is a lambda then we need to capture and redeclare variables for all variables referenced
+    // in the outer scope at definition time. We don't want lambdas to have access to the outer scope
+    // variables themselves, just their definition time *values*.
+    ImmutableMap<String, ScopedHeap.IdentifierData> lambdaScopeCapturedVariables =
+        this.lambdaScopeCapturedVariables
+            .stream()
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    id -> id,
+                    id -> definitionTimeScopedHeap.getIdentifierData(id).getShallowCopy()
+                ));
+    final Consumer<ScopedHeap> defineLambdaCapturedVariables = scopedHeap -> {
+      // We need to add declarations to this inner scope at runtime to hide any outer variables
+      // and simply reuse their value that they had set at the definition time of this lambda.
+      scopedHeap.putCapturedIdentifierData(lambdaScopeCapturedVariables);
+    };
+
     definitionTimeScopedHeap.putIdentifierValue(
         this.procedureName,
         this.resolvedProcedureType,
@@ -233,11 +286,19 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
             // the expected scoping semantics are actually ensured by the type-checking phase's assertions at function
             // definition time rather than at its call site. So this is just a note to anyone who might notice any
             // weirdness if you're the type to open up a debugger and step through data... don't be that person.
-            callTimeScopedHeap.enterNewScope();
+            callTimeScopedHeap.enterNewScope(
+                isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
+            );
 
             if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasArgs()) {
               // Execute the arg declarations assigning them to their given values.
               defineArgIdentifiersConsumerFn.accept(args, callTimeScopedHeap);
+            }
+
+            if (isLambdaType) {
+              // Define the capture variables in the actual runtime scope to point to the values captured
+              // at definition time of this lambda.
+              defineLambdaCapturedVariables.accept(callTimeScopedHeap);
             }
 
             // Now we need to execute the function body StmtListNode given.
