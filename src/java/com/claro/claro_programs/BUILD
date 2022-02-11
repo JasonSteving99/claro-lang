@@ -23,6 +23,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "format_strings_compiled_claro_image",
+    srcs = [":format_strings_compiled_claro"],
+    java_name = "FormatStrings",
+)
+
+claro_library(
+    name = "format_strings_compiled_claro",
+    src = "format_strings.claro",
+    java_name = "FormatStrings",
+)
+
+claro_binary(
     name = "lambdas_compiled_claro_image",
     srcs = [":lambdas_compiled_claro"],
     java_name = "Lambdas",

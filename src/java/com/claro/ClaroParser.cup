@@ -89,7 +89,7 @@ terminal Integer INTEGER;
 // A float is also a terminal, but it's of type Double.
 terminal Double  FLOAT;
 // A string is also a terminal, but it's of type String.
-terminal String  STRING;
+terminal String  STRING, FMT_STRING_PART;
 // A variable identifier is just a sequence of chars.
 terminal String  IDENTIFIER;
 // The prefix "log_", of the function log_x(y), is also a terminal.
@@ -126,6 +126,7 @@ terminal         DEBUG_DUMP_SCOPE;
 nonterminal ProgramNode                        program;
 nonterminal Expr                               expr;
 nonterminal ParenthesizedExpr                  parenthesized_expr;
+nonterminal ImmutableList<ImmutableList.Builder>  fmt_string;
 nonterminal Term                               term;
 nonterminal Term                               primitive;
 nonterminal IdentifierReferenceTerm            identifier;
@@ -402,6 +403,8 @@ expr ::=
     {: RESULT = new LenExpr(e); :}
   | bool_expr:b
     {: RESULT = b; :}
+  | fmt_string:fs
+    {: RESULT = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse()); :}
   | term:t
     {: RESULT = t; :}
   | function_call_expr:f
@@ -778,6 +781,17 @@ bool_arithmetic ::=
     {: RESULT = new OrBoolExpr(a, b); :}
   | NOT expr:a
     {: RESULT = new NotBoolExpr(a); :}
+  ;
+
+fmt_string ::=
+    FMT_STRING_PART:fs expr:e fmt_string:fswt
+    {:
+       fswt.get(0).add(fs);
+       fswt.get(1).add(e);
+       RESULT = fswt;
+    :}
+  | FMT_STRING_PART:fs expr:e STRING:tail
+    {: RESULT = ImmutableList.of(ImmutableList.builder().add(tail).add(fs), ImmutableList.builder().add(e)); :}
   ;
 
 // The last production 'term' closes the grammar. It's a primitive or identifier.

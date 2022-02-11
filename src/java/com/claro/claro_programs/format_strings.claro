@@ -1,0 +1,17 @@
+var s = "Example Format Arg!!";
+print("prefix---{s}--suffix");
+
+provider foo() -> string {
+  return "WOW!";
+}
+
+print("prefix---{foo()}---suffix");
+print("prefix---{"testString"}---suffix");
+print("prefix---{"inner+++{s}+++inner"}---suffix");
+
+# You can also use multiple fmt arg expressions!
+print("First name:\t\t{input("what is your first name?")}\nLast name:\t\t{input("and your last name?")}");
+
+var fmtStrLambda : function<string -> string> = s -> "<<<{s}>>>";
+print(fmtStrLambda("FOO"));
+print(fmtStrLambda("BAR"));

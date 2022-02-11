@@ -17,6 +17,8 @@
 package com.claro;
 
 import java_cup.runtime.Symbol;
+import java.util.Stack;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A simple lexer/parser for basic arithmetic expressions.
@@ -37,6 +39,9 @@ import java_cup.runtime.Symbol;
 %{
     // This will be used to accumulate all string characters during the STRING state.
     StringBuffer string = new StringBuffer();
+    // Because we're going to support format strings over arbitrary expressions, that means we need to support
+    // nested format strings within the
+    Stack<AtomicReference<Integer>> fmtStrExprBracketCounterStack = new Stack<>();
 
     /** Creates a new {@link Symbol} of the given type. */
     private Symbol symbol(int type) {
@@ -46,6 +51,15 @@ import java_cup.runtime.Symbol;
     /** Creates a new {@link Symbol} of the given type and value. */
     private Symbol symbol(int type, Object value) {
         return new Symbol(type, yyline, yycolumn, value);
+    }
+
+    public boolean escapeSpecialChars = false;
+    private void appendSpecialCharToString(StringBuffer s, String escapedSpecialChar, char specialChar) {
+      if (escapeSpecialChars) {
+        s.append(escapedSpecialChar);
+      } else {
+        s.append(specialChar);
+      }
     }
 %}
 
@@ -86,8 +100,27 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
     "/"                { return symbol(Calc.DIVIDE); }
     "("                { return symbol(Calc.LPAR); }
     ")"                { return symbol(Calc.RPAR); }
-    "{"                { return symbol(Calc.LCURLY); }
-    "}"                { return symbol(Calc.RCURLY); }
+    "{"                {
+                         if (!fmtStrExprBracketCounterStack.isEmpty()) {
+                           fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i+1);
+                         }
+                         return symbol(Calc.LCURLY);
+                       }
+    "}"                {
+                         if (!fmtStrExprBracketCounterStack.isEmpty()) {
+                           if (fmtStrExprBracketCounterStack.peek().get() == 0) {
+                             // Pop the stack because we just finished lexing the current fmt str expr.
+                             fmtStrExprBracketCounterStack.pop();
+                             // Resume the string lexing state since all we've done is finish grabbing a single format expr.
+                             yybegin(STRING);
+                           } else {
+                             fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i-1);
+                             return symbol(Calc.RCURLY);
+                           }
+                         } else {
+                           return symbol(Calc.RCURLY);
+                         }
+                       }
     "["                { return symbol(Calc.LBRACKET); }
     "]"                { return symbol(Calc.RBRACKET); }
     "=="               { return symbol(Calc.EQUALS); }
@@ -140,7 +173,7 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 
     // Builders are builtin at the language level.
     "builder"          { return symbol(Calc.BUILDER); }
-    ".build()"            { return symbol(Calc.DOTBUILD); }
+    ".build()"         { return symbol(Calc.DOTBUILD); }
 
     // Modifiers go here.
     "immutable"         { return symbol(Calc.IMMUTABLE); }
@@ -179,15 +212,32 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 <STRING> {
     \"                 {
                           yybegin(YYINITIAL);
-                          return symbol(Calc.STRING, string.toString());
+                          String matchedString = string.toString();
+                          string.setLength(0);
+                          return symbol(Calc.STRING, matchedString);
                        }
-    [^\n\r\"\\]+       { string.append( yytext() ); }
-    \\t                { string.append('\t'); }
-    \\n                { string.append('\n'); }
+    [^\n\r\"\\{]+      { string.append( yytext() ); }
+    \\t                { appendSpecialCharToString(string, "\\t", '\t'); }
+    \\n                { appendSpecialCharToString(string, "\\n", '\n'); }
 
-    \\r                { string.append('\r'); }
-    \\\"               { string.append('\"'); }
-    \\                 { string.append('\\'); }
+    \\r                { appendSpecialCharToString(string, "\\r", '\r'); }
+    \\\"               { appendSpecialCharToString(string, "\\\"", '\"'); }
+    \\                 { appendSpecialCharToString(string, "\\", '\\'); }
+    \\\{               { string.append('{'); }
+    "{"                {
+                         // We're now going to start lexing a (possibly nested) fmt str expr, so we push a 0 bracket
+                         // count onto the stack so that we can start tracking when we are done lexing the expr.
+                         fmtStrExprBracketCounterStack.push(new AtomicReference<>(0));
+                         // We now are going to start lexing for an arbitrary expr, which means that we need to move
+                         // JFlex back to the base lexing state. Lexing will return to this STRING state once the
+                         // closing '}' is found.
+                         yybegin(YYINITIAL);
+                         // Turns out that whatever we've currently seen so far was actually a FMT_STRING_PART rather
+                         // than a STRING, so we need to consume the StringBuilder and return the FMT_STRING_PART.
+                         String fmtStringPart = string.toString();
+                         string.setLength(0);
+                         return symbol(Calc.FMT_STRING_PART, fmtStringPart);
+                       }
 }
 
 // We have changed the default symbol in the bazel `cup()` rule from "sym" to "Calc", so we need to
