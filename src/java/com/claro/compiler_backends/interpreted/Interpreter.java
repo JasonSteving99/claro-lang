@@ -5,6 +5,7 @@ import com.claro.compiler_backends.CompilerBackend;
 import com.claro.compiler_backends.ParserUtil;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
+import com.claro.stdlib.StdLibUtil;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -52,6 +53,6 @@ public class Interpreter implements CompilerBackend {
     }
 
     // In INTERPRETED mode don't print out the parser result, it doesn't have a value.
-    ((ProgramNode) parser.parse().value).generateTargetOutput(Target.INTERPRETED);
+    ((ProgramNode) parser.parse().value).generateTargetOutput(Target.INTERPRETED, StdLibUtil::registerIdentifiers);
   }
 }

@@ -10,4 +10,8 @@ public class ClaroParserException extends RuntimeException {
   public ClaroParserException(String message) {
     super(message);
   }
+
+  public ClaroParserException(String message, Exception cause) {
+    super(message, cause);
+  }
 }

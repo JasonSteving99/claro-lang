@@ -23,6 +23,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "exec_compiled_claro_image",
+    srcs = [":exec_compiled_claro"],
+    java_name = "Exec",
+)
+
+claro_library(
+    name = "exec_compiled_claro",
+    src = "exec.claro",
+    java_name = "Exec",
+)
+
+claro_binary(
     name = "format_strings_compiled_claro_image",
     srcs = [":format_strings_compiled_claro"],
     java_name = "FormatStrings",

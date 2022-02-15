@@ -6,6 +6,7 @@ package(
         "//src/java/com/claro/intermediate_representation/statements:__subpackages__",
         "//src/java/com/claro/intermediate_representation/types:__pkg__",
         "//src/java/com/claro/repl_site/server/handlers:__pkg__",
+        "//src/java/com/claro/stdlib:__subpackages__",
     ]
 )
 

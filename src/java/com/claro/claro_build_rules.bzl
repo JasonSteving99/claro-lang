@@ -14,6 +14,7 @@ def claro_binary(name, srcs, java_name = "CompiledCalculator"):
             "//:autovalue",
             "//:guava",
             "//:lombok",
+            "//src/java/com/claro/stdlib",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
             "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",

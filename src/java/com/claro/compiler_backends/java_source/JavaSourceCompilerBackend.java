@@ -5,6 +5,7 @@ import com.claro.compiler_backends.CompilerBackend;
 import com.claro.compiler_backends.ParserUtil;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
+import com.claro.stdlib.StdLibUtil;
 
 import java.util.Optional;
 import java.util.Scanner;
@@ -56,6 +57,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       System.out.print("= ");
     }
 
-    System.out.println(((ProgramNode) parser.parse().value).generateTargetOutput(Target.JAVA_SOURCE));
+    System.out.println(
+        ((ProgramNode) parser.parse().value).generateTargetOutput(Target.JAVA_SOURCE, StdLibUtil::registerIdentifiers));
   }
 }

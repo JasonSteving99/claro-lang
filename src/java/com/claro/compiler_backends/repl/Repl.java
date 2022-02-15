@@ -8,11 +8,16 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.compiler_backends.repl.repl_terminal.ReplTerminal;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
+import com.claro.stdlib.StdLibUtil;
+
+import java.util.function.Consumer;
 
 public class Repl implements CompilerBackend {
 
   // To maintain REPL state, we're gonna keep a heap to reuse across all REPL statements.
   private final ScopedHeap SCOPED_HEAP = new ScopedHeap();
+
+  private Consumer<ScopedHeap> setupStdLibConsumerFn = StdLibUtil::registerIdentifiers;
 
   public Repl() {
     // Make sure that the REPL's heap is ready.
@@ -30,7 +35,9 @@ public class Repl implements CompilerBackend {
     ClaroParser parser = getParser(instruction);
 
     try {
-      ((ProgramNode) parser.parse().value).generateTargetOutput(Target.REPL, SCOPED_HEAP);
+      ((ProgramNode) parser.parse().value).generateTargetOutput(Target.REPL, SCOPED_HEAP, setupStdLibConsumerFn);
+      setupStdLibConsumerFn = s -> {
+      }; // We'll keep reusing the same ScopedHeap, so we don't need to do this again.
     } catch (ClaroParserException e) {
       System.out.println(String.format("Error: %s", e.getMessage()));
     } catch (Exception e) {

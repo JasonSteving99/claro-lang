@@ -1,0 +1,10 @@
+# Claro dogfoods its INTERPRETED backend recursively within itself and all other backends in order to allow arbitrary
+# execution of code given in dynamic strings!
+
+# As an example, here's a really half-baked version of a Claro REPL implemented in Claro ;).
+print("(Half-Baked) Claro REPL Using `exec(...)`!");
+var userCode = input(">>> ");
+while (userCode != "STOP") {
+  exec(userCode);
+  userCode = input(">>> ");
+}

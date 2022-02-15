@@ -7,9 +7,14 @@ import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 
+import java.util.function.Consumer;
+
 public class ProgramNode {
   private final String packageString, generatedClassName;
   private final StmtListNode stmtListNode;
+
+  private Consumer<ScopedHeap> setupStdLibConsumerFn = s -> {
+  }; // By default don't support any StdLib.
 
   // TODO(steving) package and generatedClassName should probably be injected some cleaner way since this is a Target::JAVA_SOURCE-only artifact.
   public ProgramNode(
@@ -21,13 +26,21 @@ public class ProgramNode {
     this.generatedClassName = generatedClassName;
   }
 
-  public StringBuilder generateTargetOutput(Target target) throws IllegalArgumentException {
+  public StringBuilder generateTargetOutput(
+      Target target,
+      // Injecting this here literally just to keep Bazel from needing a circular dep on ProgramNode via Exec method.
+      // TODO(steving) Fix this garbage.
+      Consumer<ScopedHeap> setupStdLibConsumerFn) throws IllegalArgumentException {
     ScopedHeap scopedHeap = new ScopedHeap();
     scopedHeap.enterNewScope();
-    return generateTargetOutput(target, scopedHeap);
+    return generateTargetOutput(target, scopedHeap, setupStdLibConsumerFn);
   }
 
-  public StringBuilder generateTargetOutput(Target target, ScopedHeap scopedHeap) throws IllegalArgumentException {
+  public StringBuilder generateTargetOutput(
+      Target target,
+      ScopedHeap scopedHeap,
+      Consumer<ScopedHeap> setupStdLibConsumerFn) throws IllegalArgumentException {
+    this.setupStdLibConsumerFn = setupStdLibConsumerFn;
     StringBuilder generatedOutput;
     switch (target) {
       case JAVA_SOURCE:
@@ -50,6 +63,9 @@ public class ProgramNode {
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Setup the StdLib in the current Scope.
+    this.setupStdLibConsumerFn.accept(scopedHeap);
+
     // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
     // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
     // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
@@ -101,6 +117,9 @@ public class ProgramNode {
   }
 
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    // Setup the StdLib in the current Scope.
+    this.setupStdLibConsumerFn.accept(scopedHeap);
+
     // TYPE DISCOVERY PHASE:
     performTypeDiscoveryPhase(stmtListNode, scopedHeap);
 
@@ -198,11 +217,9 @@ public class ProgramNode {
             "/*******AUTO-GENERATED: DO NOT MODIFY*******/\n\n" +
             "%s" +
             "\n" +
+            "import static com.claro.stdlib.Exec.exec;\n" +
             "import static com.claro.stdlib.userinput.UserInput.promptUserInput;\n" +
             "\n" +
-            "import com.google.auto.value.AutoValue;\n" +
-            "import com.google.common.collect.ImmutableList;\n" +
-            "import com.google.common.collect.ImmutableMap;\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
             "import com.claro.intermediate_representation.types.ConcreteType;\n" +
             "import com.claro.intermediate_representation.types.Type;\n" +
@@ -214,6 +231,9 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "import com.google.auto.value.AutoValue;\n" +
+            "import com.google.common.collect.ImmutableList;\n" +
+            "import com.google.common.collect.ImmutableMap;\n" +
             "import java.util.ArrayList;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +
