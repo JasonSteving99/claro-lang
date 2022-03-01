@@ -8,14 +8,16 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 // TODO(steving) Btw, this class itself is an example where I want structural templating of some sort. This class's
 // TODO(steving) structure is literally perfect for all binary operators, but for some reason I can't reuse the
 // TODO(steving) file to express all of them, I have to copy-paste this file and swap the specific operator call.
 // TODO(steving) Hopefully, Claro can do something about this.
 public class LessThanBoolExpr extends BoolExpr {
 
-  public LessThanBoolExpr(Expr lhs, Expr rhs) {
-    super(ImmutableList.of(lhs, rhs));
+  public LessThanBoolExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(lhs, rhs), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

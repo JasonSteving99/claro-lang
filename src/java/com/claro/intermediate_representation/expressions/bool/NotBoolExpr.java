@@ -7,10 +7,12 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class NotBoolExpr extends BoolExpr {
 
-  public NotBoolExpr(Expr e) {
-    super(ImmutableList.of(e));
+  public NotBoolExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

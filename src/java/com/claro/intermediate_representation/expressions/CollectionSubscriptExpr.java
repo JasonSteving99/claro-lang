@@ -9,6 +9,8 @@ import com.claro.intermediate_representation.types.impls.builtins_impls.collecti
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class CollectionSubscriptExpr extends Expr {
 
   private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
@@ -17,8 +19,8 @@ public class CollectionSubscriptExpr extends Expr {
           BaseType.TUPLE
       );
 
-  public CollectionSubscriptExpr(Expr collectionNodeExpr, Expr expr) {
-    super(ImmutableList.of(collectionNodeExpr, expr));
+  public CollectionSubscriptExpr(Expr collectionNodeExpr, Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(collectionNodeExpr, expr), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

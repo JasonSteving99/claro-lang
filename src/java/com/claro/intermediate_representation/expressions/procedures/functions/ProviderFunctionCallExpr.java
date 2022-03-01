@@ -10,11 +10,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class ProviderFunctionCallExpr extends Expr {
   private final String functionName;
 
-  public ProviderFunctionCallExpr(String functionName) {
-    super(ImmutableList.of());
+  public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.functionName = functionName;
   }
 

@@ -7,12 +7,14 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
+import java.util.function.Supplier;
+
 public class FormatStringExpr extends Expr {
   private final ImmutableList<String> fmtStringParts;
   private final ImmutableList<Expr> fmtExprArgs;
 
-  public FormatStringExpr(ImmutableList<String> fmtStringParts, ImmutableList<Expr> fmtExprArgs) {
-    super(ImmutableList.of());
+  public FormatStringExpr(ImmutableList<String> fmtStringParts, ImmutableList<Expr> fmtExprArgs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.fmtStringParts = fmtStringParts;
     this.fmtExprArgs = fmtExprArgs;
   }

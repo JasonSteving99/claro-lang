@@ -7,11 +7,13 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
+
 public class DecrementExpr extends Expr {
   private final boolean preDecrement;
 
-  public DecrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preDecrement) {
-    super(ImmutableList.of(identifierReferenceTerm));
+  public DecrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preDecrement, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(identifierReferenceTerm), currentLine, currentLineNumber, startCol, endCol);
     // TODO(steving) Assert that the IdentifierReferenceTerm is of type Integer.
     this.preDecrement = preDecrement;
   }

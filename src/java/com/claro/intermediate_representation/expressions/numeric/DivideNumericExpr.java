@@ -9,6 +9,8 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class DivideNumericExpr extends NumericExpr {
 
   private static final ImmutableSet<Type> SUPPORTED_DIVIDE_OPERAND_TYPES = ImmutableSet.of(Types.INTEGER, Types.FLOAT);
@@ -16,19 +18,19 @@ public class DivideNumericExpr extends NumericExpr {
       "Internal Compiler Error: Currently `/` is not supported for types other than Integer and Double.";
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
-  public DivideNumericExpr(Expr lhs, Expr rhs) {
-    super(ImmutableList.of(lhs, rhs));
+  public DivideNumericExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(lhs, rhs), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    Type lhs = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
-    Type rhs = ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap);
+    Expr lhs = (Expr) this.getChildren().get(0);
+    Expr rhs = (Expr) this.getChildren().get(1);
 
-    assertSupportedExprType(lhs, SUPPORTED_DIVIDE_OPERAND_TYPES);
-    assertSupportedExprType(rhs, SUPPORTED_DIVIDE_OPERAND_TYPES);
+    Type actualLhsType = lhs.assertSupportedExprType(scopedHeap, SUPPORTED_DIVIDE_OPERAND_TYPES);
+    Type actualRhsType = rhs.assertSupportedExprType(scopedHeap, SUPPORTED_DIVIDE_OPERAND_TYPES);
 
-    if (lhs.equals(Types.FLOAT) || rhs.equals(Types.FLOAT)) {
+    if (actualLhsType.equals(Types.FLOAT) || actualRhsType.equals(Types.FLOAT)) {
       return Types.FLOAT;
     } else {
       return Types.INTEGER;

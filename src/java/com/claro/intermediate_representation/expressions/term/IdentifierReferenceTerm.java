@@ -4,11 +4,14 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.base.Preconditions;
 
+import java.util.function.Supplier;
+
 public class IdentifierReferenceTerm extends Term {
 
   private final String identifier;
 
-  public IdentifierReferenceTerm(String identifier) {
+  public IdentifierReferenceTerm(String identifier, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(currentLine, currentLineNumber, startCol, endCol);
     // Hold onto the relevant data for code-gen later.
     this.identifier = identifier;
   }

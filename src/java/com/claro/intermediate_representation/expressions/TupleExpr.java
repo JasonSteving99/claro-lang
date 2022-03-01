@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class TupleExpr extends Expr {
@@ -14,8 +15,8 @@ public class TupleExpr extends Expr {
   private final ImmutableList<Expr> tupleValues;
   private Types.TupleType type;
 
-  public TupleExpr(ImmutableList<Expr> tupleValues) {
-    super(ImmutableList.of());
+  public TupleExpr(ImmutableList<Expr> tupleValues, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.tupleValues = tupleValues;
   }
 

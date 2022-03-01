@@ -8,12 +8,14 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class EqualsBoolExpr extends BoolExpr {
 
   private boolean primitives;
 
-  public EqualsBoolExpr(Expr lhs, Expr rhs) {
-    super(ImmutableList.of(lhs, rhs));
+  public EqualsBoolExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(lhs, rhs), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

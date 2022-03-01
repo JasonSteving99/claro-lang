@@ -13,131 +13,121 @@ load("//src/java/com/claro:claro_build_rules.bzl",
 claro_binary(
     name = "conditions_compiled_claro_image",
     srcs = [":conditions_compiled_claro"],
-    java_name = "Conditions",
+    java_name = "conditions",
 )
 
 claro_library(
     name = "conditions_compiled_claro",
     src = "conditions.claro",
-    java_name = "Conditions",
 )
 
 claro_binary(
     name = "exec_compiled_claro_image",
     srcs = [":exec_compiled_claro"],
-    java_name = "Exec",
+    java_name = "exec",
 )
 
 claro_library(
     name = "exec_compiled_claro",
     src = "exec.claro",
-    java_name = "Exec",
 )
 
 claro_binary(
     name = "format_strings_compiled_claro_image",
     srcs = [":format_strings_compiled_claro"],
-    java_name = "FormatStrings",
+    java_name = "format_strings",
 )
 
 claro_library(
     name = "format_strings_compiled_claro",
     src = "format_strings.claro",
-    java_name = "FormatStrings",
+#    debug = True,
 )
 
 claro_binary(
     name = "lambdas_compiled_claro_image",
     srcs = [":lambdas_compiled_claro"],
-    java_name = "Lambdas",
+    java_name = "lambdas",
 )
 
 claro_library(
     name = "lambdas_compiled_claro",
     src = "lambdas.claro",
-    java_name = "Lambdas",
 )
 
 claro_binary(
     name = "list_compiled_claro_image",
     srcs = [":list_compiled_claro"],
-    java_name = "List",
+    java_name = "list",
 )
 
 claro_library(
     name = "list_compiled_claro",
     src = "list.claro",
-    java_name = "List",
 )
 
 claro_binary(
     name = "procedures_compiled_claro_image",
     srcs = [":procedures_compiled_claro"],
-    java_name = "Procedures",
+    java_name = "procedures",
 )
 
 claro_library(
     name = "procedures_compiled_claro",
     src = "procedures.claro",
-    java_name = "Procedures",
 )
 
 claro_binary(
     name = "recursion_compiled_claro_image",
     srcs = [":recursion_compiled_claro"],
-    java_name = "Recursion",
+    java_name = "recursion",
 )
 
 claro_library(
     name = "recursion_compiled_claro",
     src = "recursion.claro",
-    java_name = "Recursion",
 )
 
 claro_binary(
     name = "structs_compiled_claro_image",
     srcs = [":structs_compiled_claro"],
-    java_name = "Structs",
+    java_name = "structs",
 )
 
 claro_library(
     name = "structs_compiled_claro",
     src = "structs.claro",
-    java_name = "Structs",
 )
 
 claro_binary(
     name = "tuples_compiled_claro_image",
     srcs = [":tuples_compiled_claro"],
-    java_name = "Tuples",
+    java_name = "tuples",
 )
 
 claro_library(
     name = "tuples_compiled_claro",
     src = "tuples.claro",
-    java_name = "Tuples",
 )
 
 claro_binary(
     name = "types_compiled_claro_image",
     srcs = [":types_compiled_claro"],
-    java_name = "TypesTest",
+    java_name = "types",
 )
 
 claro_library(
     name = "types_compiled_claro",
     src = "types.claro",
-    java_name = "TypesTest",
 )
 
 claro_binary(
-    name = "while_compiled_claro_image",
-    srcs = [":while_compiled_claro"],
-    java_name = "While",
+    name = "while_test_compiled_claro_image",
+    srcs = [":while_test_compiled_claro"],
+    java_name = "while_test",
 )
 
 claro_library(
-    name = "while_compiled_claro",
-    src = "while.claro",
-    java_name = "While",
+    name = "while_test_compiled_claro",
+    src = "while_test.claro",
 )

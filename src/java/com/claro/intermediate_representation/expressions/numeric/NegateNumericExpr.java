@@ -9,18 +9,19 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public class NegateNumericExpr extends NumericExpr {
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
-  public NegateNumericExpr(Expr e) {
-    super(ImmutableList.of(e));
+  public NegateNumericExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    Type toNegateExprType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
-    assertSupportedExprType(toNegateExprType, ImmutableSet.of(Types.INTEGER, Types.FLOAT));
-    return toNegateExprType;
+    return ((Expr) this.getChildren().get(0))
+        .assertSupportedExprType(scopedHeap, ImmutableSet.of(Types.INTEGER, Types.FLOAT));
   }
 
   @Override

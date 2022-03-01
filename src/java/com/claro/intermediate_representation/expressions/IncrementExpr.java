@@ -7,11 +7,13 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
+
 public class IncrementExpr extends Expr {
   private final boolean preIncrement;
 
-  public IncrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preIncrement) {
-    super(ImmutableList.of(identifierReferenceTerm));
+  public IncrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preIncrement, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(identifierReferenceTerm), currentLine, currentLineNumber, startCol, endCol);
     this.preIncrement = preIncrement;
   }
 

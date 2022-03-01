@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 public class LambdaExpr extends Expr {
   // In order to give all of the objects that represent Claro lambdas a valid disambiguated name, count lambdas.
@@ -30,8 +31,8 @@ public class LambdaExpr extends Expr {
   //     return y;
   //   }
   public LambdaExpr(
-      ImmutableList<String> argNameList, StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference) {
-    super(ImmutableList.of());
+      ImmutableList<String> argNameList, StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.stmtListNode = stmtListNode;
     this.argNameList = argNameList;
     this.returnTypeReference = returnTypeReference;
@@ -49,15 +50,15 @@ public class LambdaExpr extends Expr {
   //     var y = 2 * x;
   //     return y;
   //   }
-  public LambdaExpr(StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference) {
-    this(ImmutableList.of(), stmtListNode, returnTypeReference);
+  public LambdaExpr(StmtListNode stmtListNode, AtomicReference<TypeProvider> returnTypeReference, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    this(ImmutableList.of(), stmtListNode, returnTypeReference, currentLine, currentLineNumber, startCol, endCol);
   }
 
   // Support the following syntax:
   //   x -> 2 * x;
   // The lambda body being a single Expr is enough information for us to know that the programmer wants
   // to return whatever value is produced by that single Expr.
-  public LambdaExpr(ImmutableList<String> argNameList, Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference) {
+  public LambdaExpr(ImmutableList<String> argNameList, Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     this(
         argNameList,
         new StmtListNode(
@@ -66,7 +67,8 @@ public class LambdaExpr extends Expr {
                 returnTypeReference
             )
         ),
-        returnTypeReference
+        returnTypeReference,
+        currentLine, currentLineNumber, startCol, endCol
     );
   }
 
@@ -74,8 +76,8 @@ public class LambdaExpr extends Expr {
   //   () -> input("Hey user, gimme some input: ");
   // The lambda body being a single Expr is enough information for us to know that the programmer wants
   // to return whatever value is produced by that single Expr.
-  public LambdaExpr(Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference) {
-    this(ImmutableList.of(), returnExpr, returnTypeReference);
+  public LambdaExpr(Expr returnExpr, AtomicReference<TypeProvider> returnTypeReference, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    this(ImmutableList.of(), returnExpr, returnTypeReference, currentLine, currentLineNumber, startCol, endCol);
   }
 
   // Lambda Expressions MUST have their types asserted on them by their surrounding context, in order to allow
@@ -156,7 +158,8 @@ public class LambdaExpr extends Expr {
     }
 
     // Now to model the last thing we'll do during codegen, setup our lambda reference.
-    this.lambdaReferenceTerm = new IdentifierReferenceTerm(this.lambdaName);
+    this.lambdaReferenceTerm =
+        new IdentifierReferenceTerm(this.lambdaName, currentLine, currentLineNumber, startCol, endCol);
     lambdaReferenceTerm.assertExpectedExprType(scopedHeap, expectedExprType);
   }
 

@@ -13,14 +13,22 @@ import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Strings;
 import java_cup.runtime.Symbol;
+import java.lang.Math;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Stack;
+import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+import lombok.Data;
 
 /*
  * Copyright (C) 2018 Google LLC
@@ -63,70 +71,181 @@ action code {:
 :}
 
 parser code {:
-  public String generatedClassName = "CompiledCalculator";  // default to be overridden.
+  public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
   public Consumer<String> printerDelegate = System.out::println;
+
+  public int errorsFound = 0;
+  public static Stack<Runnable> errorMessages = new Stack<>();
+
+  @Override
+  public void report_error(String message, Object info) {
+    errorsFound++;
+    Symbol currSymbol = (Symbol) info;
+    LexedValue<?> lexedValue = (LexedValue) currSymbol.value;
+
+    errorMessages.push(
+      () -> {
+        System.err.print(String.format("%s.claro:%s: ", generatedClassName, currSymbol.right + 1));
+        System.err.println("Unexpected token <" + lexedValue.val + ">");
+        String currentInputLineString = lexedValue.currentInputLine.get();
+        if (Character.isWhitespace(currentInputLineString.charAt(currentInputLineString.length() - 1))) {
+          int trailingWhitespaceStart = currentInputLineString.length();
+          while (Character.isWhitespace(currentInputLineString.charAt(--trailingWhitespaceStart))); // This is just cute for the sake of it....barf...but I'm keeping it lol.
+          System.err.println(currentInputLineString.substring(0, trailingWhitespaceStart + 1));
+        } else {
+          System.err.println(lexedValue.currentInputLine.get());
+        }
+        System.err.println(Strings.repeat(" ", currSymbol.left) + '^');
+      });
+  }
+
+  @Override
+  public void syntax_error(Symbol cur_token) {
+    this.report_error("Syntax error", cur_token);
+  }
+
+  @Data
+  static class Line {
+    Supplier<String> inputLineSupplier;
+    int inputLineNumber;
+
+    Line(StringBuilder inputLine, int inputLineNumber) {
+      this(() -> inputLine.toString(), inputLineNumber);
+    }
+
+    Line(Expr e) {
+      this(e.currentLine, e.currentLineNumber);
+    }
+
+    Line(Symbol s) {
+      this(((LexedValue<?>)s.value).currentInputLine, s.right);
+    }
+
+    Line(Supplier<String> inputLineSupplier, int inputLineNumber) {
+      this.inputLineSupplier = inputLineSupplier;
+      this.inputLineNumber = inputLineNumber;
+    }
+  }
+
+  private Supplier<String> joinExprLines(Line ... linesToJoin) {
+    return () -> {
+        StringBuilder res = new StringBuilder(linesToJoin[0].inputLineSupplier.get());
+        int prevLineNum = linesToJoin[0].inputLineNumber;
+        for (int i = 1; i < linesToJoin.length; i++) {
+          Line curr = linesToJoin[i];
+          if (curr.inputLineNumber != prevLineNum) {
+            prevLineNum = curr.inputLineNumber;
+            res.append(curr.inputLineSupplier.get());
+          }
+        }
+        return res.toString();
+    };
+  }
+
+  // Super obnoxious code...but for the sake of hacking together input text annotations for nonterminal grammar matches
+  // so that we can plumb it up into the AST, this code aggregates data from multiple Symbols into a single one.
+  private <T> Symbol chainSymbols(T value, Symbol ... symbols) {
+    Stream<Symbol> symbolStream = Arrays.stream(symbols);
+    int minStartCol = Integer.MAX_VALUE; // min column
+    int maxEndCol = Integer.MIN_VALUE; // max column
+    int maxLine = Integer.MIN_VALUE; // max line
+    for (int i = 0; i<symbols.length; i++) {
+      minStartCol = Math.min(symbols[i].left, minStartCol);
+      maxEndCol = Math.max(symbols[i].left + ((LexedValue)symbols[i].value).len, maxEndCol);
+      maxLine = Math.max(symbols[i].right, maxLine);
+    }
+    int aggregateLen = maxEndCol - minStartCol;
+
+    Supplier<String> inputLinesSupplier = () -> {
+      StringBuilder inputLines = new StringBuilder();
+      symbolStream.map(s -> ((LexedValue)s.value).currentInputLine).forEach(inputLines::append);
+      return inputLines.toString();
+    };
+    return new Symbol(
+      -1, // Really I just have no better value to put in here.
+      minStartCol,
+      maxLine,
+      new LexedValue<T>(value, inputLinesSupplier, aggregateLen)
+    );
+  }
+
+  private static int min(int ... nums) {
+    int currMin = Integer.MAX_VALUE;
+    for (int x : nums) {
+      currMin = Math.min(x, currMin);
+    }
+    return currMin;
+  }
+
+  private static int max(int ... nums) {
+    int currMax = Integer.MIN_VALUE;
+    for (int x : nums) {
+      currMax = Math.max(x, currMax);
+    }
+    return currMax;
+  }
 :}
 
-terminal         LPAR, RPAR;
-terminal         LCURLY, RCURLY, LBRACKET, RBRACKET;
-terminal         EXPONENTIATE;
-terminal         MULTIPLY, DIVIDE;
-terminal         PLUS, MINUS;
-terminal         INCREMENT, DECREMENT;
-terminal         SEMICOLON;
-terminal         COLON;
-terminal         COMMA;
-terminal         BAR;
-terminal         EQUALS, NOT_EQUALS;
-terminal         VAR, ASSIGNMENT;
-terminal         L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
-terminal         OR, AND, NOT;
-terminal         ARROW;
-terminal         TRUE, FALSE;
+terminal LexedValue<String>  LPAR, RPAR;
+terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
+terminal LexedValue<String>  EXPONENTIATE;
+terminal LexedValue<String>  MULTIPLY, DIVIDE;
+terminal LexedValue<String>  PLUS, MINUS;
+terminal LexedValue<String>  INCREMENT, DECREMENT;
+terminal LexedValue<String>  SEMICOLON;
+terminal LexedValue<String>  COLON;
+terminal LexedValue<String>  COMMA;
+terminal LexedValue<String>  BAR;
+terminal LexedValue<String>  EQUALS, NOT_EQUALS;
+terminal LexedValue<String>  VAR, ASSIGNMENT;
+terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
+terminal LexedValue<String>  OR, AND, NOT;
+terminal LexedValue<String>  ARROW;
+terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
-terminal Integer INTEGER;
+terminal LexedValue<Integer> INTEGER;
 // A float is also a terminal, but it's of type Double.
-terminal Double  FLOAT;
+terminal LexedValue<Double>  FLOAT;
 // A string is also a terminal, but it's of type String.
-terminal String  STRING, FMT_STRING_PART;
+terminal LexedValue<String>  STRING, FMT_STRING_PART;
 // A variable identifier is just a sequence of chars.
-terminal String  IDENTIFIER;
+terminal LexedValue<String>  IDENTIFIER;
 // The prefix "log_", of the function log_x(y), is also a terminal.
 // This is good practice for figuring out how to handle functions
 // once I get to Claro, consider this a function hard-coded into the
 // grammar.
-terminal         LOG_PREFIX;
+terminal LexedValue<String>  LOG_PREFIX;
 // This grammar also has a builtin print() function for printing expr values.
-terminal         PRINT;
+terminal LexedValue<String>  PRINT;
 // This grammar also has a builtin numeric() function for casting booleans to doubles.
-terminal         NUMERIC_BOOL;
+terminal LexedValue<String>  NUMERIC_BOOL;
 // This grammar also has a builtin input() functino for reading a number from stdin.
-terminal         INPUT;
+terminal LexedValue<String>  INPUT;
 // This grammar also has a builtin len() function for getting the length of an Iterable.
-terminal         LEN;
+terminal LexedValue<String>  LEN;
 // This grammar also has a builtin type() function for getting the type of an Expr.
-terminal         TYPE;
-terminal         IF, ELSE;
-terminal         WHILE;
+terminal LexedValue<String>  TYPE;
+terminal LexedValue<String>  IF, ELSE;
+terminal LexedValue<String>  WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
-terminal         INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
+terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
-terminal         ALIAS;
-terminal         RETURN;
-terminal         IMMUTABLE;
-terminal         DOT;
+terminal LexedValue<String>  ALIAS;
+terminal LexedValue<String>  RETURN;
+terminal LexedValue<String>  IMMUTABLE;
+terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
-terminal         BUILDER, DOTBUILD;
+terminal LexedValue<String>  BUILDER, DOTBUILD;
 
 // DEBUGGING keywords which should be removed when we want a real release....
-terminal         DEBUG_DUMP_SCOPE;
+terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
 
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
 nonterminal Expr                               expr;
 nonterminal ParenthesizedExpr                  parenthesized_expr;
-nonterminal ImmutableList<ImmutableList.Builder>  fmt_string;
+nonterminal Symbol/*ImmutableList<ImmutableList.Builder>*/  fmt_string;
 nonterminal Term                               term;
 nonterminal Term                               primitive;
 nonterminal IdentifierReferenceTerm            identifier;
@@ -137,7 +256,7 @@ nonterminal StmtListNode                       stmt_list;
 nonterminal ListExpr                           list;
 nonterminal TupleExpr                          tuple;
 nonterminal CollectionSubscriptExpr            collection_subscript;
-nonterminal ImmutableList.Builder<Expr>        args_list;
+nonterminal Symbol/*ImmutableList.Builder<Expr>*/  args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
 nonterminal IfStmt                             if_stmt;
 nonterminal IfStmt                             else_if_stmt_chain;
@@ -157,14 +276,14 @@ nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
-nonterminal ImmutableMap.Builder<String, TypeProvider> function_args_types_list;
-nonterminal ImmutableList.Builder<String>      lambda_arg_names_list;
+nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
+nonterminal Symbol/*ImmutableList.Builder<String>*/  lambda_arg_names_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
 nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
-nonterminal ImmutableMap.Builder<String, Expr> builder_setter_call;
-nonterminal ImmutableMap.Builder<String, Expr> builder_setter_chain;
+nonterminal Symbol/*<ImmutableMap.Builder<String, Expr>>*/ builder_setter_call;
+nonterminal Symbol/*ImmutableMap.Builder<String, Expr>*/ builder_setter_chain;
 nonterminal ReturnStmt                         return_stmt;
 nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
@@ -178,9 +297,9 @@ nonterminal BoolExpr                           bool_arithmetic;
 // TODO(steving) Function<ScopedHeap, TypeProvider> or some other equivalent functional interface and then you'll be good to add
 // TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
 // TODO(steving) and parses all of those before moving on to the other stmts in the StmtList.
-nonterminal TypeProvider                       builtin_type;
-nonterminal ImmutableList<TypeProvider>        builtin_types_list;
-nonterminal ImmutableList.Builder<TypeProvider> backwards_builtin_types_list;
+nonterminal Symbol/*TypeProvider*/             builtin_type;
+nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
+nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
 nonterminal Stmt                               debug_stmts;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
@@ -221,7 +340,7 @@ debug_stmts ::=
     {:
        RESULT =
          new PrintStmt(
-           new StringTerm(null) {
+           new StringTerm(null, ()-> "", 0,0,0) {
              @Override
              public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
                return scopedHeap;
@@ -279,62 +398,264 @@ show_type ::=
 
 identifier_declaration ::=
     VAR IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier, e); :}
+    {: RESULT = new DeclarationStmt(identifier.val, e); :}
   | VAR IDENTIFIER:identifier COLON builtin_type:t SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier, t); :}
+    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val); :}
   | VAR IDENTIFIER:identifier COLON builtin_type:t ASSIGNMENT expr:e SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier, t, e); :}
+    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e); :}
   ;
 
 alias_stmt ::=
     ALIAS IDENTIFIER:alias COLON builtin_type:aliased_type
-    {: RESULT = new AliasStmt(alias, aliased_type); :}
+    {:
+       LexedValue<TypeProvider> aliasedTypeLexedVal = (LexedValue<TypeProvider>) aliased_type.value;
+       RESULT = new AliasStmt(alias.val, aliasedTypeLexedVal.val);
+    :}
   ;
 
 builtin_type ::=
     INT_TYPE:t
-    {: RESULT = ImmediateTypeProvider.of(Types.INTEGER); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          new LexedValue(
+            (TypeProvider) ImmediateTypeProvider.of(Types.INTEGER),
+            t.currentInputLine,
+            t.len)
+       );
+    :}
   | FLOAT_TYPE:t
-    {: RESULT = ImmediateTypeProvider.of(Types.FLOAT); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          new LexedValue(
+            (TypeProvider) ImmediateTypeProvider.of(Types.FLOAT),
+            t.currentInputLine,
+            t.len)
+       );
+    :}
   | BOOLEAN_TYPE:t
-    {: RESULT = ImmediateTypeProvider.of(Types.BOOLEAN); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          new LexedValue(
+            (TypeProvider) ImmediateTypeProvider.of(Types.BOOLEAN),
+            t.currentInputLine,
+            t.len)
+       );
+    :}
   | STRING_TYPE:t
-    {: RESULT = ImmediateTypeProvider.of(Types.STRING); :}
-  | LBRACKET builtin_type:t RBRACKET
-    {: RESULT = (scopedHeap) -> Types.ListType.forValueType(t.resolveType(scopedHeap)); :}
-  | FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:arg ARROW builtin_type:output_type R_ANGLE_BRACKET
-    {: RESULT = (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(arg.resolveType(scopedHeap)), output_type.resolveType(scopedHeap)); :}
-  | FUNCTION_TYPE:t L_ANGLE_BRACKET BAR builtin_types_list:arg_types BAR ARROW builtin_type:output_type R_ANGLE_BRACKET
-    {: RESULT = (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), output_type.resolveType(scopedHeap)); :}
-  | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
-    {: RESULT = (scopedHeap) -> Types.ProcedureType.ConsumerType.forConsumerArgTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())); :}
-  | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET builtin_type:return_type R_ANGLE_BRACKET
-    {: RESULT = (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(return_type.resolveType(scopedHeap)); :}
-  | TUPLE_TYPE:t L_ANGLE_BRACKET builtin_types_list:arg_types R_ANGLE_BRACKET
-    {: RESULT = (scopedHeap) -> Types.TupleType.forValueTypes(arg_types.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())); :}
-  // TODO(steving) We need to now add a type for arbitrary identifiers. We also need to actually check that the types
-  // TODO(steving) referenced by name are in fact *actually* defined types and not just random keys in the symbol table.
-  | BUILDER L_ANGLE_BRACKET IDENTIFIER:built_type_name R_ANGLE_BRACKET
-    {: RESULT = Types.BuilderType.forStructTypeName(built_type_name); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          new LexedValue(
+            (TypeProvider) ImmediateTypeProvider.of(Types.STRING),
+            t.currentInputLine,
+            t.len)
+       );
+    :}
+  | LBRACKET:lb builtin_type:t RBRACKET:rb
+    {:
+       LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>) t.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lb.currentInputLine, lbright), new Line(tLexedVal.currentInputLine, t.right), new Line(rb.currentInputLine, rbright));
+       int startCol = min(lbleft, t.left, rbleft);
+       int endCol = max(lbleft + lb.len, t.left + tLexedVal.len, rbleft + rb.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argLexedVal.currentInputLine, arg.right), new Line(a.currentInputLine, aright), new Line(outputTypeLexedVal.currentInputLine, output_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg.left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg.left + argLexedVal.len, aleft + a.len, output_type.left + outputTypeLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(b1.currentInputLine, b1right), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(b2.currentInputLine, b2right), new Line(a.currentInputLine, aright), new Line(outputTypeLexedVal.currentInputLine, output_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, b1left, arg_types.left, b2left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, b1left + b1.len, arg_types.left + argTypesLexedVal.len, b2left + b2.len, aleft + a.len, output_type.left + outputTypeLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg_types.left + argTypesLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.forConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:return_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> returnTypeProvider = (LexedValue<TypeProvider>) return_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(returnTypeProvider.currentInputLine, return_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, return_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, return_type.left + returnTypeProvider.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(returnTypeProvider.val.resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | TUPLE_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg_types.left + argTypesLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.TupleType.forValueTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BUILDER:b L_ANGLE_BRACKET:la IDENTIFIER:built_type_name R_ANGLE_BRACKET:ra
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(b.currentInputLine, bright), new Line(la.currentInputLine, laright), new Line(built_type_name.currentInputLine, built_type_nameright), new Line(ra.currentInputLine, raright));
+       int startCol = min(bleft, laleft, built_type_nameleft, raleft);
+       int endCol = max(bleft + b.len, laleft + la.len, built_type_nameleft + built_type_name.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            Types.BuilderType.forStructTypeName(built_type_name.val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   | IDENTIFIER:type_name
-    {: RESULT = TypeProvider.Util.getTypeByName(type_name); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          type_nameleft,
+          type_nameright, // line number
+          new LexedValue(
+            TypeProvider.Util.getTypeByName(type_name.val),
+            type_name.currentInputLine,
+            type_name.len)
+       );
+    :}
   ;
 
 builtin_types_list ::=
     backwards_builtin_types_list:b
-    {: RESULT = b.build().reverse(); :}
+    {:
+       LexedValue<ImmutableList.Builder<TypeProvider>> bLexedValue = (LexedValue<ImmutableList.Builder<TypeProvider>>) b.value;
+       RESULT = new Symbol(
+          -1,
+          b.left,
+          b.right, // line number
+          new LexedValue(
+            bLexedValue.val.build().reverse(),
+            bLexedValue.currentInputLine,
+            bLexedValue.len)
+       );
+    :}
   ;
 
 backwards_builtin_types_list ::=
-    builtin_type:t COMMA backwards_builtin_types_list:tail
-    {: RESULT = tail.add(t); :}
+    builtin_type:t COMMA:c backwards_builtin_types_list:tail
+    {:
+       LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>)t.value;
+       LexedValue<ImmutableList.Builder<TypeProvider>> tailLexedVal = (LexedValue<ImmutableList.Builder<TypeProvider>>)tail.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(tLexedVal.currentInputLine, t.right), new Line(c.currentInputLine, cright), new Line(tailLexedVal.currentInputLine, tail.right));
+       int startCol = min(t.left, cleft, tail.left);
+       int endCol = max(t.left + tLexedVal.len, cleft + c.len, tail.left + tailLexedVal.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          new LexedValue(
+            tailLexedVal.val.add(tLexedVal.val),
+            currentLinesSupplier,
+            tailLexedVal.len)
+       );
+    :}
   | builtin_type:t
-    {: RESULT = ImmutableList.<TypeProvider>builder().add(t); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          t.left,
+          t.right, // line number
+          new LexedValue(
+            ImmutableList.<TypeProvider>builder().add(((LexedValue<TypeProvider>) t.value).val),
+            ((LexedValue)t.value).currentInputLine,
+            ((LexedValue)t.value).len)
+       );
+    :}
   ;
 
 identifier_assignment ::=
     IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
-    {: RESULT = new AssignmentStmt(identifier, e); :}
+    {: RESULT = new AssignmentStmt(identifier.val, e); :}
   ;
 
 identifier_increment_stmt ::=
@@ -343,10 +664,24 @@ identifier_increment_stmt ::=
   ;
 
 identifier_increment ::=
-    INCREMENT identifier:i
-    {: RESULT = new IncrementExpr(i, /*preIncrement=*/true); :}
-  | identifier:i INCREMENT
-    {: RESULT = new IncrementExpr(i, /*preIncrement=*/false); :}
+    INCREMENT:inc identifier:i
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(inc.currentInputLine, incright), new Line(i.currentLine, i.currentLineNumber));
+       int startCol = min(incleft, i.startCol);
+       int endCol = max(incleft + inc.len, i.endCol);
+
+       RESULT = new IncrementExpr(i, /*preIncrement=*/true, currentLinesSupplier, i.currentLineNumber, startCol, endCol);
+    :}
+  | identifier:i INCREMENT:inc
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(i.currentLine, i.currentLineNumber), new Line(inc.currentInputLine, incright));
+       int startCol = min(i.startCol, incleft);
+       int endCol = max(i.endCol, incleft + inc.len);
+
+       RESULT = new IncrementExpr(i, /*preIncrement=*/false, currentLinesSupplier, incright, startCol, endCol);
+    :}
   ;
 
 identifier_decrement_stmt ::=
@@ -355,10 +690,24 @@ identifier_decrement_stmt ::=
   ;
 
 identifier_decrement ::=
-    DECREMENT identifier:i
-    {: RESULT = new DecrementExpr(i, /*preDecrement=*/true); :}
-  | identifier:i DECREMENT
-    {: RESULT = new DecrementExpr(i, /*preDecrement=*/false); :}
+    DECREMENT:d identifier:i
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(d.currentInputLine, dright), new Line(i.currentLine, i.currentLineNumber));
+       int startCol = min(dleft, i.startCol);
+       int endCol = max(dleft + d.len, i.endCol);
+
+       RESULT = new DecrementExpr(i, /*preDecrement=*/true, currentLinesSupplier, i.currentLineNumber, startCol, endCol);
+    :}
+  | identifier:i DECREMENT:d
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(i.currentLine, i.currentLineNumber), new Line(d.currentInputLine, dright));
+       int startCol = min(i.startCol, dleft);
+       int endCol = max(i.endCol, dleft + d.len);
+
+       RESULT = new DecrementExpr(i, /*preDecrement=*/false, currentLinesSupplier, dright, startCol, endCol);
+    :}
   ;
 
 list_element_assignment ::=
@@ -369,42 +718,116 @@ list_element_assignment ::=
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
 // language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
 expr ::=
-    MINUS expr:e
-    {: RESULT = new NegateNumericExpr(e); :}
-  | expr:a PLUS expr:b
-    {: RESULT = new AddNumericExpr(a, b); :}
+    MINUS:m expr:e
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(m.currentInputLine, mright), new Line(e.currentLine, e.currentLineNumber));
+       int startCol = min(mleft, e.startCol);
+       int endCol = max(mleft + m.len, e.endCol);
+
+       RESULT = new NegateNumericExpr(e, currentLinesSupplier, e.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a PLUS:p expr:b
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(p.currentInputLine, pright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, pleft, b.startCol);
+       int endCol = max(a.endCol, pleft + p.len, b.endCol);
+
+       RESULT = new AddNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+    :}
   | identifier_increment:i
     {: RESULT = i; :}
   | identifier_decrement:i
     {: RESULT = i; :}
-  | expr:a MINUS expr:b
-    {: RESULT = new SubtractNumericExpr(a, b); :}
-  | expr:a MULTIPLY expr:b
-    {: RESULT = new MultiplyNumericExpr(a, b); :}
-  | expr:a DIVIDE expr:b // Only support int-division right now...
-    {: RESULT = new DivideNumericExpr(a, b); :}
-  | expr:a EXPONENTIATE expr:b // Only support int-exponentiation right now...
-    {: RESULT = new ExponentiateNumericExpr(a, b); :}
+  | expr:a MINUS:m expr:b
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(m.currentInputLine, mright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, mleft, b.startCol);
+       int endCol = max(a.endCol, mleft + m.len, b.endCol);
+
+       RESULT = new SubtractNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+    :}
+  | expr:a MULTIPLY:m expr:b
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(m.currentInputLine, mright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, mleft, b.startCol);
+       int endCol = max(a.endCol, mleft + m.len, b.endCol);
+
+       RESULT = new MultiplyNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+    :}
+  | expr:a DIVIDE:d expr:b // Only support int-division right now...
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(d.currentInputLine, dright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, dleft, b.startCol);
+       int endCol = max(a.endCol, dleft + d.len, b.endCol);
+
+       RESULT = new DivideNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+    :}
+  | expr:a EXPONENTIATE:ex expr:b // Only support int-exponentiation right now...
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(ex.currentInputLine, exright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, exleft, b.startCol);
+       int endCol = max(a.endCol, exleft + ex.len, b.endCol);
+
+       RESULT = new ExponentiateNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+    :}
   | parenthesized_expr:p
     {: RESULT = p; :}
-  | LOG_PREFIX float:float_base LPAR expr:arg RPAR
-    {: RESULT = new LogNumericExpr(arg, float_base); :}
-  | LOG_PREFIX integer:int_base LPAR expr:arg RPAR
-    {: RESULT = new LogNumericExpr(arg, int_base); :}
-  | NUMERIC_BOOL LPAR bool_expr:b RPAR
-    {: RESULT = new NumericBoolNumericExpr(b); :}
+  | LOG_PREFIX:log float:float_base LPAR:lp expr:arg RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(log.currentInputLine, logright), new Line(float_base.currentLine, float_base.currentLineNumber), new Line(lp.currentInputLine, lpright), new Line(arg.currentLine, arg.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(logleft, float_base.startCol, lpleft, arg.startCol, rpleft);
+       int endCol = max(logleft + log.len, float_base.endCol, lpleft + lp.len, arg.endCol, rpleft + rp.len);
+
+       RESULT = new LogNumericExpr(arg, float_base, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  | LOG_PREFIX:log integer:int_base LPAR:lp expr:arg RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(log.currentInputLine, logright), new Line(int_base.currentLine, int_base.currentLineNumber), new Line(lp.currentInputLine, lpright), new Line(arg.currentLine, arg.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(logleft, int_base.startCol, lpleft, arg.startCol, rpleft);
+       int endCol = max(logleft + log.len, int_base.endCol, lpleft + lp.len, arg.endCol, rpleft + rp.len);
+
+       RESULT = new LogNumericExpr(arg, int_base, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  | NUMERIC_BOOL:num LPAR:lp bool_expr:b RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(num.currentInputLine, numright), new Line(lp.currentInputLine, lpright), new Line(b.currentLine, b.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(numleft, lpleft, b.startCol, rpleft);
+       int endCol = max(numleft + num.len, lpleft + lp.len, b.endCol, rpleft + rp.len);
+
+       RESULT = new NumericBoolNumericExpr(b, currentLinesSupplier, rpright, startCol, endCol);
+    :}
   | input:i
     {: RESULT = i; :}
   | list:l
     {: RESULT = l; :}
   | collection_subscript:l
     {: RESULT = l; :}
-  | LEN LPAR expr:e RPAR
-    {: RESULT = new LenExpr(e); :}
+  | LEN:len LPAR:lp expr:e RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(len.currentInputLine, lenright), new Line(lp.currentInputLine, lpright), new Line(e.currentLine, e.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(lenleft, lpleft, e.startCol, rpleft);
+       int endCol = max(lenleft + len.len, lpleft + lp.len, e.endCol, rpleft + rp.len);
+
+       RESULT = new LenExpr(e, currentLinesSupplier, rpright, startCol, endCol);
+    :}
   | bool_expr:b
     {: RESULT = b; :}
-  | fmt_string:fs
-    {: RESULT = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse()); :}
+  | fmt_string:fs_symbol
+    {:
+       LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) fs_symbol.value;
+       ImmutableList<ImmutableList.Builder> fs = fsLexedValue.val;
+       RESULT = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.currentInputLine, fs_symbol.right, fs_symbol.left, fs_symbol.left + fsLexedValue.len);
+    :}
   | term:t
     {: RESULT = t; :}
   | function_call_expr:f
@@ -419,67 +842,191 @@ expr ::=
     {: RESULT = b; :}
   | tuple:t
     {: RESULT = t; :}
-  | LPAR builtin_type:asserted_type RPAR expr:casted_expr
-    {: RESULT = new CastExpr(asserted_type, casted_expr); :}
+  | LPAR:lp builtin_type:asserted_type RPAR:rp expr:casted_expr
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(casted_expr.currentLine, casted_expr.currentLineNumber));
+       int startCol = min(lpleft, asserted_type.left, rpleft, casted_expr.startCol);
+       int endCol = max(lpleft + lp.len, asserted_type.left + ((LexedValue)asserted_type.value).len, rpleft + rp.len, casted_expr.endCol);
+
+       RESULT = new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, casted_expr, currentLinesSupplier, casted_expr.currentLineNumber, startCol, endCol);
+    :}
+  | error:e
+    // TODO(steving) This is super helpful, do the same thing for stmts.
+    // There's been some syntax error in an expression somewhere.. meaning that this expression is getting thrown away
+    // in order to continue checking for other errors in the input program. So "repair" the program by giving it some
+    // arbitrary Expr that won't complain a second time during AST type checking.
+    {:
+       RESULT = new Expr(ImmutableList.of(), () -> {throw new RuntimeException("Internal Compiler Error: Should be unreachable.");}, -1, -1, -1) {
+          public Type getValidatedExprType(ScopedHeap unused) {
+            return Types.UNDECIDED;
+          }
+          public StringBuilder generateJavaSourceBodyOutput(ScopedHeap unused) {
+            return new StringBuilder();
+          }
+          public Object generateInterpretedOutput(ScopedHeap unused) {
+            return null;
+          }
+          public void logTypeError(Exception unused) {
+            // Intentionally do not re-log this error.
+          }
+       };
+    :}
   ;
 
 parenthesized_expr ::=
-    LPAR expr:e RPAR
-    {: RESULT = new ParenthesizedExpr(e); :}
+    LPAR:lp expr:e RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(e.currentLine, e.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(lpleft, e.startCol, rpleft);
+       int endCol = max(lpleft + lp.len, e.endCol, rpleft + rp.len);
+
+       RESULT = new ParenthesizedExpr(e, currentLinesSupplier, rpright, startCol, endCol);
+    :}
   ;
 
 input ::=
-    INPUT LPAR STRING:prompt RPAR
-    {: RESULT = new InputExpr(prompt); :}
+    INPUT:i LPAR:lp STRING:prompt RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(i.currentInputLine, iright), new Line(lp.currentInputLine, lpright), new Line(prompt.currentInputLine, promptright), new Line(rp.currentInputLine, rpright));
+       int startCol = min(ileft, lpleft, promptleft, rpleft);
+       int endCol = max(ileft + i.len, lpleft + lp.len, promptleft + prompt.len, rpleft + rp.len);
+
+       RESULT = new InputExpr(prompt.val, currentLinesSupplier, rpright, startCol, endCol);
+    :}
   ;
 
 list ::=
-    LBRACKET args_list:args RBRACKET
+    LBRACKET:lb args_list:args RBRACKET:rb
     {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lb.currentInputLine, lbright), new Line(((LexedValue) args.value).currentInputLine, args.right), new Line(rb.currentInputLine, rbright));
+       int startCol = min(lbleft, args.left, rbleft);
+       int endCol = max(lbleft + lb.len, args.left + ((LexedValue) args.value).len, rbleft + rb.len);
+
        // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
-       RESULT = new ListExpr(args.build().reverse());
+       RESULT = new ListExpr(((LexedValue<ImmutableList.Builder<Expr>>) args.value).val.build().reverse(), currentLinesSupplier, rbright, startCol, endCol);
     :}
-  | LBRACKET RBRACKET
-    {: RESULT = new ListExpr(); :}
+  | LBRACKET:lb RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lb.currentInputLine, lbright), new Line(rb.currentInputLine, rbright));
+       int startCol = min(lbleft, rbleft);
+       int endCol = max(lbleft + lb.len, rbleft + rb.len);
+
+       RESULT = new ListExpr(currentLinesSupplier, rbright, startCol, endCol);
+    :}
   ;
 
 tuple ::=
     // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
-    LPAR expr:head COMMA args_list:tailValues RPAR
+    LPAR:lp expr:head COMMA:c args_list:tailValues RPAR:rp
     {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright));
+       int startCol = min(lpleft, head.startCol, cleft, tailValues.left, rpleft);
+       int endCol = max(lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len);
+
        ImmutableList.Builder<Expr> tupleValues = ImmutableList.builder();
        tupleValues.add(head);
-       tupleValues.addAll(tailValues.build().reverse());
-       RESULT = new TupleExpr(tupleValues.build());
+       tupleValues.addAll(((LexedValue<ImmutableList.Builder<Expr>>) tailValues.value).val.build().reverse());
+       RESULT = new TupleExpr(tupleValues.build(), currentLinesSupplier, rpright, startCol, endCol);
     :}
   ;
 
 args_list ::=
-    expr:head COMMA args_list:tail
+    expr:head COMMA:c args_list:tail
     {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue)tail.value).currentInputLine, tail.right));
+       int startCol = min(head.startCol, cleft, tail.left);
+       int endCol = max(head.endCol, cleft + c.len, tail.left + ((LexedValue) tail.value).len);
+
        // Notice that we're building this list in reverse order, just by the order of the parser recursively identifying
        // each expr in the list.
-       RESULT = tail.add(head);
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableList.Builder<Expr>>) tail.value).val.add(head),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
     :}
   | expr:e
-    {: RESULT = ImmutableList.<Expr>builder().add(e); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          e.startCol,
+          e.currentLineNumber, // line number
+          new LexedValue(
+            ImmutableList.<Expr>builder().add(e),
+            e.currentLine,
+            e.endCol - e.startCol)
+       );
+    :}
   ;
 
 collection_subscript ::=
     // Support arbitrarily repeated subscripting. CollectionSubscriptExpr node will check that there's the right levels of
     // nesting available for the given number of subscripts in this specific context.
-    collection_subscript:l LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(l, e); :}
-  | list:l LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(l, e); :}
-  | identifier:i LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(i, e); :}
-  | function_call_expr:f LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(f, e); :}
-  | provider_function_call_expr:f LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(f, e); :}
-  | parenthesized_expr:p LBRACKET expr:e RBRACKET
-    {: RESULT = new CollectionSubscriptExpr(p, e); :}
+    collection_subscript:l LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(l.currentLine, l.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(l.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(l.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | list:l LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(l.currentLine, l.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(l.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(l.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | identifier:i LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(i.currentLine, i.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(i.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(i.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(i, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.currentLine, f.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(f.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(f.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(f, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | provider_function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.currentLine, f.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(f.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(f.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(f, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | parenthesized_expr:p LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(p.currentLine, p.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+       int startCol = min(p.startCol, lbleft, e.startCol, rbleft);
+       int endCol = max(p.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+       RESULT = new CollectionSubscriptExpr(p, e, currentLinesSupplier, rbright, startCol, endCol);
+    :}
   ;
 
 bool_expr ::=
@@ -493,10 +1040,24 @@ bool_expr ::=
 
 // This calculator can evaluate an equality check of expressions.
 equality ::=
-    expr:a EQUALS expr:b
-    {: RESULT = new EqualsBoolExpr(a, b); :}
-  | expr:a NOT_EQUALS expr:b
-    {: RESULT = new NotEqualsBoolExpr(a, b); :}
+    expr:a EQUALS:e expr:b
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(e.currentInputLine, eright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, eleft, b.startCol);
+       int endCol = max(a.endCol, eleft + e.len, b.endCol);
+
+       RESULT = new EqualsBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a NOT_EQUALS:ne expr:b
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(ne.currentInputLine, neright), new Line(b.currentLine, b.currentLineNumber));
+       int startCol = min(a.startCol, neleft, b.startCol);
+       int endCol = max(a.endCol, neleft + ne.len, b.endCol);
+
+       RESULT = new NotEqualsBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
   ;
 
 if_else_chain_stmt ::=
@@ -555,15 +1116,15 @@ struct_definition_stmt ::=
     STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> fieldTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ false);
+       RESULT = new StructDefinitionStmt(name.val, fieldTypesMap, /*immutable=*/ false);
     :}
   | LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> fieldTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ false);
@@ -571,15 +1132,15 @@ struct_definition_stmt ::=
   | IMMUTABLE STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> fieldTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(name, fieldTypesMap, /*immutable=*/ true);
+       RESULT = new StructDefinitionStmt(name.val, fieldTypesMap, /*immutable=*/ true);
     :}
   | IMMUTABLE LCURLY function_args_types_list:backwards_field_types RCURLY
     {:
        // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = backwards_field_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> fieldTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
        RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ true);
@@ -590,60 +1151,118 @@ function_definition_stmt ::=
     FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
-      returnTypeHolder.set(output_type);
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new FunctionDefinitionStmt(name, argTypesMap, output_type, stmt_list);
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list);
     :}
   ;
 
 lambda_function_expr ::=
-    IDENTIFIER:arg_name ARROW expr:implicit_return_expr
+    IDENTIFIER:arg_name ARROW:a expr:implicit_return_expr
     {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+      int startCol = min(arg_nameleft, aleft, implicit_return_exprleft);
+      int endCol = max(arg_nameleft + arg_name.len, aleft + a.len, implicit_return_expr.endCol);
+
       // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
       AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
       ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
-      RESULT = new LambdaExpr(ImmutableList.of(arg_name), new StmtListNode(implicitReturnStmt), returnTypeReference);
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name.val), new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_expr.currentLineNumber, startCol, endCol);
     :}
-  | IDENTIFIER:arg_name ARROW LCURLY stmt_list:stmt_list RCURLY
+  | IDENTIFIER:arg_name ARROW:a LCURLY:lc stmt_list:stmt_list RCURLY:rc
     {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", lcright + 2 > rcright ? lcright : lcright + 1), new Line(rc.currentInputLine, rcright));
+      int startCol = min(arg_nameleft, aleft, lcleft, rcleft);
+      int endCol = max(arg_nameleft + arg_name.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+
       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
-      RESULT = new LambdaExpr(ImmutableList.of(arg_name), stmt_list, returnTypeHolder);
+      RESULT = new LambdaExpr(ImmutableList.of(arg_name.val), stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
     :}
-  | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW expr:implicit_return_expr
+  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c lambda_arg_names_list:arg_names RPAR:rp ARROW:a expr:implicit_return_expr
     {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+      int startCol = min(lamleft, lpleft, first_arg_nameleft, cleft, arg_names.left, rpleft, aleft, implicit_return_exprleft);
+      int endCol = max(lamleft + lam.len, lpleft + lp.len, first_arg_nameleft + first_arg_name.len, cleft + c.len, arg_names.left + ((LexedValue)arg_names.value).len, rpleft + rp.len, aleft + a.len, implicit_return_expr.endCol);
+
       // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
       AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
       ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
-      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), new StmtListNode(implicitReturnStmt), returnTypeReference);
+      RESULT = new LambdaExpr(((LexedValue<ImmutableList.Builder<String>>)arg_names.value).val.add(first_arg_name.val).build().reverse(), new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_exprright, startCol, endCol);
     :}
-  | LAMBDA LPAR IDENTIFIER:first_arg_name COMMA lambda_arg_names_list:arg_names RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c lambda_arg_names_list:arg_names RPAR:rp ARROW:a LCURLY:lc stmt_list:stmt_list RCURLY:rc
     {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue)arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", lcright + 2 > rcright ? lcright : lcright + 1), new Line(rc.currentInputLine, rcright));
+      int startCol = min(lamleft, lpleft, first_arg_nameleft, cleft, arg_names.left, rpleft, aleft, lcleft, rcleft);
+      int endCol = max(lamleft + lam.len, lpleft + lp.len, first_arg_nameleft + first_arg_name.len, cleft + c.len, arg_names.left + ((LexedValue)arg_names.value).len, rpleft + rp.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+
       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
-      RESULT = new LambdaExpr(arg_names.add(first_arg_name).build().reverse(), stmt_list, returnTypeHolder);
+      RESULT = new LambdaExpr(((LexedValue<ImmutableList.Builder<String>>)arg_names.value).val.add(first_arg_name.val).build().reverse(), stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
     :}
-  | LPAR RPAR ARROW expr:implicit_return_expr
+  | LPAR:lp RPAR:rp ARROW:a expr:implicit_return_expr
     {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lp.currentInputLine, lpright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+      int startCol = min(lpleft, rpleft, aleft, implicit_return_expr.startCol);
+      int endCol = max(lpleft + lp.len, rpleft + rp.len, aleft + a.len, implicit_return_expr.endCol);
+
       // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
       AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
       ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
-      RESULT = new LambdaExpr(new StmtListNode(implicitReturnStmt), returnTypeReference);
+      RESULT = new LambdaExpr(new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_expr.currentLineNumber, startCol, endCol);
     :}
-  | LPAR RPAR ARROW LCURLY stmt_list:stmt_list RCURLY
+  | LPAR:lp RPAR:rp ARROW:a LCURLY:lc stmt_list:stmt_list RCURLY:rc
     {:
-      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
-      RESULT = new LambdaExpr(stmt_list, returnTypeHolder);
+       // We won't throw type errors at this level for the StmtListNode itself (that'll be handled on the Exprs contained w/in)
+       // so intentionally ignore the StmtListNode here for error lines. Pointers may be slightly off if programmer has
+       // terrible indentation but in that case, fuck em.
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", aright + 2 > rcright ? aright : aright + 1), new Line(rc.currentInputLine, rcright));
+       int startCol = min(lpleft, rpleft, aleft, lcleft, rcleft);
+       int endCol = max(lpleft + lp.len, rpleft + rp.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+
+       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+       RESULT = new LambdaExpr(stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
     :}
   ;
 
 lambda_arg_names_list ::=
-    IDENTIFIER:arg_name COMMA lambda_arg_names_list:tail
-    {: RESULT = tail.add(arg_name); :}
+    IDENTIFIER:arg_name COMMA:c lambda_arg_names_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue)tail.value).currentInputLine, tail.right));
+       int startCol = min(arg_nameleft, cleft);
+       int endCol = max(arg_nameleft + arg_name.len, cleft + c.len);
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableList.Builder<String>>)tail.value).val.add(arg_name.val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   | IDENTIFIER:arg_name
-    {: RESULT = ImmutableList.<String>builder().add(arg_name); :}
+    {:
+       RESULT = new Symbol(
+          -1,
+          arg_nameleft,
+          arg_nameright, // line number
+          new LexedValue(
+            ImmutableList.<String>builder().add(arg_name.val),
+            arg_name.currentInputLine,
+            arg_name.len)
+       );
+    :}
   ;
 
 consumer_function_definition_stmt ::=
@@ -655,10 +1274,10 @@ consumer_function_definition_stmt ::=
         returnTypeHolder = null;
       }
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list);
     :}
   | CONSUMER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -668,10 +1287,10 @@ consumer_function_definition_stmt ::=
         returnTypeHolder = null;
       }
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new ConsumerFunctionDefinitionStmt(name, argTypesMap, stmt_list);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list);
     :}
   ;
 
@@ -679,33 +1298,58 @@ provider_function_definition_stmt ::=
     PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
-      returnTypeHolder.set(output_type);
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      RESULT = new ProviderFunctionDefinitionStmt(name, output_type, stmt_list);
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list);
     :}
   | PROVIDER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
-      returnTypeHolder.set(output_type);
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      RESULT = new ProviderFunctionDefinitionStmt(name, output_type, stmt_list);
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list);
     :}
   ;
 
 // TODO(steving) Be less lazy and don't bother using a Map where we should just be using a List of pairs....but Java is so garbage it doesn't have tuples so.....
 // Note that we're again building this up backwards for convenience (remember that all guava collections respect ordering).
 function_args_types_list ::=
-    IDENTIFIER:arg_name COLON builtin_type:t COMMA function_args_types_list:tail
-    {: RESULT = tail.put(arg_name, t); :}
-  | IDENTIFIER:arg_name COLON builtin_type:t
-    {: RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name, t); :}
-  ;
+    IDENTIFIER:arg_name COLON:colon builtin_type:t COMMA:comma function_args_types_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(arg_nameleft, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(arg_nameleft + arg_name.len, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
 
-lambda_arg_names_list ::=
-    identifier:arg_name COMMA lambda_arg_names_list:tail
-    {: RESULT = tail.add(arg_name.getIdentifier()); :}
-  | identifier:arg_name
-    {: RESULT = ImmutableList.<String>builder().add(arg_name.getIdentifier()); :}
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) tail.value).val.put(arg_name.val, ((LexedValue<TypeProvider>) t.value).val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:arg_name COLON:c builtin_type:t
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(arg_nameleft, cleft, t.left);
+       int endCol = max(arg_nameleft + arg_name.len, cleft + c.len, t.left + ((LexedValue) t.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ImmutableMap.<String, TypeProvider>builder().put(arg_name.val, ((LexedValue<TypeProvider>) t.value).val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 return_stmt ::=
@@ -721,77 +1365,185 @@ return_stmt ::=
   ;
 
 function_call_expr ::=
-    IDENTIFIER:function_name LPAR args_list:args RPAR
-    {: RESULT = new FunctionCallExpr(function_name, args.build().reverse()); :}
+    IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
+       int startCol = min(function_nameleft, lleft, args.left, rleft);
+       int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
+       RESULT = new FunctionCallExpr(function_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+    :}
   ;
 
 provider_function_call_expr ::=
-    IDENTIFIER:provider_name LPAR RPAR
-    {: RESULT = new ProviderFunctionCallExpr(provider_name); :}
+    IDENTIFIER:provider_name LPAR:l RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(provider_name.currentInputLine, provider_nameright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
+       int startCol = min(provider_nameleft, lleft, rleft);
+       int endCol = max(provider_nameleft + provider_name.len, lleft + l.len, rleft + r.len);
+       RESULT = new ProviderFunctionCallExpr(provider_name.val, currentLinesSupplier, rright, startCol, endCol);
+    :}
   ;
 
 consumer_function_call_stmt ::=
     IDENTIFIER:consumer_name LPAR args_list:args RPAR SEMICOLON
-    {: RESULT = new ConsumerFunctionCallStmt(consumer_name, args.build().reverse()); :}
+    {: RESULT = new ConsumerFunctionCallStmt(consumer_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse()); :}
   ;
 
 // TODO(steving) Generalize this to use the same approach as method calls.
 // TODO(steving) We have no classes yet - so do this once classes & methods exist.
 builder_full_build ::=
-    builder_method_call_expr:b DOTBUILD
-    {: RESULT = new BuilderFullBuildMethodCallExpr(b); :}
+    builder_method_call_expr:b DOTBUILD:d
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(b), new Line(d.currentInputLine, dright));
+       int startCol = Math.min(b.startCol, dleft);
+       int endCol = Math.max(b.endCol, dleft + d.len);
+       RESULT = new BuilderFullBuildMethodCallExpr(b, currentLinesSupplier, dright, startCol, endCol);
+    :}
   ;
 
 builder_method_call_expr ::=
-    IDENTIFIER:built_type_name DOT BUILDER LPAR RPAR
-    {: RESULT = new BuilderMethodCallExpr(built_type_name); :}
-  | IDENTIFIER:built_type_name DOT BUILDER LPAR RPAR builder_setter_chain:set_field_values
-    {: RESULT = new BuilderMethodCallExpr(built_type_name, set_field_values.build()); :}
+    IDENTIFIER:built_type_name DOT:d BUILDER:b LPAR:l RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(built_type_name.currentInputLine, built_type_nameright), new Line(d.currentInputLine, dright), new Line(b.currentInputLine, bright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
+       int startCol = min(built_type_nameleft, dleft, bleft, lleft, rleft);
+       int endCol = max(built_type_nameleft + built_type_name.len, dleft + d.len, bleft + b.len, lleft + l.len, rleft + r.len);
+       RESULT = new BuilderMethodCallExpr(built_type_name.val, currentLinesSupplier, rright, startCol, endCol);
+    :}
+  | IDENTIFIER:built_type_name DOT:d BUILDER:b LPAR:l RPAR:r builder_setter_chain:set_field_values
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(built_type_name.currentInputLine, built_type_nameright), new Line(d.currentInputLine, dright), new Line(b.currentInputLine, bright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright), new Line(set_field_values));
+       int startCol = min(built_type_nameleft, dleft, bleft, lleft, rleft, set_field_valuesleft);
+       int endCol = max(built_type_nameleft + built_type_name.len, dleft + d.len, bleft + b.len, lleft + l.len, rleft + r.len, set_field_values.left + ((LexedValue)set_field_values.value).len);
+       RESULT = new BuilderMethodCallExpr(built_type_name.val, ((LexedValue<ImmutableMap.Builder<String, Expr>>)set_field_values.value).val.build(), currentLinesSupplier, set_field_valuesright, startCol, endCol);
+    :}
   ;
 
 builder_setter_call ::=
-    DOT IDENTIFIER:set_field_name LPAR expr:e RPAR
-    {: RESULT = ImmutableMap.<String, Expr>builder().put(set_field_name, e); :}
+    DOT:dot IDENTIFIER:set_field_name LPAR:lpar expr:e RPAR:rpar
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(dot.currentInputLine, dotright), new Line(set_field_name.currentInputLine, set_field_nameright), new Line(lpar.currentInputLine, lparright), new Line(e), new Line(lpar.currentInputLine, lparright));
+       int startCol = min(dotleft, set_field_nameleft, lparleft, e.startCol, rparleft);
+       int endCol = max(dotleft + dot.len, set_field_nameleft + set_field_name.len, lparleft + lpar.len, e.endCol, rparleft + rpar.len);
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          rparright, // rpar's line number
+          new LexedValue(
+            ImmutableMap.<String, Expr>builder().put(set_field_name.val, e),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 builder_setter_chain ::=
     builder_setter_call:head builder_setter_chain:tail
-    {: RESULT = head.putAll(tail.build()); :}
+    {:
+       ImmutableMap.Builder<String, Expr> headMapBuilder = ((LexedValue<ImmutableMap.Builder<String, Expr>>)head.value).val;
+       ImmutableMap<String, Expr> tailMap = ((LexedValue<ImmutableMap.Builder<String, Expr>>)tail.value).val.build();
+       RESULT = chainSymbols(headMapBuilder.putAll(tailMap), head, tail);
+    :}
   | builder_setter_call:setter_call
     {: RESULT = setter_call; :}
   ;
 
 inequality ::=
-    expr:a L_ANGLE_BRACKET expr:b
-    {: RESULT = new LessThanBoolExpr(a, b); :}
-  | expr:a R_ANGLE_BRACKET expr:b
-    {: RESULT = new GreaterThanBoolExpr(a, b); :}
-  | expr:a LTE expr:b
-    {: RESULT = new LessThanOrEqualToBoolExpr(a, b); :}
-  | expr:a GTE expr:b
-    {: RESULT = new GreaterThanOrEqualToBoolExpr(a, b); :}
+    expr:a L_ANGLE_BRACKET:l expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(l.currentInputLine, lright), new Line(b));
+       int startCol = min(a.startCol, lleft, b.startCol);
+       int endCol = max(a.endCol, lleft + l.len, b.endCol);
+       RESULT = new LessThanBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a R_ANGLE_BRACKET:r expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(r.currentInputLine, rright), new Line(b));
+       int startCol = min(a.startCol, rleft, b.startCol);
+       int endCol = max(a.endCol, rleft + r.len, b.endCol);
+       RESULT = new GreaterThanBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a LTE:lte expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(lte.currentInputLine, lteright), new Line(b));
+       int startCol = min(a.startCol, lteleft, b.startCol);
+       int endCol = max(a.endCol, lteleft + lte.len, b.endCol);
+       RESULT = new LessThanOrEqualToBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a GTE:gte expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(gte.currentInputLine, gteright), new Line(b));
+       int startCol = min(a.startCol, gteleft, b.startCol);
+       int endCol = max(a.endCol, gteleft + gte.len, b.endCol);
+       RESULT = new GreaterThanOrEqualToBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
   ;
 
-// TODO(steving) Address this. This action causes type-unsafety in this language...allows doubles where really
-// there should only be booleans.
 bool_arithmetic ::=
-    expr:a AND expr:b
-    {: RESULT = new AndBoolExpr(a, b); :}
-  | expr:a OR expr:b
-    {: RESULT = new OrBoolExpr(a, b); :}
-  | NOT expr:a
-    {: RESULT = new NotBoolExpr(a); :}
+    expr:a AND:and expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(and.currentInputLine, andright), new Line(b));
+       int startCol = min(a.startCol, andleft, b.startCol);
+       int endCol = max(a.endCol, andleft + and.len, b.endCol);
+       RESULT = new AndBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | expr:a OR:o expr:b
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(o.currentInputLine, oright), new Line(b));
+       int startCol = min(a.startCol, oleft, b.startCol);
+       int endCol = max(a.endCol, oleft + o.len, b.endCol);
+       RESULT = new OrBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+    :}
+  | NOT:n expr:a
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(n.currentInputLine, nright), new Line(a));
+       int startCol = Math.min(nleft, a.startCol);
+       int endCol = Math.max(a.endCol, nleft + n.len);
+       RESULT = new NotBoolExpr(a, currentLinesSupplier, a.currentLineNumber, startCol, endCol);
+    :}
   ;
 
 fmt_string ::=
     FMT_STRING_PART:fs expr:e fmt_string:fswt
     {:
-       fswt.get(0).add(fs);
-       fswt.get(1).add(e);
-       RESULT = fswt;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(fs.currentInputLine, fsright), new Line(e.currentLine, e.currentLineNumber), new Line(((LexedValue) fswt.value).currentInputLine, fswt.right));
+       int startCol = min(fsleft, e.startCol, fswt.left);
+       int endCol = max(fsleft + fs.len, e.endCol, fswt.left + ((LexedValue) fswt.value).len);
+
+       ImmutableList<ImmutableList.Builder> fswtList = ((LexedValue<ImmutableList<ImmutableList.Builder>>)fswt.value).val;
+       fswtList.get(0).add(fs.val);
+       fswtList.get(1).add(e);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          fswt.right, // line number
+          new LexedValue(
+            fswtList,
+            currentLinesSupplier,
+            endCol - startCol)
+       );
     :}
   | FMT_STRING_PART:fs expr:e STRING:tail
-    {: RESULT = ImmutableList.of(ImmutableList.builder().add(tail).add(fs), ImmutableList.builder().add(e)); :}
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(fs.currentInputLine, fsright), new Line(e.currentLine, e.currentLineNumber), new Line(tail.currentInputLine, tailright));
+       int startCol = min(fsleft, e.startCol, tailleft);
+       int endCol = max(fsleft + fs.len, e.endCol, tailleft + tail.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tailright, // line number
+          new LexedValue(
+            ImmutableList.of(ImmutableList.builder().add(tail.val).add(fs.val), ImmutableList.builder().add(e)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 // The last production 'term' closes the grammar. It's a primitive or identifier.
@@ -804,7 +1556,7 @@ term ::=
 
 identifier ::=
     IDENTIFIER:identifier
-    {: RESULT = new IdentifierReferenceTerm(identifier); :}
+    {: RESULT = new IdentifierReferenceTerm(identifier.val, identifier.currentInputLine, identifierright, identifierleft, identifierleft + identifier.len); :}
   ;
 
 primitive ::=
@@ -813,19 +1565,19 @@ primitive ::=
   | integer:i
     {: RESULT = i; :}
   | STRING:s
-    {: RESULT = new StringTerm(s); :}
-  | TRUE
-    {: RESULT = new TrueTerm(); :}
-  | FALSE
-    {: RESULT = new FalseTerm(); :}
+    {: RESULT = new StringTerm(s.val, s.currentInputLine, sright, sleft, sleft + s.len); :}
+  | TRUE:t
+    {: RESULT = new TrueTerm(t.currentInputLine, tright, tleft, tleft + t.len); :}
+  | FALSE:f
+    {: RESULT = new FalseTerm(f.currentInputLine, fright, fleft, fleft + f.len); :}
   ;
 
 float ::=
     FLOAT:f
-    {: RESULT = new FloatTerm(f); :}
+    {: RESULT = new FloatTerm(f.val, f.currentInputLine, fright, fleft, fleft + f.len); :}
   ;
 
 integer ::=
     INTEGER:i
-    {: RESULT = new IntegerTerm(i); :}
+    {: RESULT = new IntegerTerm(i.val, i.currentInputLine, iright, ileft, ileft + i.len); :}
   ;

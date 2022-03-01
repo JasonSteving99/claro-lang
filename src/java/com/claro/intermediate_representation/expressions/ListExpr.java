@@ -10,6 +10,7 @@ import com.claro.intermediate_representation.types.impls.builtins_impls.collecti
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class ListExpr extends Expr {
@@ -20,21 +21,21 @@ public class ListExpr extends Expr {
   // This type is only available after the type validation phase.
   private Type validatedListType;
 
-  public ListExpr(ImmutableList<Expr> listInitializerArgsList) {
-    super(ImmutableList.of());
+  public ListExpr(ImmutableList<Expr> listInitializerArgsList, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.emptyListValueType = Optional.empty();
     this.initializerArgExprsList = listInitializerArgsList;
   }
 
   // When the grammar finds an empty list, it'll accept whatever type is asserted upon it by its surrounding context.
-  public ListExpr() {
-    super(ImmutableList.of());
+  public ListExpr(Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.emptyListValueType = Optional.of(Types.UNDECIDED);
     this.initializerArgExprsList = ImmutableList.of();
   }
 
-  public ListExpr(Type emptyListValueType) {
-    super(ImmutableList.of());
+  public ListExpr(Type emptyListValueType, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.emptyListValueType = Optional.of(emptyListValueType);
     this.initializerArgExprsList = ImmutableList.of();
   }

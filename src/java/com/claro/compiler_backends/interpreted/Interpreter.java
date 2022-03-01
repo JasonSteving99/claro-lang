@@ -53,6 +53,10 @@ public class Interpreter implements CompilerBackend {
     }
 
     // In INTERPRETED mode don't print out the parser result, it doesn't have a value.
-    ((ProgramNode) parser.parse().value).generateTargetOutput(Target.INTERPRETED, StdLibUtil::registerIdentifiers);
+    ProgramNode programNode = ((ProgramNode) parser.parse().value);
+
+    if (parser.errorsFound == 0) {
+      programNode.generateTargetOutput(Target.INTERPRETED, StdLibUtil::registerIdentifiers);
+    }
   }
 }

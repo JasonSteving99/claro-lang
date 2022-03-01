@@ -1,10 +1,12 @@
 package com.claro.compiler_backends.java_source;
 
 import com.claro.ClaroParser;
+import com.claro.ClaroParserException;
 import com.claro.compiler_backends.CompilerBackend;
 import com.claro.compiler_backends.ParserUtil;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
+import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.stdlib.StdLibUtil;
 
 import java.util.Optional;
@@ -18,7 +20,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   // TODO(steving) Migrate this file to use an actual cli library.
   // TODO(steving) Consider Apache Commons Cli 1.4 https://commons.apache.org/proper/commons-cli/download_cli.cgi
   public JavaSourceCompilerBackend(String... args) {
-    this.SILENT = args.length >= 1 && args[0].equals("--silent");
+    this.SILENT = args.length >= 1 && args[0].equals("--silent=true");
     // For now if you're gonna pass 2 args you gotta pass them all...
     if (args.length >= 2) {
       // args[1] holds the generated classname.
@@ -34,10 +36,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
   @Override
   public void run() throws Exception {
-    if (!this.SILENT) {
-      System.out.println("Enter your expression:");
-    }
-
     // TODO(steving) Figure out a way to take file contents by reading files within Bazel scope.
     Scanner scan = new Scanner(System.in);
 
@@ -53,11 +51,50 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     this.GENERATED_CLASSNAME.ifPresent(s -> parser.generatedClassName = s);
     this.PACKAGE_STRING.ifPresent(s -> parser.package_string = s);
-    if (!this.SILENT) {
-      System.out.print("= ");
-    }
 
-    System.out.println(
-        ((ProgramNode) parser.parse().value).generateTargetOutput(Target.JAVA_SOURCE, StdLibUtil::registerIdentifiers));
+    try {
+      ProgramNode programNode = ((ProgramNode) parser.parse().value);
+      StringBuilder generatedCode =
+          programNode.generateTargetOutput(Target.JAVA_SOURCE, StdLibUtil::registerIdentifiers);
+      if (parser.errorsFound == 0 && Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
+        System.out.println(generatedCode);
+        System.exit(0);
+      } else {
+        parser.errorMessages.forEach(Runnable::run);
+        Expr.typeErrorsFound.forEach(e -> e.accept(parser.generatedClassName));
+        ProgramNode.miscErrorsFound.forEach(Runnable::run);
+        warnErrorsFound(parser);
+        System.exit(1);
+      }
+    } catch (ClaroParserException e) {
+      parser.errorMessages.forEach(Runnable::run);
+      Expr.typeErrorsFound.forEach(err -> err.accept(parser.generatedClassName));
+      ProgramNode.miscErrorsFound.forEach(Runnable::run);
+      System.err.println(e.getMessage());
+      warnErrorsFound(parser);
+      if (this.SILENT) {
+        // We found errors, there's no point to emit the generated code.
+        System.exit(1);
+      } else {
+        throw e;
+      }
+    } catch (Exception e) {
+      parser.errorMessages.forEach(Runnable::run);
+      Expr.typeErrorsFound.forEach(err -> err.accept(parser.generatedClassName));
+      ProgramNode.miscErrorsFound.forEach(Runnable::run);
+      System.err.println(e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+      warnErrorsFound(parser);
+      if (this.SILENT) {
+        // We found errors, there's no point to emit the generated code.
+        System.exit(1);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  private void warnErrorsFound(ClaroParser claroParser) {
+    int totalErrorsFound = claroParser.errorsFound + Expr.typeErrorsFound.size() + ProgramNode.miscErrorsFound.size();
+    System.err.println(totalErrorsFound + " Error" + (totalErrorsFound > 1 ? "s" : ""));
   }
 }

@@ -9,10 +9,12 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
+
 public abstract class BoolExpr extends Expr {
   // For now this class is left empty, though in the future it'll likely contain at least typing information.
-  public BoolExpr(ImmutableList<Node> children) {
-    super(children);
+  public BoolExpr(ImmutableList<Node> children, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(children, currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override
@@ -22,17 +24,16 @@ public abstract class BoolExpr extends Expr {
     // BoolExprs support either 1 or 2 operands.
     if (this.getChildren().size() == 1) {
       if (supportedOperandTypes.size() > 0) {
-        assertSupportedExprType(
-            ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap), supportedOperandTypes);
+        ((Expr) this.getChildren().get(0)).assertSupportedExprType(scopedHeap, supportedOperandTypes);
       }
     } else {
-      Type lhsActualType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+      Expr lhs = (Expr) this.getChildren().get(0);
+      Expr rhs = (Expr) this.getChildren().get(1);
       if (supportedOperandTypes.isEmpty()) {
-        ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, lhsActualType);
+        rhs.assertExpectedExprType(scopedHeap, lhs.getValidatedExprType(scopedHeap));
       } else {
-        assertSupportedExprType(lhsActualType, supportedOperandTypes);
-        assertSupportedExprType(
-            ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap), supportedOperandTypes);
+        lhs.assertSupportedExprType(scopedHeap, supportedOperandTypes);
+        rhs.assertSupportedExprType(scopedHeap, supportedOperandTypes);
       }
     }
 

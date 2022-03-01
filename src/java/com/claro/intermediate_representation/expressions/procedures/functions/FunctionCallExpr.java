@@ -10,14 +10,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
   protected final String name;
   protected final ImmutableList<Expr> argExprs;
 
-  public FunctionCallExpr(String name, ImmutableList<Expr> args) {
-    super(ImmutableList.of());
+  public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.name = name;
     this.argExprs = args;
   }

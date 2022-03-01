@@ -5,10 +5,12 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
+
 public class ParenthesizedExpr extends Expr {
 
-  public ParenthesizedExpr(Expr e) {
-    super(ImmutableList.of(e));
+  public ParenthesizedExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

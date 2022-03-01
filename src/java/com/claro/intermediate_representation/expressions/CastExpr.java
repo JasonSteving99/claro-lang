@@ -8,12 +8,14 @@ import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
+
 public class CastExpr extends Expr {
   private final TypeProvider assertedTypeProvider;
   private final Expr castedExpr;
 
-  public CastExpr(TypeProvider assertedTypeProvider, Expr castedExpr) {
-    super(ImmutableList.of(castedExpr));
+  public CastExpr(TypeProvider assertedTypeProvider, Expr castedExpr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(castedExpr), currentLine, currentLineNumber, startCol, endCol);
     this.assertedTypeProvider = assertedTypeProvider;
     this.castedExpr = castedExpr;
   }

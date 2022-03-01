@@ -1,17 +1,20 @@
 package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 
+import java.util.Stack;
 import java.util.function.Consumer;
 
 public class ProgramNode {
   private final String packageString, generatedClassName;
   private final StmtListNode stmtListNode;
+  public static final Stack<Runnable> miscErrorsFound = new Stack<>();
 
   private Consumer<ScopedHeap> setupStdLibConsumerFn = s -> {
   }; // By default don't support any StdLib.
@@ -100,20 +103,34 @@ public class ProgramNode {
       // user-defined type data that we evaluated in the preceding phases, so instead of depending on exiting this last
       // scope to trigger checking unused, we'll just manually check unused, but keep the scope so that we keep the type
       // definitions.
-      scopedHeap.checkAllIdentifiersInCurrScopeUsed();
+      try {
+        scopedHeap.checkAllIdentifiersInCurrScopeUsed();
+      } catch (Exception e) {
+        miscErrorsFound.push(() -> System.err.println(e.getMessage()));
+      }
     }
 
     // CODE GEN PHASE:
-    // Now that we've validated that all types are valid, go to town in a fresh scope!
-    Node.GeneratedJavaSource programJavaSource =
-        stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName);
+    // Refuse to do code-gen phase if there were any type validation errors.
+    StringBuilder res = null; // I hate null but am also too lazy right now to refactor to Optional<StringBuilder>
+    if (Expr.typeErrorsFound.isEmpty() && miscErrorsFound.isEmpty()) {
+      // Now that we've validated that all types are valid, go to town in a fresh scope!
+      Node.GeneratedJavaSource programJavaSource =
+          stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName);
+      res = genJavaSource(programJavaSource);
+    }
 
     // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks
     // that get run at that time at the last moment before we give the all good signal.
-    scopedHeap.exitCurrScope();
+    try {
+      scopedHeap.disableCheckUnused(); // We already checked unused before codegen.
+      scopedHeap.exitCurrScope();
+    } catch (Exception e) {
+      miscErrorsFound.push(() -> System.err.println(e.getMessage()));
+    }
 
     // Wrap the generated source code with the needed Java boilerplate.
-    return genJavaSource(programJavaSource);
+    return res;
   }
 
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
@@ -140,8 +157,11 @@ public class ProgramNode {
       throw new RuntimeException(e);
     }
 
-    // Now that we've validated that all types are valid, go to town!
-    stmtListNode.generateInterpretedOutput(scopedHeap);
+    // Refuse to perform the execution phase if there were any type validation errors.
+    if (Expr.typeErrorsFound.isEmpty() && miscErrorsFound.isEmpty()) {
+      // Now that we've validated that all types are valid, go to town!
+      stmtListNode.generateInterpretedOutput(scopedHeap);
+    }
 
     // There's no output in the interpreting mode.
     return null;

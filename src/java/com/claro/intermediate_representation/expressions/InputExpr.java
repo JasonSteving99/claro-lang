@@ -7,14 +7,15 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Scanner;
+import java.util.function.Supplier;
 
 public class InputExpr extends Expr {
 
   private static final Scanner INPUT_SCANNER = new Scanner(System.in);
   private final String prompt;
 
-  public InputExpr(String prompt) {
-    super(ImmutableList.of());
+  public InputExpr(String prompt, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.prompt = prompt;
   }
 

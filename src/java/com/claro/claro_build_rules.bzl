@@ -5,7 +5,7 @@ load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
-def claro_binary(name, srcs, java_name = "CompiledCalculator"):
+def claro_binary(name, srcs, java_name):
     native.java_binary(
         name = name,
         main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
@@ -27,7 +27,7 @@ def claro_binary(name, srcs, java_name = "CompiledCalculator"):
         ]
     )
 
-def claro_image(name, srcs, java_name = "CompiledCalculator"):
+def claro_image(name, srcs, java_name = "CompiledClaroProgram"):
     java_image(
         name = name,
         main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
@@ -36,12 +36,17 @@ def claro_image(name, srcs, java_name = "CompiledCalculator"):
         srcs = srcs,
     )
 
-def claro_library(name, src, java_name = "CompiledCalculator", claro_compiler_name = DEFAULT_CLARO_NAME):
+def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
+    if not src.endswith(".claro"):
+        fail("claro_library: Provided src must use .claro extension.")
+    if not java_name:
+        java_name = src[:-6]
     native.genrule(
         name = name,
         srcs = [src],
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent --classname={1} --package={2} < $< > $(OUTS)".format(
+        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} < $< > $(OUTS)".format(
             claro_compiler_name,
+            "false" if debug else "true", # --silent
             java_name, # --classname
             DEFAULT_PACKAGE_PREFIX, # --package
         ),
@@ -85,6 +90,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         ],
         deps = [
             ":claro_parser_exception",
+            ":lexed_value",
             "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
             "//src/java/com/claro/intermediate_representation:node",
             "//src/java/com/claro/intermediate_representation:program_node",
@@ -103,9 +109,11 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
             "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
             "//src/java/com/claro/intermediate_representation/types:type_provider",
+            "//src/java/com/claro/intermediate_representation/types:type",
             "//src/java/com/claro/intermediate_representation/types:types",
             "//:apache_commons_text",
             "//:guava",
+            "//:lombok",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient
         ],
     )
@@ -122,11 +130,19 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         symbols = "Calc",
         # TODO(steving) This is getting dangerous. This arose from a reduce/reduce conflict between identifier and user
         # TODO(steving) defined type name reference (which is also just an identifier). Hopefully eliminate the conflict.
-        expected_conflicts = 2,
+        expected_conflicts = 1,
     )
 
     jflex(
         name = name + "_gen_lexer",
         srcs = ["ClaroLexer.flex"],
         outputs = ["ClaroLexer.java"],
+    )
+
+    native.java_library(
+        name = "lexed_value",
+        srcs = ["LexedValue.java"],
+        deps = [
+            "//:lombok",
+        ],
     )

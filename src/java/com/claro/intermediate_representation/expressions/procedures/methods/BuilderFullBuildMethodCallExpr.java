@@ -10,12 +10,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.function.Supplier;
+
 // TODO(steving) Deprecate this hack in favor of actually implementing methods on objects, making the Builder an object.
 public class BuilderFullBuildMethodCallExpr extends Expr {
   private final BuilderMethodCallExpr delegateBuilderMethodCallExpr;
 
-  public BuilderFullBuildMethodCallExpr(BuilderMethodCallExpr delegateBuilderMethodCallExpr) {
-    super(ImmutableList.of());
+  public BuilderFullBuildMethodCallExpr(BuilderMethodCallExpr delegateBuilderMethodCallExpr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.delegateBuilderMethodCallExpr = delegateBuilderMethodCallExpr;
   }
 

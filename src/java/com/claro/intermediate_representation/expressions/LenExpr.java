@@ -8,10 +8,11 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
+import java.util.function.Supplier;
 
 public class LenExpr extends Expr {
-  public LenExpr(Expr e) {
-    super(ImmutableList.of(e));
+  public LenExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override

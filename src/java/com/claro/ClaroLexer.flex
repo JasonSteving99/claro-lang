@@ -43,14 +43,29 @@ import java.util.concurrent.atomic.AtomicReference;
     // nested format strings within the
     Stack<AtomicReference<Integer>> fmtStrExprBracketCounterStack = new Stack<>();
 
+    // Until I find a more efficient way to do this, let's bring the entire file contents into memory in order to give
+    // useful error messages that can point at the line. We'll only need to track one at a time because we'll hand off
+    // the entire string builder reference to the parser when we're passing off symbols, so we won't reuse the same
+    // instance across lines, we'll instantiate and reference a new one. This is our way of doling out lines to only
+    // consumers that need that line.
+    AtomicReference<StringBuilder> currentInputLine = new AtomicReference<>(new StringBuilder());
+    private void addToLine(Object input) {
+      currentInputLine.get().append(input);
+    }
+
     /** Creates a new {@link Symbol} of the given type. */
     private Symbol symbol(int type) {
-        return new Symbol(type, yyline, yycolumn);
+        return new Symbol(type, yycolumn, yyline);
     }
 
     /** Creates a new {@link Symbol} of the given type and value. */
-    private Symbol symbol(int type, Object value) {
-        return new Symbol(type, yyline, yycolumn, value);
+    private <T> Symbol symbol(int type, int lines, int columns, T value) {
+        addToLine(value);
+        final StringBuilder currentInputLineBuilder = currentInputLine.get();
+        Symbol res = new Symbol(type, yycolumn, yyline, new LexedValue<T>(value, () -> currentInputLineBuilder.toString(), columns));
+        yyline += lines;
+        yycolumn += columns;
+        return res;
     }
 
     public boolean escapeSpecialChars = false;
@@ -76,10 +91,11 @@ Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|[0-9])*
 LineTerminator = \r|\n|\r\n
 
 /* White space is a line terminator, space, tab, or line feed. */
-WhiteSpace     = {LineTerminator} | [ \t\f]
+WhiteSpace     = [ \t\f]
 
 %state LINECOMMENT
 %state STRING
+%state IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR
 
 %%
 
@@ -91,20 +107,20 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
 <YYINITIAL> {
 
     /* Create a new parser symbol for the lexem. */
-    "+"                { return symbol(Calc.PLUS); }
-    "++"               { return symbol(Calc.INCREMENT); }
-    "--"               { return symbol(Calc.DECREMENT); }
-    "-"                { return symbol(Calc.MINUS); }
-    "*"                { return symbol(Calc.MULTIPLY); }
-    "^"                { return symbol(Calc.EXPONENTIATE); }
-    "/"                { return symbol(Calc.DIVIDE); }
-    "("                { return symbol(Calc.LPAR); }
-    ")"                { return symbol(Calc.RPAR); }
+    "+"                { return symbol(Calc.PLUS, 0, 1, '+'); }
+    "++"               { return symbol(Calc.INCREMENT, 0, 2, "++"); }
+    "--"               { return symbol(Calc.DECREMENT, 0, 2, "--"); }
+    "-"                { return symbol(Calc.MINUS, 0, 1, "-"); }
+    "*"                { return symbol(Calc.MULTIPLY, 0, 1, "*"); }
+    "^"                { return symbol(Calc.EXPONENTIATE, 0, 1, "^"); }
+    "/"                { return symbol(Calc.DIVIDE, 0, 1, "/");}
+    "("                { return symbol(Calc.LPAR, 0, 1, "("); }
+    ")"                { return symbol(Calc.RPAR, 0, 1, ")"); }
     "{"                {
                          if (!fmtStrExprBracketCounterStack.isEmpty()) {
                            fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i+1);
                          }
-                         return symbol(Calc.LCURLY);
+                         return symbol(Calc.LCURLY, 0, 1, "{");
                        }
     "}"                {
                          if (!fmtStrExprBracketCounterStack.isEmpty()) {
@@ -113,99 +129,118 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
                              fmtStrExprBracketCounterStack.pop();
                              // Resume the string lexing state since all we've done is finish grabbing a single format expr.
                              yybegin(STRING);
+                             yycolumn++;
+                             addToLine("}");
                            } else {
                              fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i-1);
-                             return symbol(Calc.RCURLY);
+                             return symbol(Calc.RCURLY, 0, 1, "}");
                            }
                          } else {
-                           return symbol(Calc.RCURLY);
+                           return symbol(Calc.RCURLY, 0, 1, "}");
                          }
                        }
-    "["                { return symbol(Calc.LBRACKET); }
-    "]"                { return symbol(Calc.RBRACKET); }
-    "=="               { return symbol(Calc.EQUALS); }
-    "!="               { return symbol(Calc.NOT_EQUALS); }
-    "<"                { return symbol(Calc.L_ANGLE_BRACKET); }
-    ">"                { return symbol(Calc.R_ANGLE_BRACKET); }
-    "<="               { return symbol(Calc.LTE); }
-    ">="               { return symbol(Calc.GTE); }
-    "or"               { return symbol(Calc.OR); }
-    "and"              { return symbol(Calc.AND); }
-    "not"              { return symbol(Calc.NOT); }
-    "->"               { return symbol(Calc.ARROW); }
-    "true"             { return symbol(Calc.TRUE); }
-    "false"            { return symbol(Calc.FALSE); }
-    "var"              { return symbol(Calc.VAR); }
-    "="                { return symbol(Calc.ASSIGNMENT); }
-    ";"                { return symbol(Calc.SEMICOLON); }
-    ":"                { return symbol(Calc.COLON); }
-    ","                { return symbol(Calc.COMMA); }
-    "."                { return symbol(Calc.DOT); }
-    "|"                { return symbol(Calc.BAR); }
-    "if"               { return symbol(Calc.IF); }
-    "else"             { return symbol(Calc.ELSE); }
-    "while"            { return symbol(Calc.WHILE); }
-    "return"           { return symbol(Calc.RETURN); }
+    "["                { return symbol(Calc.LBRACKET, 0, 1, "["); }
+    "]"                { return symbol(Calc.RBRACKET, 0, 1, "]"); }
+    "=="               { return symbol(Calc.EQUALS, 0, 2, "=="); }
+    "!="               { return symbol(Calc.NOT_EQUALS, 0, 2, "!="); }
+    "<"                { return symbol(Calc.L_ANGLE_BRACKET, 0, 1, "<"); }
+    ">"                { return symbol(Calc.R_ANGLE_BRACKET, 0, 1, ">"); }
+    "<="               { return symbol(Calc.LTE, 0, 2, "<="); }
+    ">="               { return symbol(Calc.GTE, 0, 2, ">="); }
+    "or"               { return symbol(Calc.OR, 0, 2, "or"); }
+    "and"              { return symbol(Calc.AND, 0, 3, "and"); }
+    "not"              { return symbol(Calc.NOT, 0, 3, "not"); }
+    "->"               { return symbol(Calc.ARROW, 0, 2, "->"); }
+    "true"             { return symbol(Calc.TRUE, 0, 4, true); }
+    "false"            { return symbol(Calc.FALSE, 0, 5, false); }
+    "var"              { return symbol(Calc.VAR, 0, 3, "var"); }
+    "="                { return symbol(Calc.ASSIGNMENT, 0, 1, "="); }
+    ";"                { return symbol(Calc.SEMICOLON, 0, 1, ";"); }
+    ":"                { return symbol(Calc.COLON, 0, 1, ":"); }
+    ","                { return symbol(Calc.COMMA, 0, 1, ','); }
+    "."                { return symbol(Calc.DOT, 0, 1, "."); }
+    "|"                { return symbol(Calc.BAR, 0, 1, "|"); }
+    "if"               { return symbol(Calc.IF, 0, 2, "if"); }
+    "else"             { return symbol(Calc.ELSE, 0, 4, "else"); }
+    "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
+    "return"           { return symbol(Calc.RETURN, 0, 6, "return"); }
 
     // Builtin functions are currently processed at the grammar level.. maybe there's a better generalized way.
-    "log_"             { return symbol(Calc.LOG_PREFIX); }
-    "print"            { return symbol(Calc.PRINT); }
-    "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL); }
-    "input"            { return symbol(Calc.INPUT); }
-    "len"              { return symbol(Calc.LEN); }
-    "type"             { return symbol(Calc.TYPE); }
+    "log_"             { return symbol(Calc.LOG_PREFIX, 0, 4, "log_"); }
+    "print"            { return symbol(Calc.PRINT, 0, 5, "print"); }
+    "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL, 0, 12, "numeric_bool"); }
+    "input"            { return symbol(Calc.INPUT, 0, 5, "input"); }
+    "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
+    "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
 
     // DEBUGGING keywords that should be removed when we want a real release...
-    "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE); }
+    "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
 
     // Builtin Types.
-    "int"              { return symbol(Calc.INT_TYPE); }
-    "float"            { return symbol(Calc.FLOAT_TYPE); }
-    "boolean"          { return symbol(Calc.BOOLEAN_TYPE); }
-    "string"           { return symbol(Calc.STRING_TYPE); }
-    "tuple"            { return symbol(Calc.TUPLE_TYPE); }
-    "struct"           { return symbol(Calc.STRUCT_TYPE); }
-    "function"         { return symbol(Calc.FUNCTION_TYPE); }
-    "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE); }
-    "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE); }
-    "lambda"           { return symbol(Calc.LAMBDA); }
-    "alias"            { return symbol(Calc.ALIAS); }
+    "int"              { return symbol(Calc.INT_TYPE, 0, 3, "int"); }
+    "float"            { return symbol(Calc.FLOAT_TYPE, 0, 5, "float"); }
+    "boolean"          { return symbol(Calc.BOOLEAN_TYPE, 0, 7, "boolean"); }
+    "string"           { return symbol(Calc.STRING_TYPE, 0, 6, "string"); }
+    "tuple"            { return symbol(Calc.TUPLE_TYPE, 0, 5, "tuple"); }
+    "struct"           { return symbol(Calc.STRUCT_TYPE, 0, 6, "struct"); }
+    "function"         { return symbol(Calc.FUNCTION_TYPE, 0, 8, "function"); }
+    "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE, 0, 8, "consumer"); }
+    "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
+    "lambda"           { return symbol(Calc.LAMBDA, 0, 6, "lambda"); }
+    "alias"            { return symbol(Calc.ALIAS, 0, 5, "alias"); }
 
     // Builders are builtin at the language level.
-    "builder"          { return symbol(Calc.BUILDER); }
-    ".build()"         { return symbol(Calc.DOTBUILD); }
+    "builder"          { return symbol(Calc.BUILDER, 0, 7, "builder"); }
+    ".build()"         { return symbol(Calc.DOTBUILD, 0, 8, ".build()"); }
 
     // Modifiers go here.
-    "immutable"         { return symbol(Calc.IMMUTABLE); }
+    "immutable"         { return symbol(Calc.IMMUTABLE, 0, 9, "immutable"); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.
                          // In that case we need to clear the buffer to start processing this.
                          string.setLength(0);
+                         yycolumn++;
+                         addToLine("\"");
                          yybegin(STRING);
                        }
 
     // If the line comment symbol is found, ignore the token and then switch to the LINECOMMENT lexer state.
-    "#"                { yybegin(LINECOMMENT); }
+    "#"                { yycolumn++; addToLine("#"); yybegin(LINECOMMENT); }
 
     // If an integer is found, return the token INTEGER that represents an integer and the value of
     // the integer that is held in the string yytext
-    {Integer}          { return symbol(Calc.INTEGER, Integer.parseInt(yytext())); }
+    {Integer}          {
+                         String lexed = yytext();
+                         return symbol(Calc.INTEGER, 0, lexed.length(), Integer.parseInt(lexed));
+                       }
 
     // If float is found, return the token FLOAT that represents a float and the value of
     // the float that is held in the string yytext
-    {Float}            { return symbol(Calc.FLOAT, Double.parseDouble(yytext())); }
+    {Float}            {
+                         String lexed = yytext();
+                         return symbol(Calc.FLOAT, 0, lexed.length(), Double.parseDouble(lexed));
+                       }
 
-    {Identifier}       { return symbol(Calc.IDENTIFIER, yytext()); }
+    {Identifier}       {
+                         String lexed = yytext();
+                         return symbol(Calc.IDENTIFIER, 0, lexed.length(), lexed);
+                       }
 
     /* Don't do anything if whitespace is found */
-    {WhiteSpace}       { /* do nothing with space */ }
+    {WhiteSpace}       {
+                         String parsed = yytext();
+                         yycolumn += parsed.length();
+                         addToLine(parsed);
+                       }
+
+    {LineTerminator}   { yyline++; yycolumn = 0; addToLine(yytext()); currentInputLine.set(new StringBuilder()); }
 }
 
 // A comment that goes all the way from the symbol '#' to the end of the line or EOF.
 <LINECOMMENT> {
-    {LineTerminator}   { yybegin(YYINITIAL); }
-    .                  { /* Ignore everything in the rest of the commented line. */ }
+    {LineTerminator}   { yybegin(YYINITIAL); yyline++; yycolumn = 0; addToLine(yytext()); currentInputLine.set(new StringBuilder()); }
+    .                  { addToLine(yytext()); /* Ignore everything in the rest of the commented line. */ }
 }
 
 // A String is a sequence of any printable characters between quotes.
@@ -214,16 +249,23 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
                           yybegin(YYINITIAL);
                           String matchedString = string.toString();
                           string.setLength(0);
-                          return symbol(Calc.STRING, matchedString);
+                          addToLine("\"");
+                          final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                          return new Symbol(Calc.STRING, ++yycolumn - matchedString.length() - 2 , yyline, new LexedValue(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
                        }
-    [^\n\r\"\\{]+      { string.append( yytext() ); }
-    \\t                { appendSpecialCharToString(string, "\\t", '\t'); }
-    \\n                { appendSpecialCharToString(string, "\\n", '\n'); }
+    [^\n\r\"\\{]+      {
+                         String parsed = yytext();
+                         yycolumn += parsed.length();
+                         string.append(parsed);
+                         addToLine(parsed);
+                       }
+    \\t                { appendSpecialCharToString(string, "\\t", '\t'); yycolumn += 2; addToLine(yytext()); }
+    \\n                { appendSpecialCharToString(string, "\\n", '\n'); yycolumn += 2; addToLine(yytext()); }
 
-    \\r                { appendSpecialCharToString(string, "\\r", '\r'); }
-    \\\"               { appendSpecialCharToString(string, "\\\"", '\"'); }
-    \\                 { appendSpecialCharToString(string, "\\", '\\'); }
-    \\\{               { string.append('{'); }
+    \\r                { appendSpecialCharToString(string, "\\r", '\r'); yycolumn += 2; addToLine(yytext()); }
+    \\\"               { appendSpecialCharToString(string, "\\\"", '\"'); yycolumn += 2; addToLine(yytext());}
+    \\                 { appendSpecialCharToString(string, "\\", '\\'); yycolumn += 2; addToLine(yytext()); }
+    \\\{               { string.append('{'); yycolumn += 2; addToLine(yytext()); }
     "{"                {
                          // We're now going to start lexing a (possibly nested) fmt str expr, so we push a 0 bracket
                          // count onto the stack so that we can start tracking when we are done lexing the expr.
@@ -236,14 +278,53 @@ WhiteSpace     = {LineTerminator} | [ \t\f]
                          // than a STRING, so we need to consume the StringBuilder and return the FMT_STRING_PART.
                          String fmtStringPart = string.toString();
                          string.setLength(0);
-                         return symbol(Calc.FMT_STRING_PART, fmtStringPart);
+                         yycolumn++;
+                         addToLine("{");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         return new Symbol(Calc.FMT_STRING_PART, yycolumn, yyline, new LexedValue<String>(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
                        }
+}
+
+// This lexing state is literally just a mimimum-effort approach to trying to give more useful errors. Instead of just
+// stopping lexing early or simply ignoring the illegal char, we'll try to consume the rest of the current statement
+// or paired braces in order to give more useful errors on other statements as soon as possible.
+<IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR> {
+    ";"                { yycolumn++; yybegin(YYINITIAL); addToLine(";"); }
+    "}"                { yycolumn++; yybegin(YYINITIAL); addToLine("}"); }
+    ")"                { yycolumn++; yybegin(YYINITIAL); addToLine(")"); }
+    {LineTerminator}   { yyline++; yycolumn = 0; addToLine(yytext()); currentInputLine.set(new StringBuilder()); }
+    [^]                { yycolumn++; addToLine(yytext()); /* Swallow all other chars. */ }
 }
 
 // We have changed the default symbol in the bazel `cup()` rule from "sym" to "Calc", so we need to
 // change how JFlex handles the end of file.
 // See http://jflex.de/manual.html#custom-symbol-interface
-<<EOF>>                { return symbol(Calc.EOF); }
+<<EOF>>                {
+                         if (string.length() > 0) {
+                           string.setLength(0);
+                           ClaroParser.errorMessages.push(
+                               () ->
+                                 System.err.println(
+                                    String.format(
+                                        fmtStrExprBracketCounterStack.isEmpty()
+                                        ? "Error:%s: Reached EOF while parsing string literal, you're probably missing a closing quote."
+                                        : "Error:%s: Reached EOF while parsing format string expression literal, you're probably missing a closing brace.",
+                                        yyline
+                                    )
+                                 )
+                           );
+                         }
+                         return symbol(Calc.EOF);
+                       }
 
 /* Catch-all the rest, i.e. unknown character. */
-[^]  { throw new ClaroParserException("Illegal character <" + yytext() + ">"); }
+[^]  {
+        yybegin(IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR);
+        String lexed = yytext();
+        addToLine(lexed);
+        ClaroParser.errorMessages.push(
+            () ->
+              System.err.println(
+                  "Illegal character <" + lexed + "> found at line: " + (yyline + 1) + " column: " + ++yycolumn));
+     }
+

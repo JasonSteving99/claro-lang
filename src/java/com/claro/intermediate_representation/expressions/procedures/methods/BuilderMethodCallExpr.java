@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 // TODO(steving) Deprecate this hack in favor of actually implementing methods on objects, making the Builder an object.
@@ -24,15 +25,15 @@ public class BuilderMethodCallExpr extends Expr {
   private static final ImmutableSet<BaseType> SUPPORTED_BUILD_TYPES =
       ImmutableSet.of(BaseType.STRUCT, BaseType.IMMUTABLE_STRUCT);
 
-  public BuilderMethodCallExpr(String builtTypeName) {
-    super(ImmutableList.of());
+  public BuilderMethodCallExpr(String builtTypeName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.builtTypeName = builtTypeName;
     this.setFieldValues = ImmutableMap.of();
   }
 
   // TODO(steving) We need to implement methods support for Builder. This is currently all a hack.
-  public BuilderMethodCallExpr(String builtTypeName, ImmutableMap<String, Expr> setFieldValues) {
-    super(ImmutableList.of());
+  public BuilderMethodCallExpr(String builtTypeName, ImmutableMap<String, Expr> setFieldValues, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.builtTypeName = builtTypeName;
     this.setFieldValues = setFieldValues;
   }

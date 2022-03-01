@@ -7,11 +7,13 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Supplier;
+
 public class NumericBoolNumericExpr extends NumericExpr {
 
   // TODO(steving) This should only accept other BoolExpr arg. Need to update the grammar.
-  public NumericBoolNumericExpr(Expr e) {
-    super(ImmutableList.of(e));
+  public NumericBoolNumericExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
 
   @Override
