@@ -1,0 +1,59 @@
+name: Push to Docker Hub
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+
+  Build-and-Release:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+     
+      - name: Build and Push the Calculator Compiler Docker Image
+        # --incompatible_restrict_string_escapes=false because there's a bug in 
+        # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
+        # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
+        run: |
+          # We must build the Conditions.claro program so that the necessary build artifacts are available.
+          bazel build //src/java/com/claro/claro_programs:conditions_compiled_claro_image --incompatible_restrict_string_escapes=false
+          cd bazel-bin/src/java/com/claro
+          
+          # Copy the AutoValue and Lombok jar deps to the location where Riju expects them to be.
+          cp ../../../../external/maven/v1/https/jcenter.bintray.com/com/google/auto/value/auto-value/1.5.3/auto-value-1.5.3.jar claro_programs
+          cp ../../../../external/maven/v1/https/jcenter.bintray.com/org/projectlombok/lombok/1.18.20/lombok-1.18.20.jar claro_programs
+
+          # Setup a dir where Riju generated code will be placed during Riju deployment.
+          mkdir claro_programs/com
+          mkdir claro_programs/com/claro
+          
+          # Now we finally just need to create our tarball release of the claro_programs/ dir.
+          tar --exclude='claro_programs/conditions_compiled_claro_image.runfiles/local_jdk' --exclude='claro_programs/conditions_compiled_claro_image.runfiles/claro-lang/external/local_jdk' -hczvf claro-lang-bazel-bin.tar.gz claro_programs/
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1 
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v0.1.${{ github.run_number }}
+          name: ${{ steps.create_release.with.tag_name }} Automated Riju Release of commit ${{ github.sha }}
+          body: |
+            # This is an automated relase of resources needed to deploy Claro as part of Riju.
+            Check it out online at [riju.codes/claro](https://riju.codes/claro)**
+            
+            ## **Riju may still be running an old version**:
+            Keep in mind that the latest Claro Release is only picked up by Riju when it goes through a redeploy. However, Riju is a project externally developed and maintained, so it generally may take some time for new Claro Releases to reach Riju.
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
+            bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
+          
+          
+          
+          
