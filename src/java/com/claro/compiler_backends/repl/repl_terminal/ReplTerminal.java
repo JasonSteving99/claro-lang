@@ -31,9 +31,14 @@ public class ReplTerminal {
     } catch (Exception ignored) {
       // If for some reason this file isn't where it should be, we'll try one last thing
       // looking in the pwd for the file. This should be used for the Riju-hosted version
-      // whose binary is run outside of Bazel's sandbox.
+      // whose binary is run outside of Bazel's sandbox. The GitHub Action that releases
+      // Claro artifacts will have placed a CLARO_VERSION.txt file in the claro_programs/
+      // dir before creating the tarball, and then the Riju Claro config script copies that
+      // whole dir to the directory where the Claro REPL will be executed from...
+      // TODO(steving) Come up with a more portable solution. Figure out how to bundle the
+      //  version file into the deploy jar itself.
       try {
-        BufferedReader reader = new BufferedReader(new FileReader("CLARO_VERSION.txt"));
+        BufferedReader reader = new BufferedReader(new FileReader("programs/CLARO_VERSION.txt"));
         claroVersion = reader.readLine().trim();
       } catch (Exception ignoredAgain) {
         // Turns out we still don't know where the version file is, but don't let this break
