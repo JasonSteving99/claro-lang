@@ -1,0 +1,17 @@
+**DEV BUILD**
+
+Everything except for the first line of this file is ignored.
+This file simply exists to provide a hook for the REPL to
+communicate to the user the version of Claro that they're
+working with. At the time of creation, this file is really
+just useful for the Riju-hosted online Claro playground since
+I'd like to have a quick way of determining which version of
+Claro has been deployed so far since I'm not in control of
+scheduling Riju re-deployments.
+
+This file will be automatically replaced with the latest
+release version by the GitHub Action that performs continuous
+integration by automating releases when creating the release
+artifacts. When doing local development, the REPL will always
+simply report that it's running a "**DEV BUILD**" which I
+think is good enough.

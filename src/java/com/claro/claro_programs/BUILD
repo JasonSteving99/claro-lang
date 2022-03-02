@@ -13,12 +13,13 @@ load("//src/java/com/claro:claro_build_rules.bzl",
 claro_binary(
     name = "conditions_compiled_claro_image",
     srcs = [":conditions_compiled_claro"],
-    java_name = "conditions",
+    java_name = "Conditions",
 )
 
 claro_library(
     name = "conditions_compiled_claro",
-    src = "conditions.claro",
+    # TODO(steving) Fix Riju configuration so that we don't always need to have this file named Conditions.
+    src = "Conditions.claro",
 )
 
 claro_binary(

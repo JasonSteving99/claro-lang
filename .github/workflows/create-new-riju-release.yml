@@ -19,6 +19,9 @@ jobs:
         # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
         # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
         run: |
+          # First things first bump the version number that the REPL will show to the user.
+          echo "v0.1.${{ github.run_number }}" > CLARO_VERSION.txt
+
           # We must build the Conditions.claro program so that the necessary build artifacts are available.
           # Note: This --nojava_header_compilation flag is necessary because Lombok
           #       fails with error "Turbine is not currently supported by lombok."

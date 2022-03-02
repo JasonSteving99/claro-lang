@@ -1,5 +1,6 @@
 package com.claro.compiler_backends.repl.repl_terminal;
 
+import com.google.devtools.build.runfiles.Runfiles;
 import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.TextGraphics;
@@ -9,6 +10,8 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal.CtrlCBehaviour;
 import com.googlecode.lanterna.terminal.ansi.UnixTerminal;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Stack;
@@ -16,10 +19,22 @@ import java.util.function.Function;
 
 public class ReplTerminal {
 
+  private static String claroVersion = "v?.?.?";
+
   private final Function<String, Void> inputHandler;
+
+  static {
+    try {
+      String path = Runfiles.create().rlocation("claro-lang/CLARO_VERSION.txt");
+      BufferedReader reader = new BufferedReader(new FileReader(path));
+      claroVersion = reader.readLine().trim();
+    } catch (Exception ignored) {
+    }
+  }
 
   public ReplTerminal(Function<String, Void> inputHandler) {
     this.inputHandler = inputHandler;
+
   }
 
   public void runTerminal() {
@@ -40,7 +55,7 @@ public class ReplTerminal {
       // Change to a background/foreground color combo that pops more.
       textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
       textGraphics.setBackgroundColor(TextColor.ANSI.BLACK);
-      textGraphics.putString(2, 0, "ClaroLang 0.0.1 - Press ESC/Ctr-C to exit", SGR.BOLD);
+      textGraphics.putString(2, 0, String.format("ClaroLang %s - Press ESC/Ctr-C to exit", claroVersion), SGR.BOLD);
 
       // Change back to the default background/foreground colors.
       textGraphics.setForegroundColor(TextColor.ANSI.DEFAULT);
