@@ -14,13 +14,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
      
-      - name: Build and Push the Calculator Compiler Docker Image
+      - name: Build Release Artifacts
         # --incompatible_restrict_string_escapes=false because there's a bug in 
         # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
         # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
         run: |
           # We must build the Conditions.claro program so that the necessary build artifacts are available.
-          bazel build //src/java/com/claro/claro_programs:conditions_compiled_claro_image
+          bazel build --nojava_header_compilation //src/java/com/claro/claro_programs:conditions_compiled_claro_image
           cd bazel-bin/src/java/com/claro
           
           # Copy the AutoValue and Lombok jar deps to the location where Riju expects them to be.
