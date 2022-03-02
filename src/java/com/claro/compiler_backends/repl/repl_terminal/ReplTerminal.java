@@ -29,6 +29,16 @@ public class ReplTerminal {
       BufferedReader reader = new BufferedReader(new FileReader(path));
       claroVersion = reader.readLine().trim();
     } catch (Exception ignored) {
+      // If for some reason this file isn't where it should be, we'll try one last thing
+      // looking in the pwd for the file. This should be used for the Riju-hosted version
+      // whose binary is run outside of Bazel's sandbox.
+      try {
+        BufferedReader reader = new BufferedReader(new FileReader("CLARO_VERSION.txt"));
+        claroVersion = reader.readLine().trim();
+      } catch (Exception ignoredAgain) {
+        // Turns out we still don't know where the version file is, but don't let this break
+        // things, just keep the default version label.
+      }
     }
   }
 
