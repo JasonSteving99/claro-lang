@@ -20,6 +20,10 @@ jobs:
         # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
         run: |
           # We must build the Conditions.claro program so that the necessary build artifacts are available.
+          # Note: This --nojava_header_compilation flag is necessary because Lombok
+          #       fails with error "Turbine is not currently supported by lombok."
+          #       Followed the resolution here: https://githubmemory.com/repo/rzwitserloot/lombok/issues/2911
+          #       I don't know what any of this means.... but hey it works now *shrug*
           bazel build --nojava_header_compilation //src/java/com/claro/claro_programs:conditions_compiled_claro_image
           cd bazel-bin/src/java/com/claro
           
@@ -40,14 +44,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v0.1.${{ github.run_number }}
-          name: ${{ steps.create_release.with.tag_name }} Automated Riju Release of commit ${{ github.sha }}
+          name: v0.1.${{ github.run_number }} Automated Riju Release
           body: |
             # This is an automated relase of resources needed to deploy Claro as part of Riju.
-            Check it out online at [riju.codes/claro](https://riju.codes/claro)**
+            Check it out online at [riju.codes/claro](https://riju.codes/claro)
             
-            ## **Riju may still be running an old version**:
+            ## Riju may still be running an old version:
             Keep in mind that the latest Claro Release is only picked up by Riju when it goes through a redeploy. However, Riju is a project externally developed and maintained, so it generally may take some time for new Claro Releases to reach Riju.
-          draft: true
+          draft: false
           prerelease: false
           fail_on_unmatched_files: true
           files: |
