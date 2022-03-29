@@ -362,7 +362,7 @@ public final class Types {
             functionName,
             functionName,
             capturedVariables.entrySet().stream()
-                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .map(e -> String.format("  private %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
                 .collect(Collectors.joining()),
             functionName,
             capturedVariables.entrySet().stream()
@@ -470,7 +470,7 @@ public final class Types {
             providerName,
             providerName,
             capturedVariables.entrySet().stream()
-                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .map(e -> String.format("  private %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
                 .collect(Collectors.joining()),
             providerName,
             capturedVariables.entrySet().stream()
@@ -573,7 +573,7 @@ public final class Types {
             consumerName,
             consumerName,
             capturedVariables.entrySet().stream()
-                .map(e -> String.format("  private final %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
+                .map(e -> String.format("  private %s %s;\n", e.getValue().getJavaSourceType(), e.getKey()))
                 .collect(Collectors.joining()),
             consumerName,
             capturedVariables.entrySet().stream()

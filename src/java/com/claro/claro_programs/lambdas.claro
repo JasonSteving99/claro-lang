@@ -101,3 +101,20 @@ provider testOuterScopeInFunction() -> provider<int> {
 p = testOuterScopeInFunction();
 print(p());
 print(testOuterScopeVar);
+
+# Captured variables are mutable state across calls to the lambda, so this allows the creation of your
+# own "Generators" (ala Python) without needing to add yet more syntax to the language.
+var xxx = 10;
+var lll: provider<int> = () -> {
+  if (xxx > 0) {
+    --xxx;
+  }
+  return xxx;
+};
+var lllcurr = lll();
+while (lllcurr > 0) {
+  print(lllcurr);
+  lllcurr = lll();
+}
+print("done");
+print(xxx);
