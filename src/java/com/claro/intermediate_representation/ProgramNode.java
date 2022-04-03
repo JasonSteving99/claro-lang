@@ -251,6 +251,8 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "import com.claro.runtime_utilities.injector.Injector;\n" +
+            "import com.claro.runtime_utilities.injector.Key;\n" +
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +

@@ -15,6 +15,7 @@ import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.runtime_utilities.injector.InjectedKey;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.base.Strings;
@@ -23,6 +24,7 @@ import java.lang.Math;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicReference;
@@ -237,6 +239,7 @@ terminal LexedValue<String>  IMMUTABLE;
 terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal LexedValue<String>  BUILDER, DOTBUILD;
+terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -277,7 +280,7 @@ nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
-nonterminal Symbol/*ImmutableList.Builder<String>*/  lambda_arg_names_list;
+nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
@@ -301,6 +304,11 @@ nonterminal Symbol/*TypeProvider*/             builtin_type;
 nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
 nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
 nonterminal Stmt                               debug_stmts;
+nonterminal ModuleDefinitionStmt               module_definition_stmt;
+nonterminal StmtListNode                       bind_stmts_list;
+nonterminal BindStmt                           bind_stmt;
+nonterminal UsingBlockStmt                     using_block_stmt;
+nonterminal Symbol/*ImmutableList.Builder<InjectedKey>*/ injected_keys_list;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -384,6 +392,42 @@ stmt ::=
     {: RESULT = r; :}
   | alias_stmt:a
     {: RESULT = a; :}
+  | module_definition_stmt:m
+    {: RESULT = m; :}
+  | using_block_stmt:u
+    {: RESULT = u; :}
+  ;
+
+module_definition_stmt ::=
+    MODULE IDENTIFIER:i LCURLY bind_stmts_list:b RCURLY
+    {: RESULT = new ModuleDefinitionStmt(i.val, b); :}
+  | MODULE IDENTIFIER:i USING LPAR identifier_list:modules RPAR LCURLY bind_stmts_list:b RCURLY
+    {:
+      ImmutableList<String> moduleList =
+        ((LexedValue<ImmutableList.Builder<String>>)modules.value).val.build().reverse();
+      RESULT = new ModuleDefinitionStmt(i.val, Optional.of(moduleList), b);
+    :}
+  ;
+
+bind_stmts_list ::=
+    bind_stmt:head bind_stmts_list:tail
+    {: RESULT = new StmtListNode(head, tail); :}
+  | bind_stmt:s
+    {: RESULT = new StmtListNode(s); :}
+  ;
+
+bind_stmt ::=
+    BIND IDENTIFIER:i COLON builtin_type:t TO expr:e SEMICOLON
+    {: RESULT = new BindStmt(i.val, ((LexedValue<TypeProvider>) t.value).val, e); :}
+  ;
+
+using_block_stmt ::=
+    USING LPAR identifier_list:modules RPAR LCURLY stmt_list:s RCURLY
+    {:
+       ImmutableList<String> moduleList =
+         ((LexedValue<ImmutableList.Builder<String>>)modules.value).val.build().reverse();
+       RESULT = new UsingBlockStmt(moduleList, s);
+    :}
   ;
 
 print ::=
@@ -1160,6 +1204,19 @@ function_definition_stmt ::=
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list);
     :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list);
+    :}
   ;
 
 lambda_function_expr ::=
@@ -1185,7 +1242,7 @@ lambda_function_expr ::=
       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
       RESULT = new LambdaExpr(ImmutableList.of(arg_name.val), stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
     :}
-  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c lambda_arg_names_list:arg_names RPAR:rp ARROW:a expr:implicit_return_expr
+  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c identifier_list:arg_names RPAR:rp ARROW:a expr:implicit_return_expr
     {:
       Supplier<String> currentLinesSupplier =
          joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
@@ -1197,7 +1254,7 @@ lambda_function_expr ::=
       ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
       RESULT = new LambdaExpr(((LexedValue<ImmutableList.Builder<String>>)arg_names.value).val.add(first_arg_name.val).build().reverse(), new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_exprright, startCol, endCol);
     :}
-  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c lambda_arg_names_list:arg_names RPAR:rp ARROW:a LCURLY:lc stmt_list:stmt_list RCURLY:rc
+  | LAMBDA:lam LPAR:lp IDENTIFIER:first_arg_name COMMA:c identifier_list:arg_names RPAR:rp ARROW:a LCURLY:lc stmt_list:stmt_list RCURLY:rc
     {:
       Supplier<String> currentLinesSupplier =
          joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue)arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", lcright + 2 > rcright ? lcright : lcright + 1), new Line(rc.currentInputLine, rcright));
@@ -1234,8 +1291,8 @@ lambda_function_expr ::=
     :}
   ;
 
-lambda_arg_names_list ::=
-    IDENTIFIER:arg_name COMMA:c lambda_arg_names_list:tail
+identifier_list ::=
+    IDENTIFIER:arg_name COMMA:c identifier_list:tail
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue)tail.value).currentInputLine, tail.right));
@@ -1279,7 +1336,7 @@ consumer_function_definition_stmt ::=
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list);
     :}
-  | CONSUMER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set a null return type for any invalid ReturnStmts that are waiting on it and reset the holder.
       if (returnTypeHolder != null) {
@@ -1289,8 +1346,9 @@ consumer_function_definition_stmt ::=
       // This production matched a function defined by a list of statements followed by a return Expr to eval.
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list);
+        ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list);
     :}
   ;
 
@@ -1303,13 +1361,87 @@ provider_function_definition_stmt ::=
       returnTypeHolder = null;
       RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list);
     :}
-  | PROVIDER_FUNCTION_TYPE FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
       returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list);
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list);
+    :}
+  ;
+
+injected_keys_list ::=
+    IDENTIFIER:key_name COLON:colon builtin_type:t COMMA:comma injected_keys_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(key_nameleft, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(key_nameleft + key_name.len, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableList.Builder<InjectedKey>>) tail.value).val
+              .add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:key_name COLON:colon builtin_type:t AS IDENTIFIER:alias COMMA:comma injected_keys_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(key_nameleft, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(key_nameleft + key_name.len, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableList.Builder<InjectedKey>>) tail.value).val
+              .add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:key_name COLON:c builtin_type:t
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(key_nameleft, cleft, t.left);
+       int endCol = max(key_nameleft + key_name.len, cleft + c.len, t.left + ((LexedValue) t.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ImmutableList.<InjectedKey>builder().add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:key_name COLON:c builtin_type:t AS IDENTIFIER:alias
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(key_nameleft, cleft, t.left);
+       int endCol = max(key_nameleft + key_name.len, cleft + c.len, t.left + ((LexedValue) t.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ImmutableList.<InjectedKey>builder().add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
     :}
   ;
 

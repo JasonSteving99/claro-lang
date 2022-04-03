@@ -34,10 +34,22 @@ public class StmtListNode extends Node {
       throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
     }
 
-    // ProcedureDefinitionStmts were already validated during an earlier parsing phase, don't waste time
-    // validating them again, skip them now.
     Stmt currStmt = ((Stmt) this.getChildren().get(0));
-    if (!(currStmt instanceof ProcedureDefinitionStmt)) {
+    if (currStmt instanceof ProcedureDefinitionStmt) {
+      if (UsingBlockStmt.currentlyUsedBindings.isEmpty()) {
+        // ProcedureDefinitionStmts were already validated during an earlier parsing phase, don't waste time
+        // validating them again, skip them now.
+      } else {
+        // We need to disallow ProcedureDefinitionStmts from being used within a UsingBlockStmt even though
+        // the grammar will allow it.
+        ProcedureDefinitionStmt procedureDefinitionStmt = (ProcedureDefinitionStmt) currStmt;
+        throw ClaroTypeException.forInvalidProcedureDefinitionWithinUsingBlock(
+            procedureDefinitionStmt.procedureName,
+            procedureDefinitionStmt.procedureTypeProvider.resolveType(scopedHeap)
+        );
+      }
+
+    } else {
       currStmt.assertExpectedExprTypes(scopedHeap);
     }
     if (tail != null) {

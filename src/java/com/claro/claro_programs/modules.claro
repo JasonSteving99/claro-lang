@@ -1,0 +1,116 @@
+# TODO(steving) 1. Implement composable modules via an optional using(...) clause
+
+# TODO(steving) 2. Module's using clauses should also be able to depend on *Keys* as well to specify that
+# TODO(steving)   in order to use this module you must also first provide it's needed bindings as well.
+module MyFirstModule {
+
+  bind firstBinding:int to 99;
+  bind firstBinding:string to "first!";
+
+  bind getInput:provider<string> to getUserInput;
+
+}
+
+module MySecondModule {
+  bind newInt:int to 100;
+
+  # It's illegal to have duplicate bindings even across different modules, IF you use the modules at the
+  # same time. You can see Claro will throw a compile-time error for that if you uncomment the following.
+#  bind firstBinding:string to "duplicate";
+}
+
+
+using(firstBinding:string)
+consumer printFirstIntBinding(prefix: string) {
+  print("{prefix}: {firstBinding}");
+}
+
+using(
+  firstBinding:int,
+  firstBinding:string as firstString, # You're able to use deps that have the same name by aliasing.
+  getInput:provider<string>)
+consumer foo(x: int) {
+  print(firstBinding);
+  print(firstString);
+  print(getInput());
+  print(x);
+}
+
+provider getUserInput() -> string {
+  return input("gimme a string fam: ");
+}
+
+using(MyFirstModule, MySecondModule) {
+  printFirstIntBinding("firstBinding");
+  foo(10);
+
+  # It's intentionally illegal to define procedures within a using-block. Uncomment this to see Claro
+  # give a compile-time error for this.
+#  function bar(prompt: string) -> string {
+#    return getInput(prompt);
+#  }
+}
+
+# You're allowed to successively use modules and they'll operate completely independently.
+using(MySecondModule) {
+  print(getNewInt());
+
+  # You can define new modules wherever you want.
+  module NestedModule {
+    bind nestedString:string to "nested";
+  }
+
+  # You're even allowed to nest modules.
+  using(NestedModule) {
+    print(getNestedString("nestedString is bound to"));
+  }
+}
+
+# TODO(steving) Put Module definitions in the ScopedHeap so that this is not accessible.
+using(NestedModule) {
+  print(getNestedString("BROKEN!!!! BROKEN!!!! This module should be unreachable!"));
+}
+
+using(newInt:int)
+provider getNewInt() -> int {
+  return newInt;
+}
+
+using(nestedString:string)
+function getNestedString(s:string) -> string {
+  return "{s}: {nestedString}";
+}
+
+
+
+# If you've made it this far, here's an illustration to help you imagine what's
+# basically the main cool part about Claro's module system. I can create mock bindings for tests.
+module ProdModule {
+  bind getDataFromUser:provider<string> to getUserInput;
+  bind askUserQuestion:consumer<string> to s -> { print(s); };
+}
+module TestModule {
+  bind getDataFromUser:provider<string> to () -> "TEST";
+  bind askUserQuestion:consumer<string> to s -> { print("TODO(steving) implement no-op instruction in Claro. {s}"); };
+}
+
+using(askUserQuestion:consumer<string>, getDataFromUser:provider<string>)
+function askUserAQuestionAndGetAnswer(q: string) -> string {
+  askUserQuestion(q);
+  return getDataFromUser();
+}
+
+if (input("Should we test instead of run prod? (Y/N): ") == "Y") {
+  using(TestModule) {
+    print("Testing!");
+    if (askUserAQuestionAndGetAnswer("testing") == "TEST") {
+      print("PASSED!");
+    } else {
+      print("FAILED!");
+    }
+  }
+} else {
+  using(ProdModule) {
+    print(askUserAQuestionAndGetAnswer("Aren't Claro Modules awesome??"));
+  }
+}

@@ -121,7 +121,10 @@ public class ScopedHeap {
     Optional<Integer> identifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
     Preconditions.checkArgument(
         identifierScopeLevel.isPresent(),
-        "Internal Compiler Error: attempting to mark usage of an undeclared identifier."
+        String.format(
+            "Internal Compiler Error: attempting to mark usage of an undeclared identifier %s.",
+            identifier
+        )
     );
     scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
   }
@@ -437,8 +440,10 @@ public class ScopedHeap {
 
     int i = scopeStack.size();
     while (--i >= 0) {
-      res.append(String.format("Scope Level: %s\n", scopeStack.size() - i));
-      res.append(scopeStack.get(i).scopedSymbolTable.entrySet());
+      res.append(String.format("Scope Level: %s\n", i));
+      res.append("scopedSymbolTable: " + scopeStack.get(i).scopedSymbolTable.entrySet());
+      res.append("\n");
+      res.append("initializedIdentifiers: " + scopeStack.get(i).initializedIdentifiers);
       res.append("\n\n");
     }
 

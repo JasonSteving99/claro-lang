@@ -3,6 +3,7 @@ package(
         "//src/java/com/claro:__pkg__",
         "//src/java/com/claro/intermediate_representation:__subpackages__",
         "//src/java/com/claro/intermediate_representation/expressions:__pkg__",
+        "//src/java/com/claro/runtime_utilities/injector:__pkg__",
     ]
 )
 
@@ -16,6 +17,7 @@ java_library(
         "ProcedureDefinitionStmt.java",
         "ReturnStmt.java",
         "StmtListNode.java",
+        "UsingBlockStmt.java",
     ],
     deps = [
         ":stmt",
@@ -24,11 +26,15 @@ java_library(
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
+        "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
+        "//src/java/com/claro/runtime_utilities/injector",
+        "//src/java/com/claro/runtime_utilities/injector:key",
+        "//src/java/com/claro/runtime_utilities/injector:injected_key",
     ],
 )
 
@@ -42,6 +48,9 @@ java_library(
             "DeclarationStmt.java",
             "ProcedureDefinitionStmt.java",
             "ReturnStmt.java",
+
+            # Both :stmt_impls and :stmt_list_node need deps on this target.... I'm doing a poor job avoiding circular dep hell...
+            "UsingBlockStmt.java",
         ]
     ),
     deps = [
@@ -62,6 +71,9 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+        "//src/java/com/claro/runtime_utilities/injector",
+        "//src/java/com/claro/runtime_utilities/injector:key",
+        "//src/java/com/claro/runtime_utilities/injector:injected_key",
     ],
 )
 

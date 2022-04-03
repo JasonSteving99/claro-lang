@@ -194,7 +194,14 @@ WhiteSpace     = [ \t\f]
     ".build()"         { return symbol(Calc.DOTBUILD, 0, 8, ".build()"); }
 
     // Modifiers go here.
-    "immutable"         { return symbol(Calc.IMMUTABLE, 0, 9, "immutable"); }
+    "immutable"        { return symbol(Calc.IMMUTABLE, 0, 9, "immutable"); }
+
+    // Module related bindings go here.
+    "module"           { return symbol(Calc.MODULE, 0, 6, "module"); }
+    "bind"             { return symbol(Calc.BIND, 0, 4, "bind"); }
+    "to"               { return symbol(Calc.TO, 0, 2, "to"); }
+    "as"               { return symbol(Calc.AS, 0, 2, "as"); }
+    "using"            { return symbol(Calc.USING, 0, 5, "using"); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

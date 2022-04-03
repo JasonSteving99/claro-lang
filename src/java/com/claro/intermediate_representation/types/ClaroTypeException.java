@@ -1,7 +1,12 @@
 package com.claro.intermediate_representation.types;
 
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ClaroTypeException extends Exception {
 
@@ -27,6 +32,22 @@ public class ClaroTypeException extends Exception {
       "Builder Missing Required Struct Member: While building %s, required field%s %s need%s to be set before calling build().";
   private static final String WRONG_NUMBER_OF_ARGS_FOR_LAMBDA_DEFINITION =
       "Lambda expression definition contains the incorrect number of args. Expected %s.";
+  private static final String DUPLICATE_KEY_BINDING =
+      "Found unexpected duplicate binding for key %s:%s. Bound keys should be unique across all used Modules.";
+  private static final String DUPLICATE_KEY_BINDINGS =
+      "Found unexpected duplicate bindings for keys %s. Bound keys should be unique across all used Modules.";
+  private static final String REBINDING_KEYS_FROM_OUTER_USING_BLOCK =
+      "Found unexpected duplicate bindings for the following keys already bound in outer using block %s. Bound keys should be unique across all used Modules.";
+  private static final String DUPLICATE_MODULE_DEFINITION =
+      "Found unexpected duplicate definition of Module %s. Module names must be unique.";
+  private static final String USING_DUPLICATE_MODULES =
+      "Found the following unexpected duplicate Modules in using block [%s].";
+  private static final String USING_UNDEFINED_MODULES =
+      "Found the following undefined Modules referenced in using block [%s].";
+  private static final String INVALID_PROCEDURE_DEFINITION_WITHIN_USING_BLOCK =
+      "Invalid Procedure Definition: Procedure %s %s may not be defined within a using block.";
+  private static final String DUPLICATE_INJECTED_LOCAL_NAMES =
+      "Duplicate names in using-clause of procedure %s %s for each of the following names %s. Fix by providing an alias to give the dependency a unique local name: `using(<bindingName>:<type> as <aliasName>)`.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -133,5 +154,61 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forWrongNumberOfArgsForLambdaDefinition(Type expectedType) {
     return new ClaroTypeException(String.format(WRONG_NUMBER_OF_ARGS_FOR_LAMBDA_DEFINITION, expectedType));
+  }
+
+  public static ClaroTypeException forDuplicateKeyBinding(String name, Type type) {
+    return new ClaroTypeException(String.format(DUPLICATE_KEY_BINDING, name, type));
+  }
+
+  public static ClaroTypeException forDuplicateModuleDefinition(String moduleName) {
+    return new ClaroTypeException(String.format(DUPLICATE_MODULE_DEFINITION, moduleName));
+  }
+
+  public static ClaroTypeException forUsingDuplicateModules(ImmutableList<String> duplicatedUsedModules) {
+    return new ClaroTypeException(String.format(USING_DUPLICATE_MODULES, Joiner.on(", ").join(duplicatedUsedModules)));
+  }
+
+  public static ClaroTypeException forUsingUndefinedModules(ImmutableList<String> undefinedModulesList) {
+    return new ClaroTypeException(String.format(USING_UNDEFINED_MODULES, Joiner.on(", ").join(undefinedModulesList)));
+  }
+
+  public static ClaroTypeException forDuplicateKeyBindings(Set<Key> duplicatedKeyBindingsSet) {
+    return new ClaroTypeException(
+        String.format(
+            DUPLICATE_KEY_BINDINGS,
+            duplicatedKeyBindingsSet.stream()
+                .map(key -> String.format("%s:%s", key.name, key.type))
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forRebindingKeyFromOuterUsingBlock(Set<Key> reboundKeys) {
+    return new ClaroTypeException(
+        String.format(
+            REBINDING_KEYS_FROM_OUTER_USING_BLOCK,
+            reboundKeys.stream()
+                .map(key -> String.format("%s:%s", key.name, key.type))
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidProcedureDefinitionWithinUsingBlock(String procedureName, Type resolvedProcedureType) {
+    return new ClaroTypeException(
+        String.format(INVALID_PROCEDURE_DEFINITION_WITHIN_USING_BLOCK, procedureName, resolvedProcedureType));
+  }
+
+  public static ClaroTypeException forDuplicateInjectedLocalNames(
+      String procedureName, Type procedureType, Set<String> duplicateInjectedLocalNames) {
+    return new ClaroTypeException(
+        String.format(
+            DUPLICATE_INJECTED_LOCAL_NAMES,
+            procedureName,
+            procedureType,
+            duplicateInjectedLocalNames.stream()
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
   }
 }

@@ -2,7 +2,7 @@ var x: int = 1;
 print(x);
 
 callMeMaybe("Can call functions defined below.");
-consumer function callMeMaybe(userMessage: string) {
+consumer callMeMaybe(userMessage: string) {
   print("This was the user message!:");
   print(userMessage);
 }
@@ -30,8 +30,7 @@ function helloFunWorld(message: string, someInt: int) -> string {
   return res;
 }
 
-# The keyword `function` is actually optional here to allow you to be extremely explicit.
-provider function gimmeInt() -> int {
+provider gimmeInt() -> int {
    return 9;
 }
 # Example of defining a Provider w/o using the `function` keyword.
@@ -43,8 +42,7 @@ print("Here's a provided result!");
 print(providedInt);
 print(gimmeAnothaInt());
 
-# The keyword `function` is actually optional here to allow you to be extremely explicit.
-consumer function takeThis(arg: string) {
+consumer takeThis(arg: string) {
   print(arg);
 }
 # Example of defining a Consumer w/o using the `function` keyword.

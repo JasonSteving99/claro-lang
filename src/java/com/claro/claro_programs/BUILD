@@ -68,6 +68,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "modules_compiled_claro_image",
+    srcs = [":modules_compiled_claro"],
+    java_name = "modules",
+)
+
+claro_library(
+    name = "modules_compiled_claro",
+    src = "modules.claro",
+#    debug = True,
+)
+
+claro_binary(
     name = "procedures_compiled_claro_image",
     srcs = [":procedures_compiled_claro"],
     java_name = "procedures",

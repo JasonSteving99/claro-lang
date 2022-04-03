@@ -89,5 +89,6 @@ java_library(
         ":base_type",
         ":type",
         "//:guava",
+        "//src/java/com/claro/runtime_utilities/injector:key",
     ],
 )

@@ -22,7 +22,9 @@ def claro_binary(name, srcs, java_name):
             "//src/java/com/claro/intermediate_representation/types:concrete_type",
             "//src/java/com/claro/intermediate_representation/types:type",
             "//src/java/com/claro/intermediate_representation/types:types",
-            "//src/java/com/claro/runtime_utilities:runtime_utilities",
+            "//src/java/com/claro/runtime_utilities",
+            "//src/java/com/claro/runtime_utilities/injector",
+            "//src/java/com/claro/runtime_utilities/injector:key",
             "//src/java/com/claro/stdlib/userinput",
         ]
     )
@@ -111,6 +113,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/intermediate_representation/types:type_provider",
             "//src/java/com/claro/intermediate_representation/types:type",
             "//src/java/com/claro/intermediate_representation/types:types",
+            "//src/java/com/claro/runtime_utilities/injector:injected_key",
             "//:apache_commons_text",
             "//:guava",
             "//:lombok",

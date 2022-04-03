@@ -4,24 +4,30 @@ import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.*;
+import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.Injector;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
   private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
-  private final String procedureName;
+  final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
+  private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList;
   public final TypeProvider procedureTypeProvider;
   private Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
+  private Optional<ImmutableMap<Key, Optional<String>>> optionalInjectedKeysToAliasMap;
   private Types.ProcedureType resolvedProcedureType;
   private boolean isLambdaType;
   private ImmutableSet<String> lambdaScopeCapturedVariables = ImmutableSet.of();
@@ -29,11 +35,13 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public ProcedureDefinitionStmt(
       String procedureName,
       ImmutableMap<String, TypeProvider> argTypeProviders,
+      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList,
       TypeProvider procedureTypeProvider,
       StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
     this.optionalArgTypeProvidersByNameMap = Optional.of(argTypeProviders);
+    this.optionalInjectedKeysList = optionalInjectedKeysList;
     this.procedureTypeProvider = procedureTypeProvider;
   }
 
@@ -41,9 +49,18 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       String procedureName,
       TypeProvider procedureTypeProvider,
       StmtListNode procedureBodyStmtListNode) {
+    this(procedureName, Optional.empty(), procedureTypeProvider, procedureBodyStmtListNode);
+  }
+
+  public ProcedureDefinitionStmt(
+      String procedureName,
+      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList,
+      TypeProvider procedureTypeProvider,
+      StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
     this.optionalArgTypeProvidersByNameMap = Optional.empty();
+    this.optionalInjectedKeysList = optionalInjectedKeysList;
     this.procedureTypeProvider = procedureTypeProvider;
   }
 
@@ -70,11 +87,23 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     this.resolvedProcedureType =
         (Types.ProcedureType) this.procedureTypeProvider.resolveType(scopedHeap);
     this.isLambdaType = isLambdaType(this.resolvedProcedureType.getPossiblyOverridenBaseType());
-    this.optionalArgTypesByNameMap = this.optionalArgTypeProvidersByNameMap.map(
-        argTypeProvidersByNameMap ->
-            argTypeProvidersByNameMap.entrySet().stream()
-                .collect(
-                    ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().resolveType(scopedHeap))));
+    this.optionalArgTypesByNameMap = this.optionalArgTypeProvidersByNameMap
+        .map(
+            typeProvidersByNameMap ->
+                typeProvidersByNameMap.entrySet().stream()
+                    .collect(
+                        ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue()
+                            .resolveType(scopedHeap))));
+    this.optionalInjectedKeysToAliasMap = this.optionalInjectedKeysList
+        .map(
+            injectedKeys ->
+                injectedKeys.stream()
+                    .collect(
+                        ImmutableMap.toImmutableMap(
+                            injectedKey ->
+                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)),
+                            injectedKey -> injectedKey.optionalAlias
+                        )));
 
     // Validate that this is not a redeclaration of an identifier.
     Preconditions.checkState(
@@ -113,14 +142,45 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     }
 
     // I may need to mark the args as observed identifiers within this new scope.
+    Consumer<ImmutableMap<String, Type>> observeAndInitializeIdentifiers =
+        identifierTypeMap -> identifierTypeMap.forEach(
+            (argName, argType) ->
+            {
+              scopedHeap.observeIdentifierAllowingHiding(argName, argType);
+              scopedHeap.initializeIdentifier(argName);
+            }
+        );
     if (resolvedProcedureType.hasArgs()) {
-      this.optionalArgTypesByNameMap.get().forEach(
-          (argName, argType) ->
-          {
-            scopedHeap.observeIdentifierAllowingHiding(argName, argType);
-            scopedHeap.initializeIdentifier(argName);
-          });
+      observeAndInitializeIdentifiers.accept(this.optionalArgTypesByNameMap.get());
     }
+    // Similarly, in case this procedure has injected dependencies, mark the keys as observed identifiers.
+    // But, first validate that all keys are imported with unique local names (or aliases).
+    if (optionalInjectedKeysToAliasMap.isPresent()) {
+      HashSet<String> uniqueInjectedLocalNames = new HashSet<>(optionalInjectedKeysToAliasMap.get().size());
+      HashSet<String> duplicateInjectedLocalNames = new HashSet<>();
+      for (Map.Entry<Key, Optional<String>> injectedLocalName : optionalInjectedKeysToAliasMap.get().entrySet()) {
+        String localName = injectedLocalName.getValue().orElse(injectedLocalName.getKey().name);
+        if (!uniqueInjectedLocalNames.add(localName)) {
+          // We ended up finding some conflicting local names.
+          duplicateInjectedLocalNames.add(localName);
+        }
+      }
+      if (!duplicateInjectedLocalNames.isEmpty()) {
+        throw ClaroTypeException.forDuplicateInjectedLocalNames(
+            this.procedureName, this.resolvedProcedureType, duplicateInjectedLocalNames);
+      }
+    }
+    optionalInjectedKeysToAliasMap
+        .map(
+            keysToAliasMap ->
+                keysToAliasMap.entrySet().stream()
+                    .collect(
+                        ImmutableMap.toImmutableMap(
+                            entry -> entry.getValue().orElse(entry.getKey().name),
+                            entry -> entry.getKey().type
+                        )))
+        .ifPresent(observeAndInitializeIdentifiers);
+
 
     // Now from here step through the function body. Just assert expected types on the StmtListNode.
     ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
@@ -148,40 +208,78 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    scopedHeap.putIdentifierValue(this.procedureName, this.resolvedProcedureType);
-    scopedHeap.initializeIdentifier(this.procedureName);
+    if (this.isLambdaType) {
+      scopedHeap.putIdentifierValue(this.procedureName, this.resolvedProcedureType);
+    } else {
+      // Since procedures are declared in a synthetic top-level scope as the result of an initial AST parsing phase, we
+      // don't need to actually declare the procedure here since it's already present in the ScopedHeap, we don't even
+      // need to set a value on its entry in the JavaSource version since the implementation will be code-gen'd.
+    }
 
     scopedHeap.enterNewScope(
         isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
     );
 
+    BiFunction</*isArgsMap*/Boolean, ImmutableMap<String, Type>, StringBuilder> initializeIdentifiers =
+        (isArgsMap, identifierTypesByNameMap) -> {
+          ImmutableSet<Map.Entry<String, Type>> argTypesByNameEntrySet = identifierTypesByNameMap.entrySet();
+          argTypesByNameEntrySet.stream()
+              .forEach(stringTypeEntry -> {
+                // Since we don't have a value to store in the ScopedHeap we'll manually ack that the identifier is init'd.
+                scopedHeap.putIdentifierValue(stringTypeEntry.getKey(), stringTypeEntry.getValue());
+                scopedHeap.initializeIdentifier(stringTypeEntry.getKey());
+              });
+          // We need to gen code for initializing args to be used within the java source function body, since we're
+          // constrained to the java source function taking args as `Object... args`.
+          StringBuilder javaSourceBodyBuilder = new StringBuilder();
+          ImmutableList<Map.Entry<String, Type>> argsEntrySet = argTypesByNameEntrySet.asList();
+          for (int i = 0; i < argsEntrySet.size(); i++) {
+            String argName = argsEntrySet.get(i).getKey();
+            Type argType = argsEntrySet.get(i).getValue();
+            String argJavaSourceType = argType.getJavaSourceType();
+            javaSourceBodyBuilder.append(
+                String.format(
+                    "%s %s = (%s) %s",
+                    argJavaSourceType,
+                    argName,
+                    argJavaSourceType,
+                    isArgsMap
+                    ? String.format("args[%s];\n", i)
+                    : String.format(
+                        "Injector.bindings.get(new Key(\"%s\", %s));\n",
+                        optionalInjectedKeysToAliasMap.get().keySet().asList().get(i).name,
+                        argsEntrySet.get(i).getValue().getJavaSourceClaroType()
+                    )
+                )
+            );
+          }
+          return javaSourceBodyBuilder;
+        };
+
     // Since we're about to immediately execute some java source code gen, we might need to init the local arg variables.
     Optional<StringBuilder> optionalJavaSourceBodyBuilder = Optional.empty();
     if (this.resolvedProcedureType.hasArgs()) {
-      ImmutableSet<Map.Entry<String, Type>> argTypesByNameEntrySet = this.optionalArgTypesByNameMap.get().entrySet();
-      argTypesByNameEntrySet.stream()
-          .forEach(stringTypeEntry -> {
-            // Since we don't have a value to store in the ScopedHeap we'll manually ack that the identifier is init'd.
-            scopedHeap.putIdentifierValue(stringTypeEntry.getKey(), stringTypeEntry.getValue());
-            scopedHeap.initializeIdentifier(stringTypeEntry.getKey());
-          });
-      // We need to gen code for initializing args to be used within the java source function body, since we're
-      // constrained to the java source function taking args as `Object... args`.
-      StringBuilder javaSourceBodyBuilder = new StringBuilder();
-      ImmutableList<Map.Entry<String, Type>> argsEntrySet = argTypesByNameEntrySet.asList();
-      for (int i = 0; i < argsEntrySet.size(); i++) {
-        String argJavaSourceType = argsEntrySet.get(i).getValue().getJavaSourceType();
-        javaSourceBodyBuilder.append(
-            String.format(
-                "%s %s = (%s) args[%s];\n",
-                argJavaSourceType,
-                argsEntrySet.get(i).getKey(),
-                argJavaSourceType,
-                i
-            )
-        );
+      optionalJavaSourceBodyBuilder =
+          Optional.of(initializeIdentifiers.apply(/*isArgsMap=*/true, this.optionalArgTypesByNameMap.get()));
+    }
+    // Similarly, we also need to do the same thing for generating initialization code for injected keys.
+    if (optionalInjectedKeysToAliasMap.isPresent()) {
+      StringBuilder initializeInjectedKeysJavaSource =
+          initializeIdentifiers.apply(
+              /*isArgsMap=*/
+              false,
+              optionalInjectedKeysToAliasMap.get().entrySet().stream()
+                  .collect(
+                      ImmutableMap.toImmutableMap(
+                          entry -> entry.getValue().orElse(entry.getKey().name),
+                          entry -> entry.getKey().type
+                      ))
+          );
+      if (optionalJavaSourceBodyBuilder.isPresent()) {
+        optionalJavaSourceBodyBuilder.get().append(initializeInjectedKeysJavaSource);
+      } else {
+        optionalJavaSourceBodyBuilder = Optional.of(initializeInjectedKeysJavaSource);
       }
-      optionalJavaSourceBodyBuilder = Optional.of(javaSourceBodyBuilder);
     }
 
     // There's a StmtListNode to generate code for.
@@ -241,16 +339,18 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // Note that if you look closely and squint this below is actually dynamic code generation in Java. Like...duh cuz
     // this whole thing is code gen...that's what a compiler is...but this feels to be more code gen-y so ~shrug~ lol.
     // I think that's neat ;P.
-    final BiConsumer<ImmutableList<Expr>, ScopedHeap> defineArgIdentifiersConsumerFn =
-        (args, callTimeScopedHeap) -> {
-          ImmutableList<Map.Entry<String, Type>> argTypes =
-              this.optionalArgTypesByNameMap.get().entrySet().asList();
-          for (int i = args.size() - 1; i >= 0; i--) {
-            Map.Entry<String, Type> currTailArg = argTypes.get(i);
+    //
+    // Oh also... Java's lambdas are actual hot garbage... Please God I just want a 3-arg lambda is that so hard?
+    final BiFunction<ImmutableMap<String, Type>, ImmutableList<Expr>, Consumer<ScopedHeap>>
+        defineIdentifiersConsumerFn =
+        (identifierTypesByNameMap, values) -> callTimeScopedHeap -> {
+          ImmutableList<Map.Entry<String, Type>> identifierTypes = identifierTypesByNameMap.entrySet().asList();
+          for (int i = values.size() - 1; i >= 0; i--) {
+            Map.Entry<String, Type> currTailArg = identifierTypes.get(i);
             new DeclarationStmt(
                 currTailArg.getKey(),
                 TypeProvider.ImmediateTypeProvider.of(currTailArg.getValue()),
-                args.get(i),
+                values.get(i),
                 true
             ).generateInterpretedOutput(callTimeScopedHeap);
           }
@@ -273,9 +373,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       scopedHeap.putCapturedIdentifierData(lambdaScopeCapturedVariables);
     };
 
-    definitionTimeScopedHeap.putIdentifierValue(
-        this.procedureName,
-        this.resolvedProcedureType,
+    Types.ProcedureType.ProcedureWrapper procedureImplementation =
         this.resolvedProcedureType.new ProcedureWrapper() {
           @Override
           public Object apply(ImmutableList<Expr> args, ScopedHeap callTimeScopedHeap) {
@@ -292,8 +390,20 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
             if (ProcedureDefinitionStmt.this.resolvedProcedureType.hasArgs()) {
               // Execute the arg declarations assigning them to their given values.
-              defineArgIdentifiersConsumerFn.accept(args, callTimeScopedHeap);
+              defineIdentifiersConsumerFn.apply(optionalArgTypesByNameMap.get(), args).accept(callTimeScopedHeap);
             }
+            optionalInjectedKeysToAliasMap.ifPresent(
+                // We need to initialize local variables to hold the injected key values as well.
+                injectedKeysTypesMap -> {
+                  defineIdentifiersConsumerFn.apply(
+                      injectedKeysTypesMap.keySet().stream()
+                          .collect(ImmutableMap.toImmutableMap(k -> k.name, k -> k.type)),
+                      injectedKeysTypesMap.entrySet().stream()
+                          .map(keyEntry -> (Expr) Injector.bindings.get(new Key(keyEntry.getKey().name, keyEntry.getKey().type)))
+                          .collect(ImmutableList.toImmutableList())
+                  ).accept(callTimeScopedHeap);
+                }
+            );
 
             if (isLambdaType) {
               // Define the capture variables in the actual runtime scope to point to the values captured
@@ -310,8 +420,23 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
             return returnValue;
           }
-        }
-    );
+        };
+
+    if (this.isLambdaType) {
+      definitionTimeScopedHeap.putIdentifierValue(
+          this.procedureName,
+          this.resolvedProcedureType,
+          procedureImplementation
+      );
+    } else {
+      // Since procedures are declared in a synthetic top-level scope as the result of an initial AST parsing phase, we
+      // don't need to actually declare the procedure here since it's already present in the ScopedHeap, we just need
+      // to update its entry with a real value containing its implementation.
+      definitionTimeScopedHeap.updateIdentifierValue(
+          this.procedureName,
+          procedureImplementation
+      );
+    }
 
     // This is just the function definition (Stmt), not the call-site (Expr), return no value.
     return null;
