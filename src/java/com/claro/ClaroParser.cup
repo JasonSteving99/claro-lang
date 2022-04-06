@@ -256,6 +256,7 @@ nonterminal FloatTerm                          float;
 nonterminal IntegerTerm                        integer;
 nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
+nonterminal StmtListNode                       stmts_and_module_defs_list;
 nonterminal ListExpr                           list;
 nonterminal TupleExpr                          tuple;
 nonterminal CollectionSubscriptExpr            collection_subscript;
@@ -328,10 +329,22 @@ precedence left WHILE;
 
 // This is where the grammar starts.
 program ::=
-    stmt_list:s
+    stmts_and_module_defs_list:s
     {:
        RESULT = new ProgramNode(s, package_string, generatedClassName);
     :}
+  ;
+
+// TODO(steving) Add procedure defs to this target so that they also can only be used at the top level.
+stmts_and_module_defs_list ::=
+    module_definition_stmt:m stmts_and_module_defs_list:tail
+    {: RESULT = new StmtListNode(m, tail); :}
+  | stmt:s stmts_and_module_defs_list:tail
+    {: RESULT = new StmtListNode(s, tail); :}
+  | stmt:s
+    {: RESULT = new StmtListNode(s); :}
+  | module_definition_stmt:m
+    {: RESULT = new StmtListNode(m); :}
   ;
 
 stmt_list ::=
@@ -392,8 +405,6 @@ stmt ::=
     {: RESULT = r; :}
   | alias_stmt:a
     {: RESULT = a; :}
-  | module_definition_stmt:m
-    {: RESULT = m; :}
   | using_block_stmt:u
     {: RESULT = u; :}
   ;

@@ -19,6 +19,7 @@ public final class Types {
   public static final Type FLOAT = ConcreteType.create(BaseType.FLOAT);
   public static final Type STRING = ConcreteType.create(BaseType.STRING);
   public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
+  public static final Type MODULE = ConcreteType.create(BaseType.MODULE);
 
   // Special type that indicates that the compiler won't be able to determine this type answer until runtime at which
   // point it will potentially fail other runtime type checking. Anywhere where an "UNDECIDED" type is emitted by the

@@ -23,9 +23,12 @@ public class BindStmt extends Stmt {
     this.expr = expr;
   }
 
+  public void registerBindingType(ScopedHeap scopedHeap) {
+    this.type = typeProvider.resolveType(scopedHeap);
+  }
+
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    this.type = typeProvider.resolveType(scopedHeap);
     expr.assertExpectedExprType(scopedHeap, type);
   }
 

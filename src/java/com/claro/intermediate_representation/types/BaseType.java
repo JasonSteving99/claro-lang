@@ -242,6 +242,9 @@ public enum BaseType {
   ),
   /********************************************************************************************************************/
 
+  // Module is a Type that's only modeled internally and shouldn't appear in generated output or in any other user
+  // observable way since I don't want Modules to be things that can be passed around like arbitrary data.
+  MODULE("module"),
   OBJECT, // Struct with associated procedures.
   TYPE, // This is a meta-type that represents another Type.
   ;

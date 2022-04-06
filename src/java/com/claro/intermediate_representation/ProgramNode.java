@@ -2,6 +2,7 @@ package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.ModuleDefinitionStmt;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
@@ -81,7 +82,10 @@ public class ProgramNode {
     // PROCEDURE TYPE VALIDATION PHASE:
     performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
 
-    // NON-PROCEDURE STATEMENT TYPE VALIDATION PHASE:
+    // MODULE DISCOVERY PHASE:
+    performModuleDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
     try {
       stmtListNode.assertExpectedExprTypes(scopedHeap);
@@ -145,6 +149,9 @@ public class ProgramNode {
 
     // PROCEDURE TYPE VALIDATION PHASE:
     performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // MODULE DISCOVERY PHASE:
+    performModuleDiscoveryPhase(stmtListNode, scopedHeap);
 
     // Validate all types in the entire remaining AST before execution.
     try {
@@ -220,6 +227,26 @@ public class ProgramNode {
     // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
     // definitions live in their own scope and cannot reference variables below.
     scopedHeap.enterNewScope();
+  }
+
+  private void performModuleDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // We need to register the bindings that each ModuleDefinitionStmt provides so that, later,
+    // we're ready to handle potential composition of these Modules via using clauses.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ModuleDefinitionStmt) {
+        try {
+          ((ModuleDefinitionStmt) currStmt).registerAssertedBoundKeys(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
   }
 
   /**

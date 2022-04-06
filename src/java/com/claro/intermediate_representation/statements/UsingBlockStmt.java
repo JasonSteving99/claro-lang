@@ -4,7 +4,6 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.StringTerm;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.runtime_utilities.injector.Injector;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -17,8 +16,9 @@ public class UsingBlockStmt extends Stmt {
   // This set is maintained in order to allow for nested using blocks while still validating that no
   // bindings that are *already* being used before the nested block are re-bound.
   public static Set<Key> currentlyUsedBindings = Sets.newHashSet();
+  public static Set<String> currentlyUsedModules = Sets.newHashSet();
 
-  private final ImmutableList<String> moduleNameList;
+  private ImmutableList<String> moduleNameList;
   private final StmtListNode stmtListNode;
 
   public UsingBlockStmt(ImmutableList<String> moduleNameList, StmtListNode stmtListNode) {
@@ -37,7 +37,7 @@ public class UsingBlockStmt extends Stmt {
       if (!uniqueUsedModules.add(usedModuleName)) {
         duplicatedUsedModulesBuilder.add(usedModuleName);
       }
-      if (!Injector.definedModulesByNameMap.containsKey(usedModuleName)) {
+      if (!scopedHeap.isIdentifierDeclared(usedModuleName)) {
         undefinedModulesListBuilder.add(usedModuleName);
       }
     }
@@ -50,12 +50,24 @@ public class UsingBlockStmt extends Stmt {
       throw ClaroTypeException.forUsingUndefinedModules(undefinedModulesList);
     }
 
+    // Now, if we're in a nested using block, we should check if any of the modules used in this nested block are
+    // already being used by the outer block. If so, those modules should be treated as no-ops. No-op rather than
+    // an error because I don't want to create some distinction between explicitly named modules and modules that
+    // are transitively used. You could argue that explicitly naming the same module in an outer and nested block
+    // is meaningless and dumb, but then it has the same effect as a transitive module getting reused and short-
+    // circuited, so I'll just leave it to the programmer to make this as clean as possible.
+    moduleNameList = this.moduleNameList.stream()
+        .filter(moduleName -> !UsingBlockStmt.currentlyUsedModules.contains(moduleName))
+        .collect(ImmutableList.toImmutableList());
+
     // Now go through each used Module and validate that none redeclare the same bindings.
     Set<Key> duplicatedKeyBindingsSet = Sets.newHashSet();
-    Set<Key> boundKeysSet = Sets.newHashSet(Injector.definedModulesByNameMap.get(moduleNameList.get(0)));
+    Set<Key> boundKeysSet =
+        Sets.newHashSet(((ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(0))).boundKeySet);
     for (int i = 1; i < moduleNameList.size(); i++) {
       // One by one, validate that the union between successive bound keys sets is empty, and then accumulate.
-      Set<Key> nextModuleKeySet = Injector.definedModulesByNameMap.get(moduleNameList.get(i));
+      Set<Key> nextModuleKeySet =
+          ((ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(i))).boundKeySet;
       Sets.SetView<Key> currDuplicates = Sets.intersection(boundKeysSet, nextModuleKeySet);
       if (currDuplicates.size() != 0) {
         currDuplicates.copyInto(duplicatedKeyBindingsSet);
@@ -75,13 +87,15 @@ public class UsingBlockStmt extends Stmt {
       }
     }
 
+    UsingBlockStmt.currentlyUsedModules.addAll(this.moduleNameList);
     UsingBlockStmt.currentlyUsedBindings.addAll(boundKeysSet);
 
     // And at last we can do type validation on the StmtListNode nested in this using-block.
     this.stmtListNode.assertExpectedExprTypes(scopedHeap);
 
-    // Now we've left this using-block scope, we need to remove all of the keys that we just bound.
+    // Now we've left this using-block scope, we need to remove all of the modules and keys that we just bound.
     UsingBlockStmt.currentlyUsedBindings.removeAll(boundKeysSet);
+    UsingBlockStmt.currentlyUsedModules.removeAll(this.moduleNameList);
   }
 
   @Override

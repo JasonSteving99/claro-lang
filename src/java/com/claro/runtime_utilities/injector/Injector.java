@@ -1,7 +1,5 @@
 package com.claro.runtime_utilities.injector;
 
-import com.google.common.collect.ImmutableSet;
-
 import java.util.LinkedHashMap;
 
 /**
@@ -13,10 +11,6 @@ import java.util.LinkedHashMap;
  */
 public class Injector {
   public static LinkedHashMap<Key, Object> bindings = new LinkedHashMap<>();
-
-  // We'll register all Modules that get defined right here in this map so that we can check bindings
-  // across Modules used together in a using block during the type validation phase.
-  public static final LinkedHashMap<String, ImmutableSet<Key>> definedModulesByNameMap = new LinkedHashMap<>();
 }
 
 

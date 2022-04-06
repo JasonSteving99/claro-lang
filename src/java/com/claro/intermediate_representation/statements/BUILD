@@ -15,9 +15,12 @@ java_library(
         # it has no way of knowing that it's valid.
         "DeclarationStmt.java",
         "ProcedureDefinitionStmt.java",
+        "ConsumerFunctionDefinitionStmt.java",
         "ReturnStmt.java",
         "StmtListNode.java",
         "UsingBlockStmt.java",
+        "ModuleDefinitionStmt.java",
+        "BindStmt.java",
     ],
     deps = [
         ":stmt",
@@ -51,6 +54,9 @@ java_library(
 
             # Both :stmt_impls and :stmt_list_node need deps on this target.... I'm doing a poor job avoiding circular dep hell...
             "UsingBlockStmt.java",
+            "ModuleDefinitionStmt.java",
+            "ConsumerFunctionDefinitionStmt.java",
+            "BindStmt.java",
         ]
     ),
     deps = [
