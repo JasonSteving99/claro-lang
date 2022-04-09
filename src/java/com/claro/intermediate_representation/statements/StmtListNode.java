@@ -45,10 +45,12 @@ public class StmtListNode extends Node {
         ProcedureDefinitionStmt procedureDefinitionStmt = (ProcedureDefinitionStmt) currStmt;
         throw ClaroTypeException.forInvalidProcedureDefinitionWithinUsingBlock(
             procedureDefinitionStmt.procedureName,
-            procedureDefinitionStmt.procedureTypeProvider.resolveType(scopedHeap)
+            procedureDefinitionStmt.procedureTypeProvider.apply(procedureDefinitionStmt).resolveType(scopedHeap)
         );
       }
-
+    } else if (currStmt instanceof ModuleDefinitionStmt) {
+      // ModuleDefinitionStmts were already validated during an earlier parsing phase, don't waste time
+      // validating them again, skip them now.
     } else {
       currStmt.assertExpectedExprTypes(scopedHeap);
     }

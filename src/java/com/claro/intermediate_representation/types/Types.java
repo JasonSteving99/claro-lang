@@ -2,15 +2,21 @@ package com.claro.intermediate_representation.types;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 // TODO(steving) This class needs refactoring into a standalone package.
@@ -262,6 +268,23 @@ public final class Types {
       return this.autoValueIgnoredOptionalOverrideBaseType.get().orElse(this.baseType());
     }
 
+    // This field is mutable specifically because we need to be able to update this set first with the set
+    // of keys that are directly depended on by this procedure, and then by the set of all of its transitive
+    // deps. This is done in multiple phases, because we're parsing a DAG in linear order.
+    final AtomicReference<HashSet<Key>> autoValueIgnoredUsedInjectedKeys = new AtomicReference<>();
+
+    public HashSet<Key> getUsedInjectedKeys() {
+      return autoValueIgnoredUsedInjectedKeys.get();
+    }
+
+    // We need a ref to the original ProcedureDefinitionStmt for recursively asserting types to collect
+    // transitively used keys.
+    final AtomicReference<Stmt> autoValueIgnoredProcedureDefStmt = new AtomicReference<>();
+
+    public Stmt getProcedureDefStmt() {
+      return autoValueIgnoredProcedureDefStmt.get();
+    }
+
     public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
 
     public abstract String getJavaNewTypeDefinitionStmtForLambda(
@@ -295,13 +318,24 @@ public final class Types {
     @AutoValue
     public abstract static class FunctionType extends ProcedureType {
 
-      public static FunctionType forArgsAndReturnTypes(ImmutableList<Type> argTypes, Type returnType) {
-        return FunctionType.forArgsAndReturnTypes(argTypes, returnType, BaseType.FUNCTION);
+      public static FunctionType forArgsAndReturnTypes(
+          ImmutableList<Type> argTypes,
+          Type returnType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+        return FunctionType.forArgsAndReturnTypes(
+            argTypes, returnType, BaseType.FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
       }
 
       // Factory method for a function that takes args and returns a value.
       public static FunctionType forArgsAndReturnTypes(
-          ImmutableList<Type> argTypes, Type returnType, BaseType overrideBaseType) {
+          ImmutableList<Type> argTypes,
+          Type returnType,
+          BaseType overrideBaseType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -312,10 +346,31 @@ public final class Types {
 
         functionType.autoValueIgnoredHasArgs.set(true);
         functionType.autoValueIgnoredHasReturnValue.set(true);
+        functionType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
+        functionType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
 
         if (overrideBaseType != BaseType.FUNCTION) {
           functionType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
         }
+
+        return functionType;
+      }
+
+      /**
+       * This method exists SOLELY for representing type annotation literals provided in the source.
+       */
+      public static FunctionType typeLiteralForArgsAndReturnTypes(
+          ImmutableList<Type> argTypes,
+          Type returnType) {// Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
+        // parameterizedTypeArgs map used
+        FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
+            BaseType.FUNCTION,
+            argTypes,
+            returnType
+        );
+
+        functionType.autoValueIgnoredHasArgs.set(true);
+        functionType.autoValueIgnoredHasReturnValue.set(true);
 
         return functionType;
       }
@@ -395,7 +450,7 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s)",
+            "Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s)",
             this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", ")),
             this.getReturnType().getJavaSourceClaroType()
         );
@@ -404,11 +459,21 @@ public final class Types {
 
     @AutoValue
     public abstract static class ProviderType extends ProcedureType {
-      public static ProviderType forReturnType(Type returnType) {
-        return ProviderType.forReturnType(returnType, BaseType.PROVIDER_FUNCTION);
+      public static ProviderType forReturnType(
+          Type returnType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+        return ProviderType.forReturnType(
+            returnType, BaseType.PROVIDER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
       }
 
-      public static ProviderType forReturnType(Type returnType, BaseType overrideBaseType) {
+      public static ProviderType forReturnType(
+          Type returnType,
+          BaseType overrideBaseType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
@@ -417,10 +482,25 @@ public final class Types {
 
         providerType.autoValueIgnoredHasArgs.set(false);
         providerType.autoValueIgnoredHasReturnValue.set(true);
+        providerType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
+        providerType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
 
         if (overrideBaseType != BaseType.PROVIDER_FUNCTION) {
           providerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
         }
+
+        return providerType;
+      }
+
+      public static ProviderType typeLiteralForReturnType(Type returnType) {
+        ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
+            BaseType.PROVIDER_FUNCTION,
+            ImmutableList.of(),
+            returnType
+        );
+
+        providerType.autoValueIgnoredHasArgs.set(false);
+        providerType.autoValueIgnoredHasReturnValue.set(true);
 
         return providerType;
       }
@@ -502,7 +582,7 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.ProviderType.forReturnType(%s)",
+            "Types.ProcedureType.ProviderType.typeLiteralForReturnType(%s)",
             this.getReturnType().getJavaSourceClaroType()
         );
       }
@@ -518,11 +598,21 @@ public final class Types {
         return null;
       }
 
-      public static ConsumerType forConsumerArgTypes(ImmutableList<Type> argTypes) {
-        return ConsumerType.forConsumerArgTypes(argTypes, BaseType.CONSUMER_FUNCTION);
+      public static ConsumerType forConsumerArgTypes(
+          ImmutableList<Type> argTypes,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+        return ConsumerType.forConsumerArgTypes(
+            argTypes, BaseType.CONSUMER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
       }
 
-      public static ConsumerType forConsumerArgTypes(ImmutableList<Type> argTypes, BaseType overrideBaseType) {
+      public static ConsumerType forConsumerArgTypes(
+          ImmutableList<Type> argTypes,
+          BaseType overrideBaseType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
             argTypes
@@ -530,10 +620,24 @@ public final class Types {
 
         consumerType.autoValueIgnoredHasArgs.set(true);
         consumerType.autoValueIgnoredHasReturnValue.set(false);
+        consumerType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
+        consumerType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
 
         if (overrideBaseType != BaseType.CONSUMER_FUNCTION) {
           consumerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
         }
+
+        return consumerType;
+      }
+
+      public static ConsumerType typeLiteralForConsumerArgTypes(ImmutableList<Type> argTypes) {
+        ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
+            BaseType.CONSUMER_FUNCTION,
+            argTypes
+        );
+
+        consumerType.autoValueIgnoredHasArgs.set(true);
+        consumerType.autoValueIgnoredHasReturnValue.set(false);
 
         return consumerType;
       }
@@ -604,7 +708,7 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.ConsumerType.forConsumerArgTypes(ImmutableList.<Type>of(%s))",
+            "Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(ImmutableList.<Type>of(%s))",
             this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", "))
         );
       }

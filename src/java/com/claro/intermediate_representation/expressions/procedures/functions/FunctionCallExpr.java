@@ -2,14 +2,19 @@ package com.claro.intermediate_representation.expressions.procedures.functions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
+import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -41,16 +46,19 @@ public class FunctionCallExpr extends Expr {
         this.name
     );
     Preconditions.checkState(
+        ((Types.ProcedureType) referencedIdentifierType).hasArgs(),
+        "%s %s does not take any args, it cannot be called with arguments!",
+        referencedIdentifierType,
+        this.name
+    );
+    Preconditions.checkState(
         ((Types.ProcedureType) referencedIdentifierType).hasReturnValue(),
         "%s %s does not return a value, it cannot be used as an expression!",
         referencedIdentifierType,
         this.name
     );
 
-    Types.ProcedureType.FunctionType functionType =
-        (Types.ProcedureType.FunctionType) scopedHeap.getValidatedIdentifierType(this.name);
-
-    ImmutableList<Type> definedArgTyps = functionType.getArgTypes();
+    ImmutableList<Type> definedArgTyps = ((Types.ProcedureType.FunctionType) referencedIdentifierType).getArgTypes();
 
     // Make sure that we at least do due diligence and first check that we have the right number of args.
     Preconditions.checkState(
@@ -68,10 +76,14 @@ public class FunctionCallExpr extends Expr {
       currArgExpr.assertExpectedExprType(scopedHeap, definedArgTyps.get(i));
     }
 
+    // Validate that the procedure has been called in a scope that provides the correct bindings.
+    // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
+    FunctionCallExpr.validateNeededBindings(this.name, referencedIdentifierType, scopedHeap);
+
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.name);
 
-    return functionType.getReturnType();
+    return ((Types.ProcedureType.FunctionType) referencedIdentifierType).getReturnType();
   }
 
   @Override
@@ -96,5 +108,44 @@ public class FunctionCallExpr extends Expr {
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     return ((Types.ProcedureType.ProcedureWrapper) scopedHeap.getIdentifierValue(this.name))
         .apply(this.argExprs, scopedHeap);
+  }
+
+  public static void validateNeededBindings(String functionName, Type referencedIdentifierType, ScopedHeap scopedHeap)
+      throws ClaroTypeException {
+    // Validate that the procedure has been called in a scope that provides the correct bindings.
+    // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
+    if (scopedHeap.findIdentifierInitializedScopeLevel(functionName).orElse(-1) == 0) {
+      if (ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.isPresent()) {
+        // Make sure that if this function call is within a ProcedureDefStmt then we actually need to make sure
+        // to register function call with that active procedure def stmt instance so that it knows which top-level
+        // procedures it needs to check with to accumulate its transitive used injected keys set.
+        if (!UsingBlockStmt.currentlyUsedBindings.isEmpty()) {
+          // Using-blocks are actually supported from directly within a procedure definition, so if this procedure call
+          // is from within a using block, we'd need to filter the set that we add to the ProcedureDefStmt's direct deps.
+          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.get()
+              .directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings
+              .merge(
+                  functionName,
+                  ImmutableSet.copyOf(UsingBlockStmt.currentlyUsedBindings),
+                  // It's possible that this same procedure was already used in a different using block so we just need
+                  // the union of the currently used keys to get the minimum.
+                  (existingUsedBindingsSet, currUsedBindingsSet) ->
+                      Sets.union(existingUsedBindingsSet, currUsedBindingsSet)
+                          .stream()
+                          .collect(ImmutableSet.toImmutableSet())
+              );
+        } else {
+          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.get().directTopLevelProcedureDepsSet.add(functionName);
+        }
+      } else {
+        // Calls that are not in a ProcedureDefStmt simply need to be validated.
+        Set<Key> currNeededBindings =
+            ((Types.ProcedureType) scopedHeap.getValidatedIdentifierType(functionName)).getUsedInjectedKeys();
+        if (!UsingBlockStmt.currentlyUsedBindings.containsAll(currNeededBindings)) {
+          throw ClaroTypeException.forMissingBindings(
+              functionName, referencedIdentifierType, Sets.difference(currNeededBindings, UsingBlockStmt.currentlyUsedBindings));
+        }
+      }
+    }
   }
 }

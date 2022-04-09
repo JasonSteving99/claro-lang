@@ -437,7 +437,7 @@ using_block_stmt ::=
     {:
        ImmutableList<String> moduleList =
          ((LexedValue<ImmutableList.Builder<String>>)modules.value).val.build().reverse();
-       RESULT = new UsingBlockStmt(moduleList, s);
+       RESULT = new UsingBlockStmt(moduleList, s, true);
     :}
   ;
 
@@ -549,7 +549,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap)),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -568,7 +568,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.forArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap)),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -586,7 +586,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.forConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -604,7 +604,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(returnTypeProvider.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.val.resolveType(scopedHeap)),
             currentLinesSupplier,
             endCol - startCol)
        );

@@ -1,4 +1,4 @@
-module MyFirstModule {
+module MyFirstModule using(FancyPrompter) {
 
   bind firstBinding:int to 99;
   bind firstBinding:string to "first!";
@@ -22,7 +22,7 @@ module MySecondModule {
 
 
 using(firstBinding:string)
-consumer printFirstIntBinding(prefix: string) {
+consumer printFirstStringBinding(prefix: string) {
   print("{prefix}: {firstBinding}");
 }
 
@@ -37,12 +37,13 @@ consumer foo(x: int) {
   print(x);
 }
 
+using(fancyPrompter:function<string -> string>)
 provider getUserInput() -> string {
-  return input("gimme a string fam: ");
+  return fancyPrompter("gimme a string fam");
 }
 
 using(MyFirstModule, MySecondModule) {
-  printFirstIntBinding("firstBinding");
+  printFirstStringBinding("firstBinding");
   foo(10);
 
   # It's intentionally illegal to define procedures within a using-block. Uncomment this to see Claro
@@ -91,29 +92,94 @@ function getMajorKey(s:string) -> string {
   return "{s}: {majorKey}";
 }
 
+provider getFancyPrompter() -> function<string -> string> {
+  var promptCount = 0;
+  return p -> {
+    print(promptCount++);
+    print("{p}: ");
+    return input("");
+  };
+}
 
+module FancyPrompter {
+  bind fancyPrompter:function<string -> string> to getFancyPrompter();
+}
+
+function getMockStringGenerator(maxCount:int, mockString:string, doneString:string) -> function<int -> string> {
+  var x = 0;
+
+  if (maxCount <= 0) {
+    # If we have no terminating condition, just return mockString unconditionally.
+    return curr -> {
+      print("TODO(steving) Need trashcan operator...");
+      print(curr);
+      return mockString;
+    };
+  }
+
+  # If we have a terminating condition return this generator.
+  return curr -> {
+    print("TODO(steving) Need trashcan operator...");
+    print(curr);
+    if (x++ < maxCount) {
+      return mockString;
+    } else {
+      return doneString;
+    }
+  };
+}
+
+function partiallyApplyInt(fn:function<int -> string>, arg:int) -> provider<string> {
+  return () -> fn(arg);
+}
 
 # If you've made it this far, here's an illustration to help you imagine what's
 # basically the main cool part about Claro's module system. I can create mock bindings for tests.
-module ProdModule {
+module ProdModule using(FancyPrompter) {
   bind getDataFromUser:provider<string> to getUserInput;
   bind askUserQuestion:consumer<string> to s -> { print(s); };
+  bind dbConnection:function<int -> string> to
+    id -> {
+      print(id);
+      print("You're the DB...give me the question for id:");
+      return input("");
+    };
 }
 module TestModule {
-  bind getDataFromUser:provider<string> to () -> "TEST";
+  bind getDataFromUser:provider<string> to partiallyApplyInt(getMockStringGenerator(3, "TEST", ""), -1);
   bind askUserQuestion:consumer<string> to s -> { print("TODO(steving) implement no-op instruction in Claro. {s}"); };
+  bind dbConnection:function<int -> string> to
+    id -> {
+      print("TODO(steving) impl trashcan. `_ = id;`");
+      print(id);
+      return "TEST";
+    };
 }
 
 using(askUserQuestion:consumer<string>, getDataFromUser:provider<string>)
-function askUserAQuestionAndGetAnswer(q: string) -> string {
-  askUserQuestion(q);
-  return getDataFromUser();
+provider askUserQuestionsAndGetAnswers() -> int {
+  var answerCount = 0;
+
+  askUserQuestion(getNextQuestionFromDb(answerCount));
+
+  while(getDataFromUser() != "") {
+    answerCount++;
+    askUserQuestion(getNextQuestionFromDb(answerCount));
+  }
+
+  # Return the count of how many questions the user answered.
+  return answerCount;
+}
+
+using(dbConnection:function<int -> string>)
+function getNextQuestionFromDb(questionId:int) -> string {
+  return dbConnection(questionId);
 }
 
 if (input("Should we test instead of run prod? (Y/N): ") == "Y") {
   using(TestModule) {
     print("Testing!");
-    if (askUserAQuestionAndGetAnswer("testing") == "TEST") {
+    if (askUserQuestionsAndGetAnswers() == 3) {
       print("PASSED!");
     } else {
       print("FAILED!");
@@ -121,6 +187,10 @@ if (input("Should we test instead of run prod? (Y/N): ") == "Y") {
   }
 } else {
   using(ProdModule) {
-    print(askUserAQuestionAndGetAnswer("Aren't Claro Modules awesome??"));
+    var count = askUserQuestionsAndGetAnswers();
+
+    # TODO(steving) I really need to implement a string(x) method that will parse things to strings...it's getting painful.
+    print("Thanks for answering the following number of questions!");
+    print(count);
   }
 }

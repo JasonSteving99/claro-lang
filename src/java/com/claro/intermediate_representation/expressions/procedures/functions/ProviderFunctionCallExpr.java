@@ -44,6 +44,10 @@ public class ProviderFunctionCallExpr extends Expr {
         this.functionName
     );
 
+    // Validate that the procedure has been called in a scope that provides the correct bindings.
+    // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
+    FunctionCallExpr.validateNeededBindings(this.functionName, referencedIdentifierType, scopedHeap);
+
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.functionName);
 

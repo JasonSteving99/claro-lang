@@ -4,9 +4,12 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
@@ -26,7 +29,25 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
     super(
         providerName,
         optionalInjectedKeysTypes,
-        (scopedHeap) -> Types.ProcedureType.ProviderType.forReturnType(outputTypeProvider.resolveType(scopedHeap)),
+        (procedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.ProviderType.forReturnType(
+                    outputTypeProvider.resolveType(scopedHeap),
+                    optionalInjectedKeysTypes
+                        .map(
+                            injectedKeysTypes ->
+                                injectedKeysTypes.stream()
+                                    .map(
+                                        injectedKey ->
+                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                    .collect(Collectors.toSet())
+                        )
+                        .orElse(Sets.newHashSet()),
+                    procedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }
@@ -40,8 +61,17 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
       StmtListNode stmtListNode) {
     super(
         providerName,
-        (scopedHeap) ->
-            Types.ProcedureType.ProviderType.forReturnType(outputTypeProvider.resolveType(scopedHeap), baseType),
+        (procedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.ProviderType.forReturnType(
+                    outputTypeProvider.resolveType(scopedHeap),
+                    baseType,
+                    Sets.newHashSet(),
+                    procedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }

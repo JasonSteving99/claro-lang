@@ -4,6 +4,7 @@ package(
         "//src/java/com/claro/intermediate_representation:__subpackages__",
         "//src/java/com/claro/intermediate_representation/expressions:__pkg__",
         "//src/java/com/claro/runtime_utilities/injector:__pkg__",
+        "//src/java/com/claro/stdlib:__pkg__",
     ]
 )
 
@@ -69,6 +70,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/expressions:expr_impls",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
         "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",

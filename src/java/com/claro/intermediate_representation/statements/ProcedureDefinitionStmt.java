@@ -8,35 +8,48 @@ import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Injector;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.*;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class ProcedureDefinitionStmt extends Stmt {
 
   private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
+  // I need a mechanism for easily communicating to sub-nodes in the AST that they are a part of a
+  // ProcedureDefinitionStmt so that during type validation, nested procedure call nodes know to update
+  // the active instance's used injected keys set.
+  public static Optional<ProcedureDefinitionStmt> optionalActiveProcedureDefinitionStmt = Optional.empty();
+
   final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList;
-  public final TypeProvider procedureTypeProvider;
+  public final Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider;
   private Optional<ImmutableMap<String, Type>> optionalArgTypesByNameMap;
   private Optional<ImmutableMap<Key, Optional<String>>> optionalInjectedKeysToAliasMap;
-  private Types.ProcedureType resolvedProcedureType;
+  // Allow this to be visible to other nested procedure call nodes so that they can update this current defined
+  // procedure with their used injected keys.
+  public Types.ProcedureType resolvedProcedureType;
   private boolean isLambdaType;
   private ImmutableSet<String> lambdaScopeCapturedVariables = ImmutableSet.of();
+  private boolean alreadyAssertedTypes = false;
+
+  // This field is the fringe that will be used from this node when traversing the top-level procedure call graph.
+  public HashSet<String> directTopLevelProcedureDepsSet = Sets.newHashSet();
+  public HashMap<String, ImmutableSet<Key>> directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings =
+      Maps.newHashMap();
 
   public ProcedureDefinitionStmt(
       String procedureName,
       ImmutableMap<String, TypeProvider> argTypeProviders,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList,
-      TypeProvider procedureTypeProvider,
+      Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider,
       StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
@@ -47,7 +60,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   public ProcedureDefinitionStmt(
       String procedureName,
-      TypeProvider procedureTypeProvider,
+      Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider,
       StmtListNode procedureBodyStmtListNode) {
     this(procedureName, Optional.empty(), procedureTypeProvider, procedureBodyStmtListNode);
   }
@@ -55,7 +68,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public ProcedureDefinitionStmt(
       String procedureName,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList,
-      TypeProvider procedureTypeProvider,
+      Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider,
       StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
@@ -85,7 +98,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public void registerProcedureTypeProvider(ScopedHeap scopedHeap) {
     // Get the resolved procedure type.
     this.resolvedProcedureType =
-        (Types.ProcedureType) this.procedureTypeProvider.resolveType(scopedHeap);
+        (Types.ProcedureType) this.procedureTypeProvider.apply(this).resolveType(scopedHeap);
     this.isLambdaType = isLambdaType(this.resolvedProcedureType.getPossiblyOverridenBaseType());
     this.optionalArgTypesByNameMap = this.optionalArgTypeProvidersByNameMap
         .map(
@@ -118,92 +131,174 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // this::registerTypeProvider should've already been called during the procedure resolution phase, so we
-    // can now already assume that this type is registered in this scope.
+    if (!this.alreadyAssertedTypes) {
+      // Just be extremely conservative and make sure we don't come back into this since we're recursing
+      // over a graph of nodes which is known to legally contain cycles (mutual recursion is legitimate).
+      this.alreadyAssertedTypes = true;
 
-    // Enter the new scope for this procedure.
-    scopedHeap.observeNewScope(
-        false,
-        isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
-    );
+      // Before I step through the procedure body, I'll need to make sure I set this instance as the
+      // currently active ProcedureDefStmt and then save old one to restore.
+      Optional<ProcedureDefinitionStmt> priorActiveProcedureDefStmt =
+          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt;
+      ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt = Optional.of(this);
 
-    // Now that we're in the procedure's scope, let's allow ReturnStmts temporarily.
-    ReturnStmt.enterProcedureScope(this.procedureName, this.resolvedProcedureType.hasReturnValue());
-    String hiddenReturnTypeVariableFlagName = getHiddenReturnTypeVariableFlagName();
-    // There's some setup we'll need to do if this procedure expects an output.
-    if (this.resolvedProcedureType.hasReturnValue()) {
-      // We'll abuse the variable usage checking implementation to validate that we've put a ReturnStmt
-      // along every branch of the procedure. So we'll put a hidden variable in the procedure's Scope
-      // and then everywhere where a ReturnStmt is located, we'll mark that variable as "initialized".
-      // By this approach, we simply need to check if that hidden variable "is initialized" on the last
-      // line of the function, and if it's not, then we know there must be a ReturnStmt missing! Damn,
-      // sometimes I even impress myself with my laziness...err creativity....
-      scopedHeap.observeIdentifier(hiddenReturnTypeVariableFlagName, Types.BOOLEAN);
-    }
+      // Before I do any actual validation of this current ProcedureDefinitionStmt, I actually want to
+      // first defer downstream to all directly depended upon (via procedure call) ProcedureDefinitionStmts
+      // so that they can update my
 
-    // I may need to mark the args as observed identifiers within this new scope.
-    Consumer<ImmutableMap<String, Type>> observeAndInitializeIdentifiers =
-        identifierTypeMap -> identifierTypeMap.forEach(
-            (argName, argType) ->
-            {
-              scopedHeap.observeIdentifierAllowingHiding(argName, argType);
-              scopedHeap.initializeIdentifier(argName);
-            }
-        );
-    if (resolvedProcedureType.hasArgs()) {
-      observeAndInitializeIdentifiers.accept(this.optionalArgTypesByNameMap.get());
-    }
-    // Similarly, in case this procedure has injected dependencies, mark the keys as observed identifiers.
-    // But, first validate that all keys are imported with unique local names (or aliases).
-    if (optionalInjectedKeysToAliasMap.isPresent()) {
-      HashSet<String> uniqueInjectedLocalNames = new HashSet<>(optionalInjectedKeysToAliasMap.get().size());
-      HashSet<String> duplicateInjectedLocalNames = new HashSet<>();
-      for (Map.Entry<Key, Optional<String>> injectedLocalName : optionalInjectedKeysToAliasMap.get().entrySet()) {
-        String localName = injectedLocalName.getValue().orElse(injectedLocalName.getKey().name);
-        if (!uniqueInjectedLocalNames.add(localName)) {
-          // We ended up finding some conflicting local names.
-          duplicateInjectedLocalNames.add(localName);
+      // this::registerTypeProvider should've already been called during the procedure resolution phase, so we
+      // can now already assume that this type is registered in this scope.
+
+      // Enter the new scope for this procedure.
+      scopedHeap.observeNewScope(
+          false,
+          isLambdaType ? ScopedHeap.Scope.ScopeType.LAMBDA_SCOPE : ScopedHeap.Scope.ScopeType.FUNCTION_SCOPE
+      );
+
+      // Now that we're in the procedure's scope, let's allow ReturnStmts temporarily.
+      ReturnStmt.enterProcedureScope(this.procedureName, this.resolvedProcedureType.hasReturnValue());
+      String hiddenReturnTypeVariableFlagName = getHiddenReturnTypeVariableFlagName();
+      // There's some setup we'll need to do if this procedure expects an output.
+      if (this.resolvedProcedureType.hasReturnValue()) {
+        // We'll abuse the variable usage checking implementation to validate that we've put a ReturnStmt
+        // along every branch of the procedure. So we'll put a hidden variable in the procedure's Scope
+        // and then everywhere where a ReturnStmt is located, we'll mark that variable as "initialized".
+        // By this approach, we simply need to check if that hidden variable "is initialized" on the last
+        // line of the function, and if it's not, then we know there must be a ReturnStmt missing! Damn,
+        // sometimes I even impress myself with my laziness...err creativity....
+        scopedHeap.observeIdentifier(hiddenReturnTypeVariableFlagName, Types.BOOLEAN);
+      }
+
+      // I may need to mark the args as observed identifiers within this new scope.
+      Consumer<ImmutableMap<String, Type>> observeAndInitializeIdentifiers =
+          identifierTypeMap -> identifierTypeMap.forEach(
+              (argName, argType) ->
+              {
+                scopedHeap.observeIdentifierAllowingHiding(argName, argType);
+                scopedHeap.initializeIdentifier(argName);
+              }
+          );
+      if (resolvedProcedureType.hasArgs()) {
+        observeAndInitializeIdentifiers.accept(this.optionalArgTypesByNameMap.get());
+      }
+      // Similarly, in case this procedure has injected dependencies, mark the keys as observed identifiers.
+      // But, first validate that all keys are imported with unique local names (or aliases).
+      if (optionalInjectedKeysToAliasMap.isPresent()) {
+        HashSet<String> uniqueInjectedLocalNames = new HashSet<>(optionalInjectedKeysToAliasMap.get().size());
+        HashSet<String> duplicateInjectedLocalNames = new HashSet<>();
+        for (Map.Entry<Key, Optional<String>> injectedLocalName : optionalInjectedKeysToAliasMap.get().entrySet()) {
+          String localName = injectedLocalName.getValue().orElse(injectedLocalName.getKey().name);
+          if (!uniqueInjectedLocalNames.add(localName)) {
+            // We ended up finding some conflicting local names.
+            duplicateInjectedLocalNames.add(localName);
+          }
+        }
+        if (!duplicateInjectedLocalNames.isEmpty()) {
+          throw ClaroTypeException.forDuplicateInjectedLocalNames(
+              this.procedureName, this.resolvedProcedureType, duplicateInjectedLocalNames);
         }
       }
-      if (!duplicateInjectedLocalNames.isEmpty()) {
-        throw ClaroTypeException.forDuplicateInjectedLocalNames(
-            this.procedureName, this.resolvedProcedureType, duplicateInjectedLocalNames);
+      optionalInjectedKeysToAliasMap
+          .map(
+              keysToAliasMap ->
+                  keysToAliasMap.entrySet().stream()
+                      .collect(
+                          ImmutableMap.toImmutableMap(
+                              entry -> entry.getValue().orElse(entry.getKey().name),
+                              entry -> entry.getKey().type
+                          )))
+          .ifPresent(observeAndInitializeIdentifiers);
+
+      // Now from here step through the function body. Just assert expected types on the StmtListNode.
+      ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
+
+      // Do a one time cleanup of any procedure deps that we don't need filtered because they show up both inside
+      // and outside of using blocks.
+      this.directTopLevelProcedureDepsSet.forEach(
+          this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings::remove);
+
+      // In case this was a lambda expression that made reference to implicitly captured variables
+      // in the outer scope, we need to find and mark them so that we can handle them during interpretation.
+      lambdaScopeCapturedVariables = ImmutableSet.copyOf(scopedHeap.scopeStack.peek().lambdaScopeCapturedVariables);
+
+      // Just before we leave the procedure body, let's make sure that we check for required returns.
+      if (this.resolvedProcedureType.hasReturnValue()) {
+        if (!scopedHeap.isIdentifierInitialized(hiddenReturnTypeVariableFlagName)) {
+          // The hidden variable marking whether or not this procedure returns along every branch is
+          // uninitialized meaning that there's guaranteed to be a missing return somewhere.
+          throw new ClaroParserException(
+              String.format("Missing return in %s %s.", this.resolvedProcedureType, this.procedureName));
+        }
+        // Just to get the compiler not to yell about our hidden variable being unused, mark it used.
+        scopedHeap.markIdentifierUsed(hiddenReturnTypeVariableFlagName);
+      }
+
+      // Leave the function body.
+      scopedHeap.exitCurrObservedScope(false);
+      // Now that we've left the procedure's scope, let's disallow ReturnStmts again.
+      ReturnStmt.exitProcedureScope();
+
+      // Restore the prior active ProcedureDefStmt.
+      ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt = priorActiveProcedureDefStmt;
+    }
+    // Now we are recursively walking the graph of transitive procedure dependencies.
+    //
+    // !! HERE BE DRAGONS !!:
+    // BE VERY CAREFUL EDITING THIS. WE ARE INTENTIONALLY ITERATING OVER COLLECTIONS THAT ARE BEING SIMULTANEOUSLY
+    // MUTATED BY DESIGN. THIS MAY BE SOME SPOOKY ACTION AT A DISTANCE BASED ON THE RECURSIVE NATURE OF THIS PROBLEM
+    // BUT CONSIDER THIS YOUR WARNING.
+    if (!this.directTopLevelProcedureDepsSet.isEmpty()) {
+      // I want something stable to iterate over while honoring the mutable set as the actual source of truth.
+      ImmutableList<String> initialFringeStateCopyList = ImmutableList.copyOf(this.directTopLevelProcedureDepsSet);
+      for (String initialFringeProcedureDep : initialFringeStateCopyList) {
+        if (!this.directTopLevelProcedureDepsSet.contains(initialFringeProcedureDep)) {
+          // In this case, some dep led to a cycle and we've returned to the start and *should not* go back
+          // through validations on it again. Cut the cycle here, when we return at the original call-site,
+          // we'll be able to add that dep's used keys to this procedure's used keys.
+
+          // I wish I could `return` instead of `continue` to let the stack unwind (this would be ok for the current
+          // procedure) but it would cause the procedure dep that caused the cycle to potentially end up w/ only
+          // partial used keys information.
+          continue;
+        }
+        Types.ProcedureType depProcedureDef =
+            (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(initialFringeProcedureDep);
+        // Make sure that we never recheck this dep. "Mark it visited" by removing it from the dep set.
+        // Do this first before kicking of type validation on the dep so that we're ready before a cycle.
+        this.directTopLevelProcedureDepsSet.remove(initialFringeProcedureDep);
+        // Now, finally do the recursive bit. Kick off type validation on the dep so that we can make sure it
+        // collects all of its transitive used deps.
+        depProcedureDef.getProcedureDefStmt().assertExpectedExprTypes(scopedHeap);
+        // Now the *most important thing*!! Finally we can trust the dep's transitive used keys!
+        this.resolvedProcedureType.getUsedInjectedKeys().addAll(depProcedureDef.getUsedInjectedKeys());
       }
     }
-    optionalInjectedKeysToAliasMap
-        .map(
-            keysToAliasMap ->
-                keysToAliasMap.entrySet().stream()
-                    .collect(
-                        ImmutableMap.toImmutableMap(
-                            entry -> entry.getValue().orElse(entry.getKey().name),
-                            entry -> entry.getKey().type
-                        )))
-        .ifPresent(observeAndInitializeIdentifiers);
-
-
-    // Now from here step through the function body. Just assert expected types on the StmtListNode.
-    ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
-    // In case this was a lambda expression that made reference to implicitly captured variables
-    // in the outer scope, we need to find and mark them so that we can handle them during interpretation.
-    lambdaScopeCapturedVariables = ImmutableSet.copyOf(scopedHeap.scopeStack.peek().lambdaScopeCapturedVariables);
-
-    // Just before we leave the procedure body, let's make sure that we check for required returns.
-    if (this.resolvedProcedureType.hasReturnValue()) {
-      if (!scopedHeap.isIdentifierInitialized(hiddenReturnTypeVariableFlagName)) {
-        // The hidden variable marking whether or not this procedure returns along every branch is
-        // uninitialized meaning that there's guaranteed to be a missing return somewhere.
-        throw new ClaroParserException(
-            String.format("Missing return in %s %s.", this.resolvedProcedureType, this.procedureName));
+    // We basically need to do the same thing again here, for the deps that were used within a nested using block.
+    // Look to the above block for detailed comments explaining the logic.
+    if (!this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings.isEmpty()) {
+      ImmutableList<String> initialFringeStateCopyList =
+          ImmutableList.copyOf(this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings.keySet());
+      for (String initialFringeProcedureDep : initialFringeStateCopyList) {
+        if (!this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings
+            .containsKey(initialFringeProcedureDep)) {
+          // cycle case.
+          continue;
+        }
+        Types.ProcedureType depProcedureDef =
+            (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(initialFringeProcedureDep);
+        ImmutableSet<Key> keysAlreadyProvidedToDep =
+            this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings
+                .remove(initialFringeProcedureDep);
+        // Now, finally do the recursive bit. Kick off type validation on the dep so that we can make sure it
+        // collects all of its transitive used deps.
+        depProcedureDef.getProcedureDefStmt().assertExpectedExprTypes(scopedHeap);
+        // Now the *most important thing*!! Finally we can trust the dep's transitive used keys!
+        this.resolvedProcedureType.getUsedInjectedKeys()
+            .addAll(
+                // Filter out all the keys that were already provided by the nested using block.
+                Sets.difference(depProcedureDef.getUsedInjectedKeys(), keysAlreadyProvidedToDep));
       }
-      // Just to get the compiler not to yell about our hidden variable being unused, mark it used.
-      scopedHeap.markIdentifierUsed(hiddenReturnTypeVariableFlagName);
     }
-
-    // Leave the function body.
-    scopedHeap.exitCurrObservedScope(false);
-    // Now that we've left the procedure's scope, let's disallow ReturnStmts again.
-    ReturnStmt.exitProcedureScope();
   }
 
   @Override

@@ -79,11 +79,19 @@ public class ProgramNode {
     // PROCEDURE DISCOVERY PHASE:
     performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
 
-    // PROCEDURE TYPE VALIDATION PHASE:
-    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+    // Modules only need to know about procedure type signatures, nothing else, so save procedure type
+    // validation for after the full module discovery and validation phases since procedure type validation
+    // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
+    // top-level procedures.
 
     // MODULE DISCOVERY PHASE:
     performModuleDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // MODULE TYPE VALIDATION PHASE:
+    performModuleTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // PROCEDURE TYPE VALIDATION PHASE:
+    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
 
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
@@ -147,11 +155,19 @@ public class ProgramNode {
     // PROCEDURE DISCOVERY PHASE:
     performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
 
-    // PROCEDURE TYPE VALIDATION PHASE:
-    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+    // Modules only need to know about procedure type signatures, nothing else, so save procedure type
+    // validation for after the full module discovery and validation phases since procedure type validation
+    // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
+    // top-level procedures.
 
     // MODULE DISCOVERY PHASE:
     performModuleDiscoveryPhase(stmtListNode, scopedHeap);
+
+    // MODULE TYPE VALIDATION PHASE:
+    performModuleTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // PROCEDURE TYPE VALIDATION PHASE:
+    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
 
     // Validate all types in the entire remaining AST before execution.
     try {
@@ -238,6 +254,26 @@ public class ProgramNode {
       if (currStmt instanceof ModuleDefinitionStmt) {
         try {
           ((ModuleDefinitionStmt) currStmt).registerAssertedBoundKeys(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+  }
+
+  private void performModuleTypeValidationPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // We need to register the bindings that each ModuleDefinitionStmt provides so that, later,
+    // we're ready to handle potential composition of these Modules via using clauses.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ModuleDefinitionStmt) {
+        try {
+          ((ModuleDefinitionStmt) currStmt).assertExpectedExprTypes(scopedHeap);
         } catch (ClaroTypeException e) {
           // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
           // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for

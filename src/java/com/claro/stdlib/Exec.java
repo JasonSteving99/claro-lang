@@ -7,10 +7,15 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+
+import java.util.Optional;
 
 public class Exec {
 
@@ -50,6 +55,26 @@ public class Exec {
   }
 
   public static Type getProcedureType() {
-    return Types.ProcedureType.ConsumerType.forConsumerArgTypes(ImmutableList.of(Types.STRING));
+    return Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+        ImmutableList.of(Types.STRING),
+        Sets.newHashSet(),
+        new Stmt(ImmutableList.of()) {
+          @Override
+          public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+            // Synthetic node, this can't fail.
+          }
+
+          @Override
+          public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+            return GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
+          }
+
+          @Override
+          public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+            return null;
+          }
+        },
+        Optional::empty
+    );
   }
 }

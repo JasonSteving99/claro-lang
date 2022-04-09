@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.procedures.functions.FunctionCallExpr;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
@@ -66,6 +67,10 @@ public class ConsumerFunctionCallStmt extends Stmt {
       Expr currArgExpr = ((Expr) this.argExprs.get(i));
       currArgExpr.assertExpectedExprType(scopedHeap, definedArgTyps.get(i));
     }
+
+    // Validate that the procedure has been called in a scope that provides the correct bindings.
+    // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
+    FunctionCallExpr.validateNeededBindings(this.consumerName, referencedIdentifierType, scopedHeap);
 
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.consumerName);

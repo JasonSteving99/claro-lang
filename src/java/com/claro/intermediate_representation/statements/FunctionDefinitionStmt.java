@@ -4,10 +4,13 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
@@ -30,11 +33,30 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
         functionName,
         argTypes,
         optionalInjectedKeysTypes,
-        (scopedHeap) ->
-            Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-                argTypes.values().stream().map(t -> t.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()),
-                outputTypeProvider.resolveType(scopedHeap)
-            ),
+        (thisProcedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                    argTypes.values()
+                        .stream()
+                        .map(t -> t.resolveType(scopedHeap))
+                        .collect(ImmutableList.toImmutableList()),
+                    outputTypeProvider.resolveType(scopedHeap),
+                    BaseType.FUNCTION,
+                    optionalInjectedKeysTypes
+                        .map(
+                            injectedKeysTypes ->
+                                injectedKeysTypes.stream()
+                                    .map(
+                                        injectedKey ->
+                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                    .collect(Collectors.toSet())
+                        )
+                        .orElse(Sets.newHashSet()),
+                    thisProcedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }
@@ -51,12 +73,21 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
         functionName,
         argTypes,
         Optional.empty(),
-        (scopedHeap) ->
-            Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-                argTypes.values().stream().map(t -> t.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()),
-                outputTypeProvider.resolveType(scopedHeap),
-                baseType
-            ),
+        (thisProcedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                    argTypes.values()
+                        .stream()
+                        .map(t -> t.resolveType(scopedHeap))
+                        .collect(ImmutableList.toImmutableList()),
+                    outputTypeProvider.resolveType(scopedHeap),
+                    baseType,
+                    Sets.newHashSet(), // no directly used keys.
+                    thisProcedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }

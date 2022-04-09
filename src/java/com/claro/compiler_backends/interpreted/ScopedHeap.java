@@ -193,7 +193,7 @@ public class ScopedHeap {
     return findScopeStackLevel(scopeLevel -> scopeLevel.scopedSymbolTable.containsKey(identifier), identifier);
   }
 
-  private Optional<Integer> findIdentifierInitializedScopeLevel(String identifier) {
+  public Optional<Integer> findIdentifierInitializedScopeLevel(String identifier) {
     return findScopeStackLevel(scopeLevel -> scopeLevel.initializedIdentifiers.contains(identifier), identifier);
   }
 
@@ -224,7 +224,10 @@ public class ScopedHeap {
                 // In either of these cases, we should accept Function type references and Type definitions.
                 return Optional.of(scopeLevel);
               } else if (pastFunctionScopeBoundary.isPresent()) {
-                // Functions can only access other Functions and Type definitions in outer scopes.
+                // Functions may also reference Modules defined in outer scopes.
+                if (identifierData.type.baseType().equals(BaseType.MODULE)) {
+                  return Optional.of(scopeLevel);
+                }
                 return Optional.empty();
               } else {
                 // Lambdas can reference anything in outer scopes, but they need to re-declare a hiding variable

@@ -76,7 +76,6 @@ claro_binary(
 claro_library(
     name = "modules_compiled_claro",
     src = "modules.claro",
-#    debug = True,
 )
 
 claro_binary(

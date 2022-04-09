@@ -20,11 +20,17 @@ public class UsingBlockStmt extends Stmt {
 
   private ImmutableList<String> moduleNameList;
   private final StmtListNode stmtListNode;
+  private final boolean executableUsingBlock;
 
   public UsingBlockStmt(ImmutableList<String> moduleNameList, StmtListNode stmtListNode) {
+    this(moduleNameList, stmtListNode, false);
+  }
+
+  public UsingBlockStmt(ImmutableList<String> moduleNameList, StmtListNode stmtListNode, boolean executableUsingBlock) {
     super(ImmutableList.of());
     this.moduleNameList = moduleNameList;
     this.stmtListNode = stmtListNode;
+    this.executableUsingBlock = executableUsingBlock;
   }
 
   @Override
@@ -62,12 +68,19 @@ public class UsingBlockStmt extends Stmt {
 
     // Now go through each used Module and validate that none redeclare the same bindings.
     Set<Key> duplicatedKeyBindingsSet = Sets.newHashSet();
+    ModuleDefinitionStmt currModule = (ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(0));
     Set<Key> boundKeysSet =
-        Sets.newHashSet(((ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(0))).boundKeySet);
+        Sets.newHashSet(
+            this.executableUsingBlock
+            ? currModule.optionalTransitiveClosureBoundKeySet.orElse(currModule.boundKeySet)
+            : currModule.boundKeySet);
     for (int i = 1; i < moduleNameList.size(); i++) {
       // One by one, validate that the union between successive bound keys sets is empty, and then accumulate.
+      currModule = (ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(i));
       Set<Key> nextModuleKeySet =
-          ((ModuleDefinitionStmt) scopedHeap.getIdentifierValue(moduleNameList.get(i))).boundKeySet;
+          this.executableUsingBlock
+          ? currModule.optionalTransitiveClosureBoundKeySet.orElse(currModule.boundKeySet)
+          : currModule.boundKeySet;
       Sets.SetView<Key> currDuplicates = Sets.intersection(boundKeysSet, nextModuleKeySet);
       if (currDuplicates.size() != 0) {
         currDuplicates.copyInto(duplicatedKeyBindingsSet);

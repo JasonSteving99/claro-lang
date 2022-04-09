@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ModuleDefinitionStmt extends Stmt {
@@ -22,6 +23,7 @@ public class ModuleDefinitionStmt extends Stmt {
   public ImmutableSet<Key> boundKeySet;
   private boolean alreadyAssertedTypes = false;
   private Optional<ImmutableSet<String>> optionalTransitiveClosureUsedModuleNameSet;
+  Optional<ImmutableSet<Key>> optionalTransitiveClosureBoundKeySet = Optional.empty();
 
   public ModuleDefinitionStmt(String moduleName, StmtListNode stmtListNode) {
     this(moduleName, Optional.empty(), stmtListNode);
@@ -106,13 +108,7 @@ public class ModuleDefinitionStmt extends Stmt {
         this.optionalTransitiveClosureUsedModuleNameSet =
             Optional.of(optionalTransitiveClosureUsedModuleNameSetBuilder.build());
 
-        new UsingBlockStmt(
-            ImmutableList.<String>builder()
-                .add(this.moduleName)
-                .addAll(optionalTransitiveClosureUsedModuleNameSet.get())
-                .build(),
-            this.stmtListNode
-        ).assertExpectedExprTypes(scopedHeap);
+        AtomicReference<ImmutableSet<Key>> transitiveClosureBoundKeySet = new AtomicReference<>();
 
         // Wrap the list of BindStmts with a Stmt to first defer to the init function of the used Modules.
         this.stmtListNode =
@@ -120,7 +116,8 @@ public class ModuleDefinitionStmt extends Stmt {
                 new Stmt(ImmutableList.of()) {
                   @Override
                   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-                    // Synthetic node, can't fail.
+                    // Capture the transitive set of bindings for this module so that we can use it later.
+                    transitiveClosureBoundKeySet.set(ImmutableSet.copyOf(UsingBlockStmt.currentlyUsedBindings));
                   }
 
                   @Override
@@ -148,10 +145,21 @@ public class ModuleDefinitionStmt extends Stmt {
                 },
                 this.stmtListNode
             );
+
+        new UsingBlockStmt(
+            ImmutableList.<String>builder()
+                .add(this.moduleName)
+                .addAll(optionalTransitiveClosureUsedModuleNameSet.get())
+                .build(),
+            this.stmtListNode
+        ).assertExpectedExprTypes(scopedHeap);
+
+        this.optionalTransitiveClosureBoundKeySet = Optional.of(transitiveClosureBoundKeySet.get());
       } else {
         // This module has no deps at all so there's nothing to do other than assert types on the bindings directly.
         this.stmtListNode.assertExpectedExprTypes(scopedHeap);
         this.optionalTransitiveClosureUsedModuleNameSet = Optional.empty();
+        this.optionalTransitiveClosureBoundKeySet = Optional.empty();
       }
     }
 

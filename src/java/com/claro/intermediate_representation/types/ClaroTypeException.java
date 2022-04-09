@@ -48,6 +48,8 @@ public class ClaroTypeException extends Exception {
       "Invalid Procedure Definition: Procedure %s %s may not be defined within a using block.";
   private static final String DUPLICATE_INJECTED_LOCAL_NAMES =
       "Duplicate names in using-clause of procedure %s %s for each of the following names %s. Fix by providing an alias to give the dependency a unique local name: `using(<bindingName>:<type> as <aliasName>)`.";
+  private static final String PROCEDURE_CALL_MISSING_BINDING_KEYS =
+      "Illegal call to procedure %s %s. The following keys must be bound: %s.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -207,6 +209,20 @@ public class ClaroTypeException extends Exception {
             procedureName,
             procedureType,
             duplicateInjectedLocalNames.stream()
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forMissingBindings(
+      String procedureName, Type procedureType, Set<Key> missingBindings) {
+    return new ClaroTypeException(
+        String.format(
+            PROCEDURE_CALL_MISSING_BINDING_KEYS,
+            procedureName,
+            procedureType,
+            missingBindings.stream()
+                .map(key -> String.format("%s:%s", key.name, key.type))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );

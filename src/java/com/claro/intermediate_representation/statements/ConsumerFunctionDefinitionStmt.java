@@ -4,10 +4,13 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
@@ -27,12 +30,28 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
         consumerName,
         argTypes,
         optionalInjectedKeysTypes,
-        (scopedHeap) ->
-            Types.ProcedureType.ConsumerType.forConsumerArgTypes(
-                argTypes.values()
-                    .stream()
-                    .map(t -> t.resolveType(scopedHeap))
-                    .collect(ImmutableList.toImmutableList())),
+        (thisProcedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+                    argTypes.values()
+                        .stream()
+                        .map(t -> t.resolveType(scopedHeap))
+                        .collect(ImmutableList.toImmutableList()),
+                    optionalInjectedKeysTypes
+                        .map(
+                            injectedKeysTypes ->
+                                injectedKeysTypes.stream()
+                                    .map(
+                                        injectedKey ->
+                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                    .collect(Collectors.toSet())
+                        )
+                        .orElse(Sets.newHashSet()),
+                    thisProcedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }
@@ -48,14 +67,20 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
         consumerName,
         argTypes,
         Optional.empty(),
-        (scopedHeap) ->
-            Types.ProcedureType.ConsumerType.forConsumerArgTypes(
-                argTypes.values()
-                    .stream()
-                    .map(t -> t.resolveType(scopedHeap))
-                    .collect(ImmutableList.toImmutableList()),
-                baseType
-            ),
+        (thisProcedureDefinitionStmt) ->
+            (scopedHeap) ->
+                Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+                    argTypes.values()
+                        .stream()
+                        .map(t -> t.resolveType(scopedHeap))
+                        .collect(ImmutableList.toImmutableList()),
+                    baseType,
+                    Sets.newHashSet(),
+                    thisProcedureDefinitionStmt,
+                    () ->
+                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                ),
         stmtListNode
     );
   }
