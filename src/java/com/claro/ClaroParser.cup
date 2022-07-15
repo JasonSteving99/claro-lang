@@ -200,6 +200,7 @@ terminal LexedValue<String>  COLON;
 terminal LexedValue<String>  COMMA;
 terminal LexedValue<String>  BAR;
 terminal LexedValue<String>  EQUALS, NOT_EQUALS;
+terminal LexedValue<String>  UNDERSCORE;
 terminal LexedValue<String>  VAR, ASSIGNMENT;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
@@ -272,6 +273,7 @@ nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
 nonterminal AssignmentStmt                     identifier_assignment;
+nonterminal TrashcanAssignmentStmt             trashcan_assignment;
 nonterminal IncrementExpr                      identifier_increment;
 nonterminal IncrementStmt                      identifier_increment_stmt;
 nonterminal DecrementExpr                      identifier_decrement;
@@ -711,6 +713,11 @@ backwards_builtin_types_list ::=
 identifier_assignment ::=
     IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new AssignmentStmt(identifier.val, e); :}
+  ;
+
+trashcan_assignment ::=
+    UNDERSCORE ASSIGNMENT identifier:identifier SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(identifier); :}
   ;
 
 identifier_increment_stmt ::=

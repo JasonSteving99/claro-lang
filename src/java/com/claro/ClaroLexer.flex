@@ -203,6 +203,8 @@ WhiteSpace     = [ \t\f]
     "as"               { return symbol(Calc.AS, 0, 2, "as"); }
     "using"            { return symbol(Calc.USING, 0, 5, "using"); }
 
+    "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
+
     \"                 {
                          // There may have already been another string accumulated into this buffer.
                          // In that case we need to clear the buffer to start processing this.
