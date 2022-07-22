@@ -46,6 +46,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "graphs_compiled_claro_image",
+    srcs = [":graphs_compiled_claro"],
+    java_name = "graphs",
+)
+
+claro_library(
+    name = "graphs_compiled_claro",
+    src = "graphs.claro",
+    debug = True,
+)
+
+claro_binary(
     name = "lambdas_compiled_claro_image",
     srcs = [":lambdas_compiled_claro"],
     java_name = "lambdas",

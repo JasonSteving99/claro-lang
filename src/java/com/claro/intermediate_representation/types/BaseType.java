@@ -1,5 +1,7 @@
 package com.claro.intermediate_representation.types;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 import java.util.Optional;
 
 public enum BaseType {
@@ -94,6 +96,7 @@ public enum BaseType {
       "  public %s apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
+      "\n%s\n" +
       "  @Override\n" +
       "  public Type getClaroType() {\n" +
       "    return claroType;\n" +
@@ -241,6 +244,10 @@ public enum BaseType {
       "final $%s %s = new $%s(%s);\n"
   ),
   /********************************************************************************************************************/
+
+  // Futures are a natively represented type in Claro so that we can make certain levels of thread safety on builtin
+  // concurrency facilities.
+  FUTURE("future<%s>", "ClaroFuture<%s>", ListenableFuture.class),
 
   // Module is a Type that's only modeled internally and shouldn't appear in generated output or in any other user
   // observable way since I don't want Modules to be things that can be passed around like arbitrary data.

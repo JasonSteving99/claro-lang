@@ -4,8 +4,71 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.ConcreteType;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClaroRuntimeUtilities {
+  public static ListeningExecutorService DEFAULT_EXECUTOR_SERVICE =
+      MoreExecutors.listeningDecorator(
+          Executors.newFixedThreadPool(
+              Runtime.getRuntime().availableProcessors(),
+              // This directly copies the implementation of {@link Executors#defaultThreadFactory} just to override the
+              // name given to threads created by Claro's graph functions since I want users to be able to distinguish
+              // Claro's defaults from anything that they override.
+              new ThreadFactory() {
+                private final ThreadGroup group;
+                private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+                {
+                  SecurityManager s = System.getSecurityManager();
+                  group = (s != null) ? s.getThreadGroup() :
+                          Thread.currentThread().getThreadGroup();
+                }
+
+                public Thread newThread(Runnable r) {
+                  String namePrefix = "claro-default-graph-function-pool-thread-";
+                  Thread t = new Thread(group, r,
+                                        namePrefix + threadNumber.getAndIncrement(),
+                                        0
+                  );
+                  if (t.isDaemon()) {
+                    t.setDaemon(false);
+                  }
+                  if (t.getPriority() != Thread.NORM_PRIORITY) {
+                    t.setPriority(Thread.NORM_PRIORITY);
+                  }
+                  return t;
+                }
+              }
+          )
+      );
+
+  // Implementation of this shutdown hook taken directly from ExecutorService documentation: https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html?is-external=true#:~:text=void%20shutdownAndAwaitTermination(ExecutorService,Thread.currentThread().interrupt()%3B%0A%20%20%20%7D%0A%20%7D
+  public static void shutdownAndAwaitTermination(ExecutorService pool) {
+    pool.shutdown(); // Disable new tasks from being submitted
+    try {
+      // Wait a while for existing tasks to terminate
+      if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+        pool.shutdownNow(); // Cancel currently executing tasks
+        // Wait a while for tasks to respond to being cancelled
+        if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+          System.err.println("Pool did not terminate");
+        }
+      }
+    } catch (InterruptedException ie) {
+      // (Re-)Cancel if current thread also interrupted
+      pool.shutdownNow();
+      // Preserve interrupt status
+      Thread.currentThread().interrupt();
+    }
+  }
+
   public static <T> T assertedTypeValue(Type assertedType, T evaluatedCastedExprValue) {
     try {
       if (evaluatedCastedExprValue instanceof ClaroTypeImplementation) {

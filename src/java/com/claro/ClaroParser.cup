@@ -241,6 +241,7 @@ terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
+terminal LexedValue<String>  FUTURE, BLOCKING_GET, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -286,6 +287,11 @@ nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_t
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
+nonterminal GraphFunctionDefinitionStmt        graph_function_definition_stmt;
+nonterminal GraphNodeDefinitionStmt            root_node;
+nonterminal GraphNodeDefinitionStmt            non_root_node;
+nonterminal ImmutableList.Builder<GraphNodeDefinitionStmt> non_root_nodes_list;
+nonterminal GraphNodeReferenceExpr             node_reference;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
 nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
 nonterminal Symbol/*<ImmutableMap.Builder<String, Expr>>*/ builder_setter_call;
@@ -403,6 +409,8 @@ stmt ::=
     {: RESULT = pf; :}
   | consumer_function_call_stmt:cf
     {: RESULT = cf; :}
+  | graph_function_definition_stmt:gf
+    {: RESULT = gf; :}
   | return_stmt:r
     {: RESULT = r; :}
   | alias_stmt:a
@@ -460,6 +468,12 @@ identifier_declaration ::=
     {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val); :}
   | VAR IDENTIFIER:identifier COLON builtin_type:t ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e); :}
+
+  // Blocking variants.
+  | VAR IDENTIFIER:identifier COLON builtin_type:t BLOCKING_GET expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e, /*allowVariableHiding=*/false, /*blocking=*/true); :}
+  | VAR IDENTIFIER:identifier BLOCKING_GET expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier.val, e, /*blocking=*/true); :}
   ;
 
 alias_stmt ::=
@@ -642,6 +656,24 @@ builtin_type ::=
           endCol, // line number
           new LexedValue(
             Types.BuilderType.forStructTypeName(built_type_name.val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUTURE:f L_ANGLE_BRACKET:la builtin_type:wrapped R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> wrappedTypeProvider = (LexedValue<TypeProvider>) wrapped.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.currentInputLine, fright), new Line(la.currentInputLine, laright), new Line(wrappedTypeProvider.currentInputLine, wrapped.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(fleft, laleft, wrapped.left, raleft);
+       int endCol = max(fleft + f.len, laleft + la.len, wrapped.left + wrappedTypeProvider.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.FutureType.wrapping(wrappedTypeProvider.val.resolveType(scopedHeap)),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -1514,6 +1546,72 @@ return_stmt ::=
     :}
   ;
 
+// Just to make sure that graphs are somewhat consistent, you must either choose between putting the root node as the
+// first or last node definition in the graph body. Let's encourage ordering these sanely because it can be hard to
+// trace declarative code without a pattern.
+graph_function_definition_stmt ::=
+    GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+       RESULT = new GraphFunctionDefinitionStmt(
+          name.val,
+          argTypesMap,
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+       RESULT = new GraphFunctionDefinitionStmt(
+          name.val,
+          argTypesMap,
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  ;
+
+root_node ::=
+    ROOT IDENTIFIER:name LEFT_ARROW expr:expr SEMICOLON
+    {: RESULT = new GraphNodeDefinitionStmt(name.val, expr); :}
+  ;
+
+non_root_node ::=
+    NODE IDENTIFIER:name LEFT_ARROW expr:expr SEMICOLON
+    {: RESULT = new GraphNodeDefinitionStmt(name.val, expr); :}
+  ;
+
+non_root_nodes_list ::=
+    non_root_node:node non_root_nodes_list:tail
+    {: RESULT = tail.add(node); :}
+  | non_root_node:node
+    {: RESULT = ImmutableList.<GraphNodeDefinitionStmt>builder().add(node); :}
+  ;
+
+node_reference ::=
+    AT IDENTIFIER:identifier
+    {: RESULT = new GraphNodeReferenceExpr(identifier.val, identifier.currentInputLine, identifierright, identifierleft, identifierleft + identifier.len); :}
+  ;
+
 function_call_expr ::=
     IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
     {:
@@ -1696,12 +1794,14 @@ fmt_string ::=
     :}
   ;
 
-// The last production 'term' closes the grammar. It's a primitive or identifier.
+// The last production 'term' closes the grammar. It's a primitive or identifier reference.
 term ::=
     primitive:p
     {: RESULT = p; :}
   | identifier:i
     {: RESULT = i; :}
+  | node_reference:nr
+    {: RESULT = nr; :}
   ;
 
 identifier ::=

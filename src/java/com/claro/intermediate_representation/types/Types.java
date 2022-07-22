@@ -285,7 +285,8 @@ public final class Types {
       return autoValueIgnoredProcedureDefStmt.get();
     }
 
-    public abstract String getJavaNewTypeDefinitionStmt(String procedureName, StringBuilder body);
+    public abstract String getJavaNewTypeDefinitionStmt(
+        String procedureName, StringBuilder body, Optional<StringBuilder> optionalHelperMethods);
 
     public abstract String getJavaNewTypeDefinitionStmtForLambda(
         String procedureName, StringBuilder body, ImmutableMap<String, Type> capturedVariables);
@@ -386,7 +387,8 @@ public final class Types {
       }
 
       @Override
-      public String getJavaNewTypeDefinitionStmt(String functionName, StringBuilder body) {
+      public String getJavaNewTypeDefinitionStmt(
+          String functionName, StringBuilder body, Optional<StringBuilder> optionalHelperMethods) {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
                 .orElse(this.baseType())
@@ -398,11 +400,8 @@ public final class Types {
             functionName,
             getReturnType().getJavaSourceType(),
             body,
-            this,
-            functionName,
-            functionName,
-            functionName,
-            functionName
+            optionalHelperMethods.orElse(new StringBuilder()),
+            this
         );
       }
 
@@ -516,7 +515,8 @@ public final class Types {
       }
 
       @Override
-      public String getJavaNewTypeDefinitionStmt(String providerName, StringBuilder body) {
+      public String getJavaNewTypeDefinitionStmt(
+          String providerName, StringBuilder body, Optional<StringBuilder> unusedOptionalHelperMethods) {
         String returnTypeJavaSource = getReturnType().getJavaSourceType();
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
@@ -650,7 +650,8 @@ public final class Types {
       }
 
       @Override
-      public String getJavaNewTypeDefinitionStmt(String consumerName, StringBuilder body) {
+      public String getJavaNewTypeDefinitionStmt(
+          String consumerName, StringBuilder body, Optional<StringBuilder> unusedOptionalHelperMethods) {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
                 .orElse(this.baseType())
@@ -731,6 +732,23 @@ public final class Types {
       }
     }
 
+  }
+
+  @AutoValue
+  public abstract static class FutureType extends Type {
+    private static final String PARAMETERIZED_TYPE_KEY = "$value";
+
+    public static FutureType wrapping(Type valueType) {
+      return new AutoValue_Types_FutureType(BaseType.FUTURE, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType));
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.FutureType.wrapping(%s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).getJavaSourceClaroType()
+      );
+    }
   }
 
   // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly

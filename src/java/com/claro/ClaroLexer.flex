@@ -203,6 +203,15 @@ WhiteSpace     = [ \t\f]
     "as"               { return symbol(Calc.AS, 0, 2, "as"); }
     "using"            { return symbol(Calc.USING, 0, 5, "using"); }
 
+    // Graph related things go here.
+    "future"           { return symbol(Calc.FUTURE, 0, 4, "future"); }
+    "graph"            { return symbol(Calc.GRAPH, 0, 4, "graph"); }
+    "root"             { return symbol(Calc.ROOT, 0, 4, "root"); }
+    "node"             { return symbol(Calc.NODE, 0, 4, "node"); }
+    "<-"               { return symbol(Calc.LEFT_ARROW, 0, 2, "<-"); }
+    "@"                { return symbol(Calc.AT, 0, 1, "@"); }
+    "<-|"              { return symbol(Calc.BLOCKING_GET, 0, 3, "<-|"); }
+
     "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
 
     \"                 {

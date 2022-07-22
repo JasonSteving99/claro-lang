@@ -209,6 +209,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
                           )))
           .ifPresent(observeAndInitializeIdentifiers);
 
+      // Do setup for any subclasses who need to customize some setup within the function scope for type checking sake.
+      this.subclassSetupFunctionBodyScopeCallback(scopedHeap);
+
       // Now from here step through the function body. Just assert expected types on the StmtListNode.
       ((StmtListNode) this.getChildren().get(0)).assertExpectedExprTypes(scopedHeap);
 
@@ -299,6 +302,15 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
                 Sets.difference(depProcedureDef.getUsedInjectedKeys(), keysAlreadyProvidedToDep));
       }
     }
+  }
+
+  // Do setup for any subclasses who need to customize some setup within the function scope for type checking sake.
+  protected void subclassSetupFunctionBodyScopeCallback(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // By default this should do nothing.
+  }
+
+  protected Optional<GeneratedJavaSource> getHelperMethodsJavaSource(ScopedHeap scopedHeap) {
+    return Optional.empty();
   }
 
   @Override
@@ -398,11 +410,24 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
                       ))
           );
     } else {
+      // It's possible that we need to generate helper methods for the class we're generating.
+      Optional<GeneratedJavaSource> optionalHelperGeneratedJavaSource = getHelperMethodsJavaSource(scopedHeap);
+      optionalHelperGeneratedJavaSource.ifPresent(
+          helperGeneratedJavaSource -> {
+            procedureBodyGeneratedJavaSource.optionalStaticDefinitions()
+                .ifPresent(staticDefs -> staticDefs.append(helperGeneratedJavaSource.optionalStaticDefinitions()));
+            procedureBodyGeneratedJavaSource.optionalStaticPreambleStmts()
+                .ifPresent(
+                    staticPreambleDefs ->
+                        staticPreambleDefs.append(helperGeneratedJavaSource.optionalStaticPreambleStmts()));
+          });
+
       javaSourceOutput =
           this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
-                  .append(procedureBodyGeneratedJavaSource.javaSourceBody())
+                  .append(procedureBodyGeneratedJavaSource.javaSourceBody()),
+              optionalHelperGeneratedJavaSource.map(GeneratedJavaSource::javaSourceBody)
           );
     }
     Optional<StringBuilder> optionalStaticDefinitions =

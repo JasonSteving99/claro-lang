@@ -82,6 +82,9 @@ java_library(
 java_library(
     name = "base_type",
     srcs = ["BaseType.java"],
+    deps = [
+        "//:guava",
+    ]
 )
 
 java_library(

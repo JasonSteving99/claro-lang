@@ -50,6 +50,9 @@ public class ClaroTypeException extends Exception {
       "Duplicate names in using-clause of procedure %s %s for each of the following names %s. Fix by providing an alias to give the dependency a unique local name: `using(<bindingName>:<type> as <aliasName>)`.";
   private static final String PROCEDURE_CALL_MISSING_BINDING_KEYS =
       "Illegal call to procedure %s %s. The following keys must be bound: %s.";
+  private static final String GRAPH_FUNCTION_DOES_NOT_RETURN_FUTURE =
+      "Graph function %s %s must return a result wrapped in a future<>.";
+
 
   public ClaroTypeException(String message) {
     super(message);
@@ -224,6 +227,16 @@ public class ClaroTypeException extends Exception {
             missingBindings.stream()
                 .map(key -> String.format("%s:%s", key.name, key.type))
                 .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forGraphFunctionNotReturningFuture(String procedureName, Type procedureType) {
+    return new ClaroTypeException(
+        String.format(
+            GRAPH_FUNCTION_DOES_NOT_RETURN_FUTURE,
+            procedureName,
+            procedureType
         )
     );
   }

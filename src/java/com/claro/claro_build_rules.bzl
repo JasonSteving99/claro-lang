@@ -16,6 +16,7 @@ def claro_binary(name, srcs, java_name):
             "//:lombok",
             "//src/java/com/claro/stdlib",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
             "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
             "//src/java/com/claro/intermediate_representation/types:base_type",

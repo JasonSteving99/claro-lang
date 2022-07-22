@@ -1,0 +1,59 @@
+module MyGraphConfigModule(MyLoggingModule) {
+  bind graphLogger : Logger to log;
+  bind defaultRetries : int to 3;
+  bind defaultTimeoutSeconds : int to 30;
+}
+
+using(MyGraphConfigModule) {
+  fooGraphResponse: Response = await(fooGraph(99, "Woo!"));
+  print(fooGraphResponse);
+}
+
+using(
+  graphLogger: Logger,
+  defaultRetries: int,
+  defaultTimeoutSeconds: int)
+graph function fooGraph(arg1: int, arg2: string) -> future<Response> {
+
+  root apiResponse <- getApiResponse(@fizz, @buzz);
+
+  node fizz <- getFizz(@bar) {
+    retries: 5,
+    cleanup: getFizzCleanup(...),
+  };
+
+  # Type annotation is optional on the node def.
+  node buzz: Result<Buzz, BuzzError> <- getBuzz(helper(@bar), arg2);
+
+  node bar: Bar <- getBar(arg1) {
+    retries: 3,
+    # getBar() returns Result<Bar, BarError> but we'd like this node to guarantee a Bar result. So, we can
+    # provide a fallback function to handle any and all possible err cases and return a Bar.
+    fallback: getBarFallback(arg1, @bar),
+  };
+}
+
+function getBar(x: int) -> future<Result<Bar, BarError>> {
+  return ...
+}
+
+# Fallback functions may only be provided if they are guaranteed to return a valid value with
+# which the graph computation may proceed.
+using(log: Logger)
+function getBarFallback(x: int, barErr: BarError) -> Bar {
+  log.warn("Something went wrong: {barErr}");
+  return match(type(barErr)) {
+    case BarErrorX -> Bar(x, "it's ok");
+    case BarErrorY -> Bar(x, "don't worry");
+    case _ -> Bar(x, "Total fallback");
+  };
+}
+
+function getBuzz(baz: Baz, s: string) -> future<Result<Buzz, BuzzError>> {
+  return ...
+}
+
+function helper(bar: Bar) -> Baz {
+  return Baz(bar);
+}
+

@@ -309,6 +309,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.Types;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
@@ -319,7 +320,12 @@ public class ProgramNode {
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +
+            "import com.google.common.util.concurrent.Futures;" +
+            "import com.google.common.util.concurrent.ListenableFuture;" +
             "import java.util.ArrayList;\n" +
+            "import java.util.List;\n" +
+            "import java.util.Optional;\n" +
+            "import java.util.concurrent.ExecutionException;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +
             "import lombok.EqualsAndHashCode;\n" +
@@ -332,7 +338,10 @@ public class ProgramNode {
             "// Now the static definitions.\n" +
             "%s\n\n" +
             "  public static void main(String[] args) {\n" +
-            "%s" +
+            "%s\n\n" +
+            "    // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
+            "    // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
+            "    ClaroRuntimeUtilities.shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
             "  }\n\n" +
             "}",
             this.packageString,

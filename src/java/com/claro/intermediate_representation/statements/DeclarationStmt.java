@@ -2,9 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -21,29 +19,40 @@ public class DeclarationStmt extends Stmt {
   // Determines whether this variable declaration should allow variable hiding or not. This is not always desirable,
   // so it must be explicitly set if this is desirable in this case.
   private final boolean allowVariableHiding;
+  // Determine whether this is a blocking declaration statement, in which case we'll alter the type checking to expect
+  // a future and generate some additional Future::get call to unwrap the future.
+  private final boolean blocking;
 
   // Constructor for var initialization requesting type inference.
   public DeclarationStmt(String identifier, Expr e) {
+    this(identifier, e, false);
+  }
+
+  public DeclarationStmt(String identifier, Expr e, boolean blocking) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.empty();
     this.allowVariableHiding = false;
+    this.blocking = blocking;
   }
 
   // Allow typed declarations with initialization.
   public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider, Expr e) {
-    super(ImmutableList.of(e));
-    this.IDENTIFIER = identifier;
-    this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
-    this.allowVariableHiding = false;
+    this(identifier, declaredTypeProvider, e, false, false);
+  }
+
+  public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider, Expr e, boolean allowVariableHiding) {
+    this(identifier, declaredTypeProvider, e, allowVariableHiding, false);
   }
 
   // Allow typed declarations with initialization that can hide variables in outer scopes.
-  public DeclarationStmt(String identifier, TypeProvider declaredTypeProvider, Expr e, boolean allowVariableHiding) {
+  public DeclarationStmt(
+      String identifier, TypeProvider declaredTypeProvider, Expr e, boolean allowVariableHiding, boolean blocking) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
     this.allowVariableHiding = allowVariableHiding;
+    this.blocking = blocking;
   }
 
   // Allow typed declarations without initialization.
@@ -52,6 +61,7 @@ public class DeclarationStmt extends Stmt {
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
     this.allowVariableHiding = false;
+    this.blocking = false;
   }
 
   @Override
@@ -64,16 +74,28 @@ public class DeclarationStmt extends Stmt {
 
     // Determine which type this identifier was declared as, validating initializer Expr as necessary.
     if (optionalIdentifierDeclaredTypeProvider.isPresent()) {
+      Type declaredType = optionalIdentifierDeclaredTypeProvider.get().resolveType(scopedHeap);
       if (!this.getChildren().isEmpty()) {
-        ((Expr) this.getChildren().get(0))
-            .assertExpectedExprType(scopedHeap, optionalIdentifierDeclaredTypeProvider.get().resolveType(scopedHeap));
+        ((Expr) this.getChildren().get(0)).assertExpectedExprType(
+            scopedHeap,
+            blocking ? Types.FutureType.wrapping(declaredType) : declaredType
+        );
         scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
-      scopedHeap.observeIdentifier(this.IDENTIFIER, optionalIdentifierDeclaredTypeProvider.get()
-          .resolveType(scopedHeap));
+      scopedHeap.observeIdentifier(this.IDENTIFIER, declaredType);
     } else {
       // Infer the identifier's type only the first time it's assigned to.
       this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+
+      // If this is a blocking declaration stmt then we need to ensure that we're unwrapping a future.
+      if (blocking) {
+        // Let's defer Expr's assertions since that will automatically handle logging.
+        ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.FUTURE);
+        // Unwrap the type since we'll block to unwrap the value.
+        this.identifierValidatedInferredType =
+            this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
+      }
+
       scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);
       scopedHeap.initializeIdentifier(this.IDENTIFIER);
     }
@@ -99,7 +121,10 @@ public class DeclarationStmt extends Stmt {
 
       res.append(
           String.format(
-              " = %s", ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString()));
+              " = %s%s",
+              ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString(),
+              blocking ? ".get()" : ""
+          ));
     }
     res.append(";\n");
 

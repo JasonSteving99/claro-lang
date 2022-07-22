@@ -10,6 +10,7 @@ java_library(
     name = "runtime_utilities",
     srcs = glob(["*.java"]),
     deps = [
+        "//:guava",
         "//src/java/com/claro/intermediate_representation/types:concrete_type",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",

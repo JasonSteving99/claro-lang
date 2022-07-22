@@ -1,0 +1,67 @@
+# Compute ((3x+1)(x^2 - y))/(x^2) concurrently....which is super ridiculous but demonstrates a point:
+#
+#
+#   times3:(3 * x)                        squared:(x ^ 2)
+#       \                                      /      \
+#        v                                    v       |
+#     plus1:(1 + @times3)    minusY:(@squared - y)    /
+#           \                         /              /
+#            v                       v              /
+#           multiply:(@plus1 * @minusY)            /
+#                            \                    /
+#                             v                  v
+#                         divide:(@multiply / @squared)
+#                                     |
+#                                     v
+#                                   result
+# TODO(steving) 1. Handle checking that the nodes don't ever redeclare an already existing variable.
+# TODO(steving) 2. Handle injected keys.
+# TODO(steving) 3. Ensure that all nodes are referenced in the graph, should be a connected graph.
+# TODO(steving) 4. Add codegen for special handling of the case where a node expr is already of type future<...>. This
+# TODO(steving)    would unblock recursion over graph functions.
+# TODO(steving) 5. Validate that the blocking unwrap operator is never used within the call stack of a graph function.
+# TODO(steving)    I can use the same approach as I used for accumulating transitive keys across function calls.
+# TODO(steving) 6. Support Graph Functions in the Interpreted backend.
+graph function firstGraph(x: float, y: float) -> future<float> {
+
+  root result <- @multiply / @squared;
+
+  node multiply <- @plus1 * @minusY;
+
+  node plus1 <- 1 + @times3;
+
+  node minusY <- @squared - y;
+
+  node times3 <- 3 * x;
+
+  node squared <- x * x;
+
+}
+
+# The token <-| is referred to as the "(blocking) unwrap operator". I'm very intentionally not allowing more concise
+# ways to unwrap a future (for example w/o a declaration to a variable) because I want blocking to be extremely
+# apparent and I don't ever want it to be overlooked as blocking threads can frequently be a bad idea.
+var firstConcurrentClaroResult <-| firstGraph(10.0, 2.0);
+print(firstConcurrentClaroResult);
+
+
+
+# TODO(steving) Unblock graph function recursion.
+#graph function nTimesRecursively(n: int, x: int, y: int) -> future<int> {
+#  root result <- 1 + @next1;
+#
+#  node next1 <- maybeRecurse(n - 1 > 0, n, x, y);
+#}
+#
+#function maybeRecurse(b: boolean, n: int, x: int, y: int) -> future<int> {
+#  if (b) {
+#    return nTimesRecursively(n - 1, x, y);
+#  }
+#  return 0;
+#}
+#
+#
+#var n = 9;
+#var recursiveRes = nTimesRecursively(n, 10, 2);
+#print(recursiveRes);
+#print(recursiveRes == n);

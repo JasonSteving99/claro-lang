@@ -39,6 +39,10 @@ public interface TypeProvider {
     }
 
     public static TypeProvider getTypeByName(String typeName) {
+      return getTypeByName(typeName, /*isTypeDefinition=*/false);
+    }
+
+    public static TypeProvider getTypeByName(String typeName, boolean isTypeDefinition) {
       // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
       // So it's possible that the user-defined type either is or isn't already resolved. Check whether it's already
       // resolved, and if so, move on using that concrete StructType. If it wasn't already resolved, then you
@@ -54,7 +58,9 @@ public interface TypeProvider {
                   // Replace the TypeProvider found in the symbol table with the actual resolved type.
                   scopedHeap.putIdentifierValue(
                       typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null);
-                  scopedHeap.markIdentifierAsTypeDefinition(typeName);
+                  if (isTypeDefinition) {
+                    scopedHeap.markIdentifierAsTypeDefinition(typeName);
+                  }
                 });
         // If this Type is getting referenced, it was used.
         scopedHeap.markIdentifierUsed(typeName);

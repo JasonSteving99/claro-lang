@@ -79,6 +79,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+        "//src/java/com/claro/internal_static_state:internal_static_state",
         "//src/java/com/claro/runtime_utilities/injector",
         "//src/java/com/claro/runtime_utilities/injector:key",
         "//src/java/com/claro/runtime_utilities/injector:injected_key",
