@@ -169,11 +169,9 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
     scopedHeap.markIdentifierUsed(internalGraphNodeName);
     InternalStaticStateUtil.GraphFunctionDefinitionStmt_usedGraphNodesNamesSet.add(this.rootNode.nodeName);
 
-    // I need to actually assert types on the GraphNodeDefinitionStmts.
+    // I need to actually assert types on the GraphNodeDefinitionStmts. Asserting the root node will
+    // transitively cover the remaining nodes since we'll validate that we have a connected graph.
     rootNode.assertExpectedExprTypes(scopedHeap);
-    for (GraphNodeDefinitionStmt node : nonRootNodes) {
-      node.assertExpectedExprTypes(scopedHeap);
-    }
 
     // Graph Node names should all be unique.
     HashSet<String> uniqueNodeNamesSet = new HashSet<>(nonRootNodes.size() + 1);

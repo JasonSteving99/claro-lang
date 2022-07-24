@@ -191,6 +191,4 @@ public abstract class Expr extends Node {
                                    "inherently incorrect given that some Exprs require the use of static definitions to" +
                                    "function properly.");
   }
-
-  ;
 }

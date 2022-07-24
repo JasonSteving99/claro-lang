@@ -52,4 +52,11 @@ public abstract class Stmt extends Node {
   public static void addGeneratedJavaSourceStmtBeforeCurrentStmt(String prefixGeneratedJavaSourceStmt) {
     Stmt.prefixJavaSourceStmts.append(prefixGeneratedJavaSourceStmt);
   }
+
+  // In some situations these prefix java source statements may be consumed early.
+  public static StringBuilder consumeGeneratedJavaSourceStmtsBeforeCurrentStmt() {
+    StringBuilder res = Stmt.prefixJavaSourceStmts;
+    Stmt.prefixJavaSourceStmts = new StringBuilder();
+    return res;
+  }
 }

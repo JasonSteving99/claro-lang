@@ -42,7 +42,8 @@ public class GraphNodeDefinitionStmt extends Stmt {
         String.format("@%s", this.nodeName),
         null, (TypeProvider) (s -> {
           try {
-            return this.nodeExpr.getValidatedExprType(s);
+            this.actualNodeType = this.nodeExpr.getValidatedExprType(s);
+            return this.actualNodeType;
           } catch (ClaroTypeException e) {
             throw new RuntimeException(e);
           }
@@ -64,15 +65,14 @@ public class GraphNodeDefinitionStmt extends Stmt {
       // expected type.
       Type wrappedType =
           ((Types.FutureType) optionalExpectedNodeType.get()).parameterizedTypeArgs().get("$value");
-      this.nodeExpr.assertSupportedExprType(
+
+      this.actualNodeType = this.nodeExpr.assertSupportedExprType(
           scopedHeap,
           ImmutableSet.of(
               optionalExpectedNodeType.get(),
               wrappedType
           )
       );
-
-      this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     } else {
       this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     }
@@ -139,7 +139,9 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 .collect(Collectors.joining("")))
         .append(propagatedGraphFunctionArgsAndInjectedKeys)
         .append(") {\n")
-        .append("\t\treturn ")
+        // This allows things like lambdas to work within nodes as well.
+        .append(Stmt.consumeGeneratedJavaSourceStmtsBeforeCurrentStmt())
+        .append("\n\t\treturn ")
         .append(nodeBodyGeneratedJavaSource.javaSourceBody())
         .append(";\n")
         .append("\t}\n");
