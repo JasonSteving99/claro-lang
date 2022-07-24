@@ -42,7 +42,6 @@ claro_binary(
 claro_library(
     name = "format_strings_compiled_claro",
     src = "format_strings.claro",
-#    debug = True,
 )
 
 claro_binary(
@@ -54,7 +53,6 @@ claro_binary(
 claro_library(
     name = "graphs_compiled_claro",
     src = "graphs.claro",
-    debug = True,
 )
 
 claro_binary(

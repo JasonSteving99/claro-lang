@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashSet;
 import java.util.Optional;
 
 // It's just become too unwieldy to actually have each class manage its own centralized static state given that the
@@ -23,4 +24,5 @@ public class InternalStaticStateUtil {
   // is valid and safe.
   public static ImmutableList.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder =
       ImmutableList.builder();
+  public static HashSet<String> GraphFunctionDefinitionStmt_usedGraphNodesNamesSet = new HashSet<>();
 }

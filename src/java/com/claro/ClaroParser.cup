@@ -685,7 +685,7 @@ builtin_type ::=
           type_nameleft,
           type_nameright, // line number
           new LexedValue(
-            TypeProvider.Util.getTypeByName(type_name.val),
+            TypeProvider.Util.getTypeByName(type_name.val, /*isTypeDefinition=*/true),
             type_name.currentInputLine,
             type_name.len)
        );
@@ -1584,6 +1584,48 @@ graph_function_definition_stmt ::=
        RESULT = new GraphFunctionDefinitionStmt(
           name.val,
           argTypesMap,
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new GraphFunctionDefinitionStmt(
+          name.val,
+          argTypesMap,
+          Optional.of(injectedKeysList),
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+       RESULT = new GraphFunctionDefinitionStmt(
+          name.val,
+          argTypesMap,
+          Optional.of(injectedKeysList),
           outputTypeProvider,
           root,
           non_root_nodes.build().reverse());

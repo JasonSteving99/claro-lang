@@ -31,15 +31,27 @@ public class PrintStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    String expr_java_source = ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString();
-    return GeneratedJavaSource.forJavaSourceBody(
+    GeneratedJavaSource exprGeneratedJavaSource =
+        ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
                 "System.out.println(%s);\n",
-                expr_java_source
+                exprGeneratedJavaSource.javaSourceBody()
             )
         )
     );
+
+    res = res.createMerged(
+        GeneratedJavaSource.create(
+            new StringBuilder(),
+            exprGeneratedJavaSource.optionalStaticDefinitions(),
+            exprGeneratedJavaSource.optionalStaticPreambleStmts()
+        )
+    );
+
+    return res;
   }
 
   @Override

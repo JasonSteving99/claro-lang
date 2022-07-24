@@ -21,13 +21,28 @@ public class NotBoolExpr extends BoolExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            "(!%s)",
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource exprGeneratedJavaSource =
+        ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "(!%s)",
+                exprGeneratedJavaSource.javaSourceBody()
+            )
         )
     );
+
+    res = res.createMerged(
+        GeneratedJavaSource.create(
+            new StringBuilder(),
+            exprGeneratedJavaSource.optionalStaticDefinitions(),
+            exprGeneratedJavaSource.optionalStaticPreambleStmts()
+        )
+    );
+
+    return res;
   }
 
   @Override

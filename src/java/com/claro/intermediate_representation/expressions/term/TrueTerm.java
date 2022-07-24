@@ -24,7 +24,8 @@ final public class TrueTerm extends Term {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder("true");
+    // Let's not depend on Java to autobox (although sometimes we can depend on Java to auto-unbox for boolean arithmetic).
+    return new StringBuilder().append("new Boolean(").append("true").append(")");
   }
 
   @Override

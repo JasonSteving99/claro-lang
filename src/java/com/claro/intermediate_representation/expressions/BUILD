@@ -74,5 +74,6 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:concrete_types",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/internal_static_state",
     ],
 )

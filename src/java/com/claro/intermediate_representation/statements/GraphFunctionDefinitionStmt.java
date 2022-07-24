@@ -5,12 +5,15 @@ import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -52,7 +55,16 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .collect(ImmutableList.toImmutableList()),
                     outputTypeProvider.resolveType(scopedHeap),
                     BaseType.FUNCTION, // Remember that Claro's Graph Functions are "just" sugar over plain functions.
-                    Sets.newHashSet(), // no directly used keys.
+                    optionalInjectedKeysTypes
+                        .map(
+                            injectedKeysTypes ->
+                                injectedKeysTypes.stream()
+                                    .map(
+                                        injectedKey ->
+                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                    .collect(Collectors.toSet())
+                        )
+                        .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
                     () ->
                         ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
@@ -95,16 +107,7 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
             new Expr(ImmutableList.of(), () -> "", -1, -1, -1) {
               @Override
               public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-                Type graphOutputType = outputTypeProvider.resolveType(scopedHeap);
-
-                // I need to actually assert types on the GraphNodeDefinitionStmts at some point and this is the
-                // convenient place to do it.
-                rootNode.assertExpectedExprTypes(scopedHeap);
-                for (GraphNodeDefinitionStmt node : nonRootNodes) {
-                  node.assertExpectedExprTypes(scopedHeap);
-                }
-
-                return graphOutputType;
+                return outputTypeProvider.resolveType(scopedHeap);
               }
 
               @Override
@@ -119,7 +122,9 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                             ", ", InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionArgs.keySet()))
                     .append(
                         InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionOptionalInjectedKeys
-                            .map(injectedKeys -> injectedKeys.keySet().stream().collect(Collectors.joining(", ")))
+                            .map(injectedKeys -> injectedKeys.keySet()
+                                .stream()
+                                .collect(Collectors.joining(", ", ", ", "")))
                             .orElse("")
                     )
                     .append(")");
@@ -162,6 +167,36 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
         null
     );
     scopedHeap.markIdentifierUsed(internalGraphNodeName);
+    InternalStaticStateUtil.GraphFunctionDefinitionStmt_usedGraphNodesNamesSet.add(this.rootNode.nodeName);
+
+    // I need to actually assert types on the GraphNodeDefinitionStmts.
+    rootNode.assertExpectedExprTypes(scopedHeap);
+    for (GraphNodeDefinitionStmt node : nonRootNodes) {
+      node.assertExpectedExprTypes(scopedHeap);
+    }
+
+    // Graph Node names should all be unique.
+    HashSet<String> uniqueNodeNamesSet = new HashSet<>(nonRootNodes.size() + 1);
+    HashSet<String> duplicatedNodeNamesSet = new HashSet<>();
+    uniqueNodeNamesSet.add(this.rootNode.nodeName);
+    this.nonRootNodes.forEach(
+        node -> {
+          if (!uniqueNodeNamesSet.add(node.nodeName)) {
+            duplicatedNodeNamesSet.add(node.nodeName);
+          }
+        });
+    if (duplicatedNodeNamesSet.size() > 0) {
+      // In this case, there's a redeclaration of some node
+      throw ClaroTypeException.forGraphFunctionWithDuplicatedNodeNames(this.procedureName, duplicatedNodeNamesSet);
+    }
+
+    // Validate that all of the nodes were actually connected.
+    Set<String> unusedNodes = Sets.difference(
+        uniqueNodeNamesSet, InternalStaticStateUtil.GraphFunctionDefinitionStmt_usedGraphNodesNamesSet);
+    if (!unusedNodes.isEmpty()) {
+      throw ClaroTypeException.forGraphFunctionWithUnconnectedNodes(this.procedureName, unusedNodes);
+    }
+    InternalStaticStateUtil.GraphFunctionDefinitionStmt_usedGraphNodesNamesSet.clear();
   }
 
   @Override
@@ -199,44 +234,23 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
     // Since the call to the result node is done via generated code, it needs to be marked "used" manually.
     scopedHeap.markIdentifierUsed(rootNode.nodeName);
 
-    StringBuilder javaSourceBuilder = new StringBuilder();
-    StringBuilder staticDefinitionsBuilder = new StringBuilder();
-    StringBuilder staticPreambleBuilder = new StringBuilder();
-    AtomicReference<Boolean> useStaticDefinitionsBuilder = new AtomicReference<>(false);
-    AtomicReference<Boolean> useStaticPreambleBuilder = new AtomicReference<>(false);
-
     // Need to wrap the functions generated for the nodes in an internal helper class so that the graph function may be
     // called multiple times concurrently without the cache being accidentally reused.
-    javaSourceBuilder
-        .append("\tprivate static class $")
-        .append(this.procedureName)
-        .append("_graphAsyncImpl {\n");
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder()
+            .append("\tprivate static class $")
+            .append(this.procedureName)
+            .append("_graphAsyncImpl {\n"));
 
-    Consumer<GeneratedJavaSource> mergeGeneratedJavaSourceBuilderSections = generatedJavaSource -> {
-      javaSourceBuilder.append(generatedJavaSource.javaSourceBody());
-      generatedJavaSource.optionalStaticDefinitions().ifPresent(sb -> {
-        useStaticDefinitionsBuilder.set(true);
-        staticDefinitionsBuilder.append(sb);
-      });
-      generatedJavaSource.optionalStaticPreambleStmts().ifPresent(sb -> {
-        useStaticPreambleBuilder.set(true);
-        staticPreambleBuilder.append(sb);
-      });
-    };
-
-    mergeGeneratedJavaSourceBuilderSections.accept(rootNode.generateJavaSourceOutput(scopedHeap));
-    nonRootNodes.forEach(
-        node -> mergeGeneratedJavaSourceBuilderSections.accept(node.generateJavaSourceOutput(scopedHeap)));
+    res = res.createMerged(rootNode.generateJavaSourceOutput(scopedHeap));
+    for (GraphNodeDefinitionStmt node : nonRootNodes) {
+      res = res.createMerged(node.generateJavaSourceOutput(scopedHeap));
+    }
 
     // Finish wrapping in internal helper class.
-    javaSourceBuilder.append("\t}\n");
+    res.javaSourceBody().append("\t}\n");
 
-    return Optional.of(
-        GeneratedJavaSource.create(
-            javaSourceBuilder,
-            useStaticDefinitionsBuilder.get() ? Optional.of(staticDefinitionsBuilder) : Optional.empty(),
-            useStaticPreambleBuilder.get() ? Optional.of(staticPreambleBuilder) : Optional.empty()
-        ));
+    return Optional.of(res);
   }
 
   @Override

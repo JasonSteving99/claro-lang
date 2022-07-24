@@ -5,6 +5,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class Node {
   private final ImmutableList<Node> children;
@@ -62,6 +63,40 @@ public abstract class Node {
         Optional<StringBuilder> optionalStaticDefinitions,
         Optional<StringBuilder> optionalStaticPreamble) {
       return new AutoValue_Node_GeneratedJavaSource(javaSourceBody, optionalStaticDefinitions, optionalStaticPreamble);
+    }
+
+    /**
+     * Creates a new {@link GeneratedJavaSource} instance representing the merging of this instance and {@param other}.
+     *
+     * @param other The other instance to merge into this one.
+     * @return a new {@link GeneratedJavaSource} instance.
+     */
+    public GeneratedJavaSource createMerged(GeneratedJavaSource other) {
+      StringBuilder javaSourceBuilder = new StringBuilder(this.javaSourceBody());
+      StringBuilder staticDefinitionsBuilder =
+          new StringBuilder(this.optionalStaticDefinitions().orElse(new StringBuilder()));
+      StringBuilder staticPreambleBuilder =
+          new StringBuilder(this.optionalStaticPreambleStmts().orElse(new StringBuilder()));
+      AtomicReference<Boolean> useStaticDefinitionsBuilder =
+          new AtomicReference<>(this.optionalStaticDefinitions().isPresent());
+      AtomicReference<Boolean> useStaticPreambleBuilder =
+          new AtomicReference<>(this.optionalStaticPreambleStmts().isPresent());
+
+      javaSourceBuilder.append(other.javaSourceBody());
+      other.optionalStaticDefinitions().ifPresent(sb -> {
+        useStaticDefinitionsBuilder.set(true);
+        staticDefinitionsBuilder.append(sb);
+      });
+      other.optionalStaticPreambleStmts().ifPresent(sb -> {
+        useStaticPreambleBuilder.set(true);
+        staticPreambleBuilder.append(sb);
+      });
+
+      return GeneratedJavaSource.create(
+          javaSourceBuilder,
+          useStaticDefinitionsBuilder.get() ? Optional.of(staticDefinitionsBuilder) : Optional.empty(),
+          useStaticPreambleBuilder.get() ? Optional.of(staticPreambleBuilder) : Optional.empty()
+      );
     }
 
     @Override

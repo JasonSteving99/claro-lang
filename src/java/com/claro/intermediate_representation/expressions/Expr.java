@@ -1,5 +1,6 @@
 package com.claro.intermediate_representation.expressions;
 
+import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.types.BaseType;
@@ -173,9 +174,23 @@ public abstract class Expr extends Node {
     );
   }
 
-  public final GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     return GeneratedJavaSource.forJavaSourceBody(generateJavaSourceBodyOutput(scopedHeap));
   }
 
-  public abstract StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap);
+  // TODO(steving) This is errorprone. In a future CL just remove this method entirely since it's literally saving Exprs
+  //  one line of code but is opening other Exprs to silently dropping static definitions.
+  // Some Exprs can override just this convenience method in the case that they BOTH:
+  //   1. Do not require the use of static definitions to function properly, AND
+  //   2. Do not depend on any generic downstream Exprs children
+  //      (b/c generic Exprs includes Exprs which do require use of static definitions).
+  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+    throw new ClaroParserException("Internal compiler error! This method should be unreachable. Most likely there is " +
+                                   "some node incorrectly directly calling into generateJavaSourceBody() instead of " +
+                                   "handling the actual GeneratedJavaSource produced by downstream Exprs which is" +
+                                   "inherently incorrect given that some Exprs require the use of static definitions to" +
+                                   "function properly.");
+  }
+
+  ;
 }

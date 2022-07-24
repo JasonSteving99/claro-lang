@@ -2,11 +2,9 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -54,6 +52,12 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // Validate that this is not a redeclaration of an identifier.
+    Preconditions.checkState(
+        !scopedHeap.isIdentifierDeclared(this.nodeName),
+        String.format("Graph node name conflicts with an existing identifier <%s>.", this.nodeName)
+    );
+
     if (optionalExpectedNodeType.isPresent()) {
       // Graph functions are all returning futures, but Claro can automatically handle nodes that are themselves
       // defined by Exprs of type future, so we need to check that this node either returns the wrapped or unwrapped
@@ -68,9 +72,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
           )
       );
 
-      // TODO(steving) For now we actually only support nodes of unwrapped raw value types. In the future I'll want to
-      //  support dynamically supporting future<Foo> or Foo.
-      this.actualNodeType = wrappedType;
+      this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     } else {
       this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     }
@@ -92,7 +94,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 this.optionalExpectedNodeType.isPresent()
                 ? ""
                 : String.format(
-                    "\tprivate Optional<ClaroFuture<%s>> %s = Optional.empty();\n",
+                    // If the node's type is already a future we don't need to wrap it in the codegen.
+                    "\tprivate Optional<"
+                    + (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
+                    + "> %s = Optional.empty();\n",
                     this.actualNodeType.getJavaSourceType(),
                     optionalAlreadyScheduledFutureStr
                 ))
@@ -120,9 +125,17 @@ public class GraphNodeDefinitionStmt extends Stmt {
         .append("_nodeImpl(")
         .append(
             this.upstreamGraphNodeReferences.stream()
-                .map(dep ->
-                         String.format(
-                             "%s %s, ", scopedHeap.getValidatedIdentifierType(dep).getJavaSourceType(), dep))
+                .map(dep -> {
+                  Type upstreamDepType = scopedHeap.getValidatedIdentifierType(dep);
+                  return String.format(
+                      "%s %s, ",
+                      // Claro Graph Functions automatically unwraps Future types for the user.
+                      upstreamDepType.baseType().equals(BaseType.FUTURE)
+                      ? upstreamDepType.parameterizedTypeArgs().get("$value").getJavaSourceType()
+                      : upstreamDepType.getJavaSourceType(),
+                      dep
+                  );
+                })
                 .collect(Collectors.joining("")))
         .append(propagatedGraphFunctionArgsAndInjectedKeys)
         .append(") {\n")
@@ -141,7 +154,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
     StringBuilder res = new StringBuilder()
         .append(
             String.format(
-                "\tprivate ClaroFuture<%s> $%s_nodeAsync(%s) {\n",
+                // If the node's type is already a future we don't need to wrap it in the codegen.
+                "\tprivate "
+                + (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
+                + " $%s_nodeAsync(%s) {\n",
                 this.actualNodeType.getJavaSourceType(),
                 this.nodeName,
                 propagatedGraphFunctionArgsAndInjectedKeys
@@ -182,10 +198,13 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 calledUpstreamFutures
             ));
       } else { // upstreamGraphNodeReferences.size() == 1.
+        Type upstreamDepType = scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(0));
         res.append(
             String.format(
-                "\t\tClaroFuture<%s> depsFuture = \n%s;\n",
-                scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(0)).getJavaSourceType(),
+                "\t\t"
+                + (upstreamDepType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
+                + " depsFuture = \n%s;\n",
+                upstreamDepType.getJavaSourceType(),
                 calledUpstreamFutures
             ));
       }
@@ -193,14 +212,19 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
     res.append(
         String.format(
-            "\t\tClaroFuture<%s> nodeFuture =\n",
+            // If the node's type is already a future we don't need to wrap it in the codegen.
+            "\t\t"
+            + (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
+            + " nodeFuture =\n",
             this.actualNodeType.getJavaSourceType()
         ));
 
     if (upstreamGraphNodeReferences.size() > 0) {
       res.append(
           String.format(
-              "\t\t\tnew ClaroFuture(%s, Futures.transform(\n" +
+              "\t\t\tnew ClaroFuture(%s, Futures." +
+              (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "transformAsync" : "transform") +
+              "(\n" +
               "\t\t\t\tdepsFuture,\n" +
               "\t\t\t\t" + (upstreamGraphNodeReferences.size() > 1 ? "deps" : "dep") + " ->\n" +
               "\t\t\t\t\t$%s_nodeImpl(\n",
@@ -210,15 +234,21 @@ public class GraphNodeDefinitionStmt extends Stmt {
           .append(
               IntStream.range(0, upstreamGraphNodeReferences.size())
                   .mapToObj(
-                      index ->
-                          upstreamGraphNodeReferences.size() > 1
-                          ? String.format(
-                              "\t\t\t\t\t\t(%s) deps.get(%s),\n ",
-                              scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(index))
-                                  .getJavaSourceType(),
-                              index
-                          )
-                          : "\t\t\t\t\t\tdep,\n "
+                      index -> {
+                        Type upstreamGraphNodeType =
+                            scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(index));
+                        return
+                            upstreamGraphNodeReferences.size() > 1
+                            ? String.format(
+                                "\t\t\t\t\t\t(%s) deps.get(%s),\n ",
+                                (upstreamGraphNodeType.baseType().equals(BaseType.FUTURE)
+                                 ? upstreamGraphNodeType.parameterizedTypeArgs().get("$value")
+                                 : upstreamGraphNodeType)
+                                    .getJavaSourceType(),
+                                index
+                            )
+                            : "\t\t\t\t\t\tdep,\n ";
+                      }
                   ).collect(Collectors.joining("")))
           .append(propagatedGraphFunctionArgsAndInjectedKeysValues)
           // Always schedule the transformation to take place on the configured ExecutorService otherwise there would be a
@@ -227,14 +257,27 @@ public class GraphNodeDefinitionStmt extends Stmt {
           .append(
               ",\n\t\t\t\tClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE));\n");
     } else {
-      res.append(
-          String.format(
-              "\t\t\tnew ClaroFuture(%s, ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE\n" +
-              "\t\t\t\t.submit(() -> $%s_nodeImpl(\n%s));\n",
-              this.actualNodeType.getJavaSourceClaroType(),
-              this.nodeName,
-              propagatedGraphFunctionArgsAndInjectedKeysValues
-          ));
+      // Claro allows nodes to be defined by Exprs that are already of type future<...> so that graph functions can be
+      // naturally composed. If this node expr is already a future, then we do not need to schedule any work on an
+      // executor since that will have already been handled.
+      if (this.actualNodeType.baseType().equals(BaseType.FUTURE)) {
+        res.append(
+            String.format(
+                "\t\t\t$%s_nodeImpl(\n%s;\n",
+                this.nodeName,
+                propagatedGraphFunctionArgsAndInjectedKeysValues
+            )
+        );
+      } else {
+        res.append(
+            String.format(
+                "\t\t\tnew ClaroFuture(%s, ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE\n" +
+                "\t\t\t\t.submit(() -> $%s_nodeImpl(\n%s));\n",
+                this.actualNodeType.getJavaSourceClaroType(),
+                this.nodeName,
+                propagatedGraphFunctionArgsAndInjectedKeysValues
+            ));
+      }
     }
 
     if (cacheNode) {
@@ -268,12 +311,13 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 .map(
                     injectedKeys -> injectedKeys.entrySet().stream()
                         .map(
-                            nameTypeProviderEntry ->
-                                String.format(
-                                    "%s %s",
-                                    nameTypeProviderEntry.getKey(),
-                                    nameTypeProviderEntry.getValue().resolveType(scopedHeap)
-                                ))
+                            nameTypeProviderEntry -> {
+                              return String.format(
+                                  "%s %s",
+                                  nameTypeProviderEntry.getValue().resolveType(scopedHeap).getJavaSourceType(),
+                                  nameTypeProviderEntry.getKey()
+                              );
+                            })
                         .collect(Collectors.joining(", ", ", ", "")))
                 .orElse(""));
   }

@@ -21,14 +21,35 @@ public class OrBoolExpr extends BoolExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            "(%s || %s)",
-            this.getChildren().get(0).generateJavaSourceOutput(scopedHeap),
-            this.getChildren().get(1).generateJavaSourceOutput(scopedHeap)
-        )
-    );
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource lhsGeneratedJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource rhsGeneratedJavaSource = this.getChildren().get(1).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "(%s || %s)",
+                lhsGeneratedJavaSource.javaSourceBody(),
+                rhsGeneratedJavaSource.javaSourceBody()
+            )
+        ));
+
+    // Need to ensure that we pick up the static definitions from each child expr.
+    res = res.createMerged(
+        GeneratedJavaSource.create(
+            // We've already picked up the javaSourceBody, so we don't need it again.
+            new StringBuilder(),
+            lhsGeneratedJavaSource.optionalStaticDefinitions(),
+            lhsGeneratedJavaSource.optionalStaticPreambleStmts()
+        )).createMerged(
+        GeneratedJavaSource.create(
+            // We've already picked up the javaSourceBody, so we don't need it again.
+            new StringBuilder(),
+            rhsGeneratedJavaSource.optionalStaticDefinitions(),
+            rhsGeneratedJavaSource.optionalStaticPreambleStmts()
+        ));
+
+    return res;
   }
 
   @Override

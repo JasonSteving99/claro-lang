@@ -51,7 +51,11 @@ public class ClaroTypeException extends Exception {
   private static final String PROCEDURE_CALL_MISSING_BINDING_KEYS =
       "Illegal call to procedure %s %s. The following keys must be bound: %s.";
   private static final String GRAPH_FUNCTION_DOES_NOT_RETURN_FUTURE =
-      "Graph function %s %s must return a result wrapped in a future<>.";
+      "Graph %s %s must return a result wrapped in a future<>.";
+  private static final String GRAPH_FUNCTION_WITH_DUPLICATED_NODE_NAMES =
+      "Graph %s has the following unexpected duplicate Node names %s.";
+  private static final String GRAPH_FUNCTION_WITH_UNCONNECTED_NODES =
+      "Graph Function %s has the following unconnected nodes %s. All nodes must be reachable from root in a Graph Function.";
 
 
   public ClaroTypeException(String message) {
@@ -237,6 +241,29 @@ public class ClaroTypeException extends Exception {
             GRAPH_FUNCTION_DOES_NOT_RETURN_FUTURE,
             procedureName,
             procedureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forGraphFunctionWithDuplicatedNodeNames(
+      String procedureName, Set<String> duplicatedNodeNamesSet) {
+    return new ClaroTypeException(
+        String.format(
+            GRAPH_FUNCTION_WITH_DUPLICATED_NODE_NAMES,
+            procedureName,
+            duplicatedNodeNamesSet.stream()
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forGraphFunctionWithUnconnectedNodes(String procedureName, Set<String> unusedNodes) {
+    return new ClaroTypeException(
+        String.format(
+            GRAPH_FUNCTION_WITH_UNCONNECTED_NODES,
+            procedureName,
+            unusedNodes.stream()
+                .collect(Collectors.joining(", ", "[", "]"))
         )
     );
   }

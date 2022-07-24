@@ -38,10 +38,6 @@ public interface TypeProvider {
           .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().resolveType(scopedHeap)));
     }
 
-    public static TypeProvider getTypeByName(String typeName) {
-      return getTypeByName(typeName, /*isTypeDefinition=*/false);
-    }
-
     public static TypeProvider getTypeByName(String typeName, boolean isTypeDefinition) {
       // This is happening during the type-validation pass which happens strictly after the type-discovery pass.
       // So it's possible that the user-defined type either is or isn't already resolved. Check whether it's already

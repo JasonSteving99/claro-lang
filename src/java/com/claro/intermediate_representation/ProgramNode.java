@@ -338,10 +338,13 @@ public class ProgramNode {
             "// Now the static definitions.\n" +
             "%s\n\n" +
             "  public static void main(String[] args) {\n" +
+            "    try {\n" +
             "%s\n\n" +
-            "    // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
-            "    // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
-            "    ClaroRuntimeUtilities.shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
+            "    } finally {\n" +
+            "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
+            "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
+            "      ClaroRuntimeUtilities.shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
+            "    }\n" +
             "  }\n\n" +
             "}",
             this.packageString,

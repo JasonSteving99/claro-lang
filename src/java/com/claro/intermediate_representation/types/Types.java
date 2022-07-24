@@ -207,7 +207,8 @@ public final class Types {
      */
     public static TypeProvider forStructTypeName(String structTypeName) {
       return (scopedHeap) -> {
-        Type resolvedTypeFromName = TypeProvider.Util.getTypeByName(structTypeName).resolveType(scopedHeap);
+        Type resolvedTypeFromName = TypeProvider.Util.getTypeByName(
+            structTypeName, /*isTypeDefinition=*/true).resolveType(scopedHeap);
         if (!SUPPORTED_BUILT_TYPES.contains(resolvedTypeFromName.baseType())) {
           throw new RuntimeException(new ClaroTypeException(resolvedTypeFromName, SUPPORTED_BUILT_TYPES));
         }
