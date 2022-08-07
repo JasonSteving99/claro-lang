@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -115,14 +116,15 @@ public class FunctionCallExpr extends Expr {
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
     if (scopedHeap.findIdentifierInitializedScopeLevel(functionName).orElse(-1) == 0) {
-      if (ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.isPresent()) {
+      if (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()) {
         // Make sure that if this function call is within a ProcedureDefStmt then we actually need to make sure
         // to register function call with that active procedure def stmt instance so that it knows which top-level
         // procedures it needs to check with to accumulate its transitive used injected keys set.
         if (!UsingBlockStmt.currentlyUsedBindings.isEmpty()) {
           // Using-blocks are actually supported from directly within a procedure definition, so if this procedure call
           // is from within a using block, we'd need to filter the set that we add to the ProcedureDefStmt's direct deps.
-          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.get()
+          ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+              .get())
               .directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings
               .merge(
                   functionName,
@@ -135,7 +137,9 @@ public class FunctionCallExpr extends Expr {
                           .collect(ImmutableSet.toImmutableSet())
               );
         } else {
-          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt.get().directTopLevelProcedureDepsSet.add(functionName);
+          ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+              .get())
+              .directTopLevelProcedureDepsSet.add(functionName);
         }
       } else {
         // Calls that are not in a ProcedureDefStmt simply need to be validated.

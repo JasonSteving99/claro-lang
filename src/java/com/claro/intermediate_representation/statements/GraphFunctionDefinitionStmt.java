@@ -67,8 +67,10 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    /*explicitlyAnnotatedBlocking=*/ false
                 ),
         // We'll allow the superclass to own all of the type checking logic since that is quite complex for procedure
         // definition stmts and I *really* don't want to duplicate that in more than one place.
@@ -146,6 +148,9 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
     // We definitely want to register the wrapper function.
     super.registerProcedureTypeProvider(scopedHeap);
 
+    // Update the procedure type to mark its attribute that it is in fact a graph.
+    this.resolvedProcedureType.getIsGraph().set(true);
+
     // Need to assert the expected return type on the Root node only since it will recursively validate the remaining
     // nodes.
     rootNode.optionalExpectedNodeType = Optional.of(this.resolvedProcedureType.getReturnType());
@@ -211,11 +216,12 @@ public class GraphFunctionDefinitionStmt extends ProcedureDefinitionStmt {
         throw ClaroTypeException.forGraphFunctionNotReturningFuture(this.procedureName, this.resolvedProcedureType);
       }
 
-      InternalStaticStateUtil.GraphFunctionDefinitionStmt_withinGraphFunctionDefinition = true;
-
       super.assertExpectedExprTypes(scopedHeap);
 
-      InternalStaticStateUtil.GraphFunctionDefinitionStmt_withinGraphFunctionDefinition = false;
+      if (this.resolvedProcedureType.getIsBlocking().get()) {
+        throw ClaroTypeException.forBlockingCallIndirectlyReachableFromGraphFunction(
+            this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
+      }
     }
   }
 

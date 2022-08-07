@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
@@ -17,15 +18,17 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
   public ConsumerFunctionDefinitionStmt(
       String consumerName,
       ImmutableMap<String, TypeProvider> argTypes,
-      StmtListNode stmtListNode) {
-    this(consumerName, argTypes, Optional.empty(), stmtListNode);
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
+    this(consumerName, argTypes, Optional.empty(), stmtListNode, explicitlyAnnotatedBlocking);
   }
 
   public ConsumerFunctionDefinitionStmt(
       String consumerName,
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
-      StmtListNode stmtListNode) {
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
     super(
         consumerName,
         argTypes,
@@ -49,8 +52,11 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(
+                                activeProcedureDefinitionStmt ->
+                                    ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    explicitlyAnnotatedBlocking
                 ),
         stmtListNode
     );
@@ -78,8 +84,10 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     Sets.newHashSet(),
                     thisProcedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    /*explicitlyAnnotatedBlocking=*/false
                 ),
         stmtListNode
     );

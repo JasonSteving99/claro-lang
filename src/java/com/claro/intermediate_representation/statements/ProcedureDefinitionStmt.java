@@ -4,6 +4,7 @@ import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Injector;
 import com.claro.runtime_utilities.injector.Key;
@@ -22,11 +23,6 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
   private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
-  // I need a mechanism for easily communicating to sub-nodes in the AST that they are a part of a
-  // ProcedureDefinitionStmt so that during type validation, nested procedure call nodes know to update
-  // the active instance's used injected keys set.
-  public static Optional<ProcedureDefinitionStmt> optionalActiveProcedureDefinitionStmt = Optional.empty();
-
   final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList;
@@ -44,6 +40,9 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   public HashSet<String> directTopLevelProcedureDepsSet = Sets.newHashSet();
   public HashMap<String, ImmutableSet<Key>> directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings =
       Maps.newHashMap();
+  private final HashMap<String, Optional<ImmutableSet<Key>>> directTopLevelProcedureDepsToCollectAttributesFromSet =
+      Maps.newHashMap();
+  private boolean explicitlyAnnotatedBlocking = false;
 
   public ProcedureDefinitionStmt(
       String procedureName,
@@ -124,6 +123,11 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
         String.format("Unexpected redeclaration of %s %s.", resolvedProcedureType, this.procedureName)
     );
 
+    // Take note of whether the user explicitly annotated this procedure definition as "blocking". We're going
+    // to validate whether they are correct.
+    this.explicitlyAnnotatedBlocking = this.resolvedProcedureType.getIsBlocking().get();
+    this.resolvedProcedureType.getIsBlocking().set(false);
+
     // Finally mark the function declared and initialized within the original calling scope.
     scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
@@ -138,9 +142,13 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
 
       // Before I step through the procedure body, I'll need to make sure I set this instance as the
       // currently active ProcedureDefStmt and then save old one to restore.
-      Optional<ProcedureDefinitionStmt> priorActiveProcedureDefStmt =
-          ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt;
-      ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt = Optional.of(this);
+      Optional<Object> priorActiveProcedureDefStmt =
+          InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt;
+      InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt = Optional.of(this);
+      Optional<Type> priorActiveProcedureResolvedType =
+          InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType;
+      InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType =
+          Optional.of(this.resolvedProcedureType);
 
       // Before I do any actual validation of this current ProcedureDefinitionStmt, I actually want to
       // first defer downstream to all directly depended upon (via procedure call) ProcedureDefinitionStmts
@@ -242,8 +250,12 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       ReturnStmt.exitProcedureScope();
 
       // Restore the prior active ProcedureDefStmt.
-      ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt = priorActiveProcedureDefStmt;
-    }
+      InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt =
+          priorActiveProcedureDefStmt;
+      InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType =
+          priorActiveProcedureResolvedType;
+    } // End pass through body stmts.
+
     // Now we are recursively walking the graph of transitive procedure dependencies.
     //
     // !! HERE BE DRAGONS !!:
@@ -269,11 +281,27 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
         // Make sure that we never recheck this dep. "Mark it visited" by removing it from the dep set.
         // Do this first before kicking of type validation on the dep so that we're ready before a cycle.
         this.directTopLevelProcedureDepsSet.remove(initialFringeProcedureDep);
+        // Mark this procedure dep as to-be-processed so that we might potentially use it for lookahead in the case
+        // of breaking a cycle.
+        this.directTopLevelProcedureDepsToCollectAttributesFromSet.put(initialFringeProcedureDep, Optional.empty());
         // Now, finally do the recursive bit. Kick off type validation on the dep so that we can make sure it
         // collects all of its transitive used deps.
         depProcedureDef.getProcedureDefStmt().assertExpectedExprTypes(scopedHeap);
-        // Now the *most important thing*!! Finally we can trust the dep's transitive used keys!
-        this.resolvedProcedureType.getUsedInjectedKeys().addAll(depProcedureDef.getUsedInjectedKeys());
+
+        // Make sure that we don't redo this work in case we already handled this during a lookahead to break a cycle.
+        if (this.directTopLevelProcedureDepsToCollectAttributesFromSet.containsKey(initialFringeProcedureDep)) {
+          this.directTopLevelProcedureDepsToCollectAttributesFromSet.remove(initialFringeProcedureDep);
+          // Now the *most important thing*!!
+          // ---------------------- BEGIN UPDATE FUNCTION ATTRIBUTES! --------------------- //
+          // Finally we can trust the dep's transitive used keys!
+          this.resolvedProcedureType.getUsedInjectedKeys().addAll(depProcedureDef.getUsedInjectedKeys());
+          // And finally update the blocking attribute if this function transitively depends on a blocking op.
+          if (depProcedureDef.getIsBlocking().get()) {
+            this.resolvedProcedureType.getBlockingProcedureDeps().put(initialFringeProcedureDep, depProcedureDef);
+            this.resolvedProcedureType.getIsBlocking().set(true);
+          }
+          // ---------------------- END UPDATE FUNCTION ATTRIBUTES! --------------------- //
+        }
       }
     }
     // We basically need to do the same thing again here, for the deps that were used within a nested using block.
@@ -292,14 +320,77 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
         ImmutableSet<Key> keysAlreadyProvidedToDep =
             this.directTopLevelProcedureDepsToBeFilteredForExplicitUsingBlockKeyBindings
                 .remove(initialFringeProcedureDep);
+        // Mark this procedure dep as to-be-processed so that we might potentially use it for lookahead in the case
+        // of breaking a cycle.
+        this.directTopLevelProcedureDepsToCollectAttributesFromSet.put(
+            initialFringeProcedureDep, Optional.of(keysAlreadyProvidedToDep));
         // Now, finally do the recursive bit. Kick off type validation on the dep so that we can make sure it
         // collects all of its transitive used deps.
         depProcedureDef.getProcedureDefStmt().assertExpectedExprTypes(scopedHeap);
-        // Now the *most important thing*!! Finally we can trust the dep's transitive used keys!
-        this.resolvedProcedureType.getUsedInjectedKeys()
-            .addAll(
-                // Filter out all the keys that were already provided by the nested using block.
-                Sets.difference(depProcedureDef.getUsedInjectedKeys(), keysAlreadyProvidedToDep));
+
+
+        // Make sure that we don't redo this work in case we already handled this during a lookahead to break a cycle.
+        if (this.directTopLevelProcedureDepsToCollectAttributesFromSet.containsKey(initialFringeProcedureDep)) {
+          this.directTopLevelProcedureDepsToCollectAttributesFromSet.remove(initialFringeProcedureDep);
+          // Now the *most important thing*!!
+          // ---------------------- BEGIN UPDATE FUNCTION ATTRIBUTES! --------------------- //
+          // Finally we can trust the dep's transitive used keys!
+          this.resolvedProcedureType.getUsedInjectedKeys()
+              .addAll(
+                  // Filter out all the keys that were already provided by the nested using block.
+                  Sets.difference(depProcedureDef.getUsedInjectedKeys(), keysAlreadyProvidedToDep));
+          // And finally update the blocking attribute if this function transitively depends on a blocking op.
+          if (depProcedureDef.getIsBlocking().get()) {
+            this.resolvedProcedureType.getBlockingProcedureDeps().put(initialFringeProcedureDep, depProcedureDef);
+            this.resolvedProcedureType.getIsBlocking().set(true);
+          }
+          // ---------------------- END UPDATE FUNCTION ATTRIBUTES! --------------------- //
+        }
+      }
+    }
+    // Do lookahead cleanup for any procedure dep that we haven't resolved yet that we've reached again as a result of
+    // a cycle. Following this cycle will be safe since the procedure that we're going to re-visit will have already
+    // checked off any procedure deps that it has already processed so it won't go down that road again.
+    ImmutableList<String> copyLookaheadCycleBreakingProcedureDepList =
+        ImmutableList.copyOf(this.directTopLevelProcedureDepsToCollectAttributesFromSet.keySet());
+    for (String lookaheadCycleBreakingProcedureDep : copyLookaheadCycleBreakingProcedureDepList) {
+      Optional<ImmutableSet<Key>> optionalKeysAlreadyProvidedToDep =
+          this.directTopLevelProcedureDepsToCollectAttributesFromSet.remove(lookaheadCycleBreakingProcedureDep);
+      Types.ProcedureType depProcedureDef =
+          (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(lookaheadCycleBreakingProcedureDep);
+
+      // Now, finally do the lookahead recursive bit. Kick off type validation on the dep so that we can make sure it
+      // collects all of its transitive used deps.
+      depProcedureDef.getProcedureDefStmt().assertExpectedExprTypes(scopedHeap);
+
+      // ---------------------- BEGIN UPDATE FUNCTION ATTRIBUTES! --------------------- //
+      // Finally we can trust the dep's transitive used keys!
+      this.resolvedProcedureType.getUsedInjectedKeys()
+          .addAll(
+              optionalKeysAlreadyProvidedToDep.isPresent()
+              // Filter out all the keys that were already provided by the nested using block.
+              ? Sets.difference(depProcedureDef.getUsedInjectedKeys(), optionalKeysAlreadyProvidedToDep.get())
+              : depProcedureDef.getUsedInjectedKeys());
+      // And finally update the blocking attributes if this function transitively depends on a blocking op.
+      if (depProcedureDef.getIsBlocking().get()) {
+        this.resolvedProcedureType.getBlockingProcedureDeps().put(lookaheadCycleBreakingProcedureDep, depProcedureDef);
+        this.resolvedProcedureType.getIsBlocking().set(true);
+      }
+      // ---------------------- END UPDATE FUNCTION ATTRIBUTES! --------------------- //
+    }
+
+    // We require that users explicitly annotate procedures that are blocking so that there is no surprise
+    // when a dep is rejected as a result of some faraway buried transitive dep using a blocking call.
+    // We don't allow graph functions to be annotated blocking, however, so in that case, wait for
+    // GraphFunctionDefinitionStmt type checking to throw a more specific error.
+    if (!this.resolvedProcedureType.getIsGraph().get()) {
+      if (this.resolvedProcedureType.getIsBlocking().get() && !this.explicitlyAnnotatedBlocking) {
+        throw ClaroTypeException.forInvalidBlockingProcedureDefinitionMissingBlockingAnnotation(
+            this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
+      }
+      if (!this.resolvedProcedureType.getIsBlocking().get() && this.explicitlyAnnotatedBlocking) {
+        throw ClaroTypeException.forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
+            this.procedureName, this.resolvedProcedureType);
       }
     }
   }

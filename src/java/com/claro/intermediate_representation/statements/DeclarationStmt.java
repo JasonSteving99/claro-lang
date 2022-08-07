@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -89,6 +90,14 @@ public class DeclarationStmt extends Stmt {
 
       // If this is a blocking declaration stmt then we need to ensure that we're unwrapping a future.
       if (blocking) {
+        // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
+        // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
+        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+            .ifPresent(
+                procedureDefinitionStmt ->
+                    ((ProcedureDefinitionStmt) procedureDefinitionStmt)
+                        .resolvedProcedureType.getIsBlocking().set(true));
+
         // Let's defer Expr's assertions since that will automatically handle logging.
         ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.FUTURE);
         // Unwrap the type since we'll block to unwrap the value.

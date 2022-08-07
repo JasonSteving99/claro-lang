@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
@@ -19,8 +20,16 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
       String functionName,
       ImmutableMap<String, TypeProvider> argTypes,
       TypeProvider outputTypeProvider,
-      StmtListNode stmtListNode) {
-    this(functionName, argTypes, Optional.empty(), outputTypeProvider, stmtListNode);
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
+    this(
+        functionName,
+        argTypes,
+        Optional.empty(),
+        outputTypeProvider,
+        stmtListNode,
+        explicitlyAnnotatedBlocking
+    );
   }
 
   public FunctionDefinitionStmt(
@@ -28,7 +37,8 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
       TypeProvider outputTypeProvider,
-      StmtListNode stmtListNode) {
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
     super(
         functionName,
         argTypes,
@@ -54,8 +64,10 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    explicitlyAnnotatedBlocking
                 ),
         stmtListNode
     );
@@ -85,8 +97,10 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     Sets.newHashSet(), // no directly used keys.
                     thisProcedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    /*explicitlyAnnotatedBlocking=*/ false
                 ),
         stmtListNode
     );

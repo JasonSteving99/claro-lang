@@ -22,6 +22,9 @@ public class GraphNodeDefinitionStmt extends Stmt {
   Type actualNodeType;
   private final ImmutableList<String> upstreamGraphNodeReferences;
 
+  // We'll validate that graph functions are acyclic by verifying that each node is only type-checked exactly once.
+  private boolean alreadyValidated = false;
+
   public GraphNodeDefinitionStmt(String nodeName, Expr nodeExpr) {
     super(ImmutableList.of());
     this.nodeName = nodeName;
@@ -42,7 +45,9 @@ public class GraphNodeDefinitionStmt extends Stmt {
         String.format("@%s", this.nodeName),
         null, (TypeProvider) (s -> {
           try {
-            this.actualNodeType = this.nodeExpr.getValidatedExprType(s);
+            // Side note: Java is weird as hell. The fact that `this` somehow refers to GraphNodeDefinitionStmt in
+            // what is essentially an anonymous class definition stmt just seems... off.
+            this.assertExpectedExprTypes(scopedHeap);
             return this.actualNodeType;
           } catch (ClaroTypeException e) {
             throw new RuntimeException(e);
@@ -53,6 +58,20 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // First things first, we need to assert that we're not attempting to re-validate this node more than once.
+    // Multiple validations of this node indicates that there is an indication of a cycle of graph node references
+    // which is illegal within a Claro graph function.
+    if (alreadyValidated) {
+      throw ClaroTypeException.forNodeReferenceCycleInGraphProcedure(
+          ((ProcedureDefinitionStmt)
+               ((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType
+                   .get()).getProcedureDefStmt())
+              .procedureName,
+          this.nodeName
+      );
+    }
+    alreadyValidated = true;
+
     // Validate that this is not a redeclaration of an identifier.
     Preconditions.checkState(
         !scopedHeap.isIdentifierDeclared(this.nodeName),

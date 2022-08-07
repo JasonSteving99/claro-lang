@@ -208,6 +208,7 @@ WhiteSpace     = [ \t\f]
     "graph"            { return symbol(Calc.GRAPH, 0, 4, "graph"); }
     "root"             { return symbol(Calc.ROOT, 0, 4, "root"); }
     "node"             { return symbol(Calc.NODE, 0, 4, "node"); }
+    "blocking"         { return symbol(Calc.BLOCKING, 0, 8, "blocking"); }
     "<-"               { return symbol(Calc.LEFT_ARROW, 0, 2, "<-"); }
     "@"                { return symbol(Calc.AT, 0, 1, "@"); }
     "<-|"              { return symbol(Calc.BLOCKING_GET, 0, 3, "<-|"); }

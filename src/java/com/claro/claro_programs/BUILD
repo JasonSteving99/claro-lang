@@ -53,6 +53,7 @@ claro_binary(
 claro_library(
     name = "graphs_compiled_claro",
     src = "graphs.claro",
+#    debug = True,
 )
 
 claro_binary(

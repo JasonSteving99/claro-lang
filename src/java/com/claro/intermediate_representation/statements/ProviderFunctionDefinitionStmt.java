@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
@@ -17,15 +18,17 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
   public ProviderFunctionDefinitionStmt(
       String providerName,
       TypeProvider outputTypeProvider,
-      StmtListNode stmtListNode) {
-    this(providerName, Optional.empty(), outputTypeProvider, stmtListNode);
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
+    this(providerName, Optional.empty(), outputTypeProvider, stmtListNode, explicitlyAnnotatedBlocking);
   }
 
   public ProviderFunctionDefinitionStmt(
       String providerName,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
       TypeProvider outputTypeProvider,
-      StmtListNode stmtListNode) {
+      StmtListNode stmtListNode,
+      boolean explicitlyAnnotatedBlocking) {
     super(
         providerName,
         optionalInjectedKeysTypes,
@@ -45,8 +48,10 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .orElse(Sets.newHashSet()),
                     procedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    explicitlyAnnotatedBlocking
                 ),
         stmtListNode
     );
@@ -69,8 +74,10 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     Sets.newHashSet(),
                     procedureDefinitionStmt,
                     () ->
-                        ProcedureDefinitionStmt.optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt -> activeProcedureDefinitionStmt.resolvedProcedureType)
+                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                            .map(activeProcedureDefinitionStmt ->
+                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
+                    /*explicitlyAnnotatedBlocking=*/false
                 ),
         stmtListNode
     );

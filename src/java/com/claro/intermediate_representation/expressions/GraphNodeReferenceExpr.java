@@ -12,7 +12,7 @@ import com.google.common.base.Preconditions;
 import java.util.function.Supplier;
 
 public class GraphNodeReferenceExpr extends IdentifierReferenceTerm {
-  private String referencedGraphNodeName;
+  private final String referencedGraphNodeName;
 
   public GraphNodeReferenceExpr(String referencedGraphNodeName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(referencedGraphNodeName, currentLine, currentLineNumber, startCol, endCol);
@@ -27,7 +27,10 @@ public class GraphNodeReferenceExpr extends IdentifierReferenceTerm {
     // with '@' means it can't be user-defined).
     String internalGraphNodeName = String.format("@%s", this.referencedGraphNodeName);
     Preconditions.checkState(
-        InternalStaticStateUtil.GraphFunctionDefinitionStmt_withinGraphFunctionDefinition,
+        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent() &&
+        ((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType.get())
+            .getIsGraph()
+            .get(),
         "Unexpected node reference <%s> outside of graph scope!",
         internalGraphNodeName
     );

@@ -179,7 +179,8 @@ public class ModuleDefinitionStmt extends Stmt {
         new ConsumerFunctionDefinitionStmt(
             String.format("$%s_init", moduleName),
             ImmutableMap.of("$unused", TypeProvider.ImmediateTypeProvider.of(Types.STRING)),
-            this.stmtListNode
+            this.stmtListNode,
+            /*explicitlyAnnotatedBlocking=*/false
         );
     ConsumerFunctionDefinitionStmt teardownConsumerFunctionDefinitionStmt = getSyntheticTeardownFn();
 
@@ -219,7 +220,8 @@ public class ModuleDefinitionStmt extends Stmt {
         new ConsumerFunctionDefinitionStmt(
             String.format("$%s_init", this.moduleName),
             ImmutableMap.of("$unused", TypeProvider.ImmediateTypeProvider.of(Types.STRING)),
-            this.stmtListNode
+            this.stmtListNode,
+            /*explicitlyAnnotatedBlocking=*/false
         );
     ConsumerFunctionDefinitionStmt teardownConsumerFunctionDefinitionStmt = getSyntheticTeardownFn();
 
@@ -282,7 +284,8 @@ public class ModuleDefinitionStmt extends Stmt {
                         ));
             return null;
           }
-        })
+        }),
+        /*explicitlyAnnotatedBlocking=*/false
     );
   }
 }

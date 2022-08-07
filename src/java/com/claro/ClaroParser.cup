@@ -241,7 +241,7 @@ terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
-terminal LexedValue<String>  FUTURE, BLOCKING_GET, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
+terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -565,7 +565,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -584,7 +584,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -602,7 +602,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/false),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -620,7 +620,7 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -1242,18 +1242,18 @@ struct_definition_stmt ::=
   ;
 
 function_definition_stmt ::=
-    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
-    {:
-      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
-      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
-      returnTypeHolder.set(outputTypeProvider);
-      returnTypeHolder = null;
-      // This production matched a function defined by a list of statements followed by a return Expr to eval.
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list);
-    :}
+   FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+     RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+   :}
   | USING LPAR injected_keys_list:bw_injected_keys RPAR FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
       // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
@@ -1265,7 +1265,32 @@ function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list);
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+    :}
+  | BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
     :}
   ;
 
@@ -1384,7 +1409,7 @@ consumer_function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
     :}
   | USING LPAR injected_keys_list:bw_injected_keys RPAR CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1398,7 +1423,7 @@ consumer_function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/false);
     :}
   ;
 
@@ -1409,7 +1434,7 @@ provider_function_definition_stmt ::=
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
       returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list);
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
     :}
   | USING LPAR injected_keys_list:bw_injected_keys RPAR PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1418,7 +1443,24 @@ provider_function_definition_stmt ::=
       returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list);
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+    :}
+  | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
     :}
   ;
 

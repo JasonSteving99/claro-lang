@@ -5,6 +5,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -56,6 +57,16 @@ public class ClaroTypeException extends Exception {
       "Graph %s has the following unexpected duplicate Node names %s.";
   private static final String GRAPH_FUNCTION_WITH_UNCONNECTED_NODES =
       "Graph Function %s has the following unconnected nodes %s. All nodes must be reachable from root in a Graph Function.";
+  private static final String BLOCKING_CALL_INDIRECTLY_REACHABLE_FROM_GRAPH_FUNCTION =
+      "Graph Function %s %s has illegal transitive dep on the following blocking procedures %s. Blocking is forbidden within a Graph Function in order to avoid deadlocking.";
+  private static final String BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
+      "Procedure %s %s is blocking but is missing required explicit blocking annotation.";
+  private static final String PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
+      "Procedure %s %s depends on blocking procedures %s but is missing required explicit blocking annotation.";
+  private static final String INVALID_BLOCKING_ANNOTATION_ON_NON_BLOCKING_PROCEDURE_DEFINITION =
+      "Non-blocking procedure %s %s must not be annotated as blocking.";
+  private static final String ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE =
+      "Illegal node reference cycle detected within Graph procedure <%s>. Through transitive node references, node <%s> depends cyclically on itself. Graph nodes must represent a DAG.";
 
 
   public ClaroTypeException(String message) {
@@ -264,6 +275,69 @@ public class ClaroTypeException extends Exception {
             procedureName,
             unusedNodes.stream()
                 .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forBlockingCallIndirectlyReachableFromGraphFunction(
+      String graphFunctionName, Type graphFunctionType, Map<String, Type> blockingProcedureDeps) {
+    return new ClaroTypeException(
+        String.format(
+            BLOCKING_CALL_INDIRECTLY_REACHABLE_FROM_GRAPH_FUNCTION,
+            graphFunctionName,
+            graphFunctionType,
+            blockingProcedureDeps.entrySet().stream()
+                .map(entry -> String.format("%s %s", entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining(", ", "[", "]"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidBlockingProcedureDefinitionMissingBlockingAnnotation(
+      String procedureName,
+      Type resolvedProcedureType,
+      Map<String, Type> blockingProcedureDeps) {
+    if (blockingProcedureDeps.isEmpty()) {
+      // This procedure itself is making the blocking call, it's not the result of any sort of transitive procedure dep.
+      return new ClaroTypeException(
+          String.format(
+              BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION,
+              procedureName,
+              resolvedProcedureType
+          )
+      );
+    } else {
+      // This procedure is blocking because of a dep on a blocking procedure.
+      return new ClaroTypeException(
+          String.format(
+              PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION,
+              procedureName,
+              resolvedProcedureType,
+              blockingProcedureDeps.entrySet().stream()
+                  .map(entry -> String.format("%s %s", entry.getKey(), entry.getValue()))
+                  .collect(Collectors.joining(", ", "[", "]"))
+          )
+      );
+    }
+  }
+
+  public static ClaroTypeException forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
+      String procedureName, Type resolvedProcedureType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_BLOCKING_ANNOTATION_ON_NON_BLOCKING_PROCEDURE_DEFINITION,
+            procedureName,
+            resolvedProcedureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forNodeReferenceCycleInGraphProcedure(String procedureName, String nodeName) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE,
+            procedureName,
+            nodeName
         )
     );
   }

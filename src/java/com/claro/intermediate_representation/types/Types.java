@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -269,10 +270,47 @@ public final class Types {
       return this.autoValueIgnoredOptionalOverrideBaseType.get().orElse(this.baseType());
     }
 
+    // ---------------------- BEGIN PROCEDURE ATTRIBUTES! --------------------- //
     // This field is mutable specifically because we need to be able to update this set first with the set
     // of keys that are directly depended on by this procedure, and then by the set of all of its transitive
     // deps. This is done in multiple phases, because we're parsing a DAG in linear order.
     final AtomicReference<HashSet<Key>> autoValueIgnoredUsedInjectedKeys = new AtomicReference<>();
+    // This field indicates whether this procedure is blocking based on whether a blocking operation is reachable.
+    // TODO(steving) Represent this as AtomicReference<Optional<Boolean>> in order to get 3 states for the cases:
+    //    1. function<foo -> bar>
+    //    2. blocking function<foo -> bar>
+    //    3. blocking? function<foo -> bar>
+    //  For Case #3, the intention is to allow genericity over type annotations/effects/keywords. This is the same
+    //  and directly inspired by Rust's proposal: https://blog.rust-lang.org/inside-rust/2022/07/27/keyword-generics.html
+    //  Note that this reuse would imply that I'd need to expose the blocking state to AutoValue so that it could be
+    //  used in Equality checking.
+    final AtomicReference<Boolean> autoValueIgnored_IsBlocking = new AtomicReference<>(false);
+    // If this procedure is marked as blocking, this field *MAY* be populated to indicate that the blocking attribute
+    // is the transitive result of a dep on a downstream blocking procedure.
+    final AtomicReference<HashMap<String, Type>> autoValueIgnored_BlockingProcedureDeps =
+        new AtomicReference<>(new HashMap<>());
+    // This field indicates whether this procedure is a graph procedure.
+    final AtomicReference<Boolean> autoValueIgnored_IsGraph = new AtomicReference<>(false);
+    // ---------------------- END PROCEDURE ATTRIBUTES! --------------------- //
+
+    // TODO(steving) From Claro user perspective, there should actually be TWO DIFFERENT TYPES:
+    //   1. function<foo -> bar>
+    //   2. blocking function<foo -> bar>
+    //  and blocking is an attribute that will have the effect of coloring all transitively dependent procedures as
+    //  blocking procedures. This would enable thread safe usage of procedure references as higher order arguments to
+    //  graph functions because then the Graph Function could actually validate that there is literally no usage of
+    //  blocking code, and also preventing abstraction leaking via first class function support.
+    public AtomicReference<Boolean> getIsBlocking() {
+      return autoValueIgnored_IsBlocking;
+    }
+
+    public HashMap<String, Type> getBlockingProcedureDeps() {
+      return autoValueIgnored_BlockingProcedureDeps.get();
+    }
+
+    public AtomicReference<Boolean> getIsGraph() {
+      return autoValueIgnored_IsGraph;
+    }
 
     public HashSet<Key> getUsedInjectedKeys() {
       return autoValueIgnoredUsedInjectedKeys.get();
@@ -325,9 +363,10 @@ public final class Types {
           Type returnType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitlyAnnotatedBlocking) {
         return FunctionType.forArgsAndReturnTypes(
-            argTypes, returnType, BaseType.FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
+            argTypes, returnType, BaseType.FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn, explicitlyAnnotatedBlocking);
       }
 
       // Factory method for a function that takes args and returns a value.
@@ -337,7 +376,8 @@ public final class Types {
           BaseType overrideBaseType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitelyAnnotatedBlocking) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -353,6 +393,10 @@ public final class Types {
 
         if (overrideBaseType != BaseType.FUNCTION) {
           functionType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        } else {
+          // Including this here for top-level function definitions instead of for lambdas since lambdas won't have
+          // explicit blocking annotations (for convenience).
+          functionType.getIsBlocking().set(explicitelyAnnotatedBlocking);
         }
 
         return functionType;
@@ -363,7 +407,9 @@ public final class Types {
        */
       public static FunctionType typeLiteralForArgsAndReturnTypes(
           ImmutableList<Type> argTypes,
-          Type returnType) {// Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
+          Type returnType,
+          boolean explicitelyAnnotatedBlocking) {
+        // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
             BaseType.FUNCTION,
@@ -373,6 +419,9 @@ public final class Types {
 
         functionType.autoValueIgnoredHasArgs.set(true);
         functionType.autoValueIgnoredHasReturnValue.set(true);
+        // Including this here for top-level function definitions instead of for lambdas since lambdas won't have
+        // explicit blocking annotations (for convenience).
+        functionType.getIsBlocking().set(explicitelyAnnotatedBlocking);
 
         return functionType;
       }
@@ -450,9 +499,10 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s)",
+            "Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.<Type>of(%s), %s, %s)",
             this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", ")),
-            this.getReturnType().getJavaSourceClaroType()
+            this.getReturnType().getJavaSourceClaroType(),
+            this.getIsBlocking().get()
         );
       }
     }
@@ -463,9 +513,10 @@ public final class Types {
           Type returnType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitlyAnnotatedBlocking) {
         return ProviderType.forReturnType(
-            returnType, BaseType.PROVIDER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
+            returnType, BaseType.PROVIDER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn, explicitlyAnnotatedBlocking);
       }
 
       public static ProviderType forReturnType(
@@ -473,7 +524,8 @@ public final class Types {
           BaseType overrideBaseType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitlyAnnotatedBlocking) {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
@@ -487,12 +539,14 @@ public final class Types {
 
         if (overrideBaseType != BaseType.PROVIDER_FUNCTION) {
           providerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        } else {
+          providerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
         }
 
         return providerType;
       }
 
-      public static ProviderType typeLiteralForReturnType(Type returnType) {
+      public static ProviderType typeLiteralForReturnType(Type returnType, boolean explicitlyAnnotatedBlocking) {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
@@ -501,6 +555,7 @@ public final class Types {
 
         providerType.autoValueIgnoredHasArgs.set(false);
         providerType.autoValueIgnoredHasReturnValue.set(true);
+        providerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
 
         return providerType;
       }
@@ -583,8 +638,9 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.ProviderType.typeLiteralForReturnType(%s)",
-            this.getReturnType().getJavaSourceClaroType()
+            "Types.ProcedureType.ProviderType.typeLiteralForReturnType(%s, %s)",
+            this.getReturnType().getJavaSourceClaroType(),
+            this.getIsBlocking().get()
         );
       }
     }
@@ -603,9 +659,10 @@ public final class Types {
           ImmutableList<Type> argTypes,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitlyAnnotatedBlocking) {
         return ConsumerType.forConsumerArgTypes(
-            argTypes, BaseType.CONSUMER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn);
+            argTypes, BaseType.CONSUMER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, optionalActiveProcedureDefinitionTypeSupplierFn, explicitlyAnnotatedBlocking);
       }
 
       public static ConsumerType forConsumerArgTypes(
@@ -613,7 +670,8 @@ public final class Types {
           BaseType overrideBaseType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn) {
+          Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
+          boolean explicitlyAnnotatedBlocking) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
             argTypes
@@ -626,12 +684,16 @@ public final class Types {
 
         if (overrideBaseType != BaseType.CONSUMER_FUNCTION) {
           consumerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        } else {
+          consumerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
         }
 
         return consumerType;
       }
 
-      public static ConsumerType typeLiteralForConsumerArgTypes(ImmutableList<Type> argTypes) {
+      public static ConsumerType typeLiteralForConsumerArgTypes(
+          ImmutableList<Type> argTypes,
+          boolean explicitlyAnnotatedBlocking) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
             argTypes
@@ -639,6 +701,7 @@ public final class Types {
 
         consumerType.autoValueIgnoredHasArgs.set(true);
         consumerType.autoValueIgnoredHasReturnValue.set(false);
+        consumerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
 
         return consumerType;
       }
@@ -710,8 +773,9 @@ public final class Types {
       @Override
       public String getJavaSourceClaroType() {
         return String.format(
-            "Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(ImmutableList.<Type>of(%s))",
-            this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", "))
+            "Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(ImmutableList.<Type>of(%s), %s)",
+            this.getArgTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", ")),
+            this.getIsBlocking().get()
         );
       }
     }
