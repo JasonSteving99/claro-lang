@@ -11,7 +11,8 @@ import java.util.stream.Collectors;
 
 public class ClaroTypeException extends Exception {
 
-  private static final String INVALID_TYPE_ERROR_MESSAGE_FMT_STR = "Invalid type: found <%s>, but expected <%s>.";
+  private static final String INVALID_TYPE_ERROR_MESSAGE_FMT_STR =
+      "Invalid type:\n\tFound:\n\t\t%s\n\tExpected:\n\t\t%s";
   private static final String INVALID_BASE_TYPE_ERROR_MESSAGE_FMT_STR =
       "Invalid type: found <%s>, but expected to have the BaseType <%s>.";
   private static final String INVALID_TYPE_ONE_OF_ERROR_MESSAGE_FMT_STR =

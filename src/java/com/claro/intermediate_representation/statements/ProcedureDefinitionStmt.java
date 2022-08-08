@@ -42,7 +42,6 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       Maps.newHashMap();
   private final HashMap<String, Optional<ImmutableSet<Key>>> directTopLevelProcedureDepsToCollectAttributesFromSet =
       Maps.newHashMap();
-  private boolean explicitlyAnnotatedBlocking = false;
 
   public ProcedureDefinitionStmt(
       String procedureName,
@@ -123,9 +122,8 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
         String.format("Unexpected redeclaration of %s %s.", resolvedProcedureType, this.procedureName)
     );
 
-    // Take note of whether the user explicitly annotated this procedure definition as "blocking". We're going
-    // to validate whether they are correct.
-    this.explicitlyAnnotatedBlocking = this.resolvedProcedureType.getIsBlocking().get();
+    // We're going to explicitly validate that the user is correct about their chosen annotation of whether this
+    // procedure is blocking.
     this.resolvedProcedureType.getIsBlocking().set(false);
 
     // Finally mark the function declared and initialized within the original calling scope.
@@ -384,11 +382,11 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // We don't allow graph functions to be annotated blocking, however, so in that case, wait for
     // GraphFunctionDefinitionStmt type checking to throw a more specific error.
     if (!this.resolvedProcedureType.getIsGraph().get()) {
-      if (this.resolvedProcedureType.getIsBlocking().get() && !this.explicitlyAnnotatedBlocking) {
+      if (this.resolvedProcedureType.getIsBlocking().get() && !this.resolvedProcedureType.getAnnotatedBlocking()) {
         throw ClaroTypeException.forInvalidBlockingProcedureDefinitionMissingBlockingAnnotation(
             this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
       }
-      if (!this.resolvedProcedureType.getIsBlocking().get() && this.explicitlyAnnotatedBlocking) {
+      if (!this.resolvedProcedureType.getIsBlocking().get() && this.resolvedProcedureType.getAnnotatedBlocking()) {
         throw ClaroTypeException.forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
             this.procedureName, this.resolvedProcedureType);
       }

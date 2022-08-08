@@ -589,6 +589,44 @@ builtin_type ::=
             endCol - startCol)
        );
     :}
+  | BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argLexedVal.currentInputLine, arg.right), new Line(a.currentInputLine, aright), new Line(outputTypeLexedVal.currentInputLine, output_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg.left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg.left + argLexedVal.len, aleft + a.len, output_type.left + outputTypeLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(b1.currentInputLine, b1right), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(b2.currentInputLine, b2right), new Line(a.currentInputLine, aright), new Line(outputTypeLexedVal.currentInputLine, output_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, b1left, arg_types.left, b2left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, b1left + b1.len, arg_types.left + argTypesLexedVal.len, b2left + b2.len, aleft + a.len, output_type.left + outputTypeLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
     {:
        LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
@@ -607,6 +645,24 @@ builtin_type ::=
             endCol - startCol)
        );
     :}
+  | BLOCKING CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg_types.left + argTypesLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:return_type R_ANGLE_BRACKET:ra
     {:
        LexedValue<TypeProvider> returnTypeProvider = (LexedValue<TypeProvider>) return_type.value;
@@ -621,6 +677,24 @@ builtin_type ::=
           endCol, // line number
           new LexedValue(
             (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:return_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> returnTypeProvider = (LexedValue<TypeProvider>) return_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(returnTypeProvider.currentInputLine, return_type.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, return_type.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, return_type.left + returnTypeProvider.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
             currentLinesSupplier,
             endCol - startCol)
        );

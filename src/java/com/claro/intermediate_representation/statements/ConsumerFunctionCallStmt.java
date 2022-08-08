@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -71,6 +72,19 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
     FunctionCallExpr.validateNeededBindings(this.consumerName, referencedIdentifierType, scopedHeap);
+
+    // If this happens to be a call to a blocking procedure within another procedure definition, we need to
+    // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph
+    // Procedures, any procedure that can reach a blocking operation is marked as blocking so that we can prevent its
+    // usage from Graph Functions.
+    InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+        .ifPresent(
+            procedureDefinitionStmt -> {
+              if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
+                ((ProcedureDefinitionStmt) procedureDefinitionStmt)
+                    .resolvedProcedureType.getIsBlocking().set(true);
+              }
+            });
 
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.consumerName);

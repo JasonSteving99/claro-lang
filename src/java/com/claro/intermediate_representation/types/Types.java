@@ -247,6 +247,11 @@ public final class Types {
     @Types.Nullable
     public abstract Type getReturnType();
 
+    // This field indicates whether this procedure is *annotated* blocking by the programmer (they may be wrong in which
+    // case Claro will fail compilation to force this to be set correctly since Claro takes the philosophical stance
+    // that truth on this important feature of a procedure needs to be communicated clearly).
+    public abstract Boolean getAnnotatedBlocking();
+
     // When comparing Types we don't ever want to care about *names* (or other metadata), these are meaningless to the
     // compiler and should be treated equivalently to a user comment in terms of the program's semantic execution. So
     // Make these fields *ignored* by AutoValue so that we can compare function type equality.
@@ -275,7 +280,7 @@ public final class Types {
     // of keys that are directly depended on by this procedure, and then by the set of all of its transitive
     // deps. This is done in multiple phases, because we're parsing a DAG in linear order.
     final AtomicReference<HashSet<Key>> autoValueIgnoredUsedInjectedKeys = new AtomicReference<>();
-    // This field indicates whether this procedure is blocking based on whether a blocking operation is reachable.
+    // This field indicates whether this procedure is *actually* blocking based on whether a blocking operation is reachable.
     // TODO(steving) Represent this as AtomicReference<Optional<Boolean>> in order to get 3 states for the cases:
     //    1. function<foo -> bar>
     //    2. blocking function<foo -> bar>
@@ -377,13 +382,14 @@ public final class Types {
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
           Supplier<Optional<ProcedureType>> optionalActiveProcedureDefinitionTypeSupplierFn,
-          boolean explicitelyAnnotatedBlocking) {
+          boolean explicitlyAnnotatedBlocking) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
             BaseType.FUNCTION,
             argTypes,
-            returnType
+            returnType,
+            explicitlyAnnotatedBlocking
         );
 
         functionType.autoValueIgnoredHasArgs.set(true);
@@ -396,7 +402,7 @@ public final class Types {
         } else {
           // Including this here for top-level function definitions instead of for lambdas since lambdas won't have
           // explicit blocking annotations (for convenience).
-          functionType.getIsBlocking().set(explicitelyAnnotatedBlocking);
+          functionType.getIsBlocking().set(explicitlyAnnotatedBlocking);
         }
 
         return functionType;
@@ -408,20 +414,21 @@ public final class Types {
       public static FunctionType typeLiteralForArgsAndReturnTypes(
           ImmutableList<Type> argTypes,
           Type returnType,
-          boolean explicitelyAnnotatedBlocking) {
+          boolean explicitlyAnnotatedBlocking) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
             BaseType.FUNCTION,
             argTypes,
-            returnType
+            returnType,
+            explicitlyAnnotatedBlocking
         );
 
         functionType.autoValueIgnoredHasArgs.set(true);
         functionType.autoValueIgnoredHasReturnValue.set(true);
         // Including this here for top-level function definitions instead of for lambdas since lambdas won't have
         // explicit blocking annotations (for convenience).
-        functionType.getIsBlocking().set(explicitelyAnnotatedBlocking);
+        functionType.getIsBlocking().set(explicitlyAnnotatedBlocking);
 
         return functionType;
       }
@@ -487,10 +494,14 @@ public final class Types {
 
       @Override
       public String toString() {
+        String fmtStr;
+        if (this.autoValueIgnoredOptionalOverrideBaseType.get().isPresent()) {
+          fmtStr = this.autoValueIgnoredOptionalOverrideBaseType.get().get().getClaroCanonicalTypeNameFmtStr();
+        } else {
+          fmtStr = (this.getAnnotatedBlocking() ? "blocking " : "") + this.baseType().getClaroCanonicalTypeNameFmtStr();
+        }
         return String.format(
-            this.autoValueIgnoredOptionalOverrideBaseType.get()
-                .orElse(this.baseType())
-                .getClaroCanonicalTypeNameFmtStr(),
+            fmtStr,
             collectToArgTypesListFormatFn.apply(this.getArgTypes()),
             this.getReturnType()
         );
@@ -529,7 +540,8 @@ public final class Types {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
-            returnType
+            returnType,
+            explicitlyAnnotatedBlocking
         );
 
         providerType.autoValueIgnoredHasArgs.set(false);
@@ -550,7 +562,8 @@ public final class Types {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
-            returnType
+            returnType,
+            explicitlyAnnotatedBlocking
         );
 
         providerType.autoValueIgnoredHasArgs.set(false);
@@ -627,10 +640,14 @@ public final class Types {
 
       @Override
       public String toString() {
+        String fmtStr;
+        if (this.autoValueIgnoredOptionalOverrideBaseType.get().isPresent()) {
+          fmtStr = this.autoValueIgnoredOptionalOverrideBaseType.get().get().getClaroCanonicalTypeNameFmtStr();
+        } else {
+          fmtStr = (this.getAnnotatedBlocking() ? "blocking " : "") + this.baseType().getClaroCanonicalTypeNameFmtStr();
+        }
         return String.format(
-            this.autoValueIgnoredOptionalOverrideBaseType.get()
-                .orElse(this.baseType())
-                .getClaroCanonicalTypeNameFmtStr(),
+            fmtStr,
             this.getReturnType()
         );
       }
@@ -674,7 +691,8 @@ public final class Types {
           boolean explicitlyAnnotatedBlocking) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
-            argTypes
+            argTypes,
+            explicitlyAnnotatedBlocking
         );
 
         consumerType.autoValueIgnoredHasArgs.set(true);
@@ -696,7 +714,8 @@ public final class Types {
           boolean explicitlyAnnotatedBlocking) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
-            argTypes
+            argTypes,
+            explicitlyAnnotatedBlocking
         );
 
         consumerType.autoValueIgnoredHasArgs.set(true);
@@ -762,10 +781,14 @@ public final class Types {
 
       @Override
       public String toString() {
+        String fmtStr;
+        if (this.autoValueIgnoredOptionalOverrideBaseType.get().isPresent()) {
+          fmtStr = this.autoValueIgnoredOptionalOverrideBaseType.get().get().getClaroCanonicalTypeNameFmtStr();
+        } else {
+          fmtStr = (this.getAnnotatedBlocking() ? "blocking " : "") + this.baseType().getClaroCanonicalTypeNameFmtStr();
+        }
         return String.format(
-            this.autoValueIgnoredOptionalOverrideBaseType.get()
-                .orElse(this.baseType())
-                .getClaroCanonicalTypeNameFmtStr(),
+            fmtStr,
             collectToArgTypesListFormatFn.apply(this.getArgTypes())
         );
       }

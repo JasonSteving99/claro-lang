@@ -81,6 +81,19 @@ public class FunctionCallExpr extends Expr {
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
     FunctionCallExpr.validateNeededBindings(this.name, referencedIdentifierType, scopedHeap);
 
+    // If this happens to be a call to a blocking procedure within another procedure definition, we need to
+    // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph
+    // Procedures, any procedure that can reach a blocking operation is marked as blocking so that we can prevent its
+    // usage from Graph Functions.
+    InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+        .ifPresent(
+            procedureDefinitionStmt -> {
+              if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
+                ((ProcedureDefinitionStmt) procedureDefinitionStmt)
+                    .resolvedProcedureType.getIsBlocking().set(true);
+              }
+            });
+
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.name);
 

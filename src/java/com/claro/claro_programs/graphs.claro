@@ -1,6 +1,3 @@
-# TODO(steving) 0. Implement a new Type for blocking function. This cannot lazily just reuse the existing
-# TODO(steving)    Types.ProcedureType.... subtypes, b/c we need to be able to declare variables of type blocking
-# TODO(steving)    function/provider/consumer and be able to distinguish them just by their BaseType.
 # TODO(steving) 1. Support explicit lazy graph node evaluation by allowing nodes to @ reference nodes but assigning
 # TODO(steving)    them to a provider<foo>.
 # TODO(steving) 2. Support Graph Functions in the Interpreted backend.
@@ -68,12 +65,11 @@ graph function nTimesRecursively(n: int, x: int, y: int) -> future<int> {
   root result <- 1 + @next1;
 
   # Claro prevents deadlocking by aggressively preventing blocking calls to be reachable from a graph function scope.
-  # Try uncommenting this line to see Claro complain at compile-time about the blocking call (even though it's
+  # Try uncommenting one of these lines to see Claro complain at compile-time about the blocking call (even though it's
   # indirect, Claro will still correctly recognize it).
 #  node next1 <- maybeRecurseBlockingIndirectly(n - 1 > 0, n, x, y);
+#  node next1 <- maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(maybeRecurseBlockingIndirectly, n - 1 > 0, n, x, y);
   node next1 <- maybeRecurse(n - 1 > 0, n, x, y);
-#  # TODO(steving) Complete this example by supporting keyword generics over the `blocking` annotation.
-#  node next1 <- maybeRecurseBlockingIndirectlyHidden(maybeRecurseBlockingIndirectly, n - 1 > 0, n, x, y);
 }
 
 using(immediateFuture: function<int -> future<int>>)
@@ -88,13 +84,24 @@ function maybeRecurse(b: boolean, n: int, x: int, y: int) -> future<int> {
 # TODO(steving) be deadlock-safe even when using higher-order functions, but I do not want to require these types of
 # TODO(steving) higher-order functions to be implemented twice, once in each color.
 #blocking:deferFn function maybeRecurseBlockingIndirectlyHidden(
+blocking function maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(
 #    deferFn: blocking? function<|boolean, int, int, int| -> int>,
-#    b: boolean,
-#    n: int,
-#    x: int,
-#    y: int) -> int {
-#  return deferFn(b, n, x, y);
-#}
+    deferFn: blocking function<|boolean, int, int, int| -> int>,
+    b: boolean,
+    n: int,
+    x: int,
+    y: int) -> int {
+  return deferFn(b, n, x, y);
+}
+# TODO(steving) Should be able to consolidate this func with the above via keyword generics.
+function maybeRecurseNOTBlockingWithFirstClassFunctionDep(
+    deferFn: function<|boolean, int, int, int| -> future<int>>,
+    b: boolean,
+    n: int,
+    x: int,
+    y: int) -> future<int> {
+  return deferFn(b, n, x, y);
+}
 
 blocking function maybeRecurseBlockingIndirectly(b: boolean, n: int, x: int, y: int) -> int {
   return maybeRecurseBlocking(b, n, x, y);
@@ -126,6 +133,5 @@ using(ImmediateFutureModule) {
   print(recursiveRes == n);
 }
 
-# TODO(steving) This type annotation is wrong. I need to explicitly require `var f: blocking function<...> = ...` here.
-var f: function<|boolean, int, int, int| -> int> = maybeRecurseBlockingIndirectly;
+var f: blocking function<|boolean, int, int, int| -> int> = maybeRecurseBlockingIndirectly;
 print(f(false, -1, -1, -1));

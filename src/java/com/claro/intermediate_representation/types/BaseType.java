@@ -78,6 +78,7 @@ public enum BaseType {
       "  }\n" +
       "}\n\n"
   ),
+  // TODO(steving) Decide whether Optional<T> should really just be a oneof Type defined something like oneof<T, None> where None is the empty struct None {}.
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
   ONEOF, // A quasi union type that selects for one of a finite set of types.
 
