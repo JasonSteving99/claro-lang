@@ -320,8 +320,8 @@ public class ProgramNode {
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +
-            "import com.google.common.util.concurrent.Futures;" +
-            "import com.google.common.util.concurrent.ListenableFuture;" +
+            "import com.google.common.util.concurrent.Futures;\n" +
+            "import com.google.common.util.concurrent.ListenableFuture;\n" +
             "import java.util.ArrayList;\n" +
             "import java.util.List;\n" +
             "import java.util.Optional;\n" +

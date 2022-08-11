@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -21,6 +22,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
   // This will be used as the generated function's return type.
   Type actualNodeType;
   private final ImmutableList<String> upstreamGraphNodeReferences;
+  private ImmutableSet<String> upstreamGraphNodeProviderReferences;
 
   // We'll validate that graph functions are acyclic by verifying that each node is only type-checked exactly once.
   private boolean alreadyValidated = false;
@@ -30,9 +32,8 @@ public class GraphNodeDefinitionStmt extends Stmt {
     this.nodeName = nodeName;
     this.nodeExpr = nodeExpr;
     this.upstreamGraphNodeReferences =
-        InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder
-            .build();
-    InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder = new ImmutableList.Builder<>();
+        InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder.build();
+    InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder = ImmutableList.builder();
   }
 
   // Register this GraphNode's TypeProvider prior to performing type checking so that nodes may reference each other out
@@ -78,6 +79,13 @@ public class GraphNodeDefinitionStmt extends Stmt {
         String.format("Graph node name conflicts with an existing identifier <%s>.", this.nodeName)
     );
 
+    // Because there's a graph traversal about to happen when validating node references, we need to preserve the
+    // prior static state, to be sure not to conflict.
+    ImmutableSet.Builder<String> priorUpstreamGraphNodeProviderReferencesBuilder =
+        InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder;
+    // Clear it out to get a fresh state for this node.
+    InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder = ImmutableSet.builder();
+
     if (optionalExpectedNodeType.isPresent()) {
       // Graph functions are all returning futures, but Claro can automatically handle nodes that are themselves
       // defined by Exprs of type future, so we need to check that this node either returns the wrapped or unwrapped
@@ -95,6 +103,12 @@ public class GraphNodeDefinitionStmt extends Stmt {
     } else {
       this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     }
+
+    // Just in case this node definition expr contained a request for lazy provider injection, take note of that now.
+    this.upstreamGraphNodeProviderReferences =
+        InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder.build();
+    InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder =
+        priorUpstreamGraphNodeProviderReferencesBuilder;
   }
 
   @Override
@@ -145,13 +159,23 @@ public class GraphNodeDefinitionStmt extends Stmt {
         .append(
             this.upstreamGraphNodeReferences.stream()
                 .map(dep -> {
-                  Type upstreamDepType = scopedHeap.getValidatedIdentifierType(dep);
+                  Type upstreamDepInjectedType = scopedHeap.getValidatedIdentifierType(dep);
+                  boolean referencedNodeIsFuture = upstreamDepInjectedType.baseType().equals(BaseType.FUTURE);
+                  if (this.upstreamGraphNodeProviderReferences.contains(dep)) {
+                    // This particular reference is actually requested with lazy provider injection.
+                    if (!referencedNodeIsFuture) {
+                      upstreamDepInjectedType = Types.FutureType.wrapping(upstreamDepInjectedType);
+                    }
+                    upstreamDepInjectedType =
+                        Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                            upstreamDepInjectedType, /*=explicitlyAnnotatedBlocking*/false);
+                  } else if (referencedNodeIsFuture) {
+                    upstreamDepInjectedType = upstreamDepInjectedType.parameterizedTypeArgs().get("$value");
+                  }
                   return String.format(
                       "%s %s, ",
                       // Claro Graph Functions automatically unwraps Future types for the user.
-                      upstreamDepType.baseType().equals(BaseType.FUTURE)
-                      ? upstreamDepType.parameterizedTypeArgs().get("$value").getJavaSourceType()
-                      : upstreamDepType.getJavaSourceType(),
+                      upstreamDepInjectedType.getJavaSourceType(),
                       dep
                   );
                 })
@@ -197,9 +221,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
     }
 
     // We have different depsFuture type based on the number of upstream deps.
-    if (upstreamGraphNodeReferences.size() > 0) {
+    if (upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 0) {
       String calledUpstreamFutures =
           this.upstreamGraphNodeReferences.stream()
+              .filter(node -> !this.upstreamGraphNodeProviderReferences.contains(node))
               .map(
                   node ->
                       String.format(
@@ -208,7 +233,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
                           propagatedGraphFunctionArgsAndInjectedKeysValues
                       ))
               .collect(Collectors.joining(",\n"));
-      if (upstreamGraphNodeReferences.size() > 1) {
+      if (upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 1) {
         res.append(
             String.format(
                 "\t\tClaroFuture<List<Object>> depsFuture =\n\t\t\tnew ClaroFuture(%s, Futures.allAsList(\n%s));\n",
@@ -218,8 +243,11 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 "Types.UNDECIDED",
                 calledUpstreamFutures
             ));
-      } else { // upstreamGraphNodeReferences.size() == 1.
-        Type upstreamDepType = scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(0));
+      } else { // size == 1.
+        Type upstreamDepType =
+            scopedHeap.getValidatedIdentifierType(
+                upstreamGraphNodeReferences.stream()
+                    .filter(node -> !upstreamGraphNodeProviderReferences.contains(node)).findFirst().get());
         res.append(
             String.format(
                 "\t\t"
@@ -240,37 +268,57 @@ public class GraphNodeDefinitionStmt extends Stmt {
             this.actualNodeType.getJavaSourceType()
         ));
 
-    if (upstreamGraphNodeReferences.size() > 0) {
+    if (upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 0) {
       res.append(
           String.format(
               "\t\t\tnew ClaroFuture(%s, Futures." +
               (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "transformAsync" : "transform") +
               "(\n" +
               "\t\t\t\tdepsFuture,\n" +
-              "\t\t\t\t" + (upstreamGraphNodeReferences.size() > 1 ? "deps" : "dep") + " ->\n" +
+              "\t\t\t\t" +
+              (upstreamGraphNodeReferences.size() - this.upstreamGraphNodeProviderReferences.size() > 1
+               ? "deps" : "dep") + " ->\n" +
               "\t\t\t\t\t$%s_nodeImpl(\n",
               this.actualNodeType.getJavaSourceClaroType(),
               this.nodeName
-          ))
-          .append(
-              IntStream.range(0, upstreamGraphNodeReferences.size())
-                  .mapToObj(
-                      index -> {
-                        Type upstreamGraphNodeType =
-                            scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(index));
-                        return
-                            upstreamGraphNodeReferences.size() > 1
-                            ? String.format(
-                                "\t\t\t\t\t\t(%s) deps.get(%s),\n ",
-                                (upstreamGraphNodeType.baseType().equals(BaseType.FUTURE)
-                                 ? upstreamGraphNodeType.parameterizedTypeArgs().get("$value")
-                                 : upstreamGraphNodeType)
-                                    .getJavaSourceType(),
-                                index
-                            )
-                            : "\t\t\t\t\t\tdep,\n ";
-                      }
-                  ).collect(Collectors.joining("")))
+          ));
+      AtomicReference<Integer> upstreamNodeReferencesIndex = new AtomicReference<>(0);
+      res.append(
+          IntStream.range(0, upstreamGraphNodeReferences.size())
+              .mapToObj(
+                  index -> {
+                    Type upstreamGraphNodeType =
+                        scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(index));
+                    if (this.upstreamGraphNodeProviderReferences.contains(this.upstreamGraphNodeReferences.get(index))) {
+                      return String.format(
+                          "\t\t\t\tnew ClaroProviderFunction<ClaroFuture<%s>>() {\n" +
+                          "\t\t\t\t\tpublic ClaroFuture<%s> apply() {\n" +
+                          "\t\t\t\t\t\treturn $%s_nodeAsync(\n%s;\n" +
+                          "\t\t\t\t\t}\n" +
+                          "\t\t\t\t\tpublic Type getClaroType() {\n" +
+                          "\t\t\t\t\t\treturn %s;\n" +
+                          "\t\t\t\t\t}\n" +
+                          "\t\t\t\t},\n",
+                          upstreamGraphNodeType.getJavaSourceType(),
+                          upstreamGraphNodeType.getJavaSourceType(),
+                          this.upstreamGraphNodeReferences.get(index),
+                          propagatedGraphFunctionArgsAndInjectedKeysValues,
+                          upstreamGraphNodeType.getJavaSourceClaroType()
+                      );
+                    }
+                    return
+                        upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 1
+                        ? String.format(
+                            "\t\t\t\t\t\t(%s) deps.get(%s),\n ",
+                            (upstreamGraphNodeType.baseType().equals(BaseType.FUTURE)
+                             ? upstreamGraphNodeType.parameterizedTypeArgs().get("$value")
+                             : upstreamGraphNodeType)
+                                .getJavaSourceType(),
+                            upstreamNodeReferencesIndex.getAndUpdate(curr -> curr + 1)
+                        )
+                        : "\t\t\t\t\t\tdep,\n ";
+                  }
+              ).collect(Collectors.joining("")))
           .append(propagatedGraphFunctionArgsAndInjectedKeysValues)
           // Always schedule the transformation to take place on the configured ExecutorService otherwise there would be a
           // chance that some heavy work would be done on the thread that called the transform (which could easily be the
@@ -278,6 +326,27 @@ public class GraphNodeDefinitionStmt extends Stmt {
           .append(
               ",\n\t\t\t\tClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE));\n");
     } else {
+      String upstreamLazyProviderDeps = this.upstreamGraphNodeProviderReferences.stream()
+          .map(
+              node -> {
+                Type upstreamNodeProviderReferenceType = scopedHeap.getValidatedIdentifierType(node);
+                return String.format(
+                    "\t\t\t\tnew ClaroProviderFunction<ClaroFuture<%s>>() {\n" +
+                    "\t\t\t\t\tpublic ClaroFuture<%s> apply() {\n" +
+                    "\t\t\t\t\t\treturn $%s_nodeAsync(\n%s;\n" +
+                    "\t\t\t\t\t}\n" +
+                    "\t\t\t\t\tpublic Type getClaroType() {\n" +
+                    "\t\t\t\t\t\treturn %s;\n" +
+                    "\t\t\t\t\t}\n" +
+                    "\t\t\t\t},\n",
+                    upstreamNodeProviderReferenceType.getJavaSourceType(),
+                    upstreamNodeProviderReferenceType.getJavaSourceType(),
+                    node,
+                    propagatedGraphFunctionArgsAndInjectedKeysValues,
+                    upstreamNodeProviderReferenceType.getJavaSourceClaroType()
+                );
+              })
+          .collect(Collectors.joining());
       // Claro allows nodes to be defined by Exprs that are already of type future<...> so that graph functions can be
       // naturally composed. If this node expr is already a future, then we do not need to schedule any work on an
       // executor since that will have already been handled.
@@ -286,7 +355,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
             String.format(
                 "\t\t\t$%s_nodeImpl(\n%s;\n",
                 this.nodeName,
-                propagatedGraphFunctionArgsAndInjectedKeysValues
+                upstreamLazyProviderDeps + propagatedGraphFunctionArgsAndInjectedKeysValues
             )
         );
       } else {
@@ -296,7 +365,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
                 "\t\t\t\t.submit(() -> $%s_nodeImpl(\n%s));\n",
                 this.actualNodeType.getJavaSourceClaroType(),
                 this.nodeName,
-                propagatedGraphFunctionArgsAndInjectedKeysValues
+                upstreamLazyProviderDeps + propagatedGraphFunctionArgsAndInjectedKeysValues
             ));
       }
     }

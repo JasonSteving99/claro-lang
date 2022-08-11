@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -24,6 +25,11 @@ public class InternalStaticStateUtil {
   // is valid and safe.
   public static ImmutableList.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder =
       ImmutableList.builder();
+  // This set of upstream deps refers to the same node references as the above list, but membership in this set
+  // indicates that the reference is implicitly indicating the user wants control over lazy evaluation of the node
+  // via access to the subgraph as a provider to execute on demand instead of depending on the already computed result.
+  public static ImmutableSet.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder =
+      ImmutableSet.builder();
   public static HashSet<String> GraphFunctionDefinitionStmt_usedGraphNodesNamesSet = new HashSet<>();
 
   // I need a mechanism for easily communicating to sub-nodes in the AST that they are a part of a
