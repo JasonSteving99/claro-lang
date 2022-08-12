@@ -585,7 +585,7 @@ public final class Types {
 
       @Override
       public String getJavaNewTypeDefinitionStmt(
-          String providerName, StringBuilder body, Optional<StringBuilder> unusedOptionalHelperMethods) {
+          String providerName, StringBuilder body, Optional<StringBuilder> optionalHelperMethods) {
         String returnTypeJavaSource = getReturnType().getJavaSourceType();
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
@@ -598,6 +598,7 @@ public final class Types {
             providerName,
             returnTypeJavaSource,
             body,
+            optionalHelperMethods.orElse(new StringBuilder()),
             this,
             providerName,
             providerName,

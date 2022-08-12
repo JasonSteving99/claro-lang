@@ -173,13 +173,16 @@ public class GraphNodeDefinitionStmt extends Stmt {
                     upstreamDepInjectedType = upstreamDepInjectedType.parameterizedTypeArgs().get("$value");
                   }
                   return String.format(
-                      "%s %s, ",
+                      "%s %s",
                       // Claro Graph Functions automatically unwraps Future types for the user.
                       upstreamDepInjectedType.getJavaSourceType(),
                       dep
                   );
                 })
-                .collect(Collectors.joining("")))
+                .collect(
+                    Collectors.joining(
+                        ", ", "", propagatedGraphFunctionArgsAndInjectedKeys.length() > 0 &&
+                                  upstreamGraphNodeReferences.size() > 0 ? ", " : "")))
         .append(propagatedGraphFunctionArgsAndInjectedKeys)
         .append(") {\n")
         // This allows things like lambdas to work within nodes as well.
@@ -290,35 +293,46 @@ public class GraphNodeDefinitionStmt extends Stmt {
                     Type upstreamGraphNodeType =
                         scopedHeap.getValidatedIdentifierType(upstreamGraphNodeReferences.get(index));
                     if (this.upstreamGraphNodeProviderReferences.contains(this.upstreamGraphNodeReferences.get(index))) {
+                      // If the node's type is already a future we don't need to wrap it in the codegen.
+                      boolean isFuture = upstreamGraphNodeType.baseType().equals(BaseType.FUTURE);
+                      String upstreamFuture =
+                          String.format(
+                              isFuture ? "%s" : "ClaroFuture<%s>",
+                              upstreamGraphNodeType.getJavaSourceType()
+                          );
                       return String.format(
-                          "\t\t\t\tnew ClaroProviderFunction<ClaroFuture<%s>>() {\n" +
-                          "\t\t\t\t\tpublic ClaroFuture<%s> apply() {\n" +
+                          "\t\t\t\tnew ClaroProviderFunction<%s>() {\n" +
+                          "\t\t\t\t\tpublic %s apply() {\n" +
                           "\t\t\t\t\t\treturn $%s_nodeAsync(\n%s;\n" +
                           "\t\t\t\t\t}\n" +
                           "\t\t\t\t\tpublic Type getClaroType() {\n" +
                           "\t\t\t\t\t\treturn %s;\n" +
                           "\t\t\t\t\t}\n" +
-                          "\t\t\t\t},\n",
-                          upstreamGraphNodeType.getJavaSourceType(),
-                          upstreamGraphNodeType.getJavaSourceType(),
+                          "\t\t\t\t}",
+                          upstreamFuture,
+                          upstreamFuture,
                           this.upstreamGraphNodeReferences.get(index),
                           propagatedGraphFunctionArgsAndInjectedKeysValues,
-                          upstreamGraphNodeType.getJavaSourceClaroType()
+                          (isFuture ? upstreamGraphNodeType : Types.FutureType.wrapping(upstreamGraphNodeType))
+                              .getJavaSourceClaroType()
                       );
                     }
                     return
                         upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 1
                         ? String.format(
-                            "\t\t\t\t\t\t(%s) deps.get(%s),\n ",
+                            "\t\t\t\t\t\t(%s) deps.get(%s)",
                             (upstreamGraphNodeType.baseType().equals(BaseType.FUTURE)
                              ? upstreamGraphNodeType.parameterizedTypeArgs().get("$value")
                              : upstreamGraphNodeType)
                                 .getJavaSourceType(),
                             upstreamNodeReferencesIndex.getAndUpdate(curr -> curr + 1)
                         )
-                        : "\t\t\t\t\t\tdep,\n ";
+                        : "\t\t\t\t\t\tdep";
                   }
-              ).collect(Collectors.joining("")))
+              )
+              // TODO(steving) Cleanup propagatedGraphFunctionArgsAndInjectedKeysValues which has an unnecessary trailing ')' prebuilt into it.
+              .collect(Collectors.joining(
+                  ",\n", "", propagatedGraphFunctionArgsAndInjectedKeysValues.length() > 1 ? ",\n" : "")))
           .append(propagatedGraphFunctionArgsAndInjectedKeysValues)
           // Always schedule the transformation to take place on the configured ExecutorService otherwise there would be a
           // chance that some heavy work would be done on the thread that called the transform (which could easily be the
@@ -330,23 +344,40 @@ public class GraphNodeDefinitionStmt extends Stmt {
           .map(
               node -> {
                 Type upstreamNodeProviderReferenceType = scopedHeap.getValidatedIdentifierType(node);
+                // If the node's type is already a future we don't need to wrap it in the codegen.
+                boolean isFuture = upstreamNodeProviderReferenceType.baseType().equals(BaseType.FUTURE);
+                String upstreamFuture =
+                    String.format(
+                        isFuture ? "%s" : "ClaroFuture<%s>",
+                        upstreamNodeProviderReferenceType.getJavaSourceType()
+                    );
                 return String.format(
-                    "\t\t\t\tnew ClaroProviderFunction<ClaroFuture<%s>>() {\n" +
-                    "\t\t\t\t\tpublic ClaroFuture<%s> apply() {\n" +
+                    "\t\t\t\tnew ClaroProviderFunction<%s>() {\n" +
+                    "\t\t\t\t\tpublic %s apply() {\n" +
                     "\t\t\t\t\t\treturn $%s_nodeAsync(\n%s;\n" +
                     "\t\t\t\t\t}\n" +
                     "\t\t\t\t\tpublic Type getClaroType() {\n" +
                     "\t\t\t\t\t\treturn %s;\n" +
                     "\t\t\t\t\t}\n" +
-                    "\t\t\t\t},\n",
-                    upstreamNodeProviderReferenceType.getJavaSourceType(),
-                    upstreamNodeProviderReferenceType.getJavaSourceType(),
+                    "\t\t\t\t}",
+                    upstreamFuture,
+                    upstreamFuture,
                     node,
                     propagatedGraphFunctionArgsAndInjectedKeysValues,
-                    upstreamNodeProviderReferenceType.getJavaSourceClaroType()
+                    (isFuture
+                     ? upstreamNodeProviderReferenceType
+                     : Types.FutureType.wrapping(upstreamNodeProviderReferenceType))
+                        .getJavaSourceClaroType()
                 );
               })
-          .collect(Collectors.joining());
+          // TODO(steving) Cleanup propagatedGraphFunctionArgsAndInjectedKeysValues which has an unnecessary trailing ')' prebuilt into it.
+          .collect(Collectors.joining(
+              ",\n", "",
+              upstreamGraphNodeProviderReferences.size() > 0 &&
+              propagatedGraphFunctionArgsAndInjectedKeysValues.length() > 1
+              ? ",\n"
+              : ""
+          ));
       // Claro allows nodes to be defined by Exprs that are already of type future<...> so that graph functions can be
       // naturally composed. If this node expr is already a future, then we do not need to schedule any work on an
       // executor since that will have already been handled.
@@ -387,7 +418,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
   private StringBuilder generatePropagatedFunctionArgsAndInjectedKeys(ScopedHeap scopedHeap) {
     return new StringBuilder()
         .append(
-            InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionArgs.entrySet().stream()
+            InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs.entrySet().stream()
                 .map(
                     nameTypeProviderEntry ->
                         String.format(
@@ -397,7 +428,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
                         ))
                 .collect(Collectors.joining(", ")))
         .append(
-            InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionOptionalInjectedKeys
+            InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys
                 .map(
                     injectedKeys -> injectedKeys.entrySet().stream()
                         .map(
@@ -414,11 +445,11 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
   private StringBuilder generatePropagatedFunctionArgsAndInjectedKeysValues() {
     return new StringBuilder()
-        .append(InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionArgs.keySet().stream()
+        .append(InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs.keySet().stream()
                     .map(arg -> String.format("\t\t\t\t\t\t%s", arg))
                     .collect(Collectors.joining(",\n")))
         .append(
-            InternalStaticStateUtil.GraphFunctionDefinitionStmt_graphFunctionOptionalInjectedKeys
+            InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys
                 .map(
                     injectedKeys ->
                         injectedKeys.keySet().stream()

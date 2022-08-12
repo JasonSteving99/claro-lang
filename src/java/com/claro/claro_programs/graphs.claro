@@ -1,9 +1,8 @@
-# TODO(steving) 1. Support Consumer/Provider Graph Functions.
+# TODO(steving) 1. Support Consumer Graph Functions.
 # TODO(steving)     - For the consumer, probably it's as simple as adding a synthetic root node that simply puts a dep
 # TODO(steving)       on all top level nodes that are disconnected from one another. So just would need to identify
 # TODO(steving)       those nodes and the existing logic would work fine. The synthetic node would just have to mark
 # TODO(steving)       its args as used even though they're aren't meaningfully used.
-# TODO(steving)     - For the provider, it's probably even easier, likely it's already supported by existing code.
 # TODO(steving) 2. Support Graph Functions in the Interpreted backend.
 # TODO(steving) 3. Try supporting "keyword generics" over `blocking` annotation as proposed in
 # TODO(steving)    https://blog.rust-lang.org/inside-rust/2022/07/27/keyword-generics.html. This would allow avoiding
@@ -61,6 +60,17 @@ graph function firstGraph(x: float, y: float) -> future<float> {
 # apparent and I don't ever want it to be overlooked as blocking threads can frequently be a bad idea.
 var firstConcurrentClaroResult <-| firstGraph(10.0, 2.0);
 print(firstConcurrentClaroResult);
+
+####################################################################################################
+# DEMONSTRATE BASIC GRAPH PROVIDER SEMANTICS
+####################################################################################################
+graph provider firstGraphProvider() -> future<float> {
+  root providedRes <- @deferredFirstGraphRes;
+  node deferredFirstGraphRes <- firstGraph(10.0, 2.0);
+}
+
+var firstGraphProviderResult <-| firstGraphProvider();
+print(firstGraphProviderResult);
 
 ####################################################################################################
 # DEMONSTRATE LAZY NODE PROVIDER INJECTION

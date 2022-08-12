@@ -84,7 +84,7 @@ public class GraphNodeReferenceExpr extends IdentifierReferenceTerm {
     }
 
     // Mark the node used.
-    InternalStaticStateUtil.GraphFunctionDefinitionStmt_usedGraphNodesNamesSet.add(this.referencedGraphNodeName);
+    InternalStaticStateUtil.GraphProcedureDefinitionStmt_usedGraphNodesNamesSet.add(this.referencedGraphNodeName);
 
     return nodeInjectedType;
   }

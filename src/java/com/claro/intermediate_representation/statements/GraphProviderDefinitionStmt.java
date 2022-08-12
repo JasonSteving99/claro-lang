@@ -1,6 +1,5 @@
 package com.claro.intermediate_representation.statements;
 
-import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -13,37 +12,30 @@ import com.google.common.collect.Sets;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class GraphFunctionDefinitionStmt extends GraphProcedureDefinitionStmt {
+public class GraphProviderDefinitionStmt extends GraphProcedureDefinitionStmt {
 
-  public GraphFunctionDefinitionStmt(
+  public GraphProviderDefinitionStmt(
       String graphFunctionName,
-      ImmutableMap<String, TypeProvider> argTypes,
       TypeProvider outputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
-    this(graphFunctionName, argTypes, Optional.empty(), outputTypeProvider, rootNode, nonRootNodes);
+    this(graphFunctionName, Optional.empty(), outputTypeProvider, rootNode, nonRootNodes);
   }
 
-  public GraphFunctionDefinitionStmt(
+  public GraphProviderDefinitionStmt(
       String graphFunctionName,
-      ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
       TypeProvider outputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
     super(
         graphFunctionName,
-        argTypes,
+        ImmutableMap.of(),
         optionalInjectedKeysTypes,
         (thisProcedureDefinitionStmt) ->
             (scopedHeap) ->
-                Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-                    argTypes.values()
-                        .stream()
-                        .map(t -> t.resolveType(scopedHeap))
-                        .collect(ImmutableList.toImmutableList()),
+                Types.ProcedureType.ProviderType.forReturnType(
                     outputTypeProvider.resolveType(scopedHeap),
-                    BaseType.FUNCTION, // Remember that Claro's Graph Functions are "just" sugar over plain functions.
                     optionalInjectedKeysTypes
                         .map(
                             injectedKeysTypes ->

@@ -15,9 +15,10 @@ import java.util.Optional;
 // minimal dependencies, specifically none that go into the intermediate_representation/(expressions|statements)
 // packages to avoid all circular deps.
 public class InternalStaticStateUtil {
-  public static ImmutableMap<String, TypeProvider> GraphFunctionDefinitionStmt_graphFunctionArgs;
+  public static ImmutableMap<String, TypeProvider> GraphProcedureDefinitionStmt_graphFunctionArgs;
   public static Optional<ImmutableMap<String, TypeProvider>>
-      GraphFunctionDefinitionStmt_graphFunctionOptionalInjectedKeys;
+      GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys;
+  public static HashSet<String> GraphProcedureDefinitionStmt_usedGraphNodesNamesSet = new HashSet<>();
 
   // This is to be used during the parsing phase so that whenever a GraphNodeReference is legally identified the
   // referenced node will be added to this list so that this GraphNodeDefinitionStmt knows which upstream deps it needs
@@ -30,7 +31,6 @@ public class InternalStaticStateUtil {
   // via access to the subgraph as a provider to execute on demand instead of depending on the already computed result.
   public static ImmutableSet.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder =
       ImmutableSet.builder();
-  public static HashSet<String> GraphFunctionDefinitionStmt_usedGraphNodesNamesSet = new HashSet<>();
 
   // I need a mechanism for easily communicating to sub-nodes in the AST that they are a part of a
   // ProcedureDefinitionStmt so that during type validation, nested procedure call nodes know to update

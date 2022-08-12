@@ -288,6 +288,7 @@ nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal GraphFunctionDefinitionStmt        graph_function_definition_stmt;
+nonterminal GraphProviderDefinitionStmt        graph_provider_definition_stmt;
 nonterminal GraphNodeDefinitionStmt            root_node;
 nonterminal GraphNodeDefinitionStmt            non_root_node;
 nonterminal ImmutableList.Builder<GraphNodeDefinitionStmt> non_root_nodes_list;
@@ -410,6 +411,8 @@ stmt ::=
   | consumer_function_call_stmt:cf
     {: RESULT = cf; :}
   | graph_function_definition_stmt:gf
+    {: RESULT = gf; :}
+  | graph_provider_definition_stmt:gf
     {: RESULT = gf; :}
   | return_stmt:r
     {: RESULT = r; :}
@@ -1741,6 +1744,72 @@ graph_function_definition_stmt ::=
        RESULT = new GraphFunctionDefinitionStmt(
           name.val,
           argTypesMap,
+          Optional.of(injectedKeysList),
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  ;
+
+// Just to make sure that graphs are somewhat consistent, you must either choose between putting the root node as the
+// first or last node definition in the graph body. Let's encourage ordering these sanely because it can be hard to
+// trace declarative code without a pattern.
+graph_provider_definition_stmt ::=
+    GRAPH PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+       RESULT = new GraphProviderDefinitionStmt(
+          name.val,
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | GRAPH PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+       RESULT = new GraphProviderDefinitionStmt(
+          name.val,
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new GraphProviderDefinitionStmt(
+          name.val,
+          Optional.of(injectedKeysList),
+          outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+
+      // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
+      // because there's only going to be a single return from a graph function, and by definition every graph function
+      // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+       RESULT = new GraphProviderDefinitionStmt(
+          name.val,
           Optional.of(injectedKeysList),
           outputTypeProvider,
           root,
