@@ -68,6 +68,8 @@ public class ClaroTypeException extends Exception {
       "Non-blocking procedure %s %s must not be annotated as blocking.";
   private static final String ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE =
       "Illegal node reference cycle detected within Graph procedure <%s>. Through transitive node references, node <%s> depends cyclically on itself. Graph nodes must represent a DAG.";
+  private static final String GRAPH_CONSUMER_ROOT_NODE_IS_NOT_CONSUMER_FN =
+      "Root node <%s> of Graph Consumer <%s> must defer to a consumer<...> as this Graph should not return a value. If you would like to return a value, change the signature to `graph function`.";
 
 
   public ClaroTypeException(String message) {
@@ -339,6 +341,16 @@ public class ClaroTypeException extends Exception {
             ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE,
             procedureName,
             nodeName
+        )
+    );
+  }
+
+  public static ClaroTypeException forGraphConsumerRootNodeIsNotConsumerFn(String procedureName, String nodeName) {
+    return new ClaroTypeException(
+        String.format(
+            GRAPH_CONSUMER_ROOT_NODE_IS_NOT_CONSUMER_FN,
+            nodeName,
+            procedureName
         )
     );
   }

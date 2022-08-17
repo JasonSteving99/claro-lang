@@ -1,17 +1,12 @@
-# TODO(steving) 1. Support Consumer Graph Functions.
-# TODO(steving)     - For the consumer, probably it's as simple as adding a synthetic root node that simply puts a dep
-# TODO(steving)       on all top level nodes that are disconnected from one another. So just would need to identify
-# TODO(steving)       those nodes and the existing logic would work fine. The synthetic node would just have to mark
-# TODO(steving)       its args as used even though they're aren't meaningfully used.
-# TODO(steving) 2. Support Graph Functions in the Interpreted backend.
-# TODO(steving) 3. Try supporting "keyword generics" over `blocking` annotation as proposed in
+# TODO(steving) 1. Try supporting "keyword generics" over `blocking` annotation as proposed in
 # TODO(steving)    https://blog.rust-lang.org/inside-rust/2022/07/27/keyword-generics.html. This would allow avoiding
 # TODO(steving)    the duplication issue in functional code that utilizes first class function params.
-# TODO(steving) 4. Try modelling the builtin `input()` function as an async function to queue up interactions with the
+# TODO(steving) 2. Support Graph Functions in the Interpreted backend.
+# TODO(steving) 3. Try modelling the builtin `input()` function as an async function to queue up interactions with the
 # TODO(steving)    console so that graph functions can naturally make use of user input without different threads
 # TODO(steving)    stepping all over each other. It also seems more naturally correct for input() to be explicitly
 # TODO(steving)    modelled this way anyways since you are consciously waiting on the user for something.
-# TODO(steving) 5. If you're able to model builtin `input()` as an async function, then consider extending this logic
+# TODO(steving) 4. If you're able to model builtin `input()` as an async function, then consider extending this logic
 # TODO(steving)    a generalized notion of a "SynchronizingResource" so that writes to a shared resource e.g. stdout via
 # TODO(steving)    the builtin `print()` and any other following operations are guaranteed to happen as a logical
 # TODO(steving)    synchronized unit. This would basically involve keeping a queue of futures to chain off of one
@@ -71,6 +66,63 @@ graph provider firstGraphProvider() -> future<float> {
 
 var firstGraphProviderResult <-| firstGraphProvider();
 print(firstGraphProviderResult);
+
+####################################################################################################
+# DEMONSTRATE BASIC GRAPH CONSUMER SEMANTICS - (FIRE-AND-FORGET)
+####################################################################################################
+#
+# Note, graph consumer functions should really only be used rarely because you cannot guarantee
+# ordering semantics relative to other async code because you are unable to retrieve a handle to the
+# work in the form of a future<...> to schedule around. If Claro were to provide a handle, the type
+# would have to be something like future<nothing>. But Claro is opposed to meaningless types like
+# this so it would end up leading to the addition of a lot of complexity to the language to prevent
+# binding any variables to a value of type `nothing` (since by definition that value would not exist).
+#
+# The killer use case for these existing is for the sake of a server running its infinite loop. The
+# server should defer to `graph function` endpoint handlers to get the result, but then needs to be
+# able to schedule work after the response is computed to serialize that response to the corresponding
+# port and move on to scheduling handling of the next request.
+#
+# E.g. something like:
+#
+# consumer startServer(openPorts: [int]) {
+#   while (true) {
+#     var portsWithRequests: [Request] = getRequestsFromEpoll(openPorts);
+#     # Map over a fire-and-forget async operation so the request thread never blocks.
+#     map(portsWithRequests, handleRequest(port));
+#   }
+# }
+#
+# using(endpointHandler: function<Request -> Response>)
+# graph consumer handleRequest(port: responsePort) {
+#   root sendResponse <- serializeResponseToPort(port, @response);
+#   node response <- endpointHandler(@request);
+#   node request <- getRequestFromPort(port);
+# }
+#
+# consumer serializeResponseToPort(port: int, response: Response) {
+#   ... # This consumer function is simply going to do some system level IO, but it will have nothing to return.
+# }
+####################################################################################################
+
+graph consumer graphReturningNothing(message: string) {
+  root fireAndForget <- doIO(@formatted);
+  node formatted <- "Formatted message: {message}";
+}
+
+consumer doIO(s: string) {
+  print(s);
+}
+
+# Fire-and-forget the graph consumer procedure, it will finish at some point in the future.
+var messages = ["execute first consumer graph!", "consumer graph again...", "one last time..."];
+var i = 0;
+while (i < len(messages)) {
+  # There's no ordering guarantee for completion of all of the futures that I'm firing-and-forgetting here
+  # since each call is potentially running concurrently in different threads. You'll likely need to run this
+  # program many times to have a chance of observing that.
+  graphReturningNothing(messages[i++]);
+}
 
 ####################################################################################################
 # DEMONSTRATE LAZY NODE PROVIDER INJECTION

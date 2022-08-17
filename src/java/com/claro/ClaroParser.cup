@@ -289,6 +289,7 @@ nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal GraphFunctionDefinitionStmt        graph_function_definition_stmt;
 nonterminal GraphProviderDefinitionStmt        graph_provider_definition_stmt;
+nonterminal GraphConsumerDefinitionStmt        graph_consumer_definition_stmt;
 nonterminal GraphNodeDefinitionStmt            root_node;
 nonterminal GraphNodeDefinitionStmt            non_root_node;
 nonterminal ImmutableList.Builder<GraphNodeDefinitionStmt> non_root_nodes_list;
@@ -390,6 +391,8 @@ stmt ::=
     {: RESULT = d; :}
   | identifier_assignment:a
     {: RESULT = a; :}
+  | trashcan_assignment:t
+    {: RESULT = t; :}
   | identifier_increment_stmt:i
     {: RESULT = i; :}
   | identifier_decrement_stmt:i
@@ -413,6 +416,8 @@ stmt ::=
   | graph_function_definition_stmt:gf
     {: RESULT = gf; :}
   | graph_provider_definition_stmt:gf
+    {: RESULT = gf; :}
+  | graph_consumer_definition_stmt:gf
     {: RESULT = gf; :}
   | return_stmt:r
     {: RESULT = r; :}
@@ -1502,6 +1507,33 @@ consumer_function_definition_stmt ::=
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
       RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/false);
     :}
+  | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set a null return type for any invalid ReturnStmts that are waiting on it and reset the holder.
+      if (returnTypeHolder != null) {
+        returnTypeHolder.set(null);
+        returnTypeHolder = null;
+      }
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set a null return type for any invalid ReturnStmts that are waiting on it and reset the holder.
+      if (returnTypeHolder != null) {
+        returnTypeHolder.set(null);
+        returnTypeHolder = null;
+      }
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+        ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+    :}
   ;
 
 provider_function_definition_stmt ::=
@@ -1812,6 +1844,61 @@ graph_provider_definition_stmt ::=
           name.val,
           Optional.of(injectedKeysList),
           outputTypeProvider,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  ;
+
+graph_consumer_definition_stmt ::=
+    GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+       RESULT = new GraphConsumerDefinitionStmt(
+          name.val,
+          argTypesMap,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+       RESULT = new GraphConsumerDefinitionStmt(
+          name.val,
+          argTypesMap,
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new GraphConsumerDefinitionStmt(
+          name.val,
+          argTypesMap,
+          Optional.of(injectedKeysList),
+          root,
+          non_root_nodes.build().reverse());
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+       RESULT = new GraphConsumerDefinitionStmt(
+          name.val,
+          argTypesMap,
+          Optional.of(injectedKeysList),
           root,
           non_root_nodes.build().reverse());
     :}

@@ -1,6 +1,5 @@
 package com.claro.intermediate_representation.statements;
 
-import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -13,22 +12,20 @@ import com.google.common.collect.Sets;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class GraphFunctionDefinitionStmt extends GraphProcedureDefinitionStmt {
+public class GraphConsumerDefinitionStmt extends GraphProcedureDefinitionStmt {
 
-  public GraphFunctionDefinitionStmt(
+  public GraphConsumerDefinitionStmt(
       String graphFunctionName,
       ImmutableMap<String, TypeProvider> argTypes,
-      TypeProvider outputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
-    this(graphFunctionName, argTypes, Optional.empty(), outputTypeProvider, rootNode, nonRootNodes);
+    this(graphFunctionName, argTypes, Optional.empty(), rootNode, nonRootNodes);
   }
 
-  public GraphFunctionDefinitionStmt(
+  public GraphConsumerDefinitionStmt(
       String graphFunctionName,
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
-      TypeProvider outputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
     super(
@@ -37,13 +34,11 @@ public class GraphFunctionDefinitionStmt extends GraphProcedureDefinitionStmt {
         optionalInjectedKeysTypes,
         (thisProcedureDefinitionStmt) ->
             (scopedHeap) ->
-                Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                Types.ProcedureType.ConsumerType.forConsumerArgTypes(
                     argTypes.values()
                         .stream()
                         .map(t -> t.resolveType(scopedHeap))
                         .collect(ImmutableList.toImmutableList()),
-                    outputTypeProvider.resolveType(scopedHeap),
-                    BaseType.FUNCTION, // Remember that Claro's Graph Functions are "just" sugar over plain functions.
                     optionalInjectedKeysTypes
                         .map(
                             injectedKeysTypes ->
@@ -61,7 +56,7 @@ public class GraphFunctionDefinitionStmt extends GraphProcedureDefinitionStmt {
                                      ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
                     /*explicitlyAnnotatedBlocking=*/ false
                 ),
-        Optional.of(outputTypeProvider),
+        Optional.empty(),
         rootNode,
         nonRootNodes
     );

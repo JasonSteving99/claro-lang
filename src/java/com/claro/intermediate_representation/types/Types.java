@@ -735,7 +735,7 @@ public final class Types {
 
       @Override
       public String getJavaNewTypeDefinitionStmt(
-          String consumerName, StringBuilder body, Optional<StringBuilder> unusedOptionalHelperMethods) {
+          String consumerName, StringBuilder body, Optional<StringBuilder> optionalHelperMethods) {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
                 .orElse(this.baseType())
@@ -745,7 +745,8 @@ public final class Types {
             consumerName,
             consumerName,
             body,
-            this.toString(),
+            optionalHelperMethods.orElse(new StringBuilder()),
+            this,
             consumerName,
             consumerName,
             consumerName,

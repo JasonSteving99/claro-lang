@@ -53,7 +53,7 @@ public class GraphProviderDefinitionStmt extends GraphProcedureDefinitionStmt {
                                      ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
                     /*explicitlyAnnotatedBlocking=*/ false
                 ),
-        outputTypeProvider,
+        Optional.of(outputTypeProvider),
         rootNode,
         nonRootNodes
     );

@@ -20,8 +20,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
-  protected final String name;
-  protected final ImmutableList<Expr> argExprs;
+  public final String name;
+  public final ImmutableList<Expr> argExprs;
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);

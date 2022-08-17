@@ -150,6 +150,7 @@ public enum BaseType {
       "  public void apply(Object... args) {\n" +
       "%s\n" +
       "  }\n" +
+      "\n%s\n" +
       "  @Override\n" +
       "  public Type getClaroType() {\n" +
       "    return claroType;\n" +

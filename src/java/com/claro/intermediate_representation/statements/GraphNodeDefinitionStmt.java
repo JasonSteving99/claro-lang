@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.procedures.functions.FunctionCallExpr;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
@@ -17,6 +18,9 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
   protected final String nodeName;
   private final Expr nodeExpr;
+  // In case this is the root node of a Graph Consumer then this needs to be used for codegen instead of nodeExpr.
+  private Optional<ConsumerFunctionCallStmt> optionalConsumerFunctionCall = Optional.empty();
+
   // If this node is a Root node then we'll know the type that it needs to return by default.
   Optional<Type> optionalExpectedNodeType = Optional.empty();
   // This will be used as the generated function's return type.
@@ -87,19 +91,46 @@ public class GraphNodeDefinitionStmt extends Stmt {
     InternalStaticStateUtil.GraphNodeDefinitionStmt_upstreamGraphNodeProviderReferencesBuilder = ImmutableSet.builder();
 
     if (optionalExpectedNodeType.isPresent()) {
-      // Graph functions are all returning futures, but Claro can automatically handle nodes that are themselves
-      // defined by Exprs of type future, so we need to check that this node either returns the wrapped or unwrapped
-      // expected type.
-      Type wrappedType =
-          ((Types.FutureType) optionalExpectedNodeType.get()).parameterizedTypeArgs().get("$value");
+      if (optionalExpectedNodeType.get().baseType().equals(BaseType.UNDECIDED)) {
+        // In the case of a Graph consumer, we need to represent that there's no return type and we're abusing "UNDECIDED"
+        // for that signal. This isn't strictly "accurate" as it is certainly already decided that this graph consumer
+        // returns nothing, but since there's not a `nothing` type in the language yet, we'll make do with what we've got.
 
-      this.actualNodeType = this.nodeExpr.assertSupportedExprType(
-          scopedHeap,
-          ImmutableSet.of(
-              optionalExpectedNodeType.get(),
-              wrappedType
-          )
-      );
+        // I need to hack in support for actually utilizing a ConsumerFunctionCallStmt instead of what was originally parsed as
+        // an Expr. So, I'll convert the parsed Expr to a ConsumerFunctionCallStmt.
+        if (this.nodeExpr instanceof FunctionCallExpr) {
+          // The only valid possibility is for this to actually be a consumer function call.
+          FunctionCallExpr nodeExprAsFunctionCallExpr = (FunctionCallExpr) this.nodeExpr;
+          this.optionalConsumerFunctionCall =
+              Optional.of(new ConsumerFunctionCallStmt(
+                  nodeExprAsFunctionCallExpr.name, nodeExprAsFunctionCallExpr.argExprs));
+          this.optionalConsumerFunctionCall.get().assertExpectedExprTypes(scopedHeap);
+          this.actualNodeType = this.optionalExpectedNodeType.get();
+        } else {
+          // This is simply handling the case that the parser was unable to handle. The root node of a Graph Consumer
+          // *must* be a call to a consumer function because any actual expression implies a value will be returned.
+          throw ClaroTypeException.forGraphConsumerRootNodeIsNotConsumerFn(
+              ((ProcedureDefinitionStmt)
+                   InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
+                  .procedureName,
+              this.nodeName
+          );
+        }
+      } else {
+        // Graph functions/providers are all returning futures, but Claro can automatically handle nodes that are themselves
+        // defined by Exprs of type future, so we need to check that this node either returns the wrapped or unwrapped
+        // expected type.
+        Type wrappedType =
+            ((Types.FutureType) optionalExpectedNodeType.get()).parameterizedTypeArgs().get("$value");
+
+        this.actualNodeType = this.nodeExpr.assertSupportedExprType(
+            scopedHeap,
+            ImmutableSet.of(
+                optionalExpectedNodeType.get(),
+                wrappedType
+            )
+        );
+      }
     } else {
       this.actualNodeType = this.nodeExpr.getValidatedExprType(scopedHeap);
     }
@@ -113,7 +144,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    GeneratedJavaSource nodeBodyGeneratedJavaSource = this.nodeExpr.generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource nodeBodyGeneratedJavaSource =
+        this.actualNodeType.baseType().equals(BaseType.UNDECIDED)
+        ? this.optionalConsumerFunctionCall.get().generateJavaSourceOutput(scopedHeap)
+        : this.nodeExpr.generateJavaSourceOutput(scopedHeap);
 
     String optionalAlreadyScheduledFutureStr = String.format("$%s_optionalAlreadyScheduledFuture", this.nodeName);
     StringBuilder propagatedGraphFunctionArgsAndInjectedKeys =
@@ -152,7 +186,7 @@ public class GraphNodeDefinitionStmt extends Stmt {
       StringBuilder propagatedGraphFunctionArgsAndInjectedKeys) {
     return new StringBuilder()
         .append("\tprivate ")
-        .append(this.actualNodeType.getJavaSourceType())
+        .append(this.actualNodeType.equals(Types.UNDECIDED) ? "Void" : this.actualNodeType.getJavaSourceType())
         .append(" $")
         .append(this.nodeName)
         .append("_nodeImpl(")
@@ -187,9 +221,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
         .append(") {\n")
         // This allows things like lambdas to work within nodes as well.
         .append(Stmt.consumeGeneratedJavaSourceStmtsBeforeCurrentStmt())
-        .append("\n\t\treturn ")
+        .append("\n\t\t")
+        .append(this.actualNodeType.equals(Types.UNDECIDED) ? "" : "return ")
         .append(nodeBodyGeneratedJavaSource.javaSourceBody())
-        .append(";\n")
+        .append(this.actualNodeType.equals(Types.UNDECIDED) ? "\t\treturn null;\n" : ";\n")
         .append("\t}\n");
   }
 
@@ -200,16 +235,22 @@ public class GraphNodeDefinitionStmt extends Stmt {
       StringBuilder propagatedGraphFunctionArgsAndInjectedKeys,
       StringBuilder propagatedGraphFunctionArgsAndInjectedKeysValues) {
     StringBuilder res = new StringBuilder()
+        .append("\tprivate ")
         .append(
-            String.format(
-                // If the node's type is already a future we don't need to wrap it in the codegen.
-                "\tprivate "
-                + (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
-                + " $%s_nodeAsync(%s) {\n",
-                this.actualNodeType.getJavaSourceType(),
-                this.nodeName,
-                propagatedGraphFunctionArgsAndInjectedKeys
+            (this.actualNodeType.equals(Types.UNDECIDED)
+             // If this node's type is UNDECIDED then this is a Graph Consumer and we have nothing to return.
+             ? "void"
+             // If the node's type is already a future we don't need to wrap it in the codegen.
+             : String.format(
+                 (this.actualNodeType.baseType().equals(BaseType.FUTURE)
+                  ? "%s"
+                  : "ClaroFuture<%s>"),
+                 this.actualNodeType.getJavaSourceType()
+             )
             ));
+    res.append(
+        String.format(
+            " $%s_nodeAsync(%s) {\n", this.nodeName, propagatedGraphFunctionArgsAndInjectedKeys));
 
     boolean cacheNode = !this.optionalExpectedNodeType.isPresent();
 
@@ -262,14 +303,19 @@ public class GraphNodeDefinitionStmt extends Stmt {
       }
     }
 
+    res.append("\t\t");
     res.append(
-        String.format(
-            // If the node's type is already a future we don't need to wrap it in the codegen.
-            "\t\t"
-            + (this.actualNodeType.baseType().equals(BaseType.FUTURE) ? "%s" : "ClaroFuture<%s>")
-            + " nodeFuture =\n",
-            this.actualNodeType.getJavaSourceType()
+        (this.actualNodeType.equals(Types.UNDECIDED)
+         ? "ClaroFuture<Void>"
+         // If the node's type is already a future we don't need to wrap it in the codegen.
+         : String.format(
+             (this.actualNodeType.baseType().equals(BaseType.FUTURE)
+              ? "%s"
+              : "ClaroFuture<%s>"),
+             this.actualNodeType.getJavaSourceType()
+         )
         ));
+    res.append(" nodeFuture =\n");
 
     if (upstreamGraphNodeReferences.size() - upstreamGraphNodeProviderReferences.size() > 0) {
       res.append(
@@ -409,8 +455,10 @@ public class GraphNodeDefinitionStmt extends Stmt {
           ));
     }
 
-    res.append("\t\treturn nodeFuture;\n")
-        .append("\t}\n");
+    if (!this.actualNodeType.equals(Types.UNDECIDED)) {
+      res.append("\t\treturn nodeFuture;\n");
+    }
+    res.append("\t}\n");
 
     return res;
   }

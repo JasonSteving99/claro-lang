@@ -2,14 +2,12 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.HashSet;
@@ -32,19 +30,9 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
   public GraphProcedureDefinitionStmt(
       String graphFunctionName,
       ImmutableMap<String, TypeProvider> argTypes,
-      Function<ProcedureDefinitionStmt, TypeProvider> procedureDefinitionStmtToTypeProviderFn,
-      TypeProvider outputTypeProvider,
-      GraphNodeDefinitionStmt rootNode,
-      ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
-    this(graphFunctionName, argTypes, Optional.empty(), procedureDefinitionStmtToTypeProviderFn, outputTypeProvider, rootNode, nonRootNodes);
-  }
-
-  public GraphProcedureDefinitionStmt(
-      String graphFunctionName,
-      ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
       Function<ProcedureDefinitionStmt, TypeProvider> procedureDefinitionStmtToTypeProviderFn,
-      TypeProvider outputTypeProvider,
+      Optional<TypeProvider> optionalOutputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
     super(
@@ -54,7 +42,7 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
         procedureDefinitionStmtToTypeProviderFn,
         // We'll allow the superclass to own all of the type checking logic since that is quite complex for procedure
         // definition stmts and I *really* don't want to duplicate that in more than one place.
-        GraphProcedureDefinitionStmt.getFunctionBodyStmt(rootNode, nonRootNodes, outputTypeProvider, graphFunctionName)
+        GraphProcedureDefinitionStmt.getFunctionBodyStmt(rootNode, optionalOutputTypeProvider, graphFunctionName)
     );
 
     this.rootNode = rootNode;
@@ -81,46 +69,73 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
 
   private static StmtListNode getFunctionBodyStmt(
       GraphNodeDefinitionStmt rootNode,
-      ImmutableList<GraphNodeDefinitionStmt> nonRootNodes,
-      TypeProvider outputTypeProvider,
+      Optional<TypeProvider> optionalOutputTypeProvider,
       String graphFunctionName) {
-    return new StmtListNode(
-        new ReturnStmt(
-            new Expr(ImmutableList.of(), () -> "", -1, -1, -1) {
-              @Override
-              public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-                return outputTypeProvider.resolveType(scopedHeap);
-              }
+    if (optionalOutputTypeProvider.isPresent()) {
+      return new StmtListNode(
+          new ReturnStmt(
+              new Expr(ImmutableList.of(), () -> "", -1, -1, -1) {
+                @Override
+                public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+                  return optionalOutputTypeProvider.get().resolveType(scopedHeap);
+                }
 
-              @Override
-              public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-                return new StringBuilder("new $")
-                    .append(graphFunctionName)
-                    .append("_graphAsyncImpl().$")
-                    .append(rootNode.nodeName)
-                    .append("_nodeAsync(")
-                    .append(
-                        String.join(
-                            ", ", InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs.keySet()))
-                    .append(
-                        InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys
-                            .map(injectedKeys -> injectedKeys.keySet()
-                                .stream()
-                                .collect(Collectors.joining(", ", ", ", "")))
-                            .orElse("")
-                    )
-                    .append(")");
-              }
+                @Override
+                public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+                  return getCallGraphAsyncImplJavaSourceOutput(graphFunctionName, rootNode);
+                }
 
-              @Override
-              public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-                // TODO(steving) Need to think through the interpreted implementation of all of this.
-                return null;
-              }
-            },
-            new AtomicReference<>(outputTypeProvider)
+                @Override
+                public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                  // TODO(steving) Need to think through the interpreted implementation of all of this.
+                  return null;
+                }
+              },
+              new AtomicReference<>(optionalOutputTypeProvider.get())
+          )
+      );
+    } else {
+      return new StmtListNode(
+          new Stmt(ImmutableList.of()) {
+            @Override
+            public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+              // This is a manually-generated synthetic node, the types are valid by definition.
+            }
+
+            @Override
+            public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+              return GeneratedJavaSource.forJavaSourceBody(
+                  getCallGraphAsyncImplJavaSourceOutput(graphFunctionName, rootNode).append(";"));
+            }
+
+            @Override
+            public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+              // TODO(steving) Need to think through the interpreted implementation of all of this.
+              return null;
+            }
+          }
+      );
+    }
+  }
+
+  private static StringBuilder getCallGraphAsyncImplJavaSourceOutput(
+      String graphFunctionName, GraphNodeDefinitionStmt rootNode) {
+    return new StringBuilder("new $")
+        .append(graphFunctionName)
+        .append("_graphAsyncImpl().$")
+        .append(rootNode.nodeName)
+        .append("_nodeAsync(")
+        .append(
+            String.join(
+                ", ", InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs.keySet()))
+        .append(
+            InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys
+                .map(injectedKeys -> injectedKeys.keySet()
+                    .stream()
+                    .collect(Collectors.joining(", ", ", ", "")))
+                .orElse("")
         )
-    );
+        .append(")");
   }
 
   @Override
@@ -133,7 +148,13 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
 
     // Need to assert the expected return type on the Root node only since it will recursively validate the remaining
     // nodes.
-    rootNode.optionalExpectedNodeType = Optional.of(this.resolvedProcedureType.getReturnType());
+    if (this.resolvedProcedureType.hasReturnValue()) {
+      rootNode.optionalExpectedNodeType = Optional.of(this.resolvedProcedureType.getReturnType());
+    } else {
+      // This hack is just to indicate to the Root node that it should be doing typechecking and codegen assuming that
+      // the user is required to implement the root as simply a call deferring to a consumer fn.
+      rootNode.optionalExpectedNodeType = Optional.of(Types.UNDECIDED);
+    }
   }
 
   @Override
@@ -191,9 +212,12 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
     if (!this.alreadyAssertedTypes) {
       this.alreadyAssertedTypes = true;
 
-      // Graph functions are required to return a future<Foo> because this way Claro can make thread safety assertions.
-      if (!this.resolvedProcedureType.getReturnType().baseType().equals(BaseType.FUTURE)) {
-        throw ClaroTypeException.forGraphFunctionNotReturningFuture(this.procedureName, this.resolvedProcedureType);
+      // Graph functions/providers are required to return a future<Foo> because this way Claro can make thread safety assertions.
+      if (ImmutableSet.of(BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION)
+          .contains(this.resolvedProcedureType.baseType())) {
+        if (!this.resolvedProcedureType.getReturnType().baseType().equals(BaseType.FUTURE)) {
+          throw ClaroTypeException.forGraphFunctionNotReturningFuture(this.procedureName, this.resolvedProcedureType);
+        }
       }
 
       super.assertExpectedExprTypes(scopedHeap);
