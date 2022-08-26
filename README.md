@@ -1,5 +1,5 @@
 <div align="left">
-  <img src="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg" width=100 height=100>
+  <img src="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg" width=200 height=200>
 </div>
 
 # claro-lang
