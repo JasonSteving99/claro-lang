@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class Node {
+  public Optional<Object> opaqueData_workaroundToAvoidCircularDepsCausedByExprToStmtBuildTargets = Optional.empty();
+
   private final ImmutableList<Node> children;
 
   public Node(ImmutableList<Node> children) {

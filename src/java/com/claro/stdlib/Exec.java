@@ -15,8 +15,6 @@ import com.claro.intermediate_representation.types.impls.builtins_impls.procedur
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
-import java.util.Optional;
-
 public class Exec {
 
   public static ClaroConsumerFunction<String> exec = new ClaroConsumerFunction<String>() {
@@ -74,7 +72,6 @@ public class Exec {
             return null;
           }
         },
-        Optional::empty,
         /*explicitlyAnnotatedBlocking=*/false
     );
   }

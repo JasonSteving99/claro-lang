@@ -57,6 +57,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "keyword_generics_compiled_claro_image",
+    srcs = [":keyword_generics_compiled_claro"],
+    java_name = "keyword_generics",
+)
+
+claro_library(
+    name = "keyword_generics_compiled_claro",
+    src = "keyword_generics.claro",
+#    debug = True,
+)
+
+claro_binary(
     name = "lambdas_compiled_claro_image",
     srcs = [":lambdas_compiled_claro"],
     java_name = "lambdas",

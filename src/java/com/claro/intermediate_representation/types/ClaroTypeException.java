@@ -62,10 +62,16 @@ public class ClaroTypeException extends Exception {
       "Graph Function %s %s has illegal transitive dep on the following blocking procedures %s. Blocking is forbidden within a Graph Function in order to avoid deadlocking.";
   private static final String BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
       "Procedure %s %s is blocking but is missing required explicit blocking annotation.";
+  private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_BLOCKING_PROCEDURE =
+      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed blocking.";
   private static final String PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
       "Procedure %s %s depends on blocking procedures %s but is missing required explicit blocking annotation.";
+  private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE =
+      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed blocking due to dependencies on blocking procedures %s.";
   private static final String INVALID_BLOCKING_ANNOTATION_ON_NON_BLOCKING_PROCEDURE_DEFINITION =
       "Non-blocking procedure %s %s must not be annotated as blocking.";
+  private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_NON_BLOCKING_PROCEDURE_DEFINITION =
+      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed non-blocking.";
   private static final String ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE =
       "Illegal node reference cycle detected within Graph procedure <%s>. Through transitive node references, node <%s> depends cyclically on itself. Graph nodes must represent a DAG.";
   private static final String GRAPH_CONSUMER_ROOT_NODE_IS_NOT_CONSUMER_FN =
@@ -324,11 +330,50 @@ public class ClaroTypeException extends Exception {
     }
   }
 
+  public static ClaroTypeException forInvalidUseOfBlockingGenericsOnBlockingProcedureDefinition(
+      String procedureName,
+      Type resolvedProcedureType,
+      Map<String, Type> blockingProcedureDeps) {
+    if (blockingProcedureDeps.isEmpty()) {
+      // This procedure itself is making the blocking call, it's not the result of any sort of transitive procedure dep.
+      return new ClaroTypeException(
+          String.format(
+              INVALID_USE_OF_BLOCKING_GENERICS_ON_BLOCKING_PROCEDURE,
+              procedureName,
+              resolvedProcedureType
+          )
+      );
+    } else {
+      // This procedure is blocking because of a dep on a blocking procedure.
+      return new ClaroTypeException(
+          String.format(
+              INVALID_USE_OF_BLOCKING_GENERICS_ON_PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE,
+              procedureName,
+              resolvedProcedureType,
+              blockingProcedureDeps.entrySet().stream()
+                  .map(entry -> String.format("%s %s", entry.getKey(), entry.getValue()))
+                  .collect(Collectors.joining(", ", "[", "]"))
+          )
+      );
+    }
+  }
+
   public static ClaroTypeException forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
       String procedureName, Type resolvedProcedureType) {
     return new ClaroTypeException(
         String.format(
             INVALID_BLOCKING_ANNOTATION_ON_NON_BLOCKING_PROCEDURE_DEFINITION,
+            procedureName,
+            resolvedProcedureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidUseOfBlockingGenericsOnNonBlockingProcedureDefinition(
+      String procedureName, Type resolvedProcedureType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_USE_OF_BLOCKING_GENERICS_ON_NON_BLOCKING_PROCEDURE_DEFINITION,
             procedureName,
             resolvedProcedureType
         )

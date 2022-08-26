@@ -55,6 +55,12 @@ public abstract class Expr extends Node {
       this.assertNoUndecidedTypeLeak(validatedExprType, expectedExprType);
 
       if (!validatedExprType.equals(expectedExprType)) {
+        // If a node happens to support some forms of type coercion based on programmer-asserted type annotations,
+        // then they should override this method to potentially coerce the expr into the desired type as necessary.
+        if (coerceExprToExpectedType(expectedExprType, validatedExprType, scopedHeap)) {
+          return;
+        }
+
         throw new ClaroTypeException(validatedExprType, expectedExprType);
       }
     } catch (Exception e) {
@@ -62,6 +68,13 @@ public abstract class Expr extends Node {
       // notifying users of as many errors as possible upfront.
       logTypeError(e);
     }
+  }
+
+  // Override this method if you support some way to coerce exprs of some type to another expected type.
+  // Return true iff coercion was successful. Keep in mind that it's valid for this to cause mutation of the underlying
+  // Expr, however, keep in mind that the coercion may not have side effects visible beyond this node.
+  public boolean coerceExprToExpectedType(Type expectedExprType, Type actualExprType, ScopedHeap scopedHeap) {
+    return false;
   }
 
   public final Type assertSupportedExprType(

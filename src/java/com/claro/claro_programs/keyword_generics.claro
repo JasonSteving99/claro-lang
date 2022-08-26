@@ -1,0 +1,111 @@
+# TODO(steving) Validate that the args this function is declared to be blocking-generic over are in fact actually maybe-blocking.
+
+graph function cannotBlockInThisGraph(x: int) -> future<int> {
+  root res <- @genericNonBlockingCallRes;
+  # Claro statically validates that we're trying to use this as a blocking function and statically forbids it here.
+  # Uncomment the line below to see a compile-time error.
+#  node genericNonBlockingCallRes <- keywordGenericsTest(blockingFn, x);
+  node genericNonBlockingCallRes <- keywordGenericsTest(nonblockingFn, x);
+}
+
+function nonblockingFn(x: int) -> int {
+  return x;
+}
+
+blocking function blockingFn(x: int) -> int {
+  var blockedRes <-| cannotBlockInThisGraph(x);
+  return blockedRes;
+}
+
+blocking:maybeBlockingFn consumer keywordGenericsConsumerTest(
+    maybeBlockingFn: blocking? function<int -> int>,
+    x: int) {
+  print(maybeBlockingFn(x));
+}
+
+blocking:maybeBlockingFn function keywordGenericsTest(
+    maybeBlockingFn: blocking? function<int -> int>,
+    x: int) -> int {
+  # Claro will also reject your blocking-generics annotations if you explicitly block within the procedure.
+  # Uncomment lines below for compile-time error forbidding use of blocking-generics.
+#  var explicitBlockingVal <-| cannotBlockInThisGraph(-1);
+#  print(explicitBlockingVal);
+
+  # Even deferring to a blocking function will also invalidate your blocking-generics annotation.
+  # Uncomment line below for compile-time error forbidding use of blocking-generics.
+#  print(blockingFn(-1));
+
+  # To use blocking-generics your function must *actually* have the possibility of blocking based on the blocking
+  # generic args. Replace the return with these lines for a compile-time error forbidding use of blocking-generics.
+#  print(maybeBlockingFn);
+#  return x;
+  return maybeBlockingFn(x);
+}
+
+# Validate that I'm able to even successfully call the graph function.
+var graphFnRes <-| cannotBlockInThisGraph(99);
+print(graphFnRes);
+
+# Validate that on the other hand I actually am able to use the blocking-generic function as a blocking function.
+print(keywordGenericsTest(blockingFn, -99));
+
+
+
+####################################################################################################
+# DEMONSTRATE USING BLOCKING-GENERIC PROCEDURES AS FIRST-CLASS OBJECTS
+####################################################################################################
+
+# I also should be able to use the blocking-generic function as a higher-order function without sacrificing
+# the ability to be generic over the blocking attribute.
+var asFirstClassFn = keywordGenericsTest;
+# Should be: `blocking:0 function<|blocking? function<int -> int>, int| -> int>`
+type(asFirstClassFn);
+print(asFirstClassFn(blockingFn, 1));
+print(asFirstClassFn(nonblockingFn, 2));
+
+# You should be able to essentially cast-away the generics by stating explicitly what you want.
+var asFirstClassNonBlockingFn:function<|function<int -> int>, int| -> int> = keywordGenericsTest;
+# Should be: `function<|function<int -> int>, int| -> int>`
+type(asFirstClassNonBlockingFn);
+print(asFirstClassNonBlockingFn(nonblockingFn, 3));
+# You've requested only the non-blocking variant, so Claro no longer allows you to block with it.
+# Uncomment the following line for a compile-time error.
+#print(asFirstClassNonBlockingFn(blockingFn, 3));
+
+# You should be able to essentially cast-away the generics by stating explicitly what you want.
+var asFirstClassBlockingFn:blocking function<|blocking function<int -> int>, int| -> int> = keywordGenericsTest;
+# Should be: `blocking function<|blocking function<int -> int>, int| -> int>`
+type(asFirstClassBlockingFn);
+print(asFirstClassBlockingFn(blockingFn, 4));
+# You've requested only the blocking variant, so Claro now requires you to block with it.
+# Uncomment the following line for a compile-time error.
+#print(asFirstClassBlockingFn(nonblockingFn, 4));
+
+
+function testCoercionToFunctionArgType(
+    asNonBlocking: function<|function<int -> int>, int| -> int>,
+    asBlocking: blocking function<|blocking function<int -> int>, int| -> int>,
+    x: int) -> int {
+  type(asBlocking);
+  return asNonBlocking(nonblockingFn, x);
+}
+
+# You should be able to coerce the blocking-generic type to the asserted concrete type.
+print(testCoercionToFunctionArgType(keywordGenericsTest, keywordGenericsTest, 5));
+
+# Consumer functions should also be able to be used as first-class objects.
+keywordGenericsConsumerTest(nonblockingFn, 1);
+keywordGenericsConsumerTest(blockingFn, 2);
+var asFirstClassConsumerFn = keywordGenericsConsumerTest;
+type(asFirstClassConsumerFn);
+var asNonBlockingConsumerFn: consumer<function<int -> int>, int> = keywordGenericsConsumerTest;
+type(asNonBlockingConsumerFn);
+asNonBlockingConsumerFn(nonblockingFn, 3);
+# You chose nonblocking, you can't use it as blocking.
+#asNonBlockingConsumerFn(blockingFn, 3);
+var asBlockingConsumerFn: blocking consumer<blocking function<int -> int>, int> = keywordGenericsConsumerTest;
+type(asBlockingConsumerFn);
+asBlockingConsumerFn(blockingFn, 4);
+# You chose blocking, you can't use it as non-blocking.
+#asBlockingConsumerFn(nonblockingFn, 4);
+

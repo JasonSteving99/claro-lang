@@ -19,11 +19,11 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public abstract class ProcedureDefinitionStmt extends Stmt {
+public class ProcedureDefinitionStmt extends Stmt {
 
   private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
-  final String procedureName;
+  public final String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList;
   public final Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider;
@@ -43,6 +43,11 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
   private final HashMap<String, Optional<ImmutableSet<Key>>> directTopLevelProcedureDepsToCollectAttributesFromSet =
       Maps.newHashMap();
 
+  // In the case that this procedure definition was actually generic over keyword annotations, we want to actually
+  // type check over these concrete variant signatures rather than the generic one.
+  private Optional<ImmutableList<ProcedureDefinitionStmt>> optionalConcreteVariantsForKeywordGenericProcedure =
+      Optional.empty();
+
   public ProcedureDefinitionStmt(
       String procedureName,
       ImmutableMap<String, TypeProvider> argTypeProviders,
@@ -51,7 +56,22 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
+    this.opaqueData_workaroundToAvoidCircularDepsCausedByExprToStmtBuildTargets = Optional.of(this.procedureName);
     this.optionalArgTypeProvidersByNameMap = Optional.of(argTypeProviders);
+    this.optionalInjectedKeysList = optionalInjectedKeysList;
+    this.procedureTypeProvider = procedureTypeProvider;
+  }
+
+  private ProcedureDefinitionStmt(
+      String procedureName,
+      Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProviders,
+      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList,
+      Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider,
+      StmtListNode procedureBodyStmtListNode) {
+    super(ImmutableList.of(procedureBodyStmtListNode));
+    this.procedureName = procedureName;
+    this.opaqueData_workaroundToAvoidCircularDepsCausedByExprToStmtBuildTargets = Optional.of(this.procedureName);
+    this.optionalArgTypeProvidersByNameMap = optionalArgTypeProviders;
     this.optionalInjectedKeysList = optionalInjectedKeysList;
     this.procedureTypeProvider = procedureTypeProvider;
   }
@@ -70,6 +90,7 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       StmtListNode procedureBodyStmtListNode) {
     super(ImmutableList.of(procedureBodyStmtListNode));
     this.procedureName = procedureName;
+    this.opaqueData_workaroundToAvoidCircularDepsCausedByExprToStmtBuildTargets = Optional.of(this.procedureName);
     this.optionalArgTypeProvidersByNameMap = Optional.empty();
     this.optionalInjectedKeysList = optionalInjectedKeysList;
     this.procedureTypeProvider = procedureTypeProvider;
@@ -129,6 +150,130 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // Finally mark the function declared and initialized within the original calling scope.
     scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
     scopedHeap.initializeIdentifier(this.procedureName);
+
+    // If we're dealing with a blocking-generic prcedure, then we need to type check for blocking/non-blocking
+    // separately and then prevent type checking on this current one.
+    if (this.resolvedProcedureType.getAnnotatedBlockingGenericOverArgs().isPresent()) {
+      // Make synthetic procedures for handling non-blocking/blocking concrete signatures.
+
+      // Start by converting all of its blocking-generic args to simple non-blocking alts.
+      ImmutableList.Builder<Type> nonBlockingVariantArgTypes = ImmutableList.builder();
+      ImmutableMap.Builder<String, TypeProvider> nonBlockingVariantArgTypeProvidersByName = ImmutableMap.builder();
+      ImmutableList.Builder<Type> blockingVariantArgTypes = ImmutableList.builder();
+      ImmutableMap.Builder<String, TypeProvider> blockingVariantArgTypeProvidersByName = ImmutableMap.builder();
+      ImmutableList<Map.Entry<String, TypeProvider>> givenTypeProvidersByName =
+          this.optionalArgTypeProvidersByNameMap.get().entrySet().asList();
+      for (int i = 0; i < this.resolvedProcedureType.getArgTypes().size(); i++) {
+        if (this.resolvedProcedureType.getAnnotatedBlockingGenericOverArgs().get().contains(i)) {
+          // Generically attempting to accept a concrete blocking variant that the user gave for this arg.
+          Types.ProcedureType maybeBlockingArgType =
+              (Types.ProcedureType) this.resolvedProcedureType.getArgTypes().get(i);
+          Type nonBlockingVariantArgType =
+              Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                  maybeBlockingArgType.getArgTypes(),
+                  maybeBlockingArgType.getReturnType(),
+                  false
+              );
+          nonBlockingVariantArgTypes.add(nonBlockingVariantArgType);
+          String givenArgName = givenTypeProvidersByName.get(i).getKey();
+          nonBlockingVariantArgTypeProvidersByName.put(givenArgName, unused -> nonBlockingVariantArgType);
+          Type blockingVariantArgType =
+              Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                  maybeBlockingArgType.getArgTypes(),
+                  maybeBlockingArgType.getReturnType(),
+                  true
+              );
+          blockingVariantArgTypes.add(blockingVariantArgType);
+          blockingVariantArgTypeProvidersByName.put(givenArgName, unused -> blockingVariantArgType);
+        } else {
+          nonBlockingVariantArgTypes.add(this.resolvedProcedureType.getArgTypes().get(i));
+          nonBlockingVariantArgTypeProvidersByName.put(givenTypeProvidersByName.get(i));
+          blockingVariantArgTypes.add(this.resolvedProcedureType.getArgTypes().get(i));
+          blockingVariantArgTypeProvidersByName.put(givenTypeProvidersByName.get(i));
+        }
+      }
+      Function<ProcedureDefinitionStmt, Types.ProcedureType> nonBlockingConcreteType;
+      Function<ProcedureDefinitionStmt, Types.ProcedureType> blockingConcreteType;
+      switch (this.resolvedProcedureType.baseType()) {
+        case FUNCTION:
+          nonBlockingConcreteType =
+              procedureDefinitionStmt ->
+                  Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                      nonBlockingVariantArgTypes.build(),
+                      this.resolvedProcedureType.getReturnType(),
+                      BaseType.FUNCTION,
+                      Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
+                      procedureDefinitionStmt,
+                      false,
+                      Optional.empty()
+                  );
+          blockingConcreteType =
+              procedureDefinitionStmt ->
+                  Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                      blockingVariantArgTypes.build(),
+                      this.resolvedProcedureType.getReturnType(),
+                      BaseType.FUNCTION,
+                      Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
+                      procedureDefinitionStmt,
+                      true,
+                      Optional.empty()
+                  );
+          break;
+        case CONSUMER_FUNCTION:
+          nonBlockingConcreteType =
+              procedureDefinitionStmt ->
+                  Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+                      nonBlockingVariantArgTypes.build(),
+                      Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
+                      procedureDefinitionStmt,
+                      false
+                  );
+          blockingConcreteType =
+              procedureDefinitionStmt ->
+                  Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+                      blockingVariantArgTypes.build(),
+                      Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
+                      procedureDefinitionStmt,
+                      true
+                  );
+          break;
+        default:
+          throw new ClaroParserException(
+              "Internal Compiler Error! Received a blocking-generic function that is neither a FUNCTION nor CONSUMER_FUNCTION: " +
+              this.resolvedProcedureType.baseType());
+      }
+      // Make a synthetic procedure for handling non-blocking concrete signature.
+      ProcedureDefinitionStmt syntheticNonBlockingConcreteSignature =
+          new ProcedureDefinitionStmt(
+              "$nonBlockingConcreteVariant_" + this.procedureName,
+              nonBlockingVariantArgTypeProvidersByName.build(),
+              this.optionalInjectedKeysList,
+              (procedureDefinitionStmt) -> (_scopedHeap) -> nonBlockingConcreteType.apply(procedureDefinitionStmt),
+              (StmtListNode) this.getChildren().get(0)
+          );
+      syntheticNonBlockingConcreteSignature.registerProcedureTypeProvider(scopedHeap);
+      // Make a synthetic procedure for handling blocking concrete signature.
+      ProcedureDefinitionStmt syntheticBlockingConcreteSignature =
+          new ProcedureDefinitionStmt(
+              "$blockingConcreteVariant_" + this.procedureName,
+              blockingVariantArgTypeProvidersByName.build(),
+              this.optionalInjectedKeysList,
+              (procedureDefinitionStmt) -> (_scopedHeap) -> blockingConcreteType.apply(procedureDefinitionStmt),
+              (StmtListNode) this.getChildren().get(0)
+          );
+      syntheticBlockingConcreteSignature.registerProcedureTypeProvider(scopedHeap);
+      // Now, keep in mind that though these synthetic concrete variant signatures are in the ScopedHeap,
+      // they are not actually in the program's statement list. This is by design so that we can explicitly
+      // choose to use these signatures for type validation of the function (to ensure that the generic
+      // implementation can be used with each concrete signature) but *not* requiring us to codegen multiple
+      // functions since keyword-generics implies that the body of the code does not change.
+      this.optionalConcreteVariantsForKeywordGenericProcedure =
+          Optional.of(
+              ImmutableList.of(
+                  syntheticNonBlockingConcreteSignature,
+                  syntheticBlockingConcreteSignature
+              ));
+    }
   }
 
   @Override
@@ -137,6 +282,22 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
       // Just be extremely conservative and make sure we don't come back into this since we're recursing
       // over a graph of nodes which is known to legally contain cycles (mutual recursion is legitimate).
       this.alreadyAssertedTypes = true;
+
+      // Short-circuit evaluation of this procedure in case this one is simply a keyword-generic definition.
+      // Instead, defer to its concrete signatures.
+      if (this.optionalConcreteVariantsForKeywordGenericProcedure.isPresent()) {
+        try {
+          for (ProcedureDefinitionStmt concreteSignature : this.optionalConcreteVariantsForKeywordGenericProcedure.get()) {
+            concreteSignature.assertExpectedExprTypes(scopedHeap);
+          }
+        } catch (ClaroTypeException e) {
+          // If there was some type exception, I need to sanitize the error message so the user doesn't get exposed
+          // to the internal details of these synthetic concrete signatures.
+          throw new ClaroTypeException(
+              e.getMessage().replaceAll("\\$(nonB|b)lockingConcreteVariant_", ""));
+        }
+        return; // Done after checking concrete signatures.
+      }
 
       // Before I step through the procedure body, I'll need to make sure I set this instance as the
       // currently active ProcedureDefStmt and then save old one to restore.
@@ -381,14 +542,37 @@ public abstract class ProcedureDefinitionStmt extends Stmt {
     // when a dep is rejected as a result of some faraway buried transitive dep using a blocking call.
     // We don't allow graph functions to be annotated blocking, however, so in that case, wait for
     // GraphFunctionDefinitionStmt type checking to throw a more specific error.
-    if (!this.resolvedProcedureType.getIsGraph().get()) {
+    if (!this.resolvedProcedureType.getIsGraph().get() &&
+        !this.resolvedProcedureType.getAnnotatedBlockingGenericOverArgs().isPresent()) {
       if (this.resolvedProcedureType.getIsBlocking().get() && !this.resolvedProcedureType.getAnnotatedBlocking()) {
-        throw ClaroTypeException.forInvalidBlockingProcedureDefinitionMissingBlockingAnnotation(
-            this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
+        if (this.procedureName.startsWith("$nonBlockingConcreteVariant_")) {
+          // TODO(steving) Make this error message specific to not allowing blocking-generics if no possibility
+          // In case this happens to be a synthetic concrete signature variant for a generic type, we want our error
+          // message to be applicable to the programmer's written type, not the synthetic one.
+          String sanitizedProcedureName = this.procedureName.replaceAll("\\$nonBlockingConcreteVariant_", "");
+          throw ClaroTypeException.forInvalidUseOfBlockingGenericsOnBlockingProcedureDefinition(
+              sanitizedProcedureName,
+              scopedHeap.getValidatedIdentifierType(sanitizedProcedureName),
+              this.resolvedProcedureType.getBlockingProcedureDeps()
+          );
+        } else {
+          throw ClaroTypeException.forInvalidBlockingProcedureDefinitionMissingBlockingAnnotation(
+              this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
+        }
       }
       if (!this.resolvedProcedureType.getIsBlocking().get() && this.resolvedProcedureType.getAnnotatedBlocking()) {
-        throw ClaroTypeException.forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
-            this.procedureName, this.resolvedProcedureType);
+        if (this.procedureName.startsWith("$blockingConcreteVariant_")) {
+          // In case this happens to be a synthetic concrete signature variant for a generic type, we want our error
+          // message to be applicable to the programmer's written type, not the synthetic one.
+          String sanitizedProcedureName = this.procedureName.replaceAll("\\$blockingConcreteVariant_", "");
+          throw ClaroTypeException.forInvalidUseOfBlockingGenericsOnNonBlockingProcedureDefinition(
+              sanitizedProcedureName,
+              scopedHeap.getValidatedIdentifierType(sanitizedProcedureName)
+          );
+        } else {
+          throw ClaroTypeException.forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
+              this.procedureName, this.resolvedProcedureType);
+        }
       }
     }
   }

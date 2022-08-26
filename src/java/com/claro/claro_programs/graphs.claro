@@ -1,12 +1,9 @@
-# TODO(steving) 1. Try supporting "keyword generics" over `blocking` annotation as proposed in
-# TODO(steving)    https://blog.rust-lang.org/inside-rust/2022/07/27/keyword-generics.html. This would allow avoiding
-# TODO(steving)    the duplication issue in functional code that utilizes first class function params.
-# TODO(steving) 2. Support Graph Functions in the Interpreted backend.
-# TODO(steving) 3. Try modelling the builtin `input()` function as an async function to queue up interactions with the
+# TODO(steving) 1. Support Graph Functions in the Interpreted backend.
+# TODO(steving) 2. Try modelling the builtin `input()` function as an async function to queue up interactions with the
 # TODO(steving)    console so that graph functions can naturally make use of user input without different threads
 # TODO(steving)    stepping all over each other. It also seems more naturally correct for input() to be explicitly
 # TODO(steving)    modelled this way anyways since you are consciously waiting on the user for something.
-# TODO(steving) 4. If you're able to model builtin `input()` as an async function, then consider extending this logic
+# TODO(steving) 3. If you're able to model builtin `input()` as an async function, then consider extending this logic
 # TODO(steving)    a generalized notion of a "SynchronizingResource" so that writes to a shared resource e.g. stdout via
 # TODO(steving)    the builtin `print()` and any other following operations are guaranteed to happen as a logical
 # TODO(steving)    synchronized unit. This would basically involve keeping a queue of futures to chain off of one
@@ -161,6 +158,10 @@ graph function nTimesRecursively(n: int, x: int, y: int) -> future<int> {
   # indirect, Claro will still correctly recognize it).
 #  node next1 <- maybeRecurseBlockingIndirectly(n - 1 > 0, n, x, y);
 #  node next1 <- maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(maybeRecurseBlockingIndirectly, n - 1 > 0, n, x, y);
+
+  # Claro, however, can correctly determine that this specific call is non-blocking and therefore safe.
+#  node next1 <- maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(nonblocking, n - 1 > 0, n, x, y);
+
   node next1 <- maybeRecurse(n - 1 > 0, n, x, y);
 }
 
@@ -170,29 +171,6 @@ function maybeRecurse(b: boolean, n: int, x: int, y: int) -> future<int> {
     return nTimesRecursively(n - 1, x, y);
   }
   return immediateFuture(0);
-}
-
-# TODO(steving) I want to actually support keyword generics over the `blocking` color of this function because I want to
-# TODO(steving) be deadlock-safe even when using higher-order functions, but I do not want to require these types of
-# TODO(steving) higher-order functions to be implemented twice, once in each color.
-#blocking:deferFn function maybeRecurseBlockingIndirectlyHidden(
-blocking function maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(
-#    deferFn: blocking? function<|boolean, int, int, int| -> int>,
-    deferFn: blocking function<|boolean, int, int, int| -> int>,
-    b: boolean,
-    n: int,
-    x: int,
-    y: int) -> int {
-  return deferFn(b, n, x, y);
-}
-# TODO(steving) Should be able to consolidate this func with the above via keyword generics.
-function maybeRecurseNOTBlockingWithFirstClassFunctionDep(
-    deferFn: function<|boolean, int, int, int| -> future<int>>,
-    b: boolean,
-    n: int,
-    x: int,
-    y: int) -> future<int> {
-  return deferFn(b, n, x, y);
 }
 
 blocking function maybeRecurseBlockingIndirectly(b: boolean, n: int, x: int, y: int) -> int {
@@ -205,6 +183,23 @@ blocking function maybeRecurseBlocking(b: boolean, n: int, x: int, y: int) -> in
     return res;
   }
   return 0;
+}
+
+blocking:deferFn function maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep(
+    deferFn: blocking? function<|boolean, int, int, int| -> int>,
+    b: boolean,
+    n: int,
+    x: int,
+    y: int) -> int {
+  return deferFn(b, n, x, y);
+}
+
+function nonblocking(b: boolean, n: int, x: int, y: int) -> int {
+  var res: int = 2;
+  if (b) {
+    res = 0 * n + 0 * x + 0 * y + 199;
+  }
+  return res;
 }
 
 # TODO(steving) There's got to be an easier way to simply construct an immediate future. Try handling this the way we're

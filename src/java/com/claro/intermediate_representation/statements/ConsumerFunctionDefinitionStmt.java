@@ -3,11 +3,11 @@ package com.claro.intermediate_representation.statements;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Optional;
@@ -19,8 +19,8 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
       String consumerName,
       ImmutableMap<String, TypeProvider> argTypes,
       StmtListNode stmtListNode,
-      boolean explicitlyAnnotatedBlocking) {
-    this(consumerName, argTypes, Optional.empty(), stmtListNode, explicitlyAnnotatedBlocking);
+      Boolean explicitlyAnnotatedBlocking) {
+    this(consumerName, argTypes, Optional.empty(), stmtListNode, explicitlyAnnotatedBlocking, Optional.empty());
   }
 
   public ConsumerFunctionDefinitionStmt(
@@ -28,7 +28,8 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
       StmtListNode stmtListNode,
-      boolean explicitlyAnnotatedBlocking) {
+      Boolean explicitlyAnnotatedBlocking,
+      Optional<ImmutableList<String>> optionalGenericBlockingOnArgs) {
     super(
         consumerName,
         argTypes,
@@ -40,6 +41,7 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         .stream()
                         .map(t -> t.resolveType(scopedHeap))
                         .collect(ImmutableList.toImmutableList()),
+                    BaseType.CONSUMER_FUNCTION,
                     optionalInjectedKeysTypes
                         .map(
                             injectedKeysTypes ->
@@ -51,12 +53,10 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                         )
                         .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
-                    () ->
-                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-                            .map(
-                                activeProcedureDefinitionStmt ->
-                                    ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
-                    explicitlyAnnotatedBlocking
+                    explicitlyAnnotatedBlocking,
+                    optionalGenericBlockingOnArgs
+                        .map(genericBlockingOnArgs ->
+                                 mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList()))
                 ),
         stmtListNode
     );
@@ -83,13 +83,20 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     baseType,
                     Sets.newHashSet(),
                     thisProcedureDefinitionStmt,
-                    () ->
-                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt ->
-                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
-                    /*explicitlyAnnotatedBlocking=*/false
+                    /*explicitlyAnnotatedBlocking=*/false,
+                    Optional.empty()
                 ),
         stmtListNode
     );
+  }
+
+  private static ImmutableSet<Integer> mapArgNamesToIndex(ImmutableList<String> argNames, ImmutableList<String> args) {
+    ImmutableSet.Builder<Integer> res = ImmutableSet.builder();
+    for (int i = 0; i < args.size(); i++) {
+      if (argNames.contains(args.get(i))) {
+        res.add(i);
+      }
+    }
+    return res.build();
   }
 }

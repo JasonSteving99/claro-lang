@@ -315,6 +315,7 @@ Chapel
 Claro
     filter call_regexp_common C
     filter remove_inline #.*$
+    filter remove_matches ^\s*#
     extension claro
     3rd_gen_scale 5
 Clean

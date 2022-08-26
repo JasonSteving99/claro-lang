@@ -48,25 +48,80 @@ public class ConsumerFunctionCallStmt extends Stmt {
         this.consumerName
     );
 
-    Types.ProcedureType.ConsumerType consumerType =
-        (Types.ProcedureType.ConsumerType) scopedHeap.getValidatedIdentifierType(this.consumerName);
-
-    ImmutableList<Type> definedArgTyps = consumerType.getArgTypes();
+    Types.ProcedureType.ConsumerType consumerType = (Types.ProcedureType.ConsumerType) referencedIdentifierType;
+    ImmutableList<Type> definedArgTypes = consumerType.getArgTypes();
+    int argsCount = definedArgTypes.size();
 
     // Make sure that we at least do due diligence and first check that we have the right number of args.
     Preconditions.checkState(
-        definedArgTyps.size() == this.argExprs.size(),
+        argsCount == this.argExprs.size(),
         "Expected %s args for function %s, but found %s",
-        definedArgTyps.size(),
+        argsCount,
         this.consumerName,
         this.argExprs.size()
     );
 
-    // Validate that all of the given parameter Exprs are of the correct type.
-    for (int i = 0; i < this.argExprs.size(); i++) {
-      // Java is stupid yet *again*, types are erased, this is certainly an Expr.
-      Expr currArgExpr = ((Expr) this.argExprs.get(i));
-      currArgExpr.assertExpectedExprType(scopedHeap, definedArgTyps.get(i));
+    if (consumerType.getAnnotatedBlocking() == null) {
+      // This function must be generic over the blocking keyword, so need to see if the call is targeting a concrete
+      // type signature for this function.
+      ImmutableSet<Integer> blockingGenericArgIndices =
+          consumerType.getAnnotatedBlockingGenericOverArgs().get();
+
+      // We need to accept whatever inferred type given by the args we're deriving the blocking annotation from.
+      // For the rest, we'll assert the known required types.
+      boolean isBlocking = false;
+      for (int i = 0; i < argsCount; i++) {
+        if (blockingGenericArgIndices.contains(i)) {
+          // Generically attempting to accept a concrete blocking variant that the user gave for this arg.
+          Types.ProcedureType maybeBlockingArgType = (Types.ProcedureType) definedArgTypes.get(i);
+          Type concreteArgType = argExprs.get(i).assertSupportedExprType(
+              scopedHeap,
+              ImmutableSet.of(
+                  Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      maybeBlockingArgType.getReturnType(),
+                      true
+                  ),
+                  Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      maybeBlockingArgType.getReturnType(),
+                      false
+                  ),
+                  Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                      maybeBlockingArgType.getArgTypes(), true),
+                  Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                      maybeBlockingArgType.getArgTypes(), false)
+              )
+          );
+          // We'll determine the hard rule, that if even a single of the blocking-generic-args are blocking, then
+          // the entire function call is blocking.
+          isBlocking = ((Types.ProcedureType) concreteArgType).getAnnotatedBlocking();
+        } else {
+          // This arg is not being treated as generic, so assert against the static defined type.
+          argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+        }
+      }
+
+      // From now, we'll stop validating against the generic type signature, and validate against this concrete
+      // signature since we know which one we want to use to continue type-checking with now. (Note, this is a
+      // bit of a white lie - the blocking concrete variant signature has *all* blocking for the blocking-generic
+      // args, which is not necessarily the case for the *actual* args, but this doesn't matter since after this
+      // point we're actually done with the args type checking, and we'll move onto codegen where importantly the
+      // generated code is all exactly the same across blocking/non-blocking).
+      referencedIdentifierType =
+          scopedHeap.getValidatedIdentifierType(
+              (isBlocking ? "$blockingConcreteVariant_" : "$nonBlockingConcreteVariant_")
+              // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt rather
+              + ((ProcedureDefinitionStmt)
+                     ((Types.ProcedureType.ConsumerType) referencedIdentifierType)
+                         .getProcedureDefStmt()).procedureName);
+    } else {
+      // Validate that all of the given parameter Exprs are of the correct type.
+      for (int i = 0; i < this.argExprs.size(); i++) {
+        // Java is stupid yet *again*, types are erased, this is certainly an Expr.
+        Expr currArgExpr = ((Expr) this.argExprs.get(i));
+        currArgExpr.assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+      }
     }
 
     // Validate that the procedure has been called in a scope that provides the correct bindings.
@@ -77,14 +132,13 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph
     // Procedures, any procedure that can reach a blocking operation is marked as blocking so that we can prevent its
     // usage from Graph Functions.
-    InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-        .ifPresent(
-            procedureDefinitionStmt -> {
-              if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
-                ((ProcedureDefinitionStmt) procedureDefinitionStmt)
-                    .resolvedProcedureType.getIsBlocking().set(true);
-              }
-            });
+    if (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()) {
+      if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
+        ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+            .get())
+            .resolvedProcedureType.getIsBlocking().set(true);
+      }
+    }
 
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.consumerName);

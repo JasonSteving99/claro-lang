@@ -241,7 +241,7 @@ terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
-terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
+terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -285,6 +285,10 @@ nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
+nonterminal ImmutableList<String>              generic_blocking_on;
+nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
+nonterminal TypeProvider                       maybe_blocking_procedure_types;
+nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
 nonterminal GraphFunctionDefinitionStmt        graph_function_definition_stmt;
@@ -1334,7 +1338,7 @@ function_definition_stmt ::=
      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
      ImmutableMap<String, TypeProvider> argTypesMap =
          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-     RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+     RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
    :}
   | USING LPAR injected_keys_list:bw_injected_keys RPAR FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1347,7 +1351,7 @@ function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
     :}
   | BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1359,7 +1363,7 @@ function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
     :}
   | USING LPAR injected_keys_list:bw_injected_keys RPAR BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1372,7 +1376,73 @@ function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+    :}
+  | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
+    :}
+  ;
+
+generic_blocking_on ::=
+    BLOCKING COLON identifier_bar_sep_list:i
+    {:
+      RESULT = i.build().reverse();
+    :}
+  ;
+
+identifier_bar_sep_list ::=
+    IDENTIFIER:i BAR identifier_bar_sep_list:b
+    {:
+      RESULT = b.add(i.val);
+    :}
+  | IDENTIFIER:i
+    {:
+      RESULT = ImmutableList.<String>builder().add(i.val);
+    :}
+  ;
+
+maybe_blocking_procedure_types ::=
+    MAYBE_BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.val.resolveType(scopedHeap)), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  | MAYBE_BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  | MAYBE_BLOCKING CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/null);
     :}
   ;
 
@@ -1505,7 +1575,7 @@ consumer_function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/false);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
     :}
   | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
     {:
@@ -1532,7 +1602,34 @@ consumer_function_definition_stmt ::=
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
       ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
-      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/true);
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+    :}
+  | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set a null return type for any invalid ReturnStmts that are waiting on it and reset the holder.
+      if (returnTypeHolder != null) {
+        returnTypeHolder.set(null);
+        returnTypeHolder = null;
+      }
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.empty(), stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
+    :}
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set a null return type for any invalid ReturnStmts that are waiting on it and reset the holder.
+      if (returnTypeHolder != null) {
+        returnTypeHolder.set(null);
+        returnTypeHolder = null;
+      }
+      // This production matched a function defined by a list of statements followed by a return Expr to eval.
+      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> argTypesMap =
+        ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
     :}
   ;
 
@@ -1682,6 +1779,25 @@ function_args_types_list ::=
             currentLinesSupplier,
             endCol - startCol)
        );
+    :}
+  ;
+
+procedure_args_w_generic_blocking ::=
+    IDENTIFIER:arg_name COLON maybe_blocking_procedure_types:maybe_blocking_proc COMMA procedure_args_w_generic_blocking:args_w_generic_blocking
+    {:
+      RESULT = args_w_generic_blocking.put(arg_name.val, maybe_blocking_proc);
+    :}
+  | IDENTIFIER:arg_name COLON builtin_type:t COMMA procedure_args_w_generic_blocking:args_w_generic_blocking
+    {:
+      RESULT = args_w_generic_blocking.put(arg_name.val, ((LexedValue<TypeProvider>) t.value).val);
+    :}
+  | IDENTIFIER:arg_name COLON maybe_blocking_procedure_types:maybe_blocking_proc
+    {:
+      RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name.val, maybe_blocking_proc);
+    :}
+  | IDENTIFIER:arg_name COLON builtin_type:t
+    {:
+      RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name.val, ((LexedValue<TypeProvider>) t.value).val);
     :}
   ;
 

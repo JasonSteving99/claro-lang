@@ -2,7 +2,6 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
@@ -47,10 +46,6 @@ public class GraphProviderDefinitionStmt extends GraphProcedureDefinitionStmt {
                         )
                         .orElse(Sets.newHashSet()),
                     thisProcedureDefinitionStmt,
-                    () ->
-                        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-                            .map(activeProcedureDefinitionStmt ->
-                                     ((ProcedureDefinitionStmt) activeProcedureDefinitionStmt).resolvedProcedureType),
                     /*explicitlyAnnotatedBlocking=*/ false
                 ),
         Optional.of(outputTypeProvider),
