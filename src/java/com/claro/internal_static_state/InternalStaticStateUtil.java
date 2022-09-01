@@ -1,5 +1,6 @@
 package com.claro.internal_static_state;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.collect.ImmutableList;
@@ -8,6 +9,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 
 // TODO(steving) Eventually all static centralized state should be moved here to avoid fighting circular deps ever again.
 // It's just become too unwieldy to actually have each class manage its own centralized static state given that the
@@ -37,4 +40,13 @@ public class InternalStaticStateUtil {
   // the active instance's used injected keys set.
   public static Optional<Object> ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt = Optional.empty();
   public static Optional<Type> ProcedureDefinitionStmt_optionalActiveProcedureResolvedType = Optional.empty();
+
+  // This field helps establish that we are in fact within a Pipe Chain context, which will allow the pipe chain
+  // backreference sigil to be available.
+  public static boolean PipeChainStmt_withinPipeChainContext;
+  public static AtomicReference<Type> PipeChainStmt_backreferencedPipeChainStageType;
+  public static int PipeChainStmt_backreferenceUsagesCount = 0;
+  public static AtomicReference<BiFunction<ScopedHeap, Boolean, Object>>
+      PipeChainStmt_backreferencedPipeChainStageCodegenFn =
+      new AtomicReference<>();
 }

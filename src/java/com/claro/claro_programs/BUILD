@@ -102,6 +102,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "piping_compiled_claro_image",
+    srcs = [":piping_compiled_claro"],
+    java_name = "piping",
+)
+
+claro_library(
+    name = "piping_compiled_claro",
+    src = "piping.claro",
+)
+
+claro_binary(
     name = "procedures_compiled_claro_image",
     srcs = [":procedures_compiled_claro"],
     java_name = "procedures",

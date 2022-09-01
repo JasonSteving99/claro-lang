@@ -112,7 +112,7 @@ WhiteSpace     = [ \t\f]
     "--"               { return symbol(Calc.DECREMENT, 0, 2, "--"); }
     "-"                { return symbol(Calc.MINUS, 0, 1, "-"); }
     "*"                { return symbol(Calc.MULTIPLY, 0, 1, "*"); }
-    "^"                { return symbol(Calc.EXPONENTIATE, 0, 1, "^"); }
+    "**"                { return symbol(Calc.EXPONENTIATE, 0, 2, "**"); }
     "/"                { return symbol(Calc.DIVIDE, 0, 1, "/");}
     "("                { return symbol(Calc.LPAR, 0, 1, "("); }
     ")"                { return symbol(Calc.RPAR, 0, 1, ")"); }
@@ -213,6 +213,9 @@ WhiteSpace     = [ \t\f]
     "<-"               { return symbol(Calc.LEFT_ARROW, 0, 2, "<-"); }
     "@"                { return symbol(Calc.AT, 0, 1, "@"); }
     "<-|"              { return symbol(Calc.BLOCKING_GET, 0, 3, "<-|"); }
+
+    // This up arrow is used for the pipe chain backreference term.
+    "^"                { return symbol(Calc.UP_ARROW, 0, 1, "^"); }
 
     "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
 

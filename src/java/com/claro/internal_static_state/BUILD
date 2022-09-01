@@ -4,6 +4,7 @@ java_library(
     srcs = ["InternalStaticStateUtil.java"],
     deps = [
         "//:guava",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
     ]

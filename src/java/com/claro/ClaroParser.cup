@@ -27,8 +27,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.Data;
 
@@ -204,7 +206,7 @@ terminal LexedValue<String>  UNDERSCORE;
 terminal LexedValue<String>  VAR, ASSIGNMENT;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
-terminal LexedValue<String>  ARROW;
+terminal LexedValue<String>  ARROW, UP_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
@@ -298,6 +300,14 @@ nonterminal GraphNodeDefinitionStmt            root_node;
 nonterminal GraphNodeDefinitionStmt            non_root_node;
 nonterminal ImmutableList.Builder<GraphNodeDefinitionStmt> non_root_nodes_list;
 nonterminal GraphNodeReferenceExpr             node_reference;
+nonterminal PipeChainStmt                      pipe_chain_stmt;
+// This is just because Java is hot garbage and doesn't have tuples. The first entry will be a sink stmt.
+// The second entry will be an ImmutableList.Builder<Expr>. The Expr will be required to contain some
+// backreference to the value piped from the previous expr.
+// TODO(steving) Implement PipeChainBackreferenceTerm for `^`. This will be sort of like an IdentifierReferenceTerm
+//  except that it will also need to be able to either make itself a codegen inlining of the prior expr, or it will
+//  need to reference a generated identifier for an intermediate temporary.
+nonterminal ImmutableList<Object>              pipe_chain;
 nonterminal BuilderMethodCallExpr              builder_method_call_expr;
 nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
 nonterminal Symbol/*<ImmutableMap.Builder<String, Expr>>*/ builder_setter_call;
@@ -429,6 +439,8 @@ stmt ::=
     {: RESULT = a; :}
   | using_block_stmt:u
     {: RESULT = u; :}
+  | pipe_chain_stmt:p
+    {: RESULT = p; :}
   ;
 
 module_definition_stmt ::=
@@ -938,7 +950,7 @@ expr ::=
 
        RESULT = new MultiplyNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
     :}
-  | expr:a DIVIDE:d expr:b // Only support int-division right now...
+  | expr:a DIVIDE:d expr:b
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(d.currentInputLine, dright), new Line(b.currentLine, b.currentLineNumber));
@@ -947,7 +959,7 @@ expr ::=
 
        RESULT = new DivideNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
     :}
-  | expr:a EXPONENTIATE:ex expr:b // Only support int-exponentiation right now...
+  | expr:a EXPONENTIATE:ex expr:b
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(ex.currentInputLine, exright), new Line(b.currentLine, b.currentLineNumber));
@@ -2042,6 +2054,67 @@ node_reference ::=
     {: RESULT = new GraphNodeReferenceExpr(identifier.val, identifier.currentInputLine, identifierright, identifierleft, identifierleft + identifier.len); :}
   ;
 
+pipe_chain_stmt ::=
+    expr:source pipe_chain:p
+    {:
+       RESULT =
+        new PipeChainStmt(
+          source,
+          ((ImmutableList.Builder<Object>) p.get(1)).build().reverse(), // chain exprs
+          (Stmt) p.get(0) // sink stmt
+        );
+    :}
+  ;
+
+pipe_chain ::=
+    ARROW:a expr:expr pipe_chain:p
+    {:
+       // Finally, add the current expr in the pipe chain to the list builder where I'm collecting exprs.
+       ((ImmutableList.Builder<Object>) p.get(1)).add(expr);
+       RESULT = p;
+    :}
+  | ARROW consumer_function_call_stmt:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  | ARROW identifier_assignment:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  | ARROW identifier_declaration:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  | ARROW list_element_assignment:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  | ARROW print:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  ;
+
 function_call_expr ::=
     IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
     {:
@@ -2232,6 +2305,16 @@ term ::=
     {: RESULT = i; :}
   | node_reference:nr
     {: RESULT = nr; :}
+  | UP_ARROW:a
+    {:
+       RESULT =
+        new PipeChainBackreferenceTerm(
+          a.currentInputLine,
+          aright,
+          aleft,
+          aleft + a.len
+        );
+    :}
   ;
 
 identifier ::=

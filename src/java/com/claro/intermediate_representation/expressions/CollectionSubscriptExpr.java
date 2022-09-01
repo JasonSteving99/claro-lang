@@ -42,10 +42,23 @@ public class CollectionSubscriptExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return ((Expr) getChildren().get(0))
-        .generateJavaSourceBodyOutput(scopedHeap)
-        .append(String.format(".getElement(%s)", ((Expr) getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap)));
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource exprGenJavaSource0 = getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource exprGenJavaSource1 = getChildren().get(1).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource subscriptExprGenJavaSource =
+        exprGenJavaSource0.createMerged(
+            GeneratedJavaSource.forJavaSourceBody(
+                new StringBuilder(
+                    String.format(
+                        ".getElement(%s)",
+                        exprGenJavaSource1.javaSourceBody().toString()
+                    ))));
+
+    // We've already consumed the javaSourceBody, we're safe to clear it.
+    exprGenJavaSource1.javaSourceBody().setLength(0);
+
+    return subscriptExprGenJavaSource.createMerged(exprGenJavaSource1);
   }
 
   @Override

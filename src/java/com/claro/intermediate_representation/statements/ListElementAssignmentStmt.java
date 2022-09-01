@@ -36,16 +36,26 @@ public class ListElementAssignmentStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    return GeneratedJavaSource.forJavaSourceBody(
+    GeneratedJavaSource genJavaSource0 = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource genJavaSource1 = this.getChildren().get(1).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource genJavaSource2 = this.getChildren().get(2).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource resGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
                 "%s.set(%s, %s);\n",
-                ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
-                ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap),
-                ((Expr) this.getChildren().get(2)).generateJavaSourceBodyOutput(scopedHeap)
+                genJavaSource0.javaSourceBody().toString(),
+                genJavaSource1.javaSourceBody().toString(),
+                genJavaSource2.javaSourceBody().toString()
             )
         )
     );
+    // We've already consumed javaSourceBodyStmt, it's safe to clear.
+    genJavaSource0.javaSourceBody().setLength(0);
+    genJavaSource1.javaSourceBody().setLength(0);
+    genJavaSource2.javaSourceBody().setLength(0);
+
+    return resGenJavaSource.createMerged(genJavaSource0).createMerged(genJavaSource1).createMerged(genJavaSource2);
   }
 
   // Type info is lost on generateInterpretedOutput, but we know Claro only allows subscript assignment on lists.

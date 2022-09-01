@@ -61,13 +61,18 @@ public class ReturnStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource exprGenJavaSource = ((Expr) getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+    String exprJavaSourceBody = exprGenJavaSource.javaSourceBody().toString();
+    // We've already consumed the javaSourceBody, so we can safely clear it.
+    exprGenJavaSource.javaSourceBody().setLength(0);
+
     return GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
                 "return %s;",
-                ((Expr) getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
+                exprJavaSourceBody
             )
-        ));
+        )).createMerged(exprGenJavaSource);
   }
 
   @Override

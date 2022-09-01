@@ -12,6 +12,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
@@ -150,18 +151,31 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     scopedHeap.markIdentifierUsed(this.consumerName);
 
-    return GeneratedJavaSource.forJavaSourceBody(
-        new StringBuilder(
-            String.format(
-                "%s.apply(%s);\n",
-                this.consumerName,
-                this.argExprs
-                    .stream()
-                    .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
-                    .collect(Collectors.joining(", "))
+    AtomicReference<GeneratedJavaSource> argValsGenJavaSource =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+
+    GeneratedJavaSource consumerFnGenJavaSource =
+        GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(
+                String.format(
+                    "%s.apply(%s);\n",
+                    this.consumerName,
+                    this.argExprs
+                        .stream()
+                        .map(expr -> {
+                          GeneratedJavaSource currArgGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+                          String currArgJavaSourceBody = currArgGenJavaSource.javaSourceBody().toString();
+                          // We've already consumed the javaSourceBody, so it's safe to clear.
+                          currArgGenJavaSource.javaSourceBody().setLength(0);
+                          argValsGenJavaSource.set(argValsGenJavaSource.get().createMerged(currArgGenJavaSource));
+                          return currArgJavaSourceBody;
+                        })
+                        .collect(Collectors.joining(", "))
+                )
             )
-        )
-    );
+        );
+
+    return consumerFnGenJavaSource.createMerged(argValsGenJavaSource.get());
   }
 
   @Override

@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;
 import com.google.common.collect.ImmutableList;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -31,17 +32,31 @@ public class TupleExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    StringBuilder res = new StringBuilder();
-    res.append("new ClaroTuple(");
-    res.append(this.type.getJavaSourceClaroType());
-    res.append(", ");
-    res.append(
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    AtomicReference<GeneratedJavaSource> tupleValsGenJavaSource =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+
+    StringBuilder resJavaSourceBody = new StringBuilder();
+    resJavaSourceBody.append("new ClaroTuple(");
+    resJavaSourceBody.append(this.type.getJavaSourceClaroType());
+    resJavaSourceBody.append(", ");
+    resJavaSourceBody.append(
         this.tupleValues.stream()
-            .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
+            .map(expr -> {
+              GeneratedJavaSource tupleValGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+              String tupleValJavaSourceString = tupleValGenJavaSource.javaSourceBody().toString();
+              // We've consumed the javaSourceBody, it's safe to clear.
+              tupleValGenJavaSource.javaSourceBody().setLength(0);
+              // Now merge with the overall gen java source to track all of the static and preamble stmts.
+              tupleValsGenJavaSource.set(tupleValsGenJavaSource.get().createMerged(tupleValGenJavaSource));
+
+              return tupleValJavaSourceString;
+            })
             .collect(Collectors.joining(", ")));
-    res.append(")");
-    return res;
+    resJavaSourceBody.append(")");
+
+    return GeneratedJavaSource.forJavaSourceBody(resJavaSourceBody)
+        .createMerged(tupleValsGenJavaSource.get());
   }
 
   @Override

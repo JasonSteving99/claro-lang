@@ -1,7 +1,6 @@
 # First calculator source file!
 
-# Variable initialization doesn't need type indication because there are literally only doubles in this language...
-var VARX = (log_3.1(8) / log_3.1(2)) ^ 2 + 1.1 * 2;
+var VARX = (log_3.1(8) / log_3.1(2)) ** 2 + 1.1 * 2;
 print(VARX);
 
 var Y = VARX + 2;
@@ -9,8 +8,8 @@ print(Y);
 if (Y > 10) {
   Y = Y * 100;
   print("Y > 10");
-  if (Y < 10 ^ 5) {
-    print("Y < 10 ^ 2");
+  if (Y < 10 ** 5) {
+    print("Y < 10 ** 2");
     print("cool, multi-statement, nested conditions work.");
   }
 }

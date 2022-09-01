@@ -27,7 +27,7 @@ public abstract class Node {
   public abstract Object generateInterpretedOutput(ScopedHeap scopedHeap);
 
   @AutoValue
-  protected abstract static class GeneratedJavaSource {
+  public abstract static class GeneratedJavaSource {
     public abstract StringBuilder javaSourceBody();
 
     public abstract Optional<StringBuilder> optionalStaticDefinitions();

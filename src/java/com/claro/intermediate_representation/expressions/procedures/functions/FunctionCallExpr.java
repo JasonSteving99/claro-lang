@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -155,21 +156,36 @@ public class FunctionCallExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     scopedHeap.markIdentifierUsed(this.name);
 
-    return new StringBuilder(
-        String.format(
-            "%s.apply(%s)",
-            this.name,
-            this.argExprs
-                .stream()
-                .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
-                .collect(Collectors.joining(", "))
+    AtomicReference<GeneratedJavaSource> exprsGenJavaSource =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+    GeneratedJavaSource functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "%s.apply(%s)",
+                this.name,
+                this.argExprs
+                    .stream()
+                    .map(expr -> {
+                      GeneratedJavaSource currGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+                      String currJavaSourceBody = currGenJavaSource.javaSourceBody().toString();
+                      // We've already consumed the javaSourceBody, it's safe to clear it.
+                      currGenJavaSource.javaSourceBody().setLength(0);
+                      exprsGenJavaSource.set(exprsGenJavaSource.get().createMerged(currGenJavaSource));
+                      return currJavaSourceBody;
+                    })
+                    .collect(Collectors.joining(", "))
+            )
         )
     );
+
+    // We definitely don't want to be throwing away the static definitions and preambles required for the exprs
+    // passed as args to this function call, so ensure that they're correctly collected and passed on here.
+    return functionCallJavaSourceBody.createMerged(exprsGenJavaSource.get());
   }
 
   @Override

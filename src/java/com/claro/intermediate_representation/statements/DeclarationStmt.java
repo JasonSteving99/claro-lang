@@ -122,22 +122,26 @@ public class DeclarationStmt extends Stmt {
     res.append(String.format("%s %s", identifierValidatedType.getJavaSourceType(), this.IDENTIFIER));
     scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
 
+    GeneratedJavaSource exprGeneratedJavaSource = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
     // Maybe mark the identifier initialized.
     if (!this.getChildren().isEmpty()) {
       // The identifier is unconditionally initialized because it's happening on the same line as its declaration. No
       // need to worry about other code branches where the identifier may not have been initialized yet.
       scopedHeap.initializeIdentifier(this.IDENTIFIER);
 
+      exprGeneratedJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
       res.append(
           String.format(
               " = %s%s",
-              ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString(),
+              exprGeneratedJavaSource.javaSourceBody().toString(),
               blocking ? ".get()" : ""
           ));
+      // We already consumed the javaSourceBody so we can clear it out.
+      exprGeneratedJavaSource.javaSourceBody().setLength(0);
     }
     res.append(";\n");
 
-    return GeneratedJavaSource.forJavaSourceBody(res);
+    return GeneratedJavaSource.forJavaSourceBody(res).createMerged(exprGeneratedJavaSource);
   }
 
   @Override

@@ -2,7 +2,7 @@
 
 # Print out and show a boolean.
 print(
-  log_2(9 ^ 2 + 51 - 4) == 7.0
+  log_2(9 ** 2 + 51 - 4) == 7.0
 );
 
 # Show the ability to convert from boolean to a number (0 or 1).

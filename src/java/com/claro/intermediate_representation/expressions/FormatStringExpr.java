@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class FormatStringExpr extends Expr {
@@ -30,24 +31,34 @@ public class FormatStringExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder("new StringBuilder()");
+
+    AtomicReference<GeneratedJavaSource> mergedStaticDefinitionsAndPreambleForFmtArgParts =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
 
     Streams.forEachPair(
         this.fmtStringParts.stream(),
         this.fmtExprArgs.stream(),
-        (fmtStringPart, fmtArgPart) ->
-            res.append(".append(\"")
-                .append(fmtStringPart)
-                .append("\").append(")
-                .append(fmtArgPart.generateJavaSourceBodyOutput(scopedHeap))
-                .append(")")
+        (fmtStringPart, fmtArgPart) -> {
+          GeneratedJavaSource fmtArgPartGenJavaSource = fmtArgPart.generateJavaSourceOutput(scopedHeap);
+          res.append(".append(\"")
+              .append(fmtStringPart)
+              .append("\").append(")
+              .append(fmtArgPartGenJavaSource.javaSourceBody().toString())
+              .append(")");
+          // We already consumed the javaSourceBody, so we can clear it now.
+          fmtArgPartGenJavaSource.javaSourceBody().setLength(0);
+          mergedStaticDefinitionsAndPreambleForFmtArgParts.set(
+              mergedStaticDefinitionsAndPreambleForFmtArgParts.get().createMerged(fmtArgPartGenJavaSource));
+        }
     );
 
-    return res
-        .append(".append(\"")
-        .append(this.fmtStringParts.get(fmtStringParts.size() - 1))
-        .append("\").toString()");
+    return GeneratedJavaSource.forJavaSourceBody(
+        res.append(".append(\"")
+            .append(this.fmtStringParts.get(fmtStringParts.size() - 1))
+            .append("\").toString()"))
+        .createMerged(mergedStaticDefinitionsAndPreambleForFmtArgParts.get());
   }
 
   @Override

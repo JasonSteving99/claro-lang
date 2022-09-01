@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 public class CastExpr extends Expr {
   private final TypeProvider assertedTypeProvider;
   private final Expr castedExpr;
+  private Type actualAssertedType;
 
   public CastExpr(TypeProvider assertedTypeProvider, Expr castedExpr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(castedExpr), currentLine, currentLineNumber, startCol, endCol);
@@ -31,18 +32,27 @@ public class CastExpr extends Expr {
 
     // We're trusting the programmer by contract at compile-time. At runtime we'll generate code to check if they were
     // actually right.
-    return this.assertedTypeProvider.resolveType(scopedHeap);
+    actualAssertedType = this.assertedTypeProvider.resolveType(scopedHeap);
+    return actualAssertedType;
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource castedGenJavaSource = this.castedExpr.generateJavaSourceOutput(scopedHeap);
+
+    StringBuilder resJavaSourceBody = new StringBuilder(
         String.format(
-            "ClaroRuntimeUtilities.assertedTypeValue(%s, %s)",
-            this.assertedTypeProvider.resolveType(scopedHeap).getJavaSourceClaroType(),
-            this.castedExpr.generateJavaSourceBodyOutput(scopedHeap)
+            "ClaroRuntimeUtilities.<%s>assertedTypeValue(%s, %s)",
+            this.actualAssertedType.getJavaSourceType(),
+            this.actualAssertedType.getJavaSourceClaroType(),
+            castedGenJavaSource.javaSourceBody().toString()
         )
     );
+    // We've already consumed javaSourceBody, it's safe to clear.
+    castedGenJavaSource.javaSourceBody().setLength(0);
+
+    return GeneratedJavaSource.forJavaSourceBody(resJavaSourceBody)
+        .createMerged(castedGenJavaSource);
   }
 
   @Override

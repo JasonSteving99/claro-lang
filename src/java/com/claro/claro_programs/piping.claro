@@ -1,0 +1,64 @@
+####################################################################################################
+# DEMONSTRATE PIPING IN CLARO
+#
+# Claro's pipe chain statement models a data source flowing through a pipeline of transformations
+# and then finally landing in a sink statement. The sink must be a terminating assignment to an
+# existing variable, or a call to a consumer function.
+#
+# Pipe chains can be thought of as some form of syntax sugar, however, they also carry with them
+# the added benefit that should not be overlooked that they allow you the opportunity to forego
+# thinking of a name for an intermediate result when you would otherwise have to just to be able
+# to use an intermediate value in more than one place in the following expression. Given the fact
+# that naming is considered one of the hardest problems in computer science, I think this is a
+# worthwhile feature on that merit alone. The fact that it also allows avoiding the slow march to
+# the right that typically arises from the typical use of composed procedure calls is also a big
+# win. Since Claro aims to be built entirely around functions and not classes, I want to make using
+# Claro functions very comfy.
+#
+# Just as a credit to the languages that inspired this, a few days ago I saw the "pointless" lang
+# on PLDB.com (https://pldb.com/languages/pointless.html) simply because the name stood out to me
+# and I noticed the example code showing their idea of piping. I thought it looked cool but didn't
+# like the limitation of only one backreference and the convention-based approach of passing the
+# backreferenced val to some specific arg position. I looked up other languages with this feature
+# and saw Elm also has this feature, but has the same limitations. This seems like a cool feature
+# that languages aren't properly making use of, so here we are with this approach supporting
+# multiple backreferences from each stage.
+####################################################################################################
+
+var firstPipingSource = ["Claro", "piping", "is", "so", "cool"];
+
+firstPipingSource
+  -> getFirstAndLast(^)
+  -> join(^, " is damn ")
+  -> "{^}! I'll say it again... {^}!!"
+  -> var firstPipingRes = ^;
+
+print(firstPipingRes);
+
+
+# These pipe chains can start to look a little esoteric, so people will need to be reasonable.
+# But this is just a generic code style question.
+10
+  -> ^ + 10
+  -> ^ * ^
+  -> ^ / -^
+  -> ^ - (^ + ^)
+  -> print(^);
+
+
+####################################################################################################
+# Helper Functions .... BORING
+####################################################################################################
+
+
+function getFirstAndLast(strList: [string]) -> tuple<string, string> {
+  return (strList[0], strList[len(strList) - 1]);
+}
+
+function join(toJoin: tuple<string, string>, joiner: string) -> string {
+  return "{(string) toJoin[0]}{joiner}{(string) toJoin[1]}";
+}
+
+consumer dumpToScreen(x: int) {
+  print(x);
+}

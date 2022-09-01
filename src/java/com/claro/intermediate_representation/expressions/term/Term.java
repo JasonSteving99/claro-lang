@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.expressions.term;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -15,5 +16,5 @@ public abstract class Term extends Expr {
 
   // Override this method for Terms that actually need to do something with this ScopedHeap.
   @Override
-  public abstract Type getValidatedExprType(ScopedHeap unusedScopedHeap);
+  public abstract Type getValidatedExprType(ScopedHeap unusedScopedHeap) throws ClaroTypeException;
 }

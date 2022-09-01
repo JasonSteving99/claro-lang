@@ -94,18 +94,18 @@ function testCoercionToFunctionArgType(
 print(testCoercionToFunctionArgType(keywordGenericsTest, keywordGenericsTest, 5));
 
 # Consumer functions should also be able to be used as first-class objects.
-keywordGenericsConsumerTest(nonblockingFn, 1);
-keywordGenericsConsumerTest(blockingFn, 2);
+keywordGenericsConsumerTest(nonblockingFn, 4);
+keywordGenericsConsumerTest(blockingFn, 3);
 var asFirstClassConsumerFn = keywordGenericsConsumerTest;
 type(asFirstClassConsumerFn);
 var asNonBlockingConsumerFn: consumer<function<int -> int>, int> = keywordGenericsConsumerTest;
 type(asNonBlockingConsumerFn);
-asNonBlockingConsumerFn(nonblockingFn, 3);
+asNonBlockingConsumerFn(nonblockingFn, 2);
 # You chose nonblocking, you can't use it as blocking.
-#asNonBlockingConsumerFn(blockingFn, 3);
+#asNonBlockingConsumerFn(blockingFn, 2);
 var asBlockingConsumerFn: blocking consumer<blocking function<int -> int>, int> = keywordGenericsConsumerTest;
 type(asBlockingConsumerFn);
-asBlockingConsumerFn(blockingFn, 4);
+asBlockingConsumerFn(blockingFn, 1);
 # You chose blocking, you can't use it as non-blocking.
-#asBlockingConsumerFn(nonblockingFn, 4);
+#asBlockingConsumerFn(nonblockingFn, 1);
 

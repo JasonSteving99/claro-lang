@@ -25,13 +25,20 @@ public class NegateNumericExpr extends NumericExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource exprGenJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+
+    StringBuilder resJavaSourceBody = new StringBuilder(
         String.format(
             "(-%s)",
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
+            exprGenJavaSource.javaSourceBody().toString()
         )
     );
+    // We've already consumed javaSourceBody, so it's safe to clear.
+    exprGenJavaSource.javaSourceBody().setLength(0);
+
+    return GeneratedJavaSource.forJavaSourceBody(resJavaSourceBody)
+        .createMerged(exprGenJavaSource);
   }
 
   @Override

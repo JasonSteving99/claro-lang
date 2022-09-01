@@ -1,3 +1,7 @@
+####################################################################################################
+# !!!!!! WARNING - CLARO STRUCTS ARE NOT YET FULLY SUPPORTED - MASSIVE OVERHAUL COMING SOON !!!!!!
+####################################################################################################
+
 print("We're gonna build a struct!");
 
 struct FirstStruct {

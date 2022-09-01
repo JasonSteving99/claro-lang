@@ -17,10 +17,10 @@
 # DEMONSTRATE BASIC GRAPH FUNCTION SEMANTICS
 ####################################################################################################
 
-# Compute ((3x+1)(x^2 - y))/(x^2) concurrently....which is super ridiculous but demonstrates a point:
+# Compute ((3x+1)(x**2 - y))/(x**2) concurrently....which is super ridiculous but demonstrates a point:
 #
 #
-#   times3:(3 * x)                        squared:(x ^ 2)
+#   times3:(3 * x)                        squared:(x**2)
 #       \                                      /      \
 #        v                                    v       |
 #     plus1:(1 + @times3)    minusY:(@squared - y)    /

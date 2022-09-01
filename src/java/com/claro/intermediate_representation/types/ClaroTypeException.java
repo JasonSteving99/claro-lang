@@ -76,6 +76,8 @@ public class ClaroTypeException extends Exception {
       "Illegal node reference cycle detected within Graph procedure <%s>. Through transitive node references, node <%s> depends cyclically on itself. Graph nodes must represent a DAG.";
   private static final String GRAPH_CONSUMER_ROOT_NODE_IS_NOT_CONSUMER_FN =
       "Root node <%s> of Graph Consumer <%s> must defer to a consumer<...> as this Graph should not return a value. If you would like to return a value, change the signature to `graph function`.";
+  private static final String BACKREFERENCE_OUTSIDE_OF_VALID_PIPE_CHAIN_CONTEXT =
+      "Illegal use of backreference (`^`) outside of valid pipe chain context. Backreferences may only be used in a non-source pipe chain stage.";
 
 
   public ClaroTypeException(String message) {
@@ -397,6 +399,12 @@ public class ClaroTypeException extends Exception {
             nodeName,
             procedureName
         )
+    );
+  }
+
+  public static ClaroTypeException forBackreferenceOutsideOfValidPipeChainContext() {
+    return new ClaroTypeException(
+        BACKREFERENCE_OUTSIDE_OF_VALID_PIPE_CHAIN_CONTEXT
     );
   }
 }
