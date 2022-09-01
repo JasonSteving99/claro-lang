@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -56,22 +57,33 @@ public class BuilderMethodCallExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    AtomicReference<GeneratedJavaSource> fieldValsGenJavaSource =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+
+    StringBuilder res = new StringBuilder(
         String.format(
             "%s.builder()%s",
             this.builtTypeName,
             this.setFieldValues.entrySet().stream()
                 .map(
-                    entry ->
-                        String.format(
-                            ".%s(%s)",
-                            entry.getKey(),
-                            entry.getValue().generateJavaSourceBodyOutput(scopedHeap)
-                        ))
+                    entry -> {
+                      GeneratedJavaSource currFieldGen = entry.getValue().generateJavaSourceOutput(scopedHeap);
+                      String currFieldJavaSource = String.format(
+                          ".%s(%s)",
+                          entry.getKey(),
+                          currFieldGen.javaSourceBody().toString()
+                      );
+                      currFieldGen.javaSourceBody().setLength(0);
+                      fieldValsGenJavaSource.set(fieldValsGenJavaSource.get().createMerged(currFieldGen));
+
+                      return currFieldJavaSource;
+                    })
                 .collect(Collectors.joining(""))
         )
     );
+
+    return GeneratedJavaSource.forJavaSourceBody(res).createMerged(fieldValsGenJavaSource.get());
   }
 
   @Override

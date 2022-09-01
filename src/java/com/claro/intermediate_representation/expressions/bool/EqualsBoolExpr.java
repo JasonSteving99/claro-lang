@@ -28,14 +28,23 @@ public class EqualsBoolExpr extends BoolExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            "%s.equals(%s)",
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
-            ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap)
-        )
-    );
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource exprGenJavaSource0 = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource exprGenJavaSource1 = this.getChildren().get(1).generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource eqExprGenJavaSource =
+        GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(
+                String.format(
+                    "%s.equals(%s)",
+                    exprGenJavaSource0.javaSourceBody().toString(),
+                    exprGenJavaSource1.javaSourceBody().toString()
+                )));
+
+    // We've already used the javaSourceBody's, we're safe to clear them.
+    exprGenJavaSource0.javaSourceBody().setLength(0);
+    exprGenJavaSource1.javaSourceBody().setLength(0);
+    return eqExprGenJavaSource.createMerged(exprGenJavaSource0).createMerged(exprGenJavaSource1);
   }
 
   @Override

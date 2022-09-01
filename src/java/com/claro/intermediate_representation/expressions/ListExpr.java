@@ -10,6 +10,7 @@ import com.claro.intermediate_representation.types.impls.builtins_impls.collecti
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -77,7 +78,10 @@ public class ListExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    AtomicReference<GeneratedJavaSource> initializerValsGenJavaSource =
+        new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+
     String listFormatString = "ClaroList.initializeList(%s%s)";
     String initializerArgs;
     if (initializerArgExprsList.isEmpty()) {
@@ -85,11 +89,19 @@ public class ListExpr extends Expr {
     } else {
       initializerArgs =
           this.initializerArgExprsList.stream()
-              .map(expr -> expr.generateJavaSourceBodyOutput(scopedHeap))
+              .map(expr -> {
+                GeneratedJavaSource curr = expr.generateJavaSourceOutput(scopedHeap);
+                String currJavaSource = curr.javaSourceBody().toString();
+                curr.javaSourceBody().setLength(0);
+                initializerValsGenJavaSource.set(initializerValsGenJavaSource.get().createMerged(curr));
+                return currJavaSource;
+              })
               .collect(Collectors.joining(", ", ", ", ""));
     }
-    return new StringBuilder(
-        String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs));
+    return GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs)))
+        .createMerged(initializerValsGenJavaSource.get());
   }
 
   @Override

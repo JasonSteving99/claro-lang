@@ -34,17 +34,21 @@ public class BindStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    return GeneratedJavaSource.forJavaSourceBody(
+    GeneratedJavaSource exprGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
                 // We're expecting this binding to be executed within a scope that has access to a bindings Map.
                 "Injector.bindings.put(new Key(\"%s\", %s), %s);\n",
                 this.name,
                 this.type.getJavaSourceClaroType(),
-                expr.generateJavaSourceBodyOutput(scopedHeap)
+                exprGenJavaSource.javaSourceBody().toString()
             )
         )
     );
+    exprGenJavaSource.javaSourceBody().setLength(0);
+
+    return res.createMerged(exprGenJavaSource);
   }
 
   @Override

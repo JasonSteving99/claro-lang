@@ -206,7 +206,7 @@ terminal LexedValue<String>  UNDERSCORE;
 terminal LexedValue<String>  VAR, ASSIGNMENT;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
-terminal LexedValue<String>  ARROW, UP_ARROW;
+terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
@@ -2067,13 +2067,13 @@ pipe_chain_stmt ::=
   ;
 
 pipe_chain ::=
-    ARROW:a expr:expr pipe_chain:p
+    PIPE_ARROW:a expr:expr pipe_chain:p
     {:
        // Finally, add the current expr in the pipe chain to the list builder where I'm collecting exprs.
        ((ImmutableList.Builder<Object>) p.get(1)).add(expr);
        RESULT = p;
     :}
-  | ARROW consumer_function_call_stmt:sink
+  | PIPE_ARROW consumer_function_call_stmt:sink
     {:
        RESULT =
           ImmutableList.builder()
@@ -2081,7 +2081,7 @@ pipe_chain ::=
            .add(ImmutableList.builder())
            .build();
     :}
-  | ARROW identifier_assignment:sink
+  | PIPE_ARROW identifier_assignment:sink
     {:
        RESULT =
           ImmutableList.builder()
@@ -2089,7 +2089,7 @@ pipe_chain ::=
            .add(ImmutableList.builder())
            .build();
     :}
-  | ARROW identifier_declaration:sink
+  | PIPE_ARROW identifier_declaration:sink
     {:
        RESULT =
           ImmutableList.builder()
@@ -2097,7 +2097,7 @@ pipe_chain ::=
            .add(ImmutableList.builder())
            .build();
     :}
-  | ARROW list_element_assignment:sink
+  | PIPE_ARROW list_element_assignment:sink
     {:
        RESULT =
           ImmutableList.builder()
@@ -2105,7 +2105,7 @@ pipe_chain ::=
            .add(ImmutableList.builder())
            .build();
     :}
-  | ARROW print:sink
+  | PIPE_ARROW print:sink
     {:
        RESULT =
           ImmutableList.builder()

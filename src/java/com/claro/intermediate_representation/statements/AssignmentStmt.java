@@ -34,14 +34,18 @@ public class AssignmentStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
     scopedHeap.initializeIdentifier(this.IDENTIFIER);
+    GeneratedJavaSource exprGenJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
     res.append(
         String.format(
             "%s = %s;\n",
             this.IDENTIFIER,
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
+            exprGenJavaSource.javaSourceBody().toString()
         )
     );
-    return GeneratedJavaSource.forJavaSourceBody(res);
+    // We've already consumed javaSourceBody, so it's safe to clear.
+    exprGenJavaSource.javaSourceBody().setLength(0);
+
+    return GeneratedJavaSource.forJavaSourceBody(res).createMerged(exprGenJavaSource);
   }
 
   @Override

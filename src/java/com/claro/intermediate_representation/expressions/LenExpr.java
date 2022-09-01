@@ -24,8 +24,11 @@ public class LenExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).append(".length()");
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource res =
+        ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+    res.javaSourceBody().append(".length()");
+    return res;
   }
 
   @Override

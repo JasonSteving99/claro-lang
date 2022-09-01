@@ -39,8 +39,10 @@ public class BuilderFullBuildMethodCallExpr extends Expr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return delegateBuilderMethodCallExpr.generateJavaSourceBodyOutput(scopedHeap).append(".build()");
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource res = delegateBuilderMethodCallExpr.generateJavaSourceOutput(scopedHeap);
+    res.javaSourceBody().append(".build()");
+    return res;
   }
 
   @Override

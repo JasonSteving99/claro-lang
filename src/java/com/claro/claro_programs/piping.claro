@@ -28,22 +28,22 @@
 var firstPipingSource = ["Claro", "piping", "is", "so", "cool"];
 
 firstPipingSource
-  -> getFirstAndLast(^)
-  -> join(^, " is damn ")
-  -> "{^}! I'll say it again... {^}!!"
-  -> var firstPipingRes = ^;
+  |> getFirstAndLast(^)
+  |> join(^, " is damn ")
+  |> "{^}! I'll say it again... {^}!!"
+  |> var firstPipingRes = ^;
 
 print(firstPipingRes);
 
 
-# These pipe chains can start to look a little esoteric, so people will need to be reasonable.
-# But this is just a generic code style question.
+# These pipe chains can start to look quite esoteric, so people will need to be reasonable.
+# But this is just a generic code style question. I think it's worth having.
 10
-  -> ^ + 10
-  -> ^ * ^
-  -> ^ / -^
-  -> ^ - (^ + ^)
-  -> print(^);
+  |> ^ + 10
+  |> ^ * ^
+  |> ^ / -^
+  |> ^ - (^ + ^)
+  |> print(^);
 
 
 ####################################################################################################
