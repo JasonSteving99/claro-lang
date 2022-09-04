@@ -36,14 +36,12 @@ firstPipingSource
 print(firstPipingRes);
 
 
+# Let me be my own devil's advocate:
 # These pipe chains can start to look quite esoteric, so people will need to be reasonable.
-# But this is just a generic code style question. I think it's worth having.
-10
-  |> ^ + 10
-  |> ^ * ^
-  |> ^ / -^
-  |> ^ - (^ + ^)
-  |> print(^);
+# However, I think this is just a generic code style question. I think it's worth having.
+# But I mean dang, do you have any idea what this code is doing? I don't. I know it's doing
+# some math, but that's about it. Please don't be the reason we can't have nice things.
+10 |> ^ + 10 |> ^ * ^ |> ^ / -^ |> ^ - (^ + ^) |> print(^);
 
 
 ####################################################################################################

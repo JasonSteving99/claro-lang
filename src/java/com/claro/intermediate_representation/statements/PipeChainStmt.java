@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.statements;
 import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -114,13 +115,13 @@ public class PipeChainStmt extends Stmt {
       pipeChainStagesWithMultipleBackreferencesBuilder.add(currPipeStageNum);
       InternalStaticStateUtil.PipeChainStmt_backreferencedPipeChainStageCodegenFn
           .set(
-              (unusedCodegenScopedHeap, unusedShouldJavaSourceCodeGen) ->
-                  GeneratedJavaSource.forJavaSourceBody(
-                      new StringBuilder(
-                          getPipeStageTempVarName(
-                              this.currPipeChainUniqueId,
-                              currPipeStageNum - 1
-                          ))));
+              (codegenScopedHeap, unusedShouldJavaSourceCodeGen) ->
+                  new IdentifierReferenceTerm(
+                      getPipeStageTempVarName(this.currPipeChainUniqueId, currPipeStageNum - 1),
+                      () -> "", -1, -1, -1
+                  )
+                      .generateJavaSourceOutput(codegenScopedHeap)
+          );
     } else /*InternalStaticStateUtil.PipeChainStmt_backreferenceUsagesCount == 1*/ {
       InternalStaticStateUtil.PipeChainStmt_backreferencedPipeChainStageCodegenFn
           .set(
