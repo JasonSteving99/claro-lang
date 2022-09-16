@@ -4,6 +4,7 @@ import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +12,8 @@ import java.util.stream.Collectors;
 
 public class ClaroTypeException extends Exception {
 
+  private static final String UNEXPECTED_IDENTIFIER_REDECLARATION =
+      "Unexpected redeclaration of identifier <%s>.";
   private static final String INVALID_TYPE_ERROR_MESSAGE_FMT_STR =
       "Invalid type:\n\tFound:\n\t\t%s\n\tExpected:\n\t\t%s";
   private static final String INVALID_BASE_TYPE_ERROR_MESSAGE_FMT_STR =
@@ -78,7 +81,24 @@ public class ClaroTypeException extends Exception {
       "Root node <%s> of Graph Consumer <%s> must defer to a consumer<...> as this Graph should not return a value. If you would like to return a value, change the signature to `graph function`.";
   private static final String BACKREFERENCE_OUTSIDE_OF_VALID_PIPE_CHAIN_CONTEXT =
       "Illegal use of backreference (`^`) outside of valid pipe chain context. Backreferences may only be used in a non-source pipe chain stage.";
-
+  private static final String CONTRACT_IMPLEMENTATION_FOR_UNDEFINED_CONTRACT =
+      "Invalid Contract Implementation: %s is attempting to implement undefined contract %s.";
+  private static final String CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
+      "Invalid Contract Implementation: %s does not have the correct number of type params required by %s.";
+  private static final String DUPLICATE_CONTRACT_IMPLEMENTATION =
+      "Invalid Contract Implementation: %s is a duplicate of existing implementation %s.";
+  private static final String CONTRACT_IMPLEMENTATION_MISSION_REQUIRED_PROCEDURE_DEFS =
+      "Invalid Contract Implementation: %s is missing definitions for the following required procedures %s.";
+  private static final String CONTRACT_IMPLEMENTATION_WITH_EXTRA_PROCEDURE_DEFS =
+      "Invalid Contract Implementation: %s defines the following procedures that are not required by the implemented contract %s.";
+  private static final String CONTRACT_PROCEDURE_IMPLEMENTATION_DOES_NOT_MATCH_REQUIRED_SIGNATURE =
+      "Invalid Contract Implementation: Found the following definition of %s::%s -\n\t\t%s\n\tbut requires:\n\t\t%s";
+  private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT =
+      "Invalid Contract Reference: Contract %s<%s> is not defined.";
+  private static final String CONTRACT_REFERENCE_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
+      "Invalid Contract Reference: %s does not have the correct number of type params required by %s.";
+  private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT_PROCEDURE =
+      "Invalid Contract Procedure Reference: Procedure %s<%s>::%s is not defined in the referenced contract.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -118,7 +138,11 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static <T> ClaroTypeException forUndecidedTypeLeak() {
+  public static ClaroTypeException forUnexpectedIdentifierRedeclaration(String identifier) {
+    return new ClaroTypeException(String.format(UNEXPECTED_IDENTIFIER_REDECLARATION, identifier));
+  }
+
+  public static ClaroTypeException forUndecidedTypeLeak() {
     return new ClaroTypeException(UNDECIDED_TYPE_LEAK_GENERIC_ERROR_MESSAGE_FMT_STR);
   }
 
@@ -406,5 +430,93 @@ public class ClaroTypeException extends Exception {
     return new ClaroTypeException(
         BACKREFERENCE_OUTSIDE_OF_VALID_PIPE_CHAIN_CONTEXT
     );
+  }
+
+  public static ClaroTypeException forImplementationOfUnknownContract(String contractName, String implementationName) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_IMPLEMENTATION_FOR_UNDEFINED_CONTRACT,
+            implementationName,
+            contractName
+        ));
+  }
+
+  public static ClaroTypeException forContractImplementationWithWrongNumberOfTypeParams(
+      String contractTypeString, String implementationTypeString) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS, contractTypeString, implementationTypeString));
+  }
+
+  public static ClaroTypeException forDuplicateContractImplementation(
+      String currentImplementationTypeString, String otherImplementationTypeString) {
+    return new ClaroTypeException(
+        String.format(
+            DUPLICATE_CONTRACT_IMPLEMENTATION,
+            currentImplementationTypeString,
+            otherImplementationTypeString
+        ));
+  }
+
+  public static ClaroTypeException forContractImplementationMissingRequiredProcedureDefinitions(
+      String contractTypeString, Sets.SetView<String> missingContractProcedures) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_IMPLEMENTATION_MISSION_REQUIRED_PROCEDURE_DEFS,
+            contractTypeString,
+            missingContractProcedures.stream().collect(Collectors.joining(", ", "[", "]"))
+        ));
+  }
+
+  public static ClaroTypeException forContractImplementationWithExtraProcedureDefinitions(
+      String contractTypeString, Sets.SetView<String> extraContractImplProcedures) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_IMPLEMENTATION_WITH_EXTRA_PROCEDURE_DEFS,
+            contractTypeString,
+            extraContractImplProcedures.stream().collect(Collectors.joining(", ", "[", "]"))
+        ));
+  }
+
+  public static ClaroTypeException forContractProcedureImplementationSignatureMismatch(
+      String contractTypeString,
+      String procedureName,
+      Type contractExpectedProcedureSignature,
+      Type resolvedProcedureType) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_PROCEDURE_IMPLEMENTATION_DOES_NOT_MATCH_REQUIRED_SIGNATURE,
+            contractTypeString,
+            procedureName,
+            resolvedProcedureType,
+            contractExpectedProcedureSignature
+        ));
+  }
+
+  public static ClaroTypeException forReferencingUnknownContract(String contractName, ImmutableList<Type> concreteTypes) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_REFERENCE_TO_UNDEFINED_CONTRACT,
+            contractName,
+            concreteTypes.stream().map(Type::toString).collect(Collectors.joining(", "))
+        ));
+  }
+
+  public static ClaroTypeException forContractReferenceWithWrongNumberOfTypeParams(
+      String contractTypeString, String implementationTypeString) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_REFERENCE_WITH_WRONG_NUMBER_OF_TYPE_PARAMS, contractTypeString, implementationTypeString));
+  }
+
+  public static ClaroTypeException forContractReferenceUndefinedProcedure(
+      String contractName, ImmutableList<String> concreteTypeStrings, String name) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_REFERENCE_TO_UNDEFINED_CONTRACT_PROCEDURE,
+            contractName,
+            String.join(", ", concreteTypeStrings),
+            name
+        ));
   }
 }

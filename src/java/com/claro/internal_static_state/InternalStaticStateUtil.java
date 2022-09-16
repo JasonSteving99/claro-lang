@@ -49,4 +49,7 @@ public class InternalStaticStateUtil {
   public static AtomicReference<BiFunction<ScopedHeap, Boolean, Object>>
       PipeChainStmt_backreferencedPipeChainStageCodegenFn =
       new AtomicReference<>();
+
+  public static String ContractDefinitionStmt_currentContractName;
+  public static ImmutableList<String> ContractDefinitionStmt_currentContractGenericTypeParamNames;
 }

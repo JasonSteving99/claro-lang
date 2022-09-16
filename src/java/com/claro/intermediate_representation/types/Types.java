@@ -1,5 +1,6 @@
 package com.claro.intermediate_representation.types;
 
+import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.Stmt;
@@ -875,6 +876,73 @@ public final class Types {
       );
     }
   }
+
+  // This is really a meta-type which exists primarily to allow some mechanism of holding the name of a generic
+  // type param in the scopedheap. This should see very limited use throughout the compiler internals only and
+  // none at all by Claro programs.
+  @AutoValue
+  public abstract static class $GenericTypeParam extends Type {
+    public abstract String getTypeParamName();
+
+    public static $GenericTypeParam forTypeParamName(String name) {
+      return new AutoValue_Types_$GenericTypeParam(BaseType.$GENERIC_TYPE_PARAM, ImmutableMap.of(), name);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+  }
+
+  // This is really a meta-type which exists primarily to allow some mechanism of holding the name of a generic
+  // type param in the scopedheap. This should see very limited use throughout the compiler internals only and
+  // none at all by Claro programs.
+  @AutoValue
+  public abstract static class $Contract extends Type {
+    public abstract String getContractName();
+
+    public abstract ImmutableList<String> getTypeParamNames();
+
+    public abstract ImmutableList<String> getProcedureNames();
+
+    public static $Contract forContractNameTypeParamNamesAndProcedureNames(
+        String name, ImmutableList<String> typeParamNames, ImmutableList<String> procedureNames) {
+      return new AutoValue_Types_$Contract(BaseType.$CONTRACT, ImmutableMap.of(), name, typeParamNames, procedureNames);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          baseType().getClaroCanonicalTypeNameFmtStr(),
+          getContractName(),
+          String.join(", ", getTypeParamNames())
+      );
+    }
+  }
+
+  @AutoValue
+  public abstract static class $ContractImplementation extends Type {
+    public abstract String getContractName();
+
+    public abstract ImmutableList<Type> getConcreteTypeParams();
+
+    public static $ContractImplementation forContractNameAndConcreteTypeParams(
+        String name, ImmutableList<Type> concreteTypeParams) {
+      return new AutoValue_Types_$ContractImplementation(
+          BaseType.$CONTRACT_IMPLEMENTATION, ImmutableMap.of(), name, concreteTypeParams);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+  }
+
 
   // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly
   // constructors and .equals() and .hashCode() methods.

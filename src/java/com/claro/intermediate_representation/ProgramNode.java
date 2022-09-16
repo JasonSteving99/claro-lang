@@ -6,6 +6,8 @@ import com.claro.intermediate_representation.statements.ModuleDefinitionStmt;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 
@@ -79,6 +81,9 @@ public class ProgramNode {
     // PROCEDURE DISCOVERY PHASE:
     performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
 
+    // CONTRACT DISCOVERY PHASE:
+    performContractDiscoveryPhase(stmtListNode, scopedHeap);
+
     // Modules only need to know about procedure type signatures, nothing else, so save procedure type
     // validation for after the full module discovery and validation phases since procedure type validation
     // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
@@ -92,6 +97,9 @@ public class ProgramNode {
 
     // PROCEDURE TYPE VALIDATION PHASE:
     performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // CONTRACT TYPE VALIDATION PHASE:
+    performContractTypeValidationPhase(stmtListNode, scopedHeap);
 
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
@@ -155,6 +163,9 @@ public class ProgramNode {
     // PROCEDURE DISCOVERY PHASE:
     performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
 
+    // CONTRACT DISCOVERY PHASE:
+    performContractDiscoveryPhase(stmtListNode, scopedHeap);
+
     // Modules only need to know about procedure type signatures, nothing else, so save procedure type
     // validation for after the full module discovery and validation phases since procedure type validation
     // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
@@ -168,6 +179,9 @@ public class ProgramNode {
 
     // PROCEDURE TYPE VALIDATION PHASE:
     performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // CONTRACT TYPE VALIDATION PHASE:
+    performContractTypeValidationPhase(stmtListNode, scopedHeap);
 
     // Validate all types in the entire remaining AST before execution.
     try {
@@ -205,6 +219,61 @@ public class ProgramNode {
     }
   }
 
+  private void performContractDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // First need to discover all of the Contract Definitions before we can register any of the implementations.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ContractDefinitionStmt) {
+        try {
+          currStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+
+    // Now that the Contract Definitions are all known, we can go ahead and register the implementations.
+    currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ContractImplementationStmt) {
+        ((ContractImplementationStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+  }
+
+  private void performContractTypeValidationPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof ContractImplementationStmt) {
+        try {
+          currStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
+    // definitions live in their own scope and cannot reference variables below. We consider functions defined
+    // within contract implementations still as top-level functions.
+    scopedHeap.enterNewScope();
+  }
+
   private void performProcedureDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
     // Very first things first, because we want to allow references of user-defined types anywhere in the scope
     // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
@@ -240,9 +309,6 @@ public class ProgramNode {
       }
       currStmtListNode = currStmtListNode.tail;
     }
-    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
-    // definitions live in their own scope and cannot reference variables below.
-    scopedHeap.enterNewScope();
   }
 
   private void performModuleDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {

@@ -21,7 +21,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
-  public final String name;
+  public String name;
   public final ImmutableList<Expr> argExprs;
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {

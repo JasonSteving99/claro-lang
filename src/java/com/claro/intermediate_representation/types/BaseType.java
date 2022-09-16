@@ -109,7 +109,7 @@ public enum BaseType {
       "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "private static final $%s %s = new $%s();\n"
+      "public static final $%s %s = new $%s();\n"
   ),
   // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
   // callers don't need to know.
@@ -162,7 +162,7 @@ public enum BaseType {
       "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "private static final $%s %s = new $%s();\n"
+      "public static final $%s %s = new $%s();\n"
   ),
   // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
   // callers don't need to know.
@@ -216,7 +216,7 @@ public enum BaseType {
       "}\n",
       // We just want a single instance of this function's wrapper class to exist... it's already obnoxious that it
       // exists at all.
-      "private static final $%s %s = new $%s();\n"
+      "public static final $%s %s = new $%s();\n"
   ),
   // Declare a special internal type for lambda forms of functions, but don't expose lambdas as a ClaroType,
   // callers don't need to know.
@@ -257,6 +257,12 @@ public enum BaseType {
   MODULE("module"),
   OBJECT, // Struct with associated procedures.
   TYPE, // This is a meta-type that represents another Type.
+
+  // Generic Type Param and Contract are Types that are only modeled internally and shouldn't appear in generated output
+  // or in any other user observable way.
+  $GENERIC_TYPE_PARAM("$GENERIC_TYPE_PARAM", (String) null, (String) null),
+  $CONTRACT("contract %s<%s>", (String) null, (String) null),
+  $CONTRACT_IMPLEMENTATION("$CONTRACT_IMPLEMENTATION", (String) null, (String) null),
   ;
 
   private final String javaSourceFmtStr;

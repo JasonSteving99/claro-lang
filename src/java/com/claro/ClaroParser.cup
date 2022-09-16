@@ -10,6 +10,7 @@ import com.claro.intermediate_representation.expressions.procedures.functions.*;
 import com.claro.intermediate_representation.expressions.procedures.methods.*;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
+import com.claro.intermediate_representation.statements.contracts.*;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
@@ -33,32 +34,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.Data;
-
-/*
- * Copyright (C) 2018 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
-/**
- * Parser for a simple calculator.
- *
- * <p>The grammar defines a simple arihmetic expressions that supports the addition,
- * subtraction, multiplication, division, exponentiation, logarithms and parentheses.
- *
- * @author Jason Steving, derived from a simpler example by Régis Décamps
- */
 
 action code {:
   AtomicReference<TypeProvider> returnTypeHolder;
@@ -244,6 +219,7 @@ terminal LexedValue<String>  DOT;
 terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
+terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -300,6 +276,11 @@ nonterminal GraphNodeDefinitionStmt            root_node;
 nonterminal GraphNodeDefinitionStmt            non_root_node;
 nonterminal ImmutableList.Builder<GraphNodeDefinitionStmt> non_root_nodes_list;
 nonterminal GraphNodeReferenceExpr             node_reference;
+nonterminal ContractDefinitionStmt             contract_definition_stmt;
+nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
+nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
+nonterminal ContractImplementationStmt         contract_implementation_stmt;
+nonterminal ImmutableList.Builder<ContractProcedureImplementationStmt> contract_implementations_list;
 nonterminal PipeChainStmt                      pipe_chain_stmt;
 // This is just because Java is hot garbage and doesn't have tuples. The first entry will be a sink stmt.
 // The second entry will be an ImmutableList.Builder<Expr>. The Expr will be required to contain some
@@ -363,6 +344,10 @@ program ::=
 stmts_and_module_defs_list ::=
     module_definition_stmt:m stmts_and_module_defs_list:tail
     {: RESULT = new StmtListNode(m, tail); :}
+  | contract_definition_stmt:c stmts_and_module_defs_list:tail
+    {: RESULT = new StmtListNode(c, tail); :}
+  | contract_implementation_stmt:c stmts_and_module_defs_list:tail
+    {: RESULT = new StmtListNode(c, tail); :}
   | stmt:s stmts_and_module_defs_list:tail
     {: RESULT = new StmtListNode(s, tail); :}
   | stmt:s
@@ -2054,6 +2039,60 @@ node_reference ::=
     {: RESULT = new GraphNodeReferenceExpr(identifier.val, identifier.currentInputLine, identifierright, identifierleft, identifierleft + identifier.len); :}
   ;
 
+contract_definition_stmt ::=
+    CONTRACT IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LCURLY contract_signature_defs_list:contract_signature_defs_backwards RCURLY
+    {:
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      RESULT = new ContractDefinitionStmt(name.val, genericTypesList, contract_signature_defs_backwards.build().reverse());
+    :}
+  ;
+
+contract_signature_defs_list ::=
+    contract_procedure_signature_definition_stmt:signature contract_signature_defs_list:tail
+    {:
+      RESULT = tail.add(signature);
+    :}
+  | contract_procedure_signature_definition_stmt:signature
+    {:
+      RESULT = ImmutableList.<ContractProcedureSignatureDefinitionStmt>builder().add(signature);
+    :}
+  ;
+
+// TODO(steving) Support all procedure signatures here. However, don't model `using` in the contracts.
+contract_procedure_signature_definition_stmt ::=
+   FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty());
+   :}
+  ;
+
+contract_implementation_stmt ::=
+    IMPLEMENT IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET AS IDENTIFIER:implementation_name LCURLY contract_implementations_list:contract_impls RCURLY
+    {:
+       RESULT = new ContractImplementationStmt(contract_name.val, implementation_name.val, ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).val, contract_impls.build().reverse());
+    :}
+  ;
+
+contract_implementations_list ::=
+    function_definition_stmt:f contract_implementations_list:tail
+    {: RESULT = tail.add(new ContractProcedureImplementationStmt(f)); :}
+  | consumer_function_definition_stmt:c contract_implementations_list:tail
+    {: RESULT = tail.add(new ContractProcedureImplementationStmt(c)); :}
+  | provider_function_definition_stmt:p contract_implementations_list:tail
+    {: RESULT = tail.add(new ContractProcedureImplementationStmt(p)); :}
+  | function_definition_stmt:f
+    {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(f)); :}
+  | consumer_function_definition_stmt:c
+    {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(c)); :}
+  | provider_function_definition_stmt:p
+    {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(p)); :}
+  ;
+
 pipe_chain_stmt ::=
     expr:source pipe_chain:p
     {:
@@ -2122,6 +2161,19 @@ function_call_expr ::=
        int startCol = min(function_nameleft, lleft, args.left, rleft);
        int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
        RESULT = new FunctionCallExpr(function_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+    :}
+  | IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET COLON_COLON IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
+       int startCol = min(function_nameleft, lleft, args.left, rleft);
+       int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
+       RESULT =
+        new ContractFunctionCallExpr(
+          contract_name.val,
+          ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).val,
+          function_name.val,
+          ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(),
+          currentLinesSupplier, rright, startCol, endCol);
     :}
   ;
 

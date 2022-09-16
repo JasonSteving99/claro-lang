@@ -23,6 +23,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "contracts_compiled_claro_image",
+    srcs = [":contracts_compiled_claro"],
+    java_name = "contracts",
+)
+
+claro_library(
+    name = "contracts_compiled_claro",
+    src = "contracts.claro",
+)
+
+claro_binary(
     name = "exec_compiled_claro_image",
     srcs = [":exec_compiled_claro"],
     java_name = "exec",

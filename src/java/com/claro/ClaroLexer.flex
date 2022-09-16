@@ -218,6 +218,12 @@ WhiteSpace     = [ \t\f]
     // This up arrow is used for the pipe chain backreference term.
     "^"                { return symbol(Calc.UP_ARROW, 0, 1, "^"); }
 
+    // Contract tokens.
+    "contract"         { return symbol(Calc.CONTRACT, 0, 8, "contract"); }
+    "implement"        { return symbol(Calc.IMPLEMENT, 0, 9, "implement"); }
+    "requires"         { return symbol(Calc.REQUIRES, 0, 8, "requires"); }
+    "::"               { return symbol(Calc.COLON_COLON, 0, 2, "::"); }
+
     "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
 
     \"                 {

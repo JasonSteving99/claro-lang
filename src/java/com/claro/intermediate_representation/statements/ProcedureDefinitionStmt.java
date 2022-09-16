@@ -23,7 +23,7 @@ public class ProcedureDefinitionStmt extends Stmt {
 
   private static final String HIDDEN_RETURN_TYPE_VARIABLE_FLAG_NAME_FMT_STR = "$%sRETURNS";
 
-  public final String procedureName;
+  public String procedureName;
   private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysList;
   public final Function<ProcedureDefinitionStmt, TypeProvider> procedureTypeProvider;
