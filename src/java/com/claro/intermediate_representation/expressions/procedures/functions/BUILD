@@ -13,6 +13,7 @@ java_library(
     srcs = glob(["*FunctionCallExpr.java"]),
     deps = [
         "//:guava",
+        "//src/java/com/claro:claro_parser_exception",
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/expressions:expr",

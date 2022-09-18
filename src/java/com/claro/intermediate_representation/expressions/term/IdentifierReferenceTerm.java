@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 
 public class IdentifierReferenceTerm extends Term {
 
-  private final String identifier;
+  public final String identifier;
 
   public IdentifierReferenceTerm(String identifier, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(currentLine, currentLineNumber, startCol, endCol);

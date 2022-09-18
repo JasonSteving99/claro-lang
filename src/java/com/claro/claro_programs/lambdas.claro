@@ -1,3 +1,14 @@
+# Lambda Expr syntax does not carry type annotations, so their type signature must either be constrained by
+# its surrounding context, OR explicitly annotated.
+var firstLambda: function<string -> string> = x -> x;
+print(firstLambda("Claro supports lambdas!"));
+
+# You may alternatively cast the type of the lambda expression (which is used as a static type hint and does
+# not result in a runtime type cast).
+var secondLambda = (function<string -> string>) x -> x;
+print(secondLambda("And they're really easy to work with!"));
+
+
 consumer testPassingLambdasAsArgs(x: int, f: function<int -> int>) {
   print(f(x));
 }

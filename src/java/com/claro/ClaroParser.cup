@@ -1441,6 +1441,12 @@ maybe_blocking_procedure_types ::=
 
        RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/null);
     :}
+  | MAYBE_BLOCKING PROVIDER_FUNCTION_TYPE:p L_ANGLE_BRACKET:la builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
   ;
 
 lambda_function_expr ::=
@@ -2162,7 +2168,23 @@ function_call_expr ::=
        int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
        RESULT = new FunctionCallExpr(function_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
     :}
-  | IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET COLON_COLON IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+// TODO(steving) I am currently unaware of how to make this reduction stop conflicting with the basic less-than `<`.
+// TODO(steving) This is a really bad situation where a constraint in the lexer is potentially going to have an undo
+// TODO(steving) influence on the syntax of the language itself unless there's some way around this....
+//  | IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET COLON_COLON IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+//    {:
+//       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
+//       int startCol = min(function_nameleft, lleft, args.left, rleft);
+//       int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
+//       RESULT =
+//        new ContractFunctionCallExpr(
+//          contract_name.val,
+//          ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).val,
+//          function_name.val,
+//          ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(),
+//          currentLinesSupplier, rright, startCol, endCol);
+//    :}
+  | IDENTIFIER:contract_name COLON_COLON IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
     {:
        Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
        int startCol = min(function_nameleft, lleft, args.left, rleft);
@@ -2170,7 +2192,6 @@ function_call_expr ::=
        RESULT =
         new ContractFunctionCallExpr(
           contract_name.val,
-          ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).val,
           function_name.val,
           ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(),
           currentLinesSupplier, rright, startCol, endCol);

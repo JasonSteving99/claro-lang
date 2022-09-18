@@ -23,6 +23,7 @@ public class LambdaExpr extends Expr {
   private ProcedureDefinitionStmt delegateProcedureDefinitionStmt;
   // We'll also need to defer to an IdentifierReferenceTerm since we'll pass a reference to the lambda.
   private IdentifierReferenceTerm lambdaReferenceTerm;
+  private boolean alreadyAssertedTypes = false;
 
   // Support the following syntax:
   //   x -> {
@@ -87,80 +88,86 @@ public class LambdaExpr extends Expr {
   // function declaration site.
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
-    // Before we delegate to our ProcedureDefinitionStmt, we need to make sure that we're able to preserve
-    // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
-    Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;
-    boolean outerScopeSupportsReturnStmt = ReturnStmt.supportReturnStmt;
-    TypeProvider outerScopeExpectedReturnTypeProvider = null;
-    if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
-      outerScopeExpectedReturnTypeProvider = returnTypeReference.get();
-      returnTypeReference.set(
-          TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()));
-    }
+    if (!this.alreadyAssertedTypes) {
+      // Because lambda expressions involve instantiating a new procedure definition and adding it to the scopedheap
+      // it's actually important that this only runs once.
+      this.alreadyAssertedTypes = true;
 
-    if (this.argNameList.isEmpty()) {
-      // We have no args, so no need to pass anything to the ProcedureDefinitionStmt.
-      this.delegateProcedureDefinitionStmt =
-          new ProviderFunctionDefinitionStmt(
-              this.lambdaName,
-              BaseType.LAMBDA_PROVIDER_FUNCTION,
-              TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()),
-              LambdaExpr.this.stmtListNode
-          );
-    } else {
-      ImmutableList<Type> expectedArgTypeList = ((Types.ProcedureType) expectedExprType).getArgTypes();
-      // Make sure that we at least have the correct number of args given.
-      if (this.argNameList.size() != expectedArgTypeList.size()) {
-        throw ClaroTypeException.forWrongNumberOfArgsForLambdaDefinition(expectedExprType);
-      }
-
-      // Align the asserted Arg Types with the declared lambda arg names in order, so that we can check they're correct.
-      ImmutableMap.Builder<String, TypeProvider> argTypesMapBuilder =
-          ImmutableMap.builderWithExpectedSize(this.argNameList.size());
-      for (int i = 0; i < this.argNameList.size(); i++) {
-        argTypesMapBuilder.put(
-            this.argNameList.get(i),
-            TypeProvider.ImmediateTypeProvider.of(expectedArgTypeList.get(i))
-        );
-      }
-
-      // We need to pass those args to the ProcedureDefinitionStmt for validation.
+      // Before we delegate to our ProcedureDefinitionStmt, we need to make sure that we're able to preserve
+      // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
+      Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;
+      boolean outerScopeSupportsReturnStmt = ReturnStmt.supportReturnStmt;
+      TypeProvider outerScopeExpectedReturnTypeProvider = null;
       if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
+        outerScopeExpectedReturnTypeProvider = returnTypeReference.get();
+        returnTypeReference.set(
+            TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()));
+      }
+
+      if (this.argNameList.isEmpty()) {
+        // We have no args, so no need to pass anything to the ProcedureDefinitionStmt.
         this.delegateProcedureDefinitionStmt =
-            new FunctionDefinitionStmt(
+            new ProviderFunctionDefinitionStmt(
                 this.lambdaName,
-                BaseType.LAMBDA_FUNCTION,
-                argTypesMapBuilder.build(),
+                BaseType.LAMBDA_PROVIDER_FUNCTION,
                 TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()),
                 LambdaExpr.this.stmtListNode
             );
       } else {
-        this.delegateProcedureDefinitionStmt =
-            new ConsumerFunctionDefinitionStmt(
-                this.lambdaName,
-                BaseType.LAMBDA_CONSUMER_FUNCTION,
-                argTypesMapBuilder.build(),
-                LambdaExpr.this.stmtListNode
-            );
+        ImmutableList<Type> expectedArgTypeList = ((Types.ProcedureType) expectedExprType).getArgTypes();
+        // Make sure that we at least have the correct number of args given.
+        if (this.argNameList.size() != expectedArgTypeList.size()) {
+          throw ClaroTypeException.forWrongNumberOfArgsForLambdaDefinition(expectedExprType);
+        }
+
+        // Align the asserted Arg Types with the declared lambda arg names in order, so that we can check they're correct.
+        ImmutableMap.Builder<String, TypeProvider> argTypesMapBuilder =
+            ImmutableMap.builderWithExpectedSize(this.argNameList.size());
+        for (int i = 0; i < this.argNameList.size(); i++) {
+          argTypesMapBuilder.put(
+              this.argNameList.get(i),
+              TypeProvider.ImmediateTypeProvider.of(expectedArgTypeList.get(i))
+          );
+        }
+
+        // We need to pass those args to the ProcedureDefinitionStmt for validation.
+        if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
+          this.delegateProcedureDefinitionStmt =
+              new FunctionDefinitionStmt(
+                  this.lambdaName,
+                  BaseType.LAMBDA_FUNCTION,
+                  argTypesMapBuilder.build(),
+                  TypeProvider.ImmediateTypeProvider.of(((Types.ProcedureType) expectedExprType).getReturnType()),
+                  LambdaExpr.this.stmtListNode
+              );
+        } else {
+          this.delegateProcedureDefinitionStmt =
+              new ConsumerFunctionDefinitionStmt(
+                  this.lambdaName,
+                  BaseType.LAMBDA_CONSUMER_FUNCTION,
+                  argTypesMapBuilder.build(),
+                  LambdaExpr.this.stmtListNode
+              );
+        }
       }
+
+      // Now delegate to our internal ProcedureDefinitionStmt instance to see if it approves the types.
+      delegateProcedureDefinitionStmt.registerProcedureTypeProvider(scopedHeap);
+      delegateProcedureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
+
+      // Recover the existing state info about whether or not ReturnStmts are supported in the scope surrounding
+      // this LambdaExpr.
+      ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
+      ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
+      if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
+        returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
+      }
+
+      // Now to model the last thing we'll do during codegen, setup our lambda reference.
+      this.lambdaReferenceTerm =
+          new IdentifierReferenceTerm(this.lambdaName, currentLine, currentLineNumber, startCol, endCol);
+      lambdaReferenceTerm.assertExpectedExprType(scopedHeap, expectedExprType);
     }
-
-    // Now delegate to our internal ProcedureDefinitionStmt instance to see if it approves the types.
-    delegateProcedureDefinitionStmt.registerProcedureTypeProvider(scopedHeap);
-    delegateProcedureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
-
-    // Recover the existing state info about whether or not ReturnStmts are supported in the scope surrounding
-    // this LambdaExpr.
-    ReturnStmt.withinProcedureScope = outerScopeWithinProcedureScope;
-    ReturnStmt.supportReturnStmt = outerScopeSupportsReturnStmt;
-    if (((Types.ProcedureType) expectedExprType).hasReturnValue()) {
-      returnTypeReference.set(outerScopeExpectedReturnTypeProvider);
-    }
-
-    // Now to model the last thing we'll do during codegen, setup our lambda reference.
-    this.lambdaReferenceTerm =
-        new IdentifierReferenceTerm(this.lambdaName, currentLine, currentLineNumber, startCol, endCol);
-    lambdaReferenceTerm.assertExpectedExprType(scopedHeap, expectedExprType);
   }
 
   // It's invalid to initialize a variable to a lambda expression without declaring the type of that variable
@@ -169,7 +176,10 @@ public class LambdaExpr extends Expr {
   //   var f = (x) -> { return x; };
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    throw ClaroTypeException.forUndecidedTypeLeakMissingTypeDeclarationForLambdaInitialization();
+    if (!this.acceptUndecided) {
+      throw ClaroTypeException.forAmbiguousLambdaExprMissingTypeDeclarationForLambdaInitialization();
+    }
+    return Types.UNDECIDED;
   }
 
   @Override

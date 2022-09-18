@@ -31,6 +31,7 @@ claro_binary(
 claro_library(
     name = "contracts_compiled_claro",
     src = "contracts.claro",
+    debug = True,
 )
 
 claro_binary(

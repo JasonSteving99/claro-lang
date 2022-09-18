@@ -166,23 +166,69 @@ public class ProcedureDefinitionStmt extends Stmt {
       for (int i = 0; i < this.resolvedProcedureType.getArgTypes().size(); i++) {
         if (this.resolvedProcedureType.getAnnotatedBlockingGenericOverArgs().get().contains(i)) {
           // Generically attempting to accept a concrete blocking variant that the user gave for this arg.
+          String givenArgName = givenTypeProvidersByName.get(i).getKey();
           Types.ProcedureType maybeBlockingArgType =
               (Types.ProcedureType) this.resolvedProcedureType.getArgTypes().get(i);
-          Type nonBlockingVariantArgType =
-              Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
-                  maybeBlockingArgType.getArgTypes(),
-                  maybeBlockingArgType.getReturnType(),
-                  false
-              );
+
+          // Let's validate that the arg we're being asked to be blocking-generic over is *actually*
+          // maybe-blocking. It's possible the programmer was wrong here which would lead us to generate
+          // code that would appear not to follow the function's type signature (you'd be able to call
+          // the function with args that don't exactly match what's written in the function signature)
+          // even though it'd technically still be type safe.
+          if (maybeBlockingArgType.getAnnotatedBlocking() != null) {
+            throw ClaroTypeException.forInvalidUseOfBlockingGenericsOverArgNotMarkedMaybeBlocking(
+                this.procedureName, this.resolvedProcedureType, givenArgName, maybeBlockingArgType);
+          }
+
+          // We need to figure out which type to actually convert to.
+          Type nonBlockingVariantArgType;
+          Type blockingVariantArgType;
+          switch (maybeBlockingArgType.baseType()) {
+            case FUNCTION:
+              nonBlockingVariantArgType =
+                  Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      maybeBlockingArgType.getReturnType(),
+                      false
+                  );
+              blockingVariantArgType =
+                  Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      maybeBlockingArgType.getReturnType(),
+                      true
+                  );
+              break;
+            case CONSUMER_FUNCTION:
+              nonBlockingVariantArgType =
+                  Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      false
+                  );
+              blockingVariantArgType =
+                  Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                      maybeBlockingArgType.getArgTypes(),
+                      true
+                  );
+              break;
+            case PROVIDER_FUNCTION:
+              nonBlockingVariantArgType =
+                  Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                      maybeBlockingArgType.getReturnType(),
+                      false
+                  );
+              blockingVariantArgType =
+                  Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                      maybeBlockingArgType.getReturnType(),
+                      true
+                  );
+              break;
+            default:
+              throw new ClaroParserException("Internal Compiler Error: Grammar allowed a non-procedure type to be annotated blocking!");
+          }
+
+          // Now append the nonblocking and blocking variant arg types to their respective collections.
           nonBlockingVariantArgTypes.add(nonBlockingVariantArgType);
-          String givenArgName = givenTypeProvidersByName.get(i).getKey();
           nonBlockingVariantArgTypeProvidersByName.put(givenArgName, unused -> nonBlockingVariantArgType);
-          Type blockingVariantArgType =
-              Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
-                  maybeBlockingArgType.getArgTypes(),
-                  maybeBlockingArgType.getReturnType(),
-                  true
-              );
           blockingVariantArgTypes.add(blockingVariantArgType);
           blockingVariantArgTypeProvidersByName.put(givenArgName, unused -> blockingVariantArgType);
         } else {

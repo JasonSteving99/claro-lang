@@ -7,14 +7,15 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class ContractDefinitionStmt extends Stmt {
 
   private final String contractName;
 
   private boolean alreadyAssertedTypes = false;
-  final ImmutableList<String> typeParamNames;
-  final ImmutableList<ContractProcedureSignatureDefinitionStmt> declaredContractSignatures;
+  public final ImmutableList<String> typeParamNames;
+  public final ImmutableMap<String, ContractProcedureSignatureDefinitionStmt> declaredContractSignaturesByProcedureName;
 
   public ContractDefinitionStmt(
       String contractName,
@@ -23,7 +24,12 @@ public class ContractDefinitionStmt extends Stmt {
     super(ImmutableList.of());
     this.contractName = contractName;
     this.typeParamNames = typeParamNames;
-    this.declaredContractSignatures = declaredContractSignatures;
+    this.declaredContractSignaturesByProcedureName =
+        declaredContractSignatures.stream().collect(
+            ImmutableMap.toImmutableMap(
+                signature -> signature.procedureName,
+                signature -> signature
+            ));
   }
 
   @Override
@@ -59,7 +65,8 @@ public class ContractDefinitionStmt extends Stmt {
       }
 
       // Now I can validate each of the signatures defined within the contract body's scope.
-      for (ContractProcedureSignatureDefinitionStmt signatureDefinitionStmt : this.declaredContractSignatures) {
+      for (ContractProcedureSignatureDefinitionStmt signatureDefinitionStmt
+          : this.declaredContractSignaturesByProcedureName.values()) {
         signatureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
       }
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractName = null;
@@ -72,10 +79,7 @@ public class ContractDefinitionStmt extends Stmt {
           Types.$Contract.forContractNameTypeParamNamesAndProcedureNames(
               this.contractName,
               this.typeParamNames,
-              this.declaredContractSignatures
-                  .stream()
-                  .map(signature -> signature.procedureName)
-                  .collect(ImmutableList.toImmutableList())
+              this.declaredContractSignaturesByProcedureName.keySet().asList()
           ),
           this
       );

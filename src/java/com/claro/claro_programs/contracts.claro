@@ -2,40 +2,52 @@ contract Add<T, V, R> {
   function add(lhs: T, rhs: V) -> R;
 }
 
-
 implement Add<string, string, string> as ConcatStrings {
   function add(lhs: string, rhs: string) -> string {
     return "{lhs}{rhs}";
   }
 }
-print("Testing contract implementation Add<string, string, string>::add");
-print(Add<string, string, string>::add("Age: ", "twenty-eight"));
-#print("...again using inference.");
-#var string_string_string_res: string = Add::add("Age: ", "twenty-eight");
-#print(string_string_string_res);
-#
-#implement Add<string, int, string> as AppendIntToString {
-#  function add(lhs: string, rhs: int) -> string {
-#    return "{lhs}{rhs}";
-#  }
-#}
-#print("Testing contract implementation Add<string, int, string>::add");
-#print(Add<string, int, string>::add("Age: ", 28));
-#print("...again using inference.");
-#var string_int_string_res: string = Add::add("Age: ", 28);
-#print(string_int_string_res);
-#
+
 implement Add<int, int, int> as IntegerAddition {
   function add(lhs: int, rhs: int) -> int {
     return lhs + rhs;
   }
 }
-print("Testing contract implementation Add<int, int, int>::add");
-print(Add<int, int, int>::add(1, 99));
-#print("...again using inference.");
-#var int_int_int_res : int = Add::add(100, 28);
-#print(int_int_int_res);
-#
+
+alias IntFn : function<int -> int>
+
+implement Add<IntFn, int, IntFn> as ModifyIntFuncOutput {
+  function add(lhs: function<int -> int>, rhs: int) -> function<int -> int> {
+    return x -> lhs(x) + rhs;
+  }
+}
+
+print("--------------------------------------------------------------------------------");
+print("Testing contract implementation Add<string, string, string>::add");
+var stringResAgain: string = Add::add("Age: ", "twenty-eight");
+print(stringResAgain);
+
+print("--------------------------------------------------------------------------------");
+print("Testing contract implementation Add<string, string, string>::add");
+var intResAgain: int = Add::add(1, 99);
+print(intResAgain);
+
+print("--------------------------------------------------------------------------------");
+print("Testing contract implementation Add<function<int -> int>, int, function<int -> int>>::add");
+var modifiedFuncResAgain: IntFn = Add::add((IntFn) x -> x, 10);
+print(modifiedFuncResAgain(90));
+
+# This should give you a hint as to how Claro will utilize Contracts as the basis for Generics via
+# a clever but simple technique known as "monomorphization".
+function foo(i: int) -> int {
+  return Add::add(i, i);
+}
+function bar(s: string) -> string {
+  return Add::add(s, s);
+}
+print(foo(900000));
+print(bar("sup "));
+
 #implement Add<int, int, string> as IntegerAdditionFormattedAsString {
 #  function add(lhs: int, rhs: int) -> string {
 #    var intAdditionRes: int = Add<int, int, int>::add(lhs, rhs);
@@ -45,48 +57,48 @@ print(Add<int, int, int>::add(1, 99));
 #print("Testing contract implementation Add<int, int, string>::add");
 #print(Add<int, int, string>::add(1, 99));
 #print("...again using inference.");
-#var int_int_string_res: string = Add::add(100, 28);
-#print(int_int_string_res);
-#
+#var intintstringres: string = Add::add(100, 28);
+#print(intintstringres);
+
 #########################################################################
 ## DEMONSTRATE A GENERIC FUNCTION OVER REQUIRED CONTRACT IMPLEMENTATION.
 #########################################################################
 #
 #requires(Add<T,V,R>)
-#function pairwiseSum<T, V, static R>(t_tuple: tuple<T, T>, v_tuple: tuple<V, V>) -> tuple<R, R> {
-#  var res1: R = Add<T,V,R>::add(((T) t_tuple[0]), ((V) v_tuple[0]));
-#  var res2: R = Add<T,V,R>::add(((T) t_tuple[1]), ((V) v_tuple[1]));
+#function pairwiseSum<T, V, static R>(ttuple: tuple<T, T>, vtuple: tuple<V, V>) -> tuple<R, R> {
+#  var res1: R = Add<T,V,R>::add(((T) ttuple[0]), ((V) vtuple[0]));
+#  var res2: R = Add<T,V,R>::add(((T) ttuple[1]), ((V) vtuple[1]));
 #  return (res1, res2);
 #}
 #
 #print("Testing Generic function pairwiseSum<string, string, string>:");
-#var t_tuple: tuple<string, string> = ("Hello, generic ", "This is ");
-#var v_tuple: tuple<string, string> = ("Claro world!", "effing sweet.");
-#var firstGenericResult: tuple<string, string> = pairwiseSum(t_tuple, v_tuple);
+#var ttuple: tuple<string, string> = ("Hello, generic ", "This is ");
+#var vtuple: tuple<string, string> = ("Claro world!", "effing sweet.");
+#var firstGenericResult: tuple<string, string> = pairwiseSum(ttuple, vtuple);
 #print((string) firstGenericResult[0]);
 #print((string) firstGenericResult[1]);
 #
 #print("Testing Generic function pairwiseSum<string, int, string>:");
-#var t_tuple2: tuple<string, string> = ("Number of problems I got: ", "Generics ain't ");
-#var v_tuple2: tuple<int, int> = (99, 1);
-#var secondGenericResult: tuple<string, string> = pairwiseSum(t_tuple2, v_tuple2);
+#var ttuple2: tuple<string, string> = ("Number of problems I got: ", "Generics ain't ");
+#var vtuple2: tuple<int, int> = (99, 1);
+#var secondGenericResult: tuple<string, string> = pairwiseSum(ttuple2, vtuple2);
 #print((string) secondGenericResult[0]);
 #print((string) secondGenericResult[1]);
 #
 #print("Testing Generic function pairwiseSum<int, int, int>:");
-#var t_tuple3: tuple<int, int> = (1, 99);
-#var v_tuple3: tuple<int, int> = (99, 1);
-#var thirdGenericResult: tuple<int, int> = pairwiseSum(t_tuple3, v_tuple3);
+#var ttuple3: tuple<int, int> = (1, 99);
+#var vtuple3: tuple<int, int> = (99, 1);
+#var thirdGenericResult: tuple<int, int> = pairwiseSum(ttuple3, vtuple3);
 #print((string) thirdGenericResult[0]);
 #print((string) thirdGenericResult[1]);
 #
 #print("Testing Generic function pairwiseSum<int, int, string>:");
-#var t_tuple4: tuple<int, int> = (90, 909);
-#var v_tuple4: tuple<int, int> = (-999, 0);
-#var fourthGenericResult: tuple<string, string> = pairwiseSum(t_tuple4, v_tuple4);
+#var ttuple4: tuple<int, int> = (90, 909);
+#var vtuple4: tuple<int, int> = (-999, 0);
+#var fourthGenericResult: tuple<string, string> = pairwiseSum(ttuple4, vtuple4);
 #print((string) fourthGenericResult[0]);
 #print((string) fourthGenericResult[1]);
-#var fourthGenericResultWithoutInference = pairwiseSum<int, int, string>(t_tuple4, v_tuple4);
+#var fourthGenericResultWithoutInference = pairwiseSum<int, int, string>(ttuple4, vtuple4);
 #print(fourthGenericResultWithoutInference[0]);
 #print(fourthGenericResultWithoutInference[1]);
 

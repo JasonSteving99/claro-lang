@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 public class ContractProcedureImplementationStmt extends Stmt {
@@ -48,12 +49,13 @@ public class ContractProcedureImplementationStmt extends Stmt {
                      // we can't just use arbitrary strings here. This needs to be formatted to only use
                      // characters valid in a Java identifier.
                      typeString
-                         .replaceAll("<", "$LANGLE")
-                         .replaceAll(">", "$RANGLE")
-                         .replaceAll("\\|", "$BAR")
-                         .replaceAll("->", "$ARR")
-                         .replaceAll("\\[", "$LBRAC")
-                         .replaceAll("]", "$RBRAC"))
+                         .replaceAll("\\s", Matcher.quoteReplacement(""))
+                         .replaceAll("->", Matcher.quoteReplacement("$ARR"))
+                         .replaceAll("<", Matcher.quoteReplacement("$LANGLE"))
+                         .replaceAll(">", Matcher.quoteReplacement("$RANGLE"))
+                         .replaceAll("\\|", Matcher.quoteReplacement("$BAR"))
+                         .replaceAll("\\[", Matcher.quoteReplacement("$LBRAC"))
+                         .replaceAll("]", Matcher.quoteReplacement("$RBRAC")))
             .collect(Collectors.joining("_", "_", "_")),
         procedureName
     );
@@ -73,11 +75,7 @@ public class ContractProcedureImplementationStmt extends Stmt {
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     ImmutableMap<String, ContractProcedureSignatureDefinitionStmt> contractSignaturesByProcedureName =
-        this.contractDefinitionStmt.declaredContractSignatures.stream()
-            .collect(ImmutableMap.toImmutableMap(
-                declaredSignature -> declaredSignature.procedureName,
-                declaredSignature -> declaredSignature
-            ));
+        this.contractDefinitionStmt.declaredContractSignaturesByProcedureName;
     ContractProcedureSignatureDefinitionStmt contractSignature =
         contractSignaturesByProcedureName.get(this.procedureName);
 

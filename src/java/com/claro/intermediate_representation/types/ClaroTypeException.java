@@ -29,7 +29,7 @@ public class ClaroTypeException extends Exception {
   private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION =
       "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
   private static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
-      "The type of this lambda is UNDECIDED at compile-time! You must explicitly declare the type of a variable with a lambda expression assigned to it to assert this type statically at compile-time.";
+      "Ambiguous Lambda Expression Type: Type hint required. When a lambda Expr's type is not constrained by its context, the type must be statically declared via either a type annotation, or a cast.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
       "Invalid cast: Found <%s> which cannot be converted to <%s>.";
   private static final String INVALID_MEMBER_REFERENCE = "Invalid Member Reference: %s has no such member %s.";
@@ -66,15 +66,17 @@ public class ClaroTypeException extends Exception {
   private static final String BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
       "Procedure %s %s is blocking but is missing required explicit blocking annotation.";
   private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_BLOCKING_PROCEDURE =
-      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed blocking.";
+      "Illegal use of blocking-generics on procedure `%s %s`. The procedure is guaranteed blocking.";
   private static final String PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE_MISSING_BLOCKING_ANNOTATION =
       "Procedure %s %s depends on blocking procedures %s but is missing required explicit blocking annotation.";
   private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_PROCEDURE_DEPENDING_ON_BLOCKING_PROCEDURE =
-      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed blocking due to dependencies on blocking procedures %s.";
+      "Illegal use of blocking-generics on procedure `%s %s`. The procedure is guaranteed blocking due to dependencies on blocking procedures %s.";
   private static final String INVALID_BLOCKING_ANNOTATION_ON_NON_BLOCKING_PROCEDURE_DEFINITION =
-      "Non-blocking procedure %s %s must not be annotated as blocking.";
+      "Non-blocking procedure `%s %s` must not be annotated as blocking.";
   private static final String INVALID_USE_OF_BLOCKING_GENERICS_ON_NON_BLOCKING_PROCEDURE_DEFINITION =
-      "Illegal use of blocking-generics on procedure %s %s. The procedure is guaranteed non-blocking.";
+      "Illegal use of blocking-generics on procedure `%s %s`. The procedure is guaranteed non-blocking.";
+  private static final String INVALID_USE_OF_BLOCKING_GENERICS_OVER_ARG_NOT_MARKED_MAYBE_BLOCKING =
+      "Illegal use of blocking-generics on procedure `%s %s`. Marked blocking-generic over arg %s %s which is not marked with the required `blocking?` annotation.";
   private static final String ILLEGAL_NODE_REFERENCE_CYCLE_IN_GRAPH_PROCEDURE =
       "Illegal node reference cycle detected within Graph procedure <%s>. Through transitive node references, node <%s> depends cyclically on itself. Graph nodes must represent a DAG.";
   private static final String GRAPH_CONSUMER_ROOT_NODE_IS_NOT_CONSUMER_FN =
@@ -98,7 +100,7 @@ public class ClaroTypeException extends Exception {
   private static final String CONTRACT_REFERENCE_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
       "Invalid Contract Reference: %s does not have the correct number of type params required by %s.";
   private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT_PROCEDURE =
-      "Invalid Contract Procedure Reference: Procedure %s<%s>::%s is not defined in the referenced contract.";
+      "Invalid Contract Procedure Reference: Contract %s<%s> does not define any procedure named `%s`.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -168,7 +170,7 @@ public class ClaroTypeException extends Exception {
     return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION);
   }
 
-  public static ClaroTypeException forUndecidedTypeLeakMissingTypeDeclarationForLambdaInitialization() {
+  public static ClaroTypeException forAmbiguousLambdaExprMissingTypeDeclarationForLambdaInitialization() {
     return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION);
   }
 
@@ -402,6 +404,19 @@ public class ClaroTypeException extends Exception {
             INVALID_USE_OF_BLOCKING_GENERICS_ON_NON_BLOCKING_PROCEDURE_DEFINITION,
             procedureName,
             resolvedProcedureType
+        )
+    );
+  }
+
+  public static RuntimeException forInvalidUseOfBlockingGenericsOverArgNotMarkedMaybeBlocking(
+      String procedureName, Type resolvedProcedureType, String givenArgName, Type actualArgType) {
+    return new RuntimeException(
+        String.format(
+            INVALID_USE_OF_BLOCKING_GENERICS_OVER_ARG_NOT_MARKED_MAYBE_BLOCKING,
+            procedureName,
+            resolvedProcedureType,
+            givenArgName,
+            actualArgType
         )
     );
   }

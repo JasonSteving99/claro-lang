@@ -21,6 +21,7 @@ public class ContractImplementationStmt extends Stmt {
   private ImmutableMap<String, Type> concreteImplementationTypeParams;
   private String canonicalImplementationName;
   private ContractDefinitionStmt contractDefinitionStmt;
+  private ImmutableList<String> concreteTypeStrings;
 
   public ContractImplementationStmt(
       String contractName,
@@ -48,6 +49,28 @@ public class ContractImplementationStmt extends Stmt {
     }
     this.concreteImplementationTypeParams = concreteImplementationTypeParamsBuilder.build();
 
+    // Now validate that this isn't a duplicate of another existing implementation of this contract.
+    if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
+      throw new RuntimeException(
+          ClaroTypeException.forDuplicateContractImplementation(
+              getContractTypeString(this.implementationName, concreteTypeStrings),
+              getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), concreteTypeStrings)
+          ));
+    }
+
+    // Register this Contract Implementation for these types so that the implemented procedures can
+    // be de-referenced through the contract impl by type inference.
+    this.concreteTypeStrings = this.concreteImplementationTypeParams.values().stream()
+        .map(Type::toString)
+        .collect(ImmutableList.toImmutableList());
+    this.canonicalImplementationName = getContractTypeString(this.contractName, concreteTypeStrings);
+    scopedHeap.putIdentifierValue(
+        this.canonicalImplementationName,
+        Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
+            this.contractName, this.concreteImplementationTypeParams.values().asList()),
+        this.implementationName
+    );
+
     // Now register the actual procedure defs in this contract implementation.
     for (ContractProcedureImplementationStmt implementationStmt : this.contractProcedureImplementationStmts) {
       implementationStmt.registerProcedureTypeProvider(
@@ -69,26 +92,11 @@ public class ContractImplementationStmt extends Stmt {
         throw ClaroTypeException.forUnexpectedIdentifierRedeclaration(this.implementationName);
       }
 
-      // Set the canonical implementation name so that this can be referenced later simply by type.
-      ImmutableList<String> concreteTypeStrings =
-          this.concreteImplementationTypeParams.values().stream()
-              .map(Type::toString)
-              .collect(ImmutableList.toImmutableList());
-      this.canonicalImplementationName = getContractTypeString(this.contractName, concreteTypeStrings);
-
       // Check that there are the correct number of type params.
       if (this.contractDefinitionStmt.typeParamNames.size() != this.concreteImplementationTypeParams.size()) {
         throw ClaroTypeException.forContractImplementationWithWrongNumberOfTypeParams(
             getContractTypeString(this.implementationName, concreteTypeStrings),
             getContractTypeString(this.contractName, this.contractDefinitionStmt.typeParamNames)
-        );
-      }
-
-      // Now validate that this isn't a duplicate of another existing implementation of this contract.
-      if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
-        throw ClaroTypeException.forDuplicateContractImplementation(
-            getContractTypeString(this.implementationName, concreteTypeStrings),
-            getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), concreteTypeStrings)
         );
       }
 
@@ -99,9 +107,7 @@ public class ContractImplementationStmt extends Stmt {
                        contractProcedureImplementationStmt.procedureName)
               .collect(ImmutableSet.toImmutableSet());
       ImmutableSet<String> contractProcedureNamesSet =
-          this.contractDefinitionStmt.declaredContractSignatures.stream()
-              .map(contractProcedureSignatureDefinitionStmt -> contractProcedureSignatureDefinitionStmt.procedureName)
-              .collect(ImmutableSet.toImmutableSet());
+          this.contractDefinitionStmt.declaredContractSignaturesByProcedureName.keySet();
       if (!implementedProcedureNamesSet.equals(contractProcedureNamesSet)) {
         // We shouldn't be missing any procedure definitions.
         Sets.SetView<String> missingContractProcedures =

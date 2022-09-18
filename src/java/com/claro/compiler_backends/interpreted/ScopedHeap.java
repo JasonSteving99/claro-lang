@@ -201,7 +201,7 @@ public class ScopedHeap {
   // predicate. This method also takes responsibility of honoring the unique Scoping rules applicable to
   // each Scope.ScopeType so this method's behavior differs based on the ScopeType of the current (and outer)
   // Scopes to simulate visibility rules. Namely, once a FUNCTION_SCOPE is reached, it will ignore any
-  // non-Function-Type identifiers that it finds outside.
+  // non-Function-Type (or non-Contract-Type) identifiers that it finds outside.
   private Optional<Integer> findScopeStackLevel(Function<Scope, Boolean> checkScopeLevelFn, String identifier) {
     // Start searching first in the innermost scope, that is, the last map in our stack.
     int scopeLevel = scopeStack.size();
@@ -224,8 +224,10 @@ public class ScopedHeap {
                 // In either of these cases, we should accept Function type references and Type definitions.
                 return Optional.of(scopeLevel);
               } else if (pastFunctionScopeBoundary.isPresent()) {
-                // Functions may also reference Modules defined in outer scopes.
-                if (identifierData.type.baseType().equals(BaseType.MODULE)) {
+                // Functions may also reference Modules or Contracts defined in outer scopes.
+                ImmutableSet<BaseType> allowedNonFunctionTypeReferences =
+                    ImmutableSet.of(BaseType.MODULE, BaseType.$CONTRACT, BaseType.$CONTRACT_IMPLEMENTATION);
+                if (allowedNonFunctionTypeReferences.contains(identifierData.type.baseType())) {
                   return Optional.of(scopeLevel);
                 }
                 return Optional.empty();

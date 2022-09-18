@@ -19,8 +19,8 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   private final boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
 
-  private ImmutableList<GenericSignatureType> resolvedArgTypes;
-  private Optional<GenericSignatureType> resolvedOutputType;
+  public ImmutableList<GenericSignatureType> resolvedArgTypes;
+  public Optional<GenericSignatureType> resolvedOutputType;
 
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
