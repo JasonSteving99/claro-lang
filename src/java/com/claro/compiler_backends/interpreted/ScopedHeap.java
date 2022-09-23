@@ -131,7 +131,7 @@ public class ScopedHeap {
 
   public void deleteIdentifierValue(String identifier) {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
-    optionalIdentifierScopeLevel.map(
+    optionalIdentifierScopeLevel.ifPresent(
         scopeLevel -> scopeStack.elementAt(scopeLevel).scopedSymbolTable.remove(identifier)
     );
   }
