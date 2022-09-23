@@ -2,10 +2,7 @@ package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.statements.ModuleDefinitionStmt;
-import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
-import com.claro.intermediate_representation.statements.Stmt;
-import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
@@ -101,6 +98,9 @@ public class ProgramNode {
     // CONTRACT TYPE VALIDATION PHASE:
     performContractTypeValidationPhase(stmtListNode, scopedHeap);
 
+    // GENERIC PROCEDURE TYPE VALIDATION PHASE:
+    performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
     try {
@@ -183,6 +183,9 @@ public class ProgramNode {
     // CONTRACT TYPE VALIDATION PHASE:
     performContractTypeValidationPhase(stmtListNode, scopedHeap);
 
+    // GENERIC PROCEDURE TYPE VALIDATION PHASE:
+    performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
     // Validate all types in the entire remaining AST before execution.
     try {
       // TYPE VALIDATION PHASE:
@@ -257,6 +260,28 @@ public class ProgramNode {
     while (currStmtListNode != null) {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
       if (currStmt instanceof ContractImplementationStmt) {
+        try {
+          currStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
+  }
+
+  private void performGenericProcedureTypeValidationPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof GenericFunctionDefinitionStmt) {
         try {
           currStmt.assertExpectedExprTypes(scopedHeap);
         } catch (ClaroTypeException e) {

@@ -3,11 +3,16 @@ package com.claro.intermediate_representation.statements.contracts;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 public class ContractDefinitionStmt extends Stmt {
 
@@ -16,6 +21,9 @@ public class ContractDefinitionStmt extends Stmt {
   private boolean alreadyAssertedTypes = false;
   public final ImmutableList<String> typeParamNames;
   public final ImmutableMap<String, ContractProcedureSignatureDefinitionStmt> declaredContractSignaturesByProcedureName;
+
+  public static Map<String, ArrayList<ImmutableMap<String, Type>>> contractImplementationsByContractName =
+      Maps.newHashMap();
 
   public ContractDefinitionStmt(
       String contractName,
@@ -42,6 +50,8 @@ public class ContractDefinitionStmt extends Stmt {
           !scopedHeap.isIdentifierDeclared(this.contractName),
           String.format("Unexpected redeclaration of contract %s.", this.contractName)
       );
+      // Setup an empty set to collect all implementations in.
+      ContractDefinitionStmt.contractImplementationsByContractName.put(this.contractName, new ArrayList<>());
 
       // Then, validate that none of the generic type param names are in use.
       for (String typeParamName : this.typeParamNames) {
@@ -57,7 +67,6 @@ public class ContractDefinitionStmt extends Stmt {
       }
 
       // Before anything else I need to setup the symbol table to include placeholder types for the generic params.
-      scopedHeap.enterNewScope();
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractName = this.contractName;
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames = this.typeParamNames;
       for (String typeParamName : this.typeParamNames) {
@@ -69,9 +78,12 @@ public class ContractDefinitionStmt extends Stmt {
           : this.declaredContractSignaturesByProcedureName.values()) {
         signatureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
       }
+      // Clean up the temporary generic type defs from the scoped heap.
+      for (String typeParamName : this.typeParamNames) {
+        scopedHeap.deleteIdentifierValue(typeParamName);
+      }
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractName = null;
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames = null;
-      scopedHeap.exitCurrScope();
 
       // All the types check out, I can safely add this contract to the symbol table!
       scopedHeap.putIdentifierValue(

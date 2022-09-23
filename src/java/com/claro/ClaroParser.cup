@@ -236,7 +236,7 @@ nonterminal FloatTerm                          float;
 nonterminal IntegerTerm                        integer;
 nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
-nonterminal StmtListNode                       stmts_and_module_defs_list;
+nonterminal StmtListNode                       stmts_and_defs_list;
 nonterminal ListExpr                           list;
 nonterminal TupleExpr                          tuple;
 nonterminal CollectionSubscriptExpr            collection_subscript;
@@ -260,6 +260,7 @@ nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
+nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
@@ -281,6 +282,9 @@ nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> cont
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
 nonterminal ContractImplementationStmt         contract_implementation_stmt;
 nonterminal ImmutableList.Builder<ContractProcedureImplementationStmt> contract_implementations_list;
+// Unfortunately IntelliJ is starting to take a dump on this file since it's gotten massive, so it will no longer
+// correctly parse this type even though JCup and Java are handling the file like a champ.
+nonterminal ImmutableMap.Builder/*<String, ImmutableList<Types.$GenericTypeParam>>*/  required_contracts;
 nonterminal PipeChainStmt                      pipe_chain_stmt;
 // This is just because Java is hot garbage and doesn't have tuples. The first entry will be a sink stmt.
 // The second entry will be an ImmutableList.Builder<Expr>. The Expr will be required to contain some
@@ -334,26 +338,36 @@ precedence left WHILE;
 
 // This is where the grammar starts.
 program ::=
-    stmts_and_module_defs_list:s
+    stmts_and_defs_list:s
     {:
        RESULT = new ProgramNode(s, package_string, generatedClassName);
     :}
   ;
 
 // TODO(steving) Add procedure defs to this target so that they also can only be used at the top level.
-stmts_and_module_defs_list ::=
-    module_definition_stmt:m stmts_and_module_defs_list:tail
-    {: RESULT = new StmtListNode(m, tail); :}
-  | contract_definition_stmt:c stmts_and_module_defs_list:tail
-    {: RESULT = new StmtListNode(c, tail); :}
-  | contract_implementation_stmt:c stmts_and_module_defs_list:tail
-    {: RESULT = new StmtListNode(c, tail); :}
-  | stmt:s stmts_and_module_defs_list:tail
+stmts_and_defs_list ::=
+    stmt:s stmts_and_defs_list:tail
     {: RESULT = new StmtListNode(s, tail); :}
+  | module_definition_stmt:m stmts_and_defs_list:tail
+    {: RESULT = new StmtListNode(m, tail); :}
+  | contract_definition_stmt:c stmts_and_defs_list:tail
+    {: RESULT = new StmtListNode(c, tail); :}
+  | contract_implementation_stmt:c stmts_and_defs_list:tail
+    {: RESULT = new StmtListNode(c, tail); :}
+  | generic_function_definition_stmt:f stmts_and_defs_list:tail
+    {: RESULT = new StmtListNode(f, tail); :}
+
+  // We'll allow files with only a single one of these following stmts as well.
   | stmt:s
     {: RESULT = new StmtListNode(s); :}
   | module_definition_stmt:m
     {: RESULT = new StmtListNode(m); :}
+  | contract_definition_stmt:c
+    {: RESULT = new StmtListNode(c); :}
+  | contract_implementation_stmt:c
+    {: RESULT = new StmtListNode(c); :}
+  | generic_function_definition_stmt:f
+    {: RESULT = new StmtListNode(f); :}
   ;
 
 stmt_list ::=
@@ -1402,6 +1416,24 @@ function_definition_stmt ::=
     :}
   ;
 
+generic_function_definition_stmt ::=
+   REQUIRES LPAR required_contracts:required_contracts RPAR FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(name.val, (ImmutableMap<String,ImmutableList<Types.$GenericTypeParam>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+   :}
+  ;
+
 generic_blocking_on ::=
     BLOCKING COLON identifier_bar_sep_list:i
     {:
@@ -1446,6 +1478,25 @@ maybe_blocking_procedure_types ::=
        LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
 
        RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(outputTypeLexedVal.val.resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  ;
+
+// TODO(steving) I need to enable generic functions to be generic over only a partial subset of the required
+// TODO(steving) Contract's type params.
+required_contracts ::=
+    IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET COMMA required_contracts:tail
+    {:
+      ImmutableList<Types.$GenericTypeParam> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = tail.put(contract_name.val, genericTypesList);
+    :}
+  | IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET
+    {:
+      ImmutableList<Types.$GenericTypeParam> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = ImmutableMap.<String, ImmutableList<Types.$GenericTypeParam>>builder().put(contract_name.val, genericTypesList);
     :}
   ;
 

@@ -49,13 +49,16 @@ public class ContractProcedureImplementationStmt extends Stmt {
                      // we can't just use arbitrary strings here. This needs to be formatted to only use
                      // characters valid in a Java identifier.
                      typeString
-                         .replaceAll("\\s", Matcher.quoteReplacement(""))
+                         .replaceAll("\\s", Matcher.quoteReplacement("$SPACE"))
                          .replaceAll("->", Matcher.quoteReplacement("$ARR"))
                          .replaceAll("<", Matcher.quoteReplacement("$LANGLE"))
                          .replaceAll(">", Matcher.quoteReplacement("$RANGLE"))
                          .replaceAll("\\|", Matcher.quoteReplacement("$BAR"))
                          .replaceAll("\\[", Matcher.quoteReplacement("$LBRAC"))
-                         .replaceAll("]", Matcher.quoteReplacement("$RBRAC")))
+                         .replaceAll("]", Matcher.quoteReplacement("$RBRAC"))
+                         .replaceAll("\\(", Matcher.quoteReplacement("$LPAR"))
+                         .replaceAll("\\)", Matcher.quoteReplacement("$RPAR"))
+                         .replaceAll(",", Matcher.quoteReplacement("$COMMA")))
             .collect(Collectors.joining("_", "_", "_")),
         procedureName
     );

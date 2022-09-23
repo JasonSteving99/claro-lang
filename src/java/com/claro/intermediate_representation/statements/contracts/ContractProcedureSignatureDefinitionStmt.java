@@ -80,13 +80,37 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
         });
 
     // Now put the signature in the scoped heap so that we can validate it's not reused in this contract.
-    scopedHeap.putIdentifierValue(normalizedProcedureName, null);
+    Type procedureType;
+    if (this.resolvedArgTypes.size() > 0) {
+      if (this.resolvedOutputType.isPresent()) {
+        procedureType = Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+            this.resolvedArgTypes.stream()
+                .map(GenericSignatureType::toType)
+                .collect(ImmutableList.toImmutableList()),
+            this.resolvedOutputType.get().toType(),
+            /*explicitlyAnnotatedBlocking=*/false
+        );
+      } else { // Consumer.
+        procedureType = Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+            this.resolvedArgTypes.stream()
+                .map(GenericSignatureType::toType)
+                .collect(ImmutableList.toImmutableList()),
+            /*explicitlyAnnotatedBlocking=*/false
+        );
+      }
+    } else { // Provider.
+      procedureType = Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+          this.resolvedOutputType.get().toType(),
+          /*explicitlyAnnotatedBlocking=*/false
+      );
+    }
+    scopedHeap.putIdentifierValue(normalizedProcedureName, procedureType);
     scopedHeap.markIdentifierUsed(normalizedProcedureName);
   }
 
   public static String getFormattedInternalContractProcedureName(String procedureName) {
     return String.format(
-        "%s$::%s",
+        "$%s::%s",
         InternalStaticStateUtil.ContractDefinitionStmt_currentContractName,
         procedureName
     );
@@ -150,6 +174,13 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     public static GenericSignatureType forResolvedType(Type resolvedType) {
       return new AutoValue_ContractProcedureSignatureDefinitionStmt_GenericSignatureType(
           Optional.of(resolvedType), Optional.empty());
+    }
+
+    public Type toType() {
+      if (getOptionalResolvedType().isPresent()) {
+        return getOptionalResolvedType().get();
+      }
+      return Types.$GenericTypeParam.forTypeParamName(getOptionalGenericTypeParamName().get());
     }
   }
 }

@@ -259,6 +259,12 @@ public final class Types {
     // site. Instead, at the call-site, should check for an appropriate concrete type.
     public abstract Optional<ImmutableSet<Integer>> getAnnotatedBlockingGenericOverArgs();
 
+    // In case this is a generic procedure, indicate the names of the generic args here.
+    public abstract Optional<ImmutableList<String>> getGenericProcedureArgNames();
+
+    // In case this is a generic procedure that has annotated required contract implementations.
+    public abstract Optional<ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>>> getOptionalRequiredContractNamesToGenericArgs();
+
     // When comparing Types we don't ever want to care about *names* (or other metadata), these are meaningless to the
     // compiler and should be treated equivalently to a user comment in terms of the program's semantic execution. So
     // Make these fields *ignored* by AutoValue so that we can compare function type equality.
@@ -382,6 +388,21 @@ public final class Types {
           Stmt procedureDefinitionStmt,
           Boolean explicitlyAnnotatedBlocking,
           Optional<ImmutableSet<Integer>> genericBlockingOnArgs) {
+        return FunctionType.forArgsAndReturnTypes(argTypes, returnType, overrideBaseType, directUsedInjectedKeys, procedureDefinitionStmt, explicitlyAnnotatedBlocking, genericBlockingOnArgs, Optional
+            .empty(), Optional.empty());
+      }
+
+      // Factory method for a function that takes args and returns a value.
+      public static FunctionType forArgsAndReturnTypes(
+          ImmutableList<Type> argTypes,
+          Type returnType,
+          BaseType overrideBaseType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Boolean explicitlyAnnotatedBlocking,
+          Optional<ImmutableSet<Integer>> genericBlockingOnArgs,
+          Optional<ImmutableList<String>> optionalGenericProcedureArgNames,
+          Optional<ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>>> optionalRequiredContractNamesToGenericArgs) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -389,7 +410,9 @@ public final class Types {
             argTypes,
             returnType,
             explicitlyAnnotatedBlocking,
-            genericBlockingOnArgs
+            genericBlockingOnArgs,
+            optionalGenericProcedureArgNames,
+            optionalRequiredContractNamesToGenericArgs
         );
 
         functionType.autoValueIgnoredHasArgs.set(true);
@@ -422,6 +445,8 @@ public final class Types {
             argTypes,
             returnType,
             explicitlyAnnotatedBlocking,
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
 
@@ -515,7 +540,27 @@ public final class Types {
         return String.format(
             fmtStr.toString(),
             collectToArgTypesListFormatFn.apply(this.getArgTypes()),
-            this.getReturnType()
+            this.getReturnType(),
+            this.getGenericProcedureArgNames()
+                .map(
+                    genArgNames ->
+                        genArgNames.stream()
+                            .collect(Collectors.joining(", ", " Generic Over {", "}")))
+                .orElse("")
+            + this.getOptionalRequiredContractNamesToGenericArgs()
+                .map(requiredContracts ->
+                         requiredContracts.entrySet().stream()
+                             .map(entry ->
+                                      String.format(
+                                          "%s<%s>",
+                                          entry.getKey(),
+                                          entry.getValue()
+                                              .stream()
+                                              .map(Type::toString)
+                                              .collect(Collectors.joining(", "))
+                                      ))
+                             .collect(Collectors.joining(", ", " Requiring Impls for Contracts {", "}")))
+                .orElse("")
         );
       }
 
@@ -552,6 +597,9 @@ public final class Types {
             ImmutableList.of(),
             returnType,
             explicitlyAnnotatedBlocking,
+            Optional.empty(),
+            // Actually there's no such thing as a generic provider function, it's literally not possible.
+            Optional.empty(),
             Optional.empty()
         );
 
@@ -575,6 +623,8 @@ public final class Types {
             ImmutableList.of(),
             returnType,
             explicitlyAnnotatedBlocking,
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
 
@@ -717,7 +767,9 @@ public final class Types {
             BaseType.CONSUMER_FUNCTION,
             argTypes,
             explicitlyAnnotatedBlocking,
-            genericBlockingOnArgs
+            genericBlockingOnArgs,
+            Optional.empty(), // TODO(steving) Implement generic consumer functions.
+            Optional.empty() // TODO(steving) Implement generic consumer functions.
         );
 
         consumerType.autoValueIgnoredHasArgs.set(true);
@@ -741,6 +793,8 @@ public final class Types {
             BaseType.CONSUMER_FUNCTION,
             argTypes,
             explicitlyAnnotatedBlocking,
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
 
@@ -891,6 +945,14 @@ public final class Types {
     @Override
     public String getJavaSourceClaroType() {
       throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          this.getTypeParamName()
+      );
     }
   }
 

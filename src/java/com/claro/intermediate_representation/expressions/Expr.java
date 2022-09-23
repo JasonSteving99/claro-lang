@@ -54,7 +54,9 @@ public abstract class Expr extends Node {
       Type validatedExprType = this.getValidatedExprType(scopedHeap);
       this.assertNoUndecidedTypeLeak(validatedExprType, expectedExprType);
 
-      if (!validatedExprType.equals(expectedExprType)) {
+      if (!validatedExprType.equals(expectedExprType)
+          && !(expectedExprType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)
+               && validatedExprType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
         // If a node happens to support some forms of type coercion based on programmer-asserted type annotations,
         // then they should override this method to potentially coerce the expr into the desired type as necessary.
         if (coerceExprToExpectedType(expectedExprType, validatedExprType, scopedHeap)) {

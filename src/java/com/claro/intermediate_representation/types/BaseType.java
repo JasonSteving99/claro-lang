@@ -15,9 +15,9 @@ public enum BaseType {
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),
   ARRAY,
-  LIST("list<%s>", "ClaroList<%s>"), // Linked. TODO(steving) Make this linked.
+  LIST("[%s]", "ClaroList<%s>"), // Linked. TODO(steving) Make this linked.
   // Immutable heterogeneous Array.
-  TUPLE("tuple<%s>", "ClaroTuple"),
+  TUPLE("(%s)", "ClaroTuple"),
   IMMUTABLE_MAP,
   MAP,
   BUILDER(
@@ -89,7 +89,7 @@ public enum BaseType {
   // A `function` w/o any other modifier (e.g. consumer/provider) is one that takes args
   // and returns some value.
   FUNCTION(
-      "function<%s -> %s>",
+      "function<%s -> %s>%s",
       "ClaroFunction<%s>",
       "private static final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
@@ -260,7 +260,7 @@ public enum BaseType {
 
   // Generic Type Param and Contract are Types that are only modeled internally and shouldn't appear in generated output
   // or in any other user observable way.
-  $GENERIC_TYPE_PARAM("$GENERIC_TYPE_PARAM", (String) null, (String) null),
+  $GENERIC_TYPE_PARAM("%s", (String) null, (String) null),
   $CONTRACT("contract %s<%s>", (String) null, (String) null),
   $CONTRACT_IMPLEMENTATION("$CONTRACT_IMPLEMENTATION", (String) null, (String) null),
   ;

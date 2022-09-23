@@ -129,6 +129,13 @@ public class ScopedHeap {
     scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
   }
 
+  public void deleteIdentifierValue(String identifier) {
+    Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
+    optionalIdentifierScopeLevel.map(
+        scopeLevel -> scopeStack.elementAt(scopeLevel).scopedSymbolTable.remove(identifier)
+    );
+  }
+
   // For use only during the type-checking phase.
   public void observeNewScope(boolean beginIdentifierInitializationBranchInspection) {
     observeNewScope(beginIdentifierInitializationBranchInspection, Scope.ScopeType.DEFAULT_SCOPE);

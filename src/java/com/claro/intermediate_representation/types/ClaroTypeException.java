@@ -96,11 +96,15 @@ public class ClaroTypeException extends Exception {
   private static final String CONTRACT_PROCEDURE_IMPLEMENTATION_DOES_NOT_MATCH_REQUIRED_SIGNATURE =
       "Invalid Contract Implementation: Found the following definition of %s::%s -\n\t\t%s\n\tbut requires:\n\t\t%s";
   private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT =
-      "Invalid Contract Reference: Contract %s<%s> is not defined.";
+      "Invalid Contract Reference: Contract %s is not defined.";
   private static final String CONTRACT_REFERENCE_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
       "Invalid Contract Reference: %s does not have the correct number of type params required by %s.";
   private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT_PROCEDURE =
       "Invalid Contract Procedure Reference: Contract %s<%s> does not define any procedure named `%s`.";
+  private static final String GENERIC_PROCEDURE_REQUIRES_UNDEFINED_CONTRACT =
+      "Invalid Required Contract: Generic Procedure `%s` is attempting to require undefined contract `%s`.";
+  private static final String GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
+      "Invalid Required Contract: `%s` does not have the correct number of type params required by `%s`.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -508,12 +512,11 @@ public class ClaroTypeException extends Exception {
         ));
   }
 
-  public static ClaroTypeException forReferencingUnknownContract(String contractName, ImmutableList<Type> concreteTypes) {
+  public static ClaroTypeException forReferencingUnknownContract(String contractName) {
     return new ClaroTypeException(
         String.format(
             INVALID_REFERENCE_TO_UNDEFINED_CONTRACT,
-            contractName,
-            concreteTypes.stream().map(Type::toString).collect(Collectors.joining(", "))
+            contractName
         ));
   }
 
@@ -532,6 +535,25 @@ public class ClaroTypeException extends Exception {
             contractName,
             String.join(", ", concreteTypeStrings),
             name
+        ));
+  }
+
+  public static ClaroTypeException forGenericProcedureRequiresUnknownContract(String requiredContract, String functionName) {
+    return new ClaroTypeException(
+        String.format(
+            GENERIC_PROCEDURE_REQUIRES_UNDEFINED_CONTRACT,
+            functionName,
+            requiredContract
+        ));
+  }
+
+  public static ClaroTypeException forGenericProcedureRequiresContractImplementationWithWrongNumberOfTypeParams(
+      String referencedContractTypeString, String actualContractTypeString) {
+    return new ClaroTypeException(
+        String.format(
+            GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS,
+            referencedContractTypeString,
+            actualContractTypeString
         ));
   }
 }

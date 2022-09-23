@@ -18,6 +18,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private String referencedContractImplName;
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
+  private String originalName;
 
   public ContractFunctionCallExpr(
       String contractName,
@@ -145,26 +146,46 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       );
     }
 
-    // We can now resolve the contract's concrete types so that we can canonicalize the function call name.
-    this.name = ContractProcedureImplementationStmt.getCanonicalProcedureName(
-        this.contractName,
-        this.resolvedContractConcreteTypes,
-        this.name
-    );
+    // It's actually possible that this contract procedure is being called with all generic argument types. This is only
+    // possible when type validation is being performed for a generic function when arg types are actually not known
+    // yet. We'll just skip looking up the contract procedure in the scoped heap at that point and return the generic
+    // type that would have aligned with the output type.
+    this.originalName = this.name;
+    boolean revertNameAfterTypeValidation = false;
+    if (resolvedContractConcreteTypes.stream()
+        .anyMatch(concreteContractType -> concreteContractType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
+      // Here, we're just doing a sanity check of a generic function definition, since we're checking against generic
+      // type params rather than concrete types, so, just want to do a lookup on the non-impl contract procedure name in
+      // the symbol table rather than a "real" implementation.
+      this.name = String.format("$%s::%s", this.contractName, this.name);
+      // We actually won't perform codegen on this generic type, so we need to use this mechanism to reset the name.
+      revertNameAfterTypeValidation = true;
+    } else {
+      // We can now resolve the contract's concrete types so that we can canonicalize the function call name.
+      this.name = ContractProcedureImplementationStmt.getCanonicalProcedureName(
+          this.contractName,
+          this.resolvedContractConcreteTypes,
+          this.name
+      );
 
-    // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
-    this.referencedContractImplName =
-        (String) scopedHeap.getIdentifierValue(
-            ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings));
+      // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
+      this.referencedContractImplName =
+          (String) scopedHeap.getIdentifierValue(
+              ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings));
+    }
 
     // This final step defers validation of the actual types passed as args.
-    return super.getValidatedExprType(scopedHeap);
+    Type res = super.getValidatedExprType(scopedHeap);
+    if (revertNameAfterTypeValidation) {
+      this.name = this.originalName;
+    }
+    return res;
   }
 
   private void resolveContractType(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Validate that the contract name is valid.
     if (!scopedHeap.isIdentifierDeclared(this.contractName)) {
-      throw ClaroTypeException.forReferencingUnknownContract(this.contractName, this.resolvedContractConcreteTypes);
+      throw ClaroTypeException.forReferencingUnknownContract(this.contractName);
     }
     Type contractType = scopedHeap.getValidatedIdentifierType(this.contractName);
     if (!contractType.baseType().equals(BaseType.$CONTRACT)) {
@@ -173,7 +194,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     this.resolvedContractType = (Types.$Contract) contractType;
 
     // Validate that the referenced procedure name is even actually in the referenced contract.
-    if (!resolvedContractType.getProcedureNames().contains(this.name)) {
+    if (!resolvedContractType.getProcedureNames().contains(this.originalName == null ? this.name : this.originalName)) {
       throw ClaroTypeException.forContractReferenceUndefinedProcedure(
           this.contractName, this.resolvedContractType.getTypeParamNames(), this.name);
     }
@@ -184,6 +205,13 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(this.referencedContractImplName).append('.'));
-    return res.createMerged(super.generateJavaSourceOutput(scopedHeap));
+    res = res.createMerged(super.generateJavaSourceOutput(scopedHeap));
+
+    // This node will be potentially reused assuming that it is called within a Generic function that gets
+    // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
+    // the name now.
+    this.name = this.originalName;
+
+    return res;
   }
 }

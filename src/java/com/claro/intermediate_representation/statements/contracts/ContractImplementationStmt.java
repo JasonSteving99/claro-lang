@@ -142,6 +142,11 @@ public class ContractImplementationStmt extends Stmt {
             scopedHeap, canonicalImplementationName, this.contractDefinitionStmt, this.concreteImplementationTypeParams);
       }
 
+      // Register this implementation in the ContractDefinitionStmt so that there's an easy way to go from Contract
+      // name to implementation types w/o having to scan the whole scoped heap.
+      ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
+          .add(this.concreteImplementationTypeParams);
+
       // Finally, add this implementation to the scoped heap so that it can't be re-implemented.
       scopedHeap.putIdentifierValue(
           this.canonicalImplementationName,
