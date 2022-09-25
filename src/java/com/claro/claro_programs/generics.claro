@@ -44,11 +44,33 @@ print("Testing generic function convert<int, string>");
 var intToStringConvertedRes: string = convert(10);
 print(intToStringConvertedRes);
 
-print("----------------------------------------------------------");
-print("Testing generic function convert<tuple<int, int>, [int]>");
 var tupleIntIntToListIntConvertedRes: [int] = convert((9, 10));
 print(tupleIntIntToListIntConvertedRes);
 
+
+####################################################################
+## DEMONSTRATE A GENERIC FUNCTION THAT JUST TAKES A FIRST CLASS ARG
+####################################################################
+
+function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> [O] {
+  var outputList: [O] = [];
+  var i = 0;
+  while (i < len(inputList)) {
+    append(outputList, mapFn(inputList[i++]));
+  }
+  return outputList;
+}
+
+print("----------------------------------------------------------");
+print("Testing generic function map<|[int], function<int, boolean>| -> [boolean]>");
+var mapResult = map([1, 90, -13, 0], (function<int -> boolean>) x -> x >= 0);
+print(mapResult);
+
+# TODO(steving) I'd like the following type inference to be supported. All of the information is there
+# TODO(steving) so Claro should be able to figure this out, but I'm leaving it as a TODO for now since it's really hard
+# TODO(steving) to imagine a way to get the lambda to have its type asserted onto it, when the typical generic func call
+# TODO(steving) flow is to infer each arg's type (which lambda does not support as its syntax is ambiguous).
+#var mapResult: [boolean] = map([1, 90, -13, 0], x -> x >= 0);
 
 ##########################################################################
 ## DEMONSTRATE A GENERIC FUNCTION THAT DEFERS TO ANOTHER GENERIC FUNCTION
@@ -59,19 +81,18 @@ function defer<In, Out>(in: In) -> Out {
   return Conversion::applyConversion(in);
 }
 
-requires(Conversion<I, O>)
-function mapOnto<I, O>(inputList: [I], outputList: [O]) -> [O] {
+function mapDeferringToContractImpl<I, O>(inputList: [I]) -> [O] {
+  var outputList: [O] = [];
   var i = 0;
   while (i != len(inputList)) {
-    outputList[i] = defer(inputList[i]);
-    i++;
+    append(outputList, defer(inputList[i++]));
   }
   return outputList;
 }
 
 print("----------------------------------------------------------");
-print("Testing generic function mapOnto<int, string>");
-var mappedStringsRes: [string] = mapOnto([1,-1,0,10,-99], ["tmp", "tmp", "tmp", "tmp", "tmp"]);
+print("Testing generic function map<int, string>");
+var mappedStringsRes: [string] = mapDeferringToContractImpl([1,-1,0,10,-99]);
 print(mappedStringsRes);
 
 ##################################################################################
@@ -85,22 +106,21 @@ implement Conversion<int, float> as IntToFloat {
 }
 
 requires(Conversion<From, Intermediate>)
-function mapOntoThroughIntermediate<From, Intermediate, To>(
-    inputList: [From], outputList: [To], mapFn: function<Intermediate -> To>) -> [To] {
+function mapThroughIntermediate<From, Intermediate, To>(
+    inputList: [From], mapFn: function<Intermediate -> To>) -> [To] {
+  var outputList: [To] = [];
   var i = 0;
   while (i < len(inputList)) {
-    outputList[i] = mapFn(Conversion::applyConversion(inputList[i]));
-    i++;
+    append(outputList, mapFn(Conversion::applyConversion(inputList[i++])));
   }
   return outputList;
 }
 
 print("----------------------------------------------------------");
-print("Testing generic function mapOntoThroughIntermediate<int, float, boolean>");
+print("Testing generic function mapThroughIntermediate<int, float, boolean>");
 var intsAsBools =
-  mapOntoThroughIntermediate(
+  mapThroughIntermediate(
     [-1, 2, 3, -4],
-    [false, false, false, false],
     (function<float -> boolean>) x -> {
       if (x >= 0) {
         return true;

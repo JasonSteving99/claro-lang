@@ -173,6 +173,7 @@ WhiteSpace     = [ \t\f]
     "input"            { return symbol(Calc.INPUT, 0, 5, "input"); }
     "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
     "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
+    "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }
 
     // DEBUGGING keywords that should be removed when we want a real release...
     "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }

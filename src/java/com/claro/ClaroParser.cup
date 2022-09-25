@@ -206,6 +206,8 @@ terminal LexedValue<String>  INPUT;
 terminal LexedValue<String>  LEN;
 // This grammar also has a builtin type() function for getting the type of an Expr.
 terminal LexedValue<String>  TYPE;
+// This grammar also has a builtin append() function for appending an element to a List.
+terminal LexedValue<String>  APPEND;
 terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
@@ -258,6 +260,7 @@ nonterminal IncrementStmt                      identifier_increment_stmt;
 nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
+nonterminal AppendElementToListStmt            list_append_stmt;
 nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
@@ -412,6 +415,8 @@ stmt ::=
     {: RESULT = i; :}
   | list_element_assignment:l
     {: RESULT = l; :}
+  | list_append_stmt:la
+    {: RESULT = la; :}
   | if_else_chain_stmt:i
     {: RESULT = i; :}
   | while_stmt:w
@@ -904,6 +909,11 @@ identifier_decrement ::=
 list_element_assignment ::=
     collection_subscript:l ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new ListElementAssignmentStmt(l, e); :}
+  ;
+
+list_append_stmt ::=
+    APPEND LPAR expr:l COMMA expr:e RPAR SEMICOLON
+    {: RESULT = new AppendElementToListStmt(l, e); :}
   ;
 
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
@@ -1417,7 +1427,22 @@ function_definition_stmt ::=
   ;
 
 generic_function_definition_stmt ::=
-   REQUIRES LPAR required_contracts:required_contracts RPAR FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableMap.of(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+   :}
+ | REQUIRES LPAR required_contracts:required_contracts RPAR FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
    {:
      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
@@ -2194,6 +2219,14 @@ pipe_chain ::=
            .build();
     :}
   | PIPE_ARROW list_element_assignment:sink
+    {:
+       RESULT =
+          ImmutableList.builder()
+           .add(sink)
+           .add(ImmutableList.builder())
+           .build();
+    :}
+  | PIPE_ARROW list_append_stmt:sink
     {:
        RESULT =
           ImmutableList.builder()
