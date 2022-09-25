@@ -4,32 +4,57 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.CollectionSubscriptExpr;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class ListElementAssignmentStmt extends Stmt {
+
+  private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
+      ImmutableSet.of(
+          BaseType.LIST,
+          BaseType.TUPLE
+      );
 
   public ListElementAssignmentStmt(CollectionSubscriptExpr collectionSubscriptExpr, Expr e) {
     super(
         ImmutableList.of(
-            /*listExpr=*/collectionSubscriptExpr.getChildren().get(0),
-            /*subscriptExpr=*/collectionSubscriptExpr.getChildren().get(1),
-                         e
+            /*listExpr=*/
+            collectionSubscriptExpr.getChildren().get(0),
+            /*subscriptExpr=*/
+            collectionSubscriptExpr.getChildren().get(1),
+            /*assignedValueExpr=*/
+            e
         )
     );
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    ((IdentifierReferenceTerm) this.getChildren().get(0))
-        .assertExpectedExprType(
-            scopedHeap,
-            Types.ListType.forValueType(
-                // Get the type for the value being assigned into this List to make sure it applies.
-                ((Expr) this.getChildren().get(2)).getValidatedExprType(scopedHeap))
-        );
+    // First thing first, we need to actually validate that we're correctly referencing a collection type.
+    Expr listExpr = (IdentifierReferenceTerm) this.getChildren().get(0);
+    Type listExprType = listExpr.getValidatedExprType(scopedHeap);
+    if (!SUPPORTED_EXPR_BASE_TYPES.contains(listExprType.baseType())) {
+      // Make sure that this mismatch is logged on the offending Expr that was supposed to be a collection.
+      listExpr.assertSupportedExprBaseType(scopedHeap, SUPPORTED_EXPR_BASE_TYPES);
+      ((Expr) this.getChildren().get(1)).logTypeError(
+          ClaroTypeException.forInvalidSubscriptForNonCollectionType(listExprType, SUPPORTED_EXPR_BASE_TYPES));
+
+      // We can't do any more type checking of the rhs because the entire premise of this assignment statement is invalid.
+      // However, just in case we need to mark things used, let's run validation on the RHS...not perfect but helpful.
+      ((Expr) this.getChildren().get(2)).getValidatedExprType(scopedHeap);
+      return;
+    }
+
+    // We should already know the type of the list on the lhs, so assert that the value on the rhs has the expected type.
+    ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+        scopedHeap,
+        ((Types.Collection) listExprType).getElementType()
+    );
     // Can only index into Lists using Integers.
     ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
   }

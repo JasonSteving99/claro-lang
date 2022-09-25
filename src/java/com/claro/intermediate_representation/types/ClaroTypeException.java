@@ -16,6 +16,8 @@ public class ClaroTypeException extends Exception {
       "Unexpected redeclaration of identifier <%s>.";
   private static final String INVALID_TYPE_ERROR_MESSAGE_FMT_STR =
       "Invalid type:\n\tFound:\n\t\t%s\n\tExpected:\n\t\t%s";
+  private static final String INVALID_SUBSCRIPT_FOR_NON_COLLECTION_TYPE =
+      "Invalid Subscript: The collection subscript operator must only be used on collection types.";
   private static final String INVALID_BASE_TYPE_ERROR_MESSAGE_FMT_STR =
       "Invalid type: found <%s>, but expected to have the BaseType <%s>.";
   private static final String INVALID_TYPE_ONE_OF_ERROR_MESSAGE_FMT_STR =
@@ -105,6 +107,10 @@ public class ClaroTypeException extends Exception {
       "Invalid Required Contract: Generic Procedure `%s` is attempting to require undefined contract `%s`.";
   private static final String GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
       "Invalid Required Contract: `%s` does not have the correct number of type params required by `%s`.";
+  private static final String GENERIC_PROCEDURE_CALL_REQUIRES_OUTPUT_TYPE_TO_BE_CONSTRAINED_BY_CONTEXT =
+      "Invalid Generic Procedure Call: For the call to the following generic procedure `%s` with the following signature:\n\t\t`%s`\n\tThe output types cannot be fully inferred by the argument types alone. The output type must be contextually constrained by either a type annotation or a static cast.";
+  private static final String GENERIC_PROCEDURE_CALL_FOR_CONCRETE_TYPES_WITH_REQUIRED_CONTRACT_IMPLEMENTATION_MISSING =
+      "Invalid Generic Procedure Call: For the call to the following generic procedure `%s` with the following signature:\n\t\t`%s`\n\tNo implementation of the required contract %s<%s>.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -112,6 +118,10 @@ public class ClaroTypeException extends Exception {
 
   public ClaroTypeException(Type actualType, Type expectedType) {
     super(String.format(INVALID_TYPE_ERROR_MESSAGE_FMT_STR, actualType, expectedType));
+  }
+
+  public static ClaroTypeException forInvalidSubscriptForNonCollectionType(Type actualType, ImmutableSet<?> expectedTypeOptions) {
+    return new ClaroTypeException(INVALID_SUBSCRIPT_FOR_NON_COLLECTION_TYPE);
   }
 
   public ClaroTypeException(Type actualType, ImmutableSet<?> expectedTypeOptions) {
@@ -554,6 +564,27 @@ public class ClaroTypeException extends Exception {
             GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS,
             referencedContractTypeString,
             actualContractTypeString
+        ));
+  }
+
+  public static ClaroTypeException forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(String name, Type referencedIdentifierType) {
+    return new ClaroTypeException(
+        String.format(
+            GENERIC_PROCEDURE_CALL_REQUIRES_OUTPUT_TYPE_TO_BE_CONSTRAINED_BY_CONTEXT,
+            name,
+            referencedIdentifierType
+        ));
+  }
+
+  public static ClaroTypeException forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
+      String name, Type referencedIdentifierType, String requiredContract, ImmutableList<String> requiredContractConcreteTypes) {
+    return new ClaroTypeException(
+        String.format(
+            GENERIC_PROCEDURE_CALL_FOR_CONCRETE_TYPES_WITH_REQUIRED_CONTRACT_IMPLEMENTATION_MISSING,
+            name,
+            referencedIdentifierType,
+            requiredContract,
+            Joiner.on(", ").join(requiredContractConcreteTypes)
         ));
   }
 }

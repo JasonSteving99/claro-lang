@@ -26,10 +26,15 @@ public class CollectionSubscriptExpr extends Expr {
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Expr collectionExpr = (Expr) this.getChildren().get(0);
-    collectionExpr.assertSupportedExprBaseType(scopedHeap, SUPPORTED_EXPR_BASE_TYPES);
+    Type collectionExprType = collectionExpr.getValidatedExprType(scopedHeap);
+    if (!SUPPORTED_EXPR_BASE_TYPES.contains(collectionExprType.baseType())) {
+      // Make sure that this mismatch is logged on the offending Expr that was supposed to be a collection.
+      collectionExpr.assertSupportedExprBaseType(scopedHeap, SUPPORTED_EXPR_BASE_TYPES);
+      throw ClaroTypeException.forInvalidSubscriptForNonCollectionType(collectionExprType, SUPPORTED_EXPR_BASE_TYPES);
+    }
     ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
 
-    Type type = ((Types.Collection) collectionExpr.getValidatedExprType(scopedHeap)).getElementType();
+    Type type = ((Types.Collection) collectionExprType).getElementType();
 
     if (!this.acceptUndecided) {
       if (type.baseType().equals(BaseType.UNDECIDED)) {

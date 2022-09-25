@@ -1,0 +1,110 @@
+#########################################################################
+## DEMONSTRATE A GENERIC FUNCTION OVER REQUIRED CONTRACT IMPLEMENTATION!
+#########################################################################
+
+contract Conversion<I, O> {
+  function applyConversion(from: I) -> O;
+}
+
+implement Conversion<int, string> as IntToStrConversion {
+  function applyConversion(from: int) -> string {
+    var res: string;
+    if (from < 0) {
+      res = "Negative";
+    } else if (from == 0) {
+      res = "Zero";
+    } else {
+      res = "Positive";
+    }
+    return res;
+  }
+}
+
+implement Conversion<tuple<int, int>, [int]> as TupleIntIntToListInt {
+  function applyConversion(from: tuple<int, int>) -> [int] {
+    return [(int) from[0], (int) from[1]];
+  }
+}
+
+# THIS IS MY FIRST GENERIC FUNCTION IN CLARO! DOESN'T SEEM LIKE MUCH, BUT IT TOOK A LOT TO LEAD UP TO THIS!
+# YAY CODE REUSE!
+
+requires(Conversion<From, To>)
+function convert<From, To>(toConvert: From) -> To {
+  print("Converting from input type: ");
+  type(toConvert);
+  var converted: To = Conversion::applyConversion(toConvert);
+  print("To output type: ");
+  type(converted);
+  return converted;
+}
+
+print("----------------------------------------------------------");
+print("Testing generic function convert<int, string>");
+var intToStringConvertedRes: string = convert(10);
+print(intToStringConvertedRes);
+
+print("----------------------------------------------------------");
+print("Testing generic function convert<tuple<int, int>, [int]>");
+var tupleIntIntToListIntConvertedRes: [int] = convert((9, 10));
+print(tupleIntIntToListIntConvertedRes);
+
+
+##########################################################################
+## DEMONSTRATE A GENERIC FUNCTION THAT DEFERS TO ANOTHER GENERIC FUNCTION
+##########################################################################
+
+requires(Conversion<In, Out>)
+function defer<In, Out>(in: In) -> Out {
+  return Conversion::applyConversion(in);
+}
+
+requires(Conversion<I, O>)
+function mapOnto<I, O>(inputList: [I], outputList: [O]) -> [O] {
+  var i = 0;
+  while (i != len(inputList)) {
+    outputList[i] = defer(inputList[i]);
+    i++;
+  }
+  return outputList;
+}
+
+print("----------------------------------------------------------");
+print("Testing generic function mapOnto<int, string>");
+var mappedStringsRes: [string] = mapOnto([1,-1,0,10,-99], ["tmp", "tmp", "tmp", "tmp", "tmp"]);
+print(mappedStringsRes);
+
+##################################################################################
+## DEMONSTRATE A GENERIC FUNCTION THAT USES BOTH A CONTRACT AND A FIRST CLASS ARG
+##################################################################################
+
+implement Conversion<int, float> as IntToFloat {
+  function applyConversion(from: int) -> float {
+    return from * 1.0;
+  }
+}
+
+requires(Conversion<From, Intermediate>)
+function mapOntoThroughIntermediate<From, Intermediate, To>(
+    inputList: [From], outputList: [To], mapFn: function<Intermediate -> To>) -> [To] {
+  var i = 0;
+  while (i < len(inputList)) {
+    outputList[i] = mapFn(Conversion::applyConversion(inputList[i]));
+    i++;
+  }
+  return outputList;
+}
+
+print("----------------------------------------------------------");
+print("Testing generic function mapOntoThroughIntermediate<int, float, boolean>");
+var intsAsBools =
+  mapOntoThroughIntermediate(
+    [-1, 2, 3, -4],
+    [false, false, false, false],
+    (function<float -> boolean>) x -> {
+      if (x >= 0) {
+        return true;
+      }
+      return false;
+    });
+print(intsAsBools);

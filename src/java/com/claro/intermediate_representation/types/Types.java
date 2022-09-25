@@ -12,10 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -65,7 +62,11 @@ public final class Types {
     public abstract ImmutableList<Type> getValueTypes();
 
     public static TupleType forValueTypes(ImmutableList<Type> valueTypes) {
-      return new AutoValue_Types_TupleType(BaseType.TUPLE, ImmutableMap.of(), valueTypes);
+      ImmutableMap.Builder<String, Type> parameterizedTypesMapBuilder = ImmutableMap.builder();
+      for (int i = 0; i < valueTypes.size(); i++) {
+        parameterizedTypesMapBuilder.put(String.format("$%s", i), valueTypes.get(i));
+      }
+      return new AutoValue_Types_TupleType(BaseType.TUPLE, parameterizedTypesMapBuilder.build(), valueTypes);
     }
 
     @Override
@@ -545,6 +546,8 @@ public final class Types {
                 .map(
                     genArgNames ->
                         genArgNames.stream()
+                            // First convert the name to a $GenericTypeParam because the toString has been overridden.
+                            .map(genArgName -> Types.$GenericTypeParam.forTypeParamName(genArgName).toString())
                             .collect(Collectors.joining(", ", " Generic Over {", "}")))
                 .orElse("")
             + this.getOptionalRequiredContractNamesToGenericArgs()
@@ -936,6 +939,8 @@ public final class Types {
   // none at all by Claro programs.
   @AutoValue
   public abstract static class $GenericTypeParam extends Type {
+    public static Optional<Map<$GenericTypeParam, Type>> concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+
     public abstract String getTypeParamName();
 
     public static $GenericTypeParam forTypeParamName(String name) {
@@ -951,7 +956,15 @@ public final class Types {
     public String toString() {
       return String.format(
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
-          this.getTypeParamName()
+          concreteTypeMappingsForBetterErrorMessages.map(
+              mapping -> {
+                Type mappedType = mapping.getOrDefault(this, this);
+                if (mappedType.equals(this)) {
+                  return this.getTypeParamName();
+                }
+                return mappedType.toString();
+              })
+              .orElse(this.getTypeParamName())
       );
     }
   }

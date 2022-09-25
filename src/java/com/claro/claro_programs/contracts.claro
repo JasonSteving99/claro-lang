@@ -95,107 +95,39 @@ print(bar("sup "));
 #print(intintstringres);
 
 #########################################################################
-## DEMONSTRATE A GENERIC FUNCTION OVER REQUIRED CONTRACT IMPLEMENTATION.
+## A FEW GENERICS EXAMPLES!!
 #########################################################################
 
-contract Conversion<I, O> {
-  function applyConversion(from: I) -> O;
+requires(BinaryMathOps<T,V,R>)
+function pairwiseSum<T, V, R>(ttuple: tuple<T, T>, vtuple: tuple<V, V>) -> tuple<R, R> {
+  var res1: R = BinaryMathOps::add(((T) ttuple[0]), ((V) vtuple[0]));
+  var res2: R = BinaryMathOps::add(((T) ttuple[1]), ((V) vtuple[1]));
+  return (res1, res2);
 }
 
-implement Conversion<int, string> as IntToStrConversion {
-  function applyConversion(from: int) -> string {
-    # Again, Claro still has no way of directly converting from int -> string, so we'll just go based off
-    # some arbitrary mapping to neg/pos/zero.
-    var res: string;
-    if (from < 0) {
-      res = "Negative";
-    } else if (from == 0) {
-      res = "Zero";
-    } else {
-      res = "Positive";
-    }
-    return res;
-  }
-}
+print("----------------------------------------------------------");
+print("Testing Generic function pairwiseSum<string, string, string>:");
+var ttuple: tuple<string, string> = ("Hello, generic ", "This is ");
+var vtuple: tuple<string, string> = ("Claro world!", "effing sweet.");
+var firstGenericResult: tuple<string, string> = pairwiseSum(ttuple, vtuple);
+print((string) firstGenericResult[0]);
+print((string) firstGenericResult[1]);
 
-implement Conversion<tuple<int, int>, [int]> as TupleIntIntToListInt {
-  function applyConversion(from: tuple<int, int>) -> [int] {
-    return [(int) from[0], (int) from[1]];
-  }
-}
 
-# THIS IS MY FIRST GENERIC FUNCTION IN CLARO! DOESN'T SEEM LIKE MUCH, BUT IT TOOK A LOT TO LEAD UP TO THIS!
-# YAY CODE REUSE!
-
-requires(Conversion<From, To>)#, BinaryMathOps<From, From, From>)
-function convert<From, To>(toConvert: From) -> To {
-  print("Converting from input type: ");
-  type(toConvert);
-  var converted: To = Conversion::applyConversion(toConvert);
-  print("To output type: ");
-  type(converted);
-  return converted;
-}
-
-graph function graphFn(x: int) -> future<int> {
-  root res <- @inner;
-  node inner <- x;
-}
-
-blocking function arg(x:int) -> int {
-  var res <-| graphFn(x);
-  return res;
-}
-
-print("--------------------------------------------------------------------------------");
-print("Testing generic function convert<int, string>");
-var intToStringConvertedRes: string = convert(10);
-print(intToStringConvertedRes);
-
-print("--------------------------------------------------------------------------------");
-print("Testing generic function convert<tuple<int, int>, [int]>");
-var tupleIntIntToListIntConvertedRes: [int] = convert((9, 10));
-print(tupleIntIntToListIntConvertedRes);
-
-#########################################################################
-## SOME MORE EXAMPLES:
-#########################################################################
-#
-#requires(BinaryMathOps<T,V,R>)
-#function pairwiseSum<T, V, static R>(ttuple: tuple<T, T>, vtuple: tuple<V, V>) -> tuple<R, R> {
-#  var res1: R = BinaryMathOps<T,V,R>::add(((T) ttuple[0]), ((V) vtuple[0]));
-#  var res2: R = BinaryMathOps<T,V,R>::add(((T) ttuple[1]), ((V) vtuple[1]));
-#  return (res1, res2);
-#}
-#
-#print("Testing Generic function pairwiseSum<string, string, string>:");
-#var ttuple: tuple<string, string> = ("Hello, generic ", "This is ");
-#var vtuple: tuple<string, string> = ("Claro world!", "effing sweet.");
-#var firstGenericResult: tuple<string, string> = pairwiseSum(ttuple, vtuple);
-#print((string) firstGenericResult[0]);
-#print((string) firstGenericResult[1]);
-#
+# TODO(steving) Somehow, Claro still has no way to convert btwn string <-> int...crazy, huh. Fix this.
+#print("----------------------------------------------------------");
 #print("Testing Generic function pairwiseSum<string, int, string>:");
 #var ttuple2: tuple<string, string> = ("Number of problems I got: ", "Generics ain't ");
 #var vtuple2: tuple<int, int> = (99, 1);
 #var secondGenericResult: tuple<string, string> = pairwiseSum(ttuple2, vtuple2);
 #print((string) secondGenericResult[0]);
 #print((string) secondGenericResult[1]);
-#
-#print("Testing Generic function pairwiseSum<int, int, int>:");
-#var ttuple3: tuple<int, int> = (1, 99);
-#var vtuple3: tuple<int, int> = (99, 1);
-#var thirdGenericResult: tuple<int, int> = pairwiseSum(ttuple3, vtuple3);
-#print((string) thirdGenericResult[0]);
-#print((string) thirdGenericResult[1]);
-#
-#print("Testing Generic function pairwiseSum<int, int, string>:");
-#var ttuple4: tuple<int, int> = (90, 909);
-#var vtuple4: tuple<int, int> = (-999, 0);
-#var fourthGenericResult: tuple<string, string> = pairwiseSum(ttuple4, vtuple4);
-#print((string) fourthGenericResult[0]);
-#print((string) fourthGenericResult[1]);
-#var fourthGenericResultWithoutInference = pairwiseSum<int, int, string>(ttuple4, vtuple4);
-#print(fourthGenericResultWithoutInference[0]);
-#print(fourthGenericResultWithoutInference[1]);
+
+print("----------------------------------------------------------");
+print("Testing Generic function pairwiseSum<int, int, int>:");
+var ttuple3: tuple<int, int> = (1, 99);
+var vtuple3: tuple<int, int> = (99, 1);
+var thirdGenericResult: tuple<int, int> = pairwiseSum(ttuple3, vtuple3);
+print((int) thirdGenericResult[0]);
+print((int) thirdGenericResult[1]);
 

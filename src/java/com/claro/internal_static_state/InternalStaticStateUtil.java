@@ -52,4 +52,6 @@ public class InternalStaticStateUtil {
 
   public static String ContractDefinitionStmt_currentContractName;
   public static ImmutableList<String> ContractDefinitionStmt_currentContractGenericTypeParamNames;
+
+  public static boolean GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
 }

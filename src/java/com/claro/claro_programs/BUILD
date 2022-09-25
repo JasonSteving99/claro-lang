@@ -34,6 +34,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "generics_compiled_claro_image",
+    srcs = [":generics_compiled_claro"],
+    java_name = "generics",
+)
+
+claro_library(
+    name = "generics_compiled_claro",
+    src = "generics.claro",
+)
+
+claro_binary(
     name = "exec_compiled_claro_image",
     srcs = [":exec_compiled_claro"],
     java_name = "exec",

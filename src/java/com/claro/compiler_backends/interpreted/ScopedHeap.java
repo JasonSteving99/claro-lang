@@ -242,11 +242,19 @@ public class ScopedHeap {
                 // Lambdas can reference anything in outer scopes, but they need to re-declare a hiding variable
                 // copying the value from the outer scope. This method can handle that implicitly here adding
                 // a new hiding identifier at the scope level that the lambda was found at.
-                redeclareCaptureVariable(identifier, pastLambdaScopeBoundary.get(), identifierData);
+                ImmutableSet<BaseType> ignoredIdentifierReferenceTypes =
+                    ImmutableSet.of(BaseType.$CONTRACT, BaseType.$CONTRACT_IMPLEMENTATION);
+                if (ignoredIdentifierReferenceTypes.contains(identifierData.type.baseType())) {
+                  // In this case we actually will allow the lambda to reference the original identifiers in the default
+                  // scope since we don't want lambdas to have to redeclare contracts.
+                  return Optional.of(scopeLevel);
+                } else {
+                  redeclareCaptureVariable(identifier, pastLambdaScopeBoundary.get(), identifierData);
 
-                // Point the caller to the newly declared value rather than the one found in the outer scope
-                // since that's been hidden and copied now.
-                return pastLambdaScopeBoundary;
+                  // Point the caller to the newly declared value rather than the one found in the outer scope
+                  // since that's been hidden and copied now.
+                  return pastLambdaScopeBoundary;
+                }
               }
             } else {
               return Optional.of(scopeLevel);
@@ -259,9 +267,14 @@ public class ScopedHeap {
             // copying the value from the outer scope. This method can handle that implicitly here adding
             // a new hiding identifier at the scope level that the lambda was found at.
             pastLambdaScopeBoundary.ifPresent(
-                lambdaScopeLevel ->
+                lambdaScopeLevel -> {
+                  ImmutableSet<BaseType> ignoredIdentifierReferenceTypes =
+                      ImmutableSet.of(BaseType.$CONTRACT, BaseType.$CONTRACT_IMPLEMENTATION);
+                  if (!ignoredIdentifierReferenceTypes.contains(currScope.scopedSymbolTable.get(identifier).type.baseType())) {
                     redeclareCaptureVariable(
-                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier)));
+                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier));
+                  }
+                });
             return Optional.of(scopeLevel);
           } else {
             // If we don't find what we're looking for before going outside the Function scope boundary,
@@ -278,9 +291,14 @@ public class ScopedHeap {
             // copying the value from the outer scope. This method can handle that implicitly here adding
             // a new hiding identifier at the scope level that the lambda was found at.
             pastLambdaScopeBoundary.ifPresent(
-                lambdaScopeLevel ->
+                lambdaScopeLevel -> {
+                  ImmutableSet<BaseType> ignoredIdentifierReferenceTypes =
+                      ImmutableSet.of(BaseType.$CONTRACT, BaseType.$CONTRACT_IMPLEMENTATION);
+                  if (!ignoredIdentifierReferenceTypes.contains(currScope.scopedSymbolTable.get(identifier).type.baseType())) {
                     redeclareCaptureVariable(
-                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier)));
+                        identifier, lambdaScopeLevel, currScope.scopedSymbolTable.get(identifier));
+                  }
+                });
             return Optional.of(scopeLevel);
           } else {
             // If we don't find what we're looking for before going outside the Lambda scope boundary,

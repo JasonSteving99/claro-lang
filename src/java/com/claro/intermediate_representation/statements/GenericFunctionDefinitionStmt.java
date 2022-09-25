@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
@@ -27,8 +28,10 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
 
   private boolean alreadyValidatedTypes = false;
-  private HashMap<ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt> monomorphizations =
-      Maps.newHashMap();
+
+  private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
+      monomorphizations = HashBasedTable.create();
+  private static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
   public GenericFunctionDefinitionStmt(
       String functionName,
@@ -51,6 +54,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     this.stmtListNode = stmtListNode;
     this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
     this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
+
+    GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.put(this.functionName, this);
   }
 
   private static ImmutableSet<Integer> mapArgNamesToIndex(ImmutableList<String> argNames, ImmutableList<String> args) {
@@ -131,6 +136,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
         }
       }
 
+      InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = true;
       for (String genericArgName : this.genericProcedureArgNames) {
         scopedHeap.putIdentifierValue(
             genericArgName,
@@ -138,9 +144,15 @@ public class GenericFunctionDefinitionStmt extends Stmt {
             TypeProvider.ImmediateTypeProvider.of(Types.$GenericTypeParam.forTypeParamName(genericArgName))
         );
       }
+
       ProcedureDefinitionStmt genericProcedureDefStmt = generateProcedureDefStmt(this.functionName);
       genericProcedureDefStmt.registerProcedureTypeProvider(scopedHeap);
       genericProcedureDefStmt.assertExpectedExprTypes(scopedHeap);
+
+      for (String genericArgName : this.genericProcedureArgNames) {
+        scopedHeap.deleteIdentifierValue(genericArgName);
+      }
+      InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
 
       // Finally, we'll put a callback function into the scoped heap that the type checker at the call site
       // can defer to to both setup monomorphization and retrieve the canonicalized procedure name
@@ -148,7 +160,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       scopedHeap.putIdentifierValue(
           this.functionName,
           genericProcedureDefStmt.resolvedProcedureType,
-          (BiFunction<ScopedHeap, HashMap<Types.$GenericTypeParam, Type>, String>)
+          (BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
               this::prepareMonomorphizationForConcreteSignature
       );
     }
@@ -156,10 +168,14 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private String prepareMonomorphizationForConcreteSignature(
       ScopedHeap scopedHeap,
-      HashMap<Types.$GenericTypeParam, Type> concreteTypeParams) {
-    // First thing first, don't waste effort, short-circuit if we've already seen this monomorphization.
-    if (monomorphizations.containsKey(concreteTypeParams)) {
-      return monomorphizations.get(concreteTypeParams).procedureName;
+      ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams) {
+    // First thing first, don't waste effort, short-circuit if we've already seen this monomorphization or if this call
+    // is being validated w/in the context of type validating a generic procedure definition before concrete types are known.
+    if (GenericFunctionDefinitionStmt.monomorphizations.contains(this.functionName, concreteTypeParams)) {
+      return GenericFunctionDefinitionStmt.monomorphizations.get(this.functionName, concreteTypeParams).procedureName;
+    }
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+      return this.functionName;
     }
 
     ImmutableList.Builder<Type> orderedConcreteTypeParams = ImmutableList.builder();
@@ -173,7 +189,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
             ContractProcedureImplementationStmt.getCanonicalProcedureName(
                 /*contractName=*/"$MONOMORPHIZATION", orderedConcreteTypeParams.build(), this.functionName));
 
-    monomorphizations.put(ImmutableMap.copyOf(concreteTypeParams), monomorphization);
+    GenericFunctionDefinitionStmt.monomorphizations.put(this.functionName, concreteTypeParams, monomorphization);
     scopedHeap.observeIdentifier(monomorphization.procedureName, null);
 
     return monomorphization.procedureName;
@@ -217,48 +233,61 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    ImmutableList.Builder<Type> orderedConcreteTypeParams = ImmutableList.builder();
-    GeneratedJavaSource monomorphizations = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
-    for (Map.Entry<ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt> preparedMonomorphization
-        : this.monomorphizations.entrySet()) {
-      ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams = preparedMonomorphization.getKey();
-      ProcedureDefinitionStmt monomorphization = preparedMonomorphization.getValue();
+    GeneratedJavaSource monomorphizationsCodeGen = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
 
-      // Now, some initial cleanup based on some unwanted side-effects of the FunctionCallExpr which already
-      // puts the generic function's canonicalized name in the scoped heap in order to reuse the rest of its
-      // non-generic call flow which marks the called function used...So here I'll remove the existing declaration
-      // so that the ProcedureDefinitionStmt we're going to run validation on soon doesn't get tripped up on this.
-      scopedHeap.deleteIdentifierValue(monomorphization.procedureName);
+    // Every time that I do type validation on a new monomorphization, there's a chance that the function definition's
+    // body contained another call to a generic function. In that case, it's possible that a new monomorphization for
+    // that function was just discovered. So I'll need to keep doing codegen until I know that no more monomorphizations
+    // were encountered.
+    while (GenericFunctionDefinitionStmt.monomorphizations.size() > 0) {
+      // Iterate over a copy of the table that might actually get modified during this loop.
+      ImmutableTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
+          monomorphizationsCopy = ImmutableTable.copyOf(GenericFunctionDefinitionStmt.monomorphizations);
+      // Clear every monomorphization concrete signature map, since we've consumed that now, keeping each map for each
+      // generic procedure name so that we're able to actually add entries to it uninterrupted during type validation below.
+      GenericFunctionDefinitionStmt.monomorphizations.clear();
+      for (String currGenericProcedureName : monomorphizationsCopy.rowKeySet()) {
+        ImmutableList<String> currGenericProcedureArgNames =
+            GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.get(currGenericProcedureName).genericProcedureArgNames;
+        for (Map.Entry<ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt> preparedMonomorphization
+            : monomorphizationsCopy.row(currGenericProcedureName).entrySet()) {
+          ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams = preparedMonomorphization.getKey();
+          ProcedureDefinitionStmt monomorphization = preparedMonomorphization.getValue();
 
-      for (int i = 0; i < this.genericProcedureArgNames.size(); i++) {
-        String currContractGenericArg = this.genericProcedureArgNames.get(i);
-        Type currConcreteType =
-            concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg));
+          // Now, some initial cleanup based on some unwanted side-effects of the FunctionCallExpr which already
+          // puts the generic function's canonicalized name in the scoped heap in order to reuse the rest of its
+          // non-generic call flow which marks the called function used...So here I'll remove the existing declaration
+          // so that the ProcedureDefinitionStmt we're going to run validation on soon doesn't get tripped up on this.
+          scopedHeap.deleteIdentifierValue(monomorphization.procedureName);
 
-        // This is temporary to this specific monomorphization and needs to be removed.
-        scopedHeap.putIdentifierValue(
-            currContractGenericArg,
-            null,
-            TypeProvider.ImmediateTypeProvider.of(currConcreteType)
-        );
-        orderedConcreteTypeParams.add(currConcreteType);
-      }
+          for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
+            String currContractGenericArg = currGenericProcedureArgNames.get(i);
+            // This is temporary to this specific monomorphization and needs to be removed.
+            scopedHeap.putIdentifierValue(
+                currContractGenericArg,
+                null,
+                TypeProvider.ImmediateTypeProvider.of(
+                    concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg)))
+            );
+          }
 
-      monomorphization.registerProcedureTypeProvider(scopedHeap);
-      try {
-        monomorphization.assertExpectedExprTypes(scopedHeap);
-      } catch (ClaroTypeException e) {
-        throw new RuntimeException(e);
-      }
-      monomorphizations =
-          monomorphizations.createMerged(monomorphization.generateJavaSourceOutput(scopedHeap));
+          monomorphization.registerProcedureTypeProvider(scopedHeap);
+          try {
+            monomorphization.assertExpectedExprTypes(scopedHeap);
+          } catch (ClaroTypeException e) {
+            throw new RuntimeException(e);
+          }
+          monomorphizationsCodeGen =
+              monomorphizationsCodeGen.createMerged(monomorphization.generateJavaSourceOutput(scopedHeap));
 
-      for (int i = 0; i < this.genericProcedureArgNames.size(); i++) {
-        // This is temporary to this specific monomorphization and needs to be removed.
-        scopedHeap.deleteIdentifierValue(this.genericProcedureArgNames.get(i));
+          for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
+            // This is temporary to this specific monomorphization and needs to be removed.
+            scopedHeap.deleteIdentifierValue(currGenericProcedureArgNames.get(i));
+          }
+        }
       }
     }
-    return monomorphizations;
+    return monomorphizationsCodeGen;
   }
 
   @Override
