@@ -27,10 +27,12 @@ public class FunctionCallExpr extends Expr {
   public String name;
   public final ImmutableList<Expr> argExprs;
   private Type assertedOutputTypeForGenericFunctionCallUse;
+  private String originalName;
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.name = name;
+    this.originalName = name;
     this.argExprs = args;
   }
 
@@ -478,6 +480,11 @@ public class FunctionCallExpr extends Expr {
             )
         )
     );
+
+    // This node will be potentially reused assuming that it is called within a Generic function that gets
+    // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
+    // the name now.
+    this.name = this.originalName;
 
     // We definitely don't want to be throwing away the static definitions and preambles required for the exprs
     // passed as args to this function call, so ensure that they're correctly collected and passed on here.

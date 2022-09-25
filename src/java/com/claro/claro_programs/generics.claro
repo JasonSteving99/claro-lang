@@ -44,6 +44,8 @@ print("Testing generic function convert<int, string>");
 var intToStringConvertedRes: string = convert(10);
 print(intToStringConvertedRes);
 
+print("----------------------------------------------------------");
+print("Testing generic function convert<(int, int), [int]>");
 var tupleIntIntToListIntConvertedRes: [int] = convert((9, 10));
 print(tupleIntIntToListIntConvertedRes);
 
@@ -71,6 +73,24 @@ print(mapResult);
 # TODO(steving) to imagine a way to get the lambda to have its type asserted onto it, when the typical generic func call
 # TODO(steving) flow is to infer each arg's type (which lambda does not support as its syntax is ambiguous).
 #var mapResult: [boolean] = map([1, 90, -13, 0], x -> x >= 0);
+
+
+function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
+  var outputList: [T] = [];
+  var i = 0;
+  while (i < len(inputList)) {
+    var curr = inputList[i++];
+    if (predFn(curr)) {
+      append(outputList, curr);
+    }
+  }
+  return outputList;
+}
+
+print("----------------------------------------------------------");
+print("Testing generic function filter<|[int], function<int, boolean>| -> [boolean]>");
+var filterResult = filter([1, 90, -13, 0], (function<int -> boolean>) x -> x > 0);
+print(filterResult);
 
 ##########################################################################
 ## DEMONSTRATE A GENERIC FUNCTION THAT DEFERS TO ANOTHER GENERIC FUNCTION
@@ -128,3 +148,57 @@ var intsAsBools =
       return false;
     });
 print(intsAsBools);
+
+############################################################################################################
+## TOY EXAMPLE SHOWING HOW A FRAMEWORK MIGHT USE THIS TO PROVIDE FUNCTIONALITY W/O KNOWING ABOUT YOUR TYPES
+############################################################################################################
+
+# Bear with me on these aliases, Claro doesn't have structs yet.
+alias ID : string
+alias Person : tuple<string, ID>
+alias Dog : tuple<string, string, ID>
+
+contract HasId<T> {
+  function getId(t: T) -> ID;
+}
+implement HasId<Person> as PersonId {
+  function getId(p: Person) -> ID {
+    return (ID) p[1];
+  }
+}
+implement HasId<Dog> as DogId {
+  function getId(d: Dog) -> ID {
+    return (ID) d[2];
+  }
+}
+
+function dbSave<S>(objectToSave: S, id: ID) -> boolean {
+  print("Persisting - \n\tID: ");
+  print(id);
+  print("\tObject: ");
+  print(objectToSave);
+  return true;
+}
+
+requires(HasId<T>)
+function persist<T>(t: T) -> boolean {
+  var idToPersist: ID = HasId::getId(t);
+  return dbSave(t, idToPersist);
+}
+
+var p1: Person = ("Cédric", "1");
+var p2: Person = ("Jason", "2");
+var dog1: Dog = ("Max", "Golden Retriever", "3");
+
+# Nobody should need to pass the lambda arg, even though we're not
+# using inheritance.
+print("----------------------------------------------------------");
+var persistResult = persist(p1);
+print(persistResult);
+print("----------------------------------------------------------");
+persistResult = persist(p2);
+print(persistResult);
+print("----------------------------------------------------------");
+persistResult = persist(dog1);
+print(persistResult);
+
