@@ -205,6 +205,11 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(this.referencedContractImplName).append('.'));
+
+    // In order to avoid using names that are way too long for Java, we're going to hash all names within this
+    // contract implementation. I won't worry about maintaining the old names here, because these variables should
+    // never be referenced anymore after codegen.
+    super.hashNameForCodegen = true;
     res = res.createMerged(super.generateJavaSourceOutput(scopedHeap));
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets

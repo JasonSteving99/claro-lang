@@ -357,7 +357,7 @@ public class ScopedHeap {
     // This value is only meaningful in interpreted modes where values are tracked.
     Object interpretedValue;
     // This should be set to True when this identifier is referenced.
-    boolean used = false;
+    public boolean used = false;
     // This should be set when this identifier is first observed to during the compiler's type checking phase.
     boolean declared;
     public boolean isTypeDefinition;

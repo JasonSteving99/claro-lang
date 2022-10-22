@@ -45,6 +45,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "generic_return_inference_experimentation_compiled_claro_image",
+    srcs = [":generic_return_inference_experimentation_compiled_claro"],
+    java_name = "generic_return_inference_experimentation",
+)
+
+claro_library(
+    name = "generic_return_inference_experimentation_compiled_claro",
+    src = "generic_return_inference_experimentation.claro",
+    debug = True
+)
+
+claro_binary(
     name = "exec_compiled_claro_image",
     srcs = [":exec_compiled_claro"],
     java_name = "exec",
@@ -86,7 +98,6 @@ claro_binary(
 claro_library(
     name = "keyword_generics_compiled_claro",
     src = "keyword_generics.claro",
-#    debug = True,
 )
 
 claro_binary(

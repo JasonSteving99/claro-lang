@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -167,6 +168,18 @@ public class LambdaExpr extends Expr {
       this.lambdaReferenceTerm =
           new IdentifierReferenceTerm(this.lambdaName, currentLine, currentLineNumber, startCol, endCol);
       lambdaReferenceTerm.assertExpectedExprType(scopedHeap, expectedExprType);
+    }
+
+    // Because lambdas actually will need to be typechecked multiple times in the case of typechecking within multiple
+    // different monomorphizations, we need to reset this to allow it to redo this work over different types for the
+    // next monomorphization. This is safe, because the guard above still protects against recursive calls back into the
+    // same lambda expr initialization during the same outer function definition statement.
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation ||
+        (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+         &&
+         ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+             .get()).procedureName.contains("$MONOMORPHIZATION"))) {
+      this.alreadyAssertedTypes = false;
     }
   }
 

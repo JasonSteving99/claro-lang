@@ -206,8 +206,8 @@ WhiteSpace     = [ \t\f]
     "using"            { return symbol(Calc.USING, 0, 5, "using"); }
 
     // Graph related things go here.
-    "future"           { return symbol(Calc.FUTURE, 0, 4, "future"); }
-    "graph"            { return symbol(Calc.GRAPH, 0, 4, "graph"); }
+    "future"           { return symbol(Calc.FUTURE, 0, 6, "future"); }
+    "graph"            { return symbol(Calc.GRAPH, 0, 5, "graph"); }
     "root"             { return symbol(Calc.ROOT, 0, 4, "root"); }
     "node"             { return symbol(Calc.NODE, 0, 4, "node"); }
     "blocking"         { return symbol(Calc.BLOCKING, 0, 8, "blocking"); }

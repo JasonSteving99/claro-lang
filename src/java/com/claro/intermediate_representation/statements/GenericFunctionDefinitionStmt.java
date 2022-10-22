@@ -9,6 +9,7 @@ import com.claro.runtime_utilities.injector.InjectedKey;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
+import com.google.common.hash.Hashing;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
       monomorphizations = HashBasedTable.create();
+  private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, String>
+      alreadyCodegendMonomorphizations = HashBasedTable.create();
   private static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
   public GenericFunctionDefinitionStmt(
@@ -174,6 +177,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     if (GenericFunctionDefinitionStmt.monomorphizations.contains(this.functionName, concreteTypeParams)) {
       return GenericFunctionDefinitionStmt.monomorphizations.get(this.functionName, concreteTypeParams).procedureName;
     }
+    if (GenericFunctionDefinitionStmt.alreadyCodegendMonomorphizations.contains(this.functionName, concreteTypeParams)) {
+      return GenericFunctionDefinitionStmt.alreadyCodegendMonomorphizations.get(this.functionName, concreteTypeParams);
+    }
     if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
       return this.functionName;
     }
@@ -190,7 +196,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                 /*contractName=*/"$MONOMORPHIZATION", orderedConcreteTypeParams.build(), this.functionName));
 
     GenericFunctionDefinitionStmt.monomorphizations.put(this.functionName, concreteTypeParams, monomorphization);
-    scopedHeap.observeIdentifier(monomorphization.procedureName, null);
+    // The type shouldn't ever be used, so don't bother computing the concrete function type, just set it to the generic
+    // signature type for simplicity.
+    scopedHeap.observeIdentifier(monomorphization.procedureName, scopedHeap.getValidatedIdentifierType(this.functionName));
 
     return monomorphization.procedureName;
   }
@@ -235,6 +243,12 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource monomorphizationsCodeGen = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
 
+    // Since we've already done type validation on this generic function before, let's skip unused checks
+    // since we know anything that would show up now would be a complete red-herring if it didn't already
+    // show up before.
+    boolean originalCheckUnused = scopedHeap.checkUnused;
+    scopedHeap.checkUnused = false;
+
     // Every time that I do type validation on a new monomorphization, there's a chance that the function definition's
     // body contained another call to a generic function. In that case, it's possible that a new monomorphization for
     // that function was just discovered. So I'll need to keep doing codegen until I know that no more monomorphizations
@@ -277,16 +291,32 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           } catch (ClaroTypeException e) {
             throw new RuntimeException(e);
           }
+          // At the last second, right before doing codegen, I want to actually make codegen simplify the
+          // monomorphization's name into something shorter, but still avoiding collisions with any other identifiers.
+          // For this, I'll use sha256 hashing. The reason is that Java has started to complain about some generated
+          // class names being too long (e.g. one was >550 chars for a monomorphization over a complex data structure).
+          String originalMonomorphizationName = monomorphization.procedureName;
+          monomorphization.procedureName = currGenericProcedureName + "__" + Hashing.sha256()
+              .hashUnencodedChars(monomorphization.procedureName)
+              .toString();
           monomorphizationsCodeGen =
               monomorphizationsCodeGen.createMerged(monomorphization.generateJavaSourceOutput(scopedHeap));
+          // We only need the hash name during codegen, we'll keep the readable name during internal evaluation to make
+          // debugging easier.
+          monomorphization.procedureName = originalMonomorphizationName;
 
           for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
             // This is temporary to this specific monomorphization and needs to be removed.
             scopedHeap.deleteIdentifierValue(currGenericProcedureArgNames.get(i));
           }
+
+          // Mark this as already monomorphized so that if we run across it again in another generic function we can
+          // skip monomorphizing it again.
+          alreadyCodegendMonomorphizations.put(currGenericProcedureName, concreteTypeParams, monomorphization.procedureName);
         }
       }
     }
+    scopedHeap.checkUnused = originalCheckUnused;
     return monomorphizationsCodeGen;
   }
 

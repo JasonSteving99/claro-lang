@@ -88,7 +88,7 @@ function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
 }
 
 print("----------------------------------------------------------");
-print("Testing generic function filter<|[int], function<int, boolean>| -> [boolean]>");
+print("Testing generic function filter<|[int], function<int, boolean>| -> [int]>");
 var filterResult = filter([1, 90, -13, 0], (function<int -> boolean>) x -> x > 0);
 print(filterResult);
 
@@ -111,9 +111,13 @@ function mapDeferringToContractImpl<I, O>(inputList: [I]) -> [O] {
 }
 
 print("----------------------------------------------------------");
-print("Testing generic function map<int, string>");
+print("Testing generic function mapDeferringToContractImpl<int, string>");
 var mappedStringsRes: [string] = mapDeferringToContractImpl([1,-1,0,10,-99]);
 print(mappedStringsRes);
+print("----------------------------------------------------------");
+print("Testing generic function mapDeferringToContractImpl<int, float>");
+var mappedFloatsRes: [float] = mapDeferringToContractImpl([1,-1,0,10,-99]);
+print(mappedFloatsRes);
 
 ##################################################################################
 ## DEMONSTRATE A GENERIC FUNCTION THAT USES BOTH A CONTRACT AND A FIRST CLASS ARG
@@ -202,3 +206,10 @@ print("----------------------------------------------------------");
 persistResult = persist(dog1);
 print(persistResult);
 
+
+# TODO(steving) I still need to figure out the ordering to process generic funcs so they can be called by non-generic funcs.
+#function inter(p: Person) -> boolean {
+#  return persist(p);
+#}
+#
+#print(inter(p1));

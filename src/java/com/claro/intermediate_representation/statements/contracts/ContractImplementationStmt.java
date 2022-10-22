@@ -10,6 +10,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.hash.Hashing;
+
+import java.util.function.Function;
 
 public class ContractImplementationStmt extends Stmt {
   private final String contractName;
@@ -49,6 +52,13 @@ public class ContractImplementationStmt extends Stmt {
     }
     this.concreteImplementationTypeParams = concreteImplementationTypeParamsBuilder.build();
 
+    // Register this Contract Implementation for these types so that the implemented procedures can
+    // be de-referenced through the contract impl by type inference.
+    this.concreteTypeStrings = this.concreteImplementationTypeParams.values().stream()
+        .map(Type::toString)
+        .collect(ImmutableList.toImmutableList());
+    this.canonicalImplementationName = getContractTypeString(this.contractName, concreteTypeStrings);
+
     // Now validate that this isn't a duplicate of another existing implementation of this contract.
     if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
       throw new RuntimeException(
@@ -58,12 +68,6 @@ public class ContractImplementationStmt extends Stmt {
           ));
     }
 
-    // Register this Contract Implementation for these types so that the implemented procedures can
-    // be de-referenced through the contract impl by type inference.
-    this.concreteTypeStrings = this.concreteImplementationTypeParams.values().stream()
-        .map(Type::toString)
-        .collect(ImmutableList.toImmutableList());
-    this.canonicalImplementationName = getContractTypeString(this.contractName, concreteTypeStrings);
     scopedHeap.putIdentifierValue(
         this.canonicalImplementationName,
         Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
@@ -180,12 +184,38 @@ public class ContractImplementationStmt extends Stmt {
             .append(this.implementationName)
             .append(" {\n");
 
+    // In order to avoid using names that are way too long for Java, we're going to hash all names within this
+    // contract implementation. I won't worry about maintaining the old names here, because these variables should
+    // never be referenced anymore after codegen.
+    Function<Integer, String> getHashedContractProcedureImplName =
+        i ->
+            String.format(
+                "%s__%s",
+                this.contractProcedureImplementationStmts.get(i).procedureName,
+                Hashing.sha256()
+                    .hashUnencodedChars(this.contractProcedureImplementationStmts.get(i).procedureDefinitionStmt.procedureName)
+                    .toString()
+            );
+    this.contractProcedureImplementationStmts.get(0).procedureDefinitionStmt.procedureName =
+        getHashedContractProcedureImplName.apply(0);
+    Function<Integer, GeneratedJavaSource> noteOriginalType =
+        i ->
+            GeneratedJavaSource.forStaticDefinitions(new StringBuilder(
+                String.format(
+                    "/*%s*/\n",
+                    this.contractProcedureImplementationStmts.get(i).procedureDefinitionStmt.resolvedProcedureType.toString()
+                )));
     GeneratedJavaSource implementationProcedureDefinitions =
-        this.contractProcedureImplementationStmts.get(0).generateJavaSourceOutput(scopedHeap);
+        noteOriginalType.apply(0).createMerged(
+            this.contractProcedureImplementationStmts.get(0).generateJavaSourceOutput(scopedHeap));
+    int i = 1;
     for (ContractProcedureImplementationStmt implementationStmt :
         this.contractProcedureImplementationStmts.subList(1, this.contractProcedureImplementationStmts.size())) {
+      implementationStmt.procedureDefinitionStmt.procedureName = getHashedContractProcedureImplName.apply(i);
       implementationProcedureDefinitions =
-          implementationProcedureDefinitions.createMerged(implementationStmt.generateJavaSourceOutput(scopedHeap));
+          noteOriginalType.apply(i).createMerged(
+              implementationProcedureDefinitions.createMerged(implementationStmt.generateJavaSourceOutput(scopedHeap)));
+      ++i;
     }
 
     res.append("// Static preamble statements first thing.\n")

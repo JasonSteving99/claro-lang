@@ -1,0 +1,226 @@
+# Claro's Contract Implementation Inference makes generic function call inference uniquely powerful
+# in a way that other languages are not. Claro is able to infer specialization of a generic function
+# call with different behavior over the same args by simply requesting a different output type. I'll
+# demonstrate a bit below.
+
+contract Index<D, T, V> {
+  function get(data: D, index: T) -> V;
+}
+
+implement Index<[int], int, int> as UnsafeAccess {
+  function get(list: [int], index: int) -> int {
+    return list[index];
+  }
+}
+
+alias Result : tuple<boolean, int>
+
+implement Index<[int], int, Result> as SafeAccess {
+  function get(list: [int], index: int) -> Result {
+    if (index < 0 or len(list) <= index) {
+      return (false, -1);
+    }
+    return (true, list[index]);
+  }
+}
+
+requires(Index<D, T, V>)
+function get<D, T, V>(data: D, index: T) -> V {
+  return Index::get(data, index);
+}
+
+var l = [10,20,30];
+
+var intRes: int = get(l, 0);
+print(intRes);
+intRes = get(l, 1);
+print(intRes);
+# Uncomment this to get a runtime exception.
+#intRes = get(l, -1);
+#print(intRes);
+
+var safeRes: Result = get(l, 0);
+print(safeRes);
+safeRes = get(l, 1);
+print(safeRes);
+# It's no longer a runtime exception to call this function with the exact same args,
+# because we're requesting the variant that provides safe output.
+safeRes = get(l, -1);
+print(safeRes);
+
+
+################################################################################
+# Here's an example where we can utilize the generic return type inference to
+# do super clean type conversion that's appropriate for the context in which
+# the data being converted is being used.
+
+contract Conversion<I, O> {
+  function from(i: I) -> O;
+}
+
+implement Conversion<int, string> as IntToString {
+  function from(i: int) -> string {
+    if (i == 0) {
+      return "ZERO";
+    } else if (i > 0) {
+      return "POSITIVE";
+    }
+    return "NEGATIVE";
+  }
+}
+
+var i = 0;
+while (i < 7) {
+  print("Curr num: {Conversion::from(i++ - 3)}");
+}
+
+################################################################################
+# Here's another example where you can actually query a table by column type.
+# Pardon the hacky setup for column type aliases - realistically you'd want to
+# have some codegen for these types and they should actually be structs. In the
+# current absence of struct support in Claro, this is just a hack to get a bunch
+# of unique types to demonstrate this technique with.
+
+alias ID : int
+alias Name : string
+alias Age : tuple<int, boolean>
+alias Birthday : tuple<string, boolean>
+alias PhoneNumber : tuple<tuple<string, boolean>, boolean>
+alias Row : tuple<Name, Age, Birthday, PhoneNumber>
+alias Table : [Row] # ID is just the index.
+
+function createRow(name: string, age: int, birthday: string, phonenumber: string) -> Row {
+  return (name, (age, true), (birthday, true), ((phonenumber, true), true));
+}
+
+contract ColumnAccess<C> {
+  function get(t: Table, id: ID) -> C;
+}
+
+implement ColumnAccess<Name> as NameCol {
+  function get(t: Table, id: ID) -> Name {
+    var row = t[id];
+    return (Name) row[0];
+  }
+}
+
+implement ColumnAccess<Age> as AgeCol {
+  function get(t: Table, id: ID) -> Age {
+    var row = t[id];
+    return (Age) row[1];
+  }
+}
+
+implement ColumnAccess<Birthday> as BirthdayCol {
+  function get(t: Table, id: ID) -> Birthday {
+    var row = t[id];
+    return (Birthday) row[2];
+  }
+}
+
+implement ColumnAccess<PhoneNumber> as PhoneNumberCol {
+  function get(t: Table, id: ID) -> PhoneNumber {
+    var row = t[id];
+    return (PhoneNumber) row[3];
+  }
+}
+
+implement ColumnAccess<Row> as AllColumns {
+  function get(t: Table, id: ID) -> Row {
+    return t[id];
+  }
+}
+
+var table: Table =
+  [
+    createRow("Jason", 28, "MM/DD/YYY", "(XXX)XXX-XXXX"),
+    createRow("Lisa", 22, "MM/DD/YYY", "(YYY)YYY-YYYY"),
+    createRow("Laura", 27, "MM/DD/YYY", "(XXX)XXX-XXXX"),
+    createRow("George", 52, "MM/DD/YYY", "(ZZZ)ZZZ-ZZZZ")
+  ];
+
+requires(ColumnAccess<C>)
+function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
+  var res: Table = [];
+  var i = 0;
+  while (i < len(table)) {
+    if (pred(ColumnAccess::get(table, i))) {
+      append(res, table[i]);
+    }
+    i++;
+  }
+  return res;
+}
+
+requires(ColumnAccess<C>)
+function getTableColumn<C>(table: Table) -> [C] {
+  var res: [C] = [];
+  var i: ID = 0;
+  while (i < len(table)) {
+    append(res, ColumnAccess::get(table, i++));
+  }
+  return res;
+}
+
+function select<C1, C2>(table: Table) -> [tuple<C1, C2>] {
+  var c1: [C1] = getTableColumn(table);
+  var c2: [C2] = getTableColumn(table);
+  var res: [tuple<C1, C2>] = [];
+  var i = 0;
+  while (i < len(table)) {
+    append(res, (c1[i], c2[i]));
+    ++i;
+  }
+  return res;
+}
+
+# TODO(steving) Currently I'm unable to require the same contract over different generic params..it's a bug.
+#requires(ColumnAccess<C1>, ColumnAccess<C2>)
+function And<C1, C2>(pred1: function<C1 -> boolean>, pred2: function<C2 -> boolean>)
+    -> function<Row -> boolean> {
+  return row -> {
+    var rowAsTable: Table = [row];
+    return pred1(ColumnAccess::get(rowAsTable, 0)) and pred2(ColumnAccess::get(rowAsTable, 0));
+  };
+}
+
+print("\n\nDump all names in table:");
+var names: [Name] = getTableColumn(table);
+print(names);
+
+print("Dump all ages in table:");
+var ages: [Age] = getTableColumn(table);
+print(ages);
+
+print("Dump all birthdays in table:");
+var birthdays: [Birthday] = getTableColumn(table);
+print(birthdays);
+
+print("Dump all phonenumbers in table:");
+var phonenumbers: [PhoneNumber] = getTableColumn(table);
+print(phonenumbers);
+
+print("\n\nFilter table for names of people where age > 25");
+table
+  |> where(^, (function<Age -> boolean>) a -> ((int) a[0]) > 25)
+  |> ([Name]) getTableColumn(^)
+  |> print(^);
+
+print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
+table
+  |> where(^, And((function<Age -> boolean>) a -> ((int) a[0]) > 25, (function<Age -> boolean>) a -> ((int) a[0]) < 50))
+  |> where(^, (function<Name -> boolean>) n ->  n != "Laura")
+  |> ([tuple<Name, Age>]) select(^)
+  |> print(^);
+
+# This approach is more convoluted, but I'm flexing the generic calls to defer to multiple specializations of each
+# generic function to ensure that multiple specializations are supported.
+print("Another way to do the same thing by chaining calls to And.");
+(function<Age -> boolean>) a -> ((int) a[0]) > 25
+  |> And(^, (function<Age -> boolean>) a -> ((int) a[0]) < 50) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
+  |> And(^, (function<Name -> boolean>) n ->  n != "Laura")    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
+  |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...)
+  |> ([tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
+  |> print(^);
+
+

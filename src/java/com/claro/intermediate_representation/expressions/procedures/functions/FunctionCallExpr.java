@@ -14,6 +14,7 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
+import com.google.common.hash.Hashing;
 
 import java.util.HashMap;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
   public String name;
+  public boolean hashNameForCodegen = false;
   public final ImmutableList<Expr> argExprs;
   private Type assertedOutputTypeForGenericFunctionCallUse;
   private String originalName;
@@ -457,6 +459,20 @@ public class FunctionCallExpr extends Expr {
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
     if (!this.name.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.name);
+    } else {
+      this.hashNameForCodegen = true;
+    }
+
+    if (this.hashNameForCodegen) {
+      // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
+      // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
+      // still unique.
+      this.name =
+          String.format(
+              "%s__%s",
+              this.originalName,
+              Hashing.sha256().hashUnencodedChars(this.name).toString()
+          );
     }
 
     AtomicReference<GeneratedJavaSource> exprsGenJavaSource =
