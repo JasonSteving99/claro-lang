@@ -75,9 +75,13 @@ public class ScopedHeap {
   // CompilerBackend itself.
   public void putIdentifierValue(String identifier, Type type, Object value) {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
+    putIdentifierValueAtLevel(
+        identifier, type, value, optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1));
+  }
+
+  public void putIdentifierValueAtLevel(String identifier, Type type, Object value, int scopeLevel) {
     scopeStack
-        .elementAt(
-            optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1))
+        .elementAt(scopeLevel)
         .scopedSymbolTable
         .put(identifier, new IdentifierData(type, value, true));
     if (value != null) {

@@ -26,6 +26,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
         "//src/java/com/claro/intermediate_representation/types",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/internal_static_state",
     ],
 )
 

@@ -30,7 +30,8 @@ public class ClaroTypeException extends Exception {
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the expected type to assert this type at compile-time.";
   private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION =
       "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
-  private static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
+  public static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
+      // WARNING: CHECKING AGAINST THIS IN FunctionCallExpr.java! DO NOT CHANGE THIS STRING WITHOUT CHECKING THERE FIRST.
       "Ambiguous Lambda Expression Type: Type hint required. When a lambda Expr's type is not constrained by its context, the type must be statically declared via either a type annotation, or a cast.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
       "Invalid cast: Found <%s> which cannot be converted to <%s>.";

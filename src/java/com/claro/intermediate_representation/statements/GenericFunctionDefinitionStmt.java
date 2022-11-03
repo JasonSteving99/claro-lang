@@ -28,6 +28,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   private final Boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
 
+  private ProcedureDefinitionStmt genericProcedureDefStmt;
+
   private boolean alreadyValidatedTypes = false;
 
   private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
@@ -71,8 +73,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     return res.build();
   }
 
-  @Override
-  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+  public void registerGenericProcedureTypeProvider(ScopedHeap scopedHeap) throws ClaroTypeException {
     if (!this.alreadyValidatedTypes) {
       this.alreadyValidatedTypes = true;
 
@@ -139,34 +140,57 @@ public class GenericFunctionDefinitionStmt extends Stmt {
         }
       }
 
-      InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = true;
       for (String genericArgName : this.genericProcedureArgNames) {
         scopedHeap.putIdentifierValue(
             genericArgName,
-            null,
-            TypeProvider.ImmediateTypeProvider.of(Types.$GenericTypeParam.forTypeParamName(genericArgName))
+            Types.$GenericTypeParam.forTypeParamName(genericArgName),
+            null
         );
+        scopedHeap.markIdentifierAsTypeDefinition(genericArgName);
       }
-
-      ProcedureDefinitionStmt genericProcedureDefStmt = generateProcedureDefStmt(this.functionName);
-      genericProcedureDefStmt.registerProcedureTypeProvider(scopedHeap);
-      genericProcedureDefStmt.assertExpectedExprTypes(scopedHeap);
-
+      // Define the ProcedureDefinitionStmt to defer to from here on out for the generic, non-monomorphized variant.
+      this.genericProcedureDefStmt = generateProcedureDefStmt(this.functionName);
+      this.genericProcedureDefStmt.registerProcedureTypeProvider(scopedHeap);
       for (String genericArgName : this.genericProcedureArgNames) {
         scopedHeap.deleteIdentifierValue(genericArgName);
       }
-      InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
 
       // Finally, we'll put a callback function into the scoped heap that the type checker at the call site
       // can defer to to both setup monomorphization and retrieve the canonicalized procedure name
       // for the sake of codegen to call the correct monomorphization.
-      scopedHeap.putIdentifierValue(
+      scopedHeap.putIdentifierValueAtLevel(
           this.functionName,
           genericProcedureDefStmt.resolvedProcedureType,
           (BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
-              this::prepareMonomorphizationForConcreteSignature
+              this::prepareMonomorphizationForConcreteSignature,
+          0
       );
     }
+  }
+
+  @Override
+  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase) {
+      // TODO(steving) Currently I have no better way of preventing the ProgramNode from doing type validation
+      //  on this node type twice. So short-circuiting here.
+      return;
+    }
+    InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = true;
+    for (String genericArgName : this.genericProcedureArgNames) {
+      scopedHeap.putIdentifierValue(
+          genericArgName,
+          Types.$GenericTypeParam.forTypeParamName(genericArgName),
+          null
+      );
+      scopedHeap.markIdentifierAsTypeDefinition(genericArgName);
+    }
+
+    this.genericProcedureDefStmt.assertExpectedExprTypes(scopedHeap);
+
+    for (String genericArgName : this.genericProcedureArgNames) {
+      scopedHeap.deleteIdentifierValue(genericArgName);
+    }
+    InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
   }
 
   private String prepareMonomorphizationForConcreteSignature(
@@ -197,8 +221,14 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
     GenericFunctionDefinitionStmt.monomorphizations.put(this.functionName, concreteTypeParams, monomorphization);
     // The type shouldn't ever be used, so don't bother computing the concrete function type, just set it to the generic
-    // signature type for simplicity.
-    scopedHeap.observeIdentifier(monomorphization.procedureName, scopedHeap.getValidatedIdentifierType(this.functionName));
+    // signature type for simplicity. However, put the monomorphization at the top-level scope along with other function
+    // definitions so that it persists across calls, and is not ephemeral.
+    scopedHeap.putIdentifierValueAtLevel(
+        monomorphization.procedureName,
+        scopedHeap.getValidatedIdentifierType(this.functionName),
+        null,
+        /*scopeLevel=*/0
+    );
 
     return monomorphization.procedureName;
   }
@@ -268,6 +298,13 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams = preparedMonomorphization.getKey();
           ProcedureDefinitionStmt monomorphization = preparedMonomorphization.getValue();
 
+          // This is technically a recursive function, so we need to ensure that we haven't reached a monomorphization
+          // that's already been codegen'd.
+          if (GenericFunctionDefinitionStmt.alreadyCodegendMonomorphizations
+              .contains(currGenericProcedureName, concreteTypeParams)) {
+            continue;
+          }
+
           // Now, some initial cleanup based on some unwanted side-effects of the FunctionCallExpr which already
           // puts the generic function's canonicalized name in the scoped heap in order to reuse the rest of its
           // non-generic call flow which marks the called function used...So here I'll remove the existing declaration
@@ -279,10 +316,10 @@ public class GenericFunctionDefinitionStmt extends Stmt {
             // This is temporary to this specific monomorphization and needs to be removed.
             scopedHeap.putIdentifierValue(
                 currContractGenericArg,
-                null,
-                TypeProvider.ImmediateTypeProvider.of(
-                    concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg)))
+                concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg)),
+                null
             );
+            scopedHeap.markIdentifierAsTypeDefinition(currContractGenericArg);
           }
 
           monomorphization.registerProcedureTypeProvider(scopedHeap);

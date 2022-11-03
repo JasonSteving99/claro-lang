@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.statements.contracts.ContractDefini
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 
 import java.util.Stack;
 import java.util.function.Consumer;
@@ -81,6 +82,9 @@ public class ProgramNode {
     // CONTRACT DISCOVERY PHASE:
     performContractDiscoveryPhase(stmtListNode, scopedHeap);
 
+    // GENERIC PROCEDURE DISCOVERY PHASE:
+    performGenericProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+
     // Modules only need to know about procedure type signatures, nothing else, so save procedure type
     // validation for after the full module discovery and validation phases since procedure type validation
     // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
@@ -101,9 +105,15 @@ public class ProgramNode {
     // GENERIC PROCEDURE TYPE VALIDATION PHASE:
     performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
 
+    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
+    // definitions live in their own scope and cannot reference variables below. We consider functions defined
+    // within contract implementations still as top-level functions.
+    scopedHeap.enterNewScope();
+
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
     try {
+      // TODO(steving) Currently, GenericProcedureDefinitionStmts are getting type checked a second time here for no reason.
       stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
       // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
@@ -160,6 +170,9 @@ public class ProgramNode {
     // TYPE DISCOVERY PHASE:
     performTypeDiscoveryPhase(stmtListNode, scopedHeap);
 
+    // GENERIC PROCEDURE DISCOVERY PHASE:
+    performGenericProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+
     // PROCEDURE DISCOVERY PHASE:
     performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
 
@@ -177,18 +190,24 @@ public class ProgramNode {
     // MODULE TYPE VALIDATION PHASE:
     performModuleTypeValidationPhase(stmtListNode, scopedHeap);
 
-    // PROCEDURE TYPE VALIDATION PHASE:
-    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
-
     // CONTRACT TYPE VALIDATION PHASE:
     performContractTypeValidationPhase(stmtListNode, scopedHeap);
 
     // GENERIC PROCEDURE TYPE VALIDATION PHASE:
     performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
 
+    // PROCEDURE TYPE VALIDATION PHASE:
+    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+
+    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
+    // definitions live in their own scope and cannot reference variables below. We consider functions defined
+    // within contract implementations still as top-level functions.
+    scopedHeap.enterNewScope();
+
     // Validate all types in the entire remaining AST before execution.
     try {
       // TYPE VALIDATION PHASE:
+      // TODO(steving) Currently, GenericProcedureDefinitionStmts are getting type checked a second time here for no reason.
       stmtListNode.assertExpectedExprTypes(scopedHeap);
     } catch (ClaroTypeException e) {
       // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
@@ -293,10 +312,29 @@ public class ProgramNode {
       }
       currStmtListNode = currStmtListNode.tail;
     }
-    // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
-    // definitions live in their own scope and cannot reference variables below. We consider functions defined
-    // within contract implementations still as top-level functions.
-    scopedHeap.enterNewScope();
+    InternalStaticStateUtil.GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = true;
+  }
+
+  private void performGenericProcedureDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
+    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
+    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
+    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
+    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    StmtListNode currStmtListNode = stmtListNode;
+    while (currStmtListNode != null) {
+      Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+      if (currStmt instanceof GenericFunctionDefinitionStmt) {
+        try {
+          ((GenericFunctionDefinitionStmt) currStmt).registerGenericProcedureTypeProvider(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+          // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+          // use in the execution stage.
+          throw new RuntimeException(e);
+        }
+      }
+      currStmtListNode = currStmtListNode.tail;
+    }
   }
 
   private void performProcedureDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {

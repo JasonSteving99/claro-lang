@@ -131,14 +131,6 @@ implement ColumnAccess<Row> as AllColumns {
   }
 }
 
-var table: Table =
-  [
-    createRow("Jason", 28, "MM/DD/YYY", "(XXX)XXX-XXXX"),
-    createRow("Lisa", 22, "MM/DD/YYY", "(YYY)YYY-YYYY"),
-    createRow("Laura", 27, "MM/DD/YYY", "(XXX)XXX-XXXX"),
-    createRow("George", 52, "MM/DD/YYY", "(ZZZ)ZZZ-ZZZZ")
-  ];
-
 requires(ColumnAccess<C>)
 function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
   var res: Table = [];
@@ -174,15 +166,46 @@ function select<C1, C2>(table: Table) -> [tuple<C1, C2>] {
   return res;
 }
 
-# TODO(steving) Currently I'm unable to require the same contract over different generic params..it's a bug.
-#requires(ColumnAccess<C1>, ColumnAccess<C2>)
+# TODO(steving) The contract requirements should be propagated to all caller funcs.
 function And<C1, C2>(pred1: function<C1 -> boolean>, pred2: function<C2 -> boolean>)
     -> function<Row -> boolean> {
+  return binaryCond(lambda (b1, b2) -> b1 and b2, pred1, pred2);
+}
+
+function Or<C1, C2>(pred1: function<C1 -> boolean>, pred2: function<C2 -> boolean>)
+    -> function<Row -> boolean> {
+  return binaryCond(lambda (b1, b2) -> b1 or b2, pred1, pred2);
+}
+
+# TODO(steving) Currently I'm unable to require the same contract over different generic params..it's a bug.
+#requires(ColumnAccess<C1>, ColumnAccess<C2>)
+function binaryCond<C1, C2>(
+    op: function<|boolean, boolean| -> boolean>,
+    pred1: function<C1 -> boolean>,
+    pred2: function<C2 -> boolean>) -> function<Row -> boolean> {
   return row -> {
     var rowAsTable: Table = [row];
-    return pred1(ColumnAccess::get(rowAsTable, 0)) and pred2(ColumnAccess::get(rowAsTable, 0));
+    return op(pred1(ColumnAccess::get(rowAsTable, 0)), pred2(ColumnAccess::get(rowAsTable, 0)));
   };
 }
+
+
+var table: Table =
+  [
+    createRow("Jason", 28, "MM/DD/YYY", "(XXX)XXX-XXXX"),
+    createRow("Lisa", 22, "MM/DD/YYY", "(YYY)YYY-YYYY"),
+    createRow("Laura", 27, "MM/DD/YYY", "(XXX)XXX-XXXX"),
+    createRow("George", 52, "MM/DD/YYY", "(ZZZ)ZZZ-ZZZZ")
+  ];
+
+print("\n\n--------------------------------------------------");
+print("We're going to do some test queries over this table:");
+i = 0;
+print("[");
+while (i < len(table)) {
+  print(table[i++]);
+}
+print("]");
 
 print("\n\nDump all names in table:");
 var names: [Name] = getTableColumn(table);
@@ -219,8 +242,29 @@ print("Another way to do the same thing by chaining calls to And.");
 (function<Age -> boolean>) a -> ((int) a[0]) > 25
   |> And(^, (function<Age -> boolean>) a -> ((int) a[0]) < 50) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
   |> And(^, (function<Name -> boolean>) n ->  n != "Laura")    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
-  |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...)
+  |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
   |> ([tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
 
+
+# Just try another syntax, avoiding the pipelining just to see if this is a more readable approach. Also using Or().
+print("Filter table for names of people where either Name is George, or 25 < age < 50 excluding Laura.");
+var res: [tuple<Name, Age>] =
+  select(      # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
+    where(     # Calling: where<function<Row -> boolean>>(...) -> Table
+      table,
+      Or(
+        And(   # Calling: And<Row, Name>(...) -> function<Row -> boolean>
+          And( # Calling: And<Age, Age>(...) -> function<Row -> boolean>
+            (function<Age -> boolean>) a -> ((int) a[0]) > 25,
+            (function<Age -> boolean>) a -> ((int) a[0]) < 50
+          ),
+          (function<Name -> boolean>) n -> n != "Laura"
+        ),
+        (function<Name -> boolean>) n -> n == "George"
+      )
+    )
+  );
+
+print(res);
 

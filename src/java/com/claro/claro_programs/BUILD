@@ -53,7 +53,6 @@ claro_binary(
 claro_library(
     name = "generic_return_inference_experimentation_compiled_claro",
     src = "generic_return_inference_experimentation.claro",
-    debug = True
 )
 
 claro_binary(

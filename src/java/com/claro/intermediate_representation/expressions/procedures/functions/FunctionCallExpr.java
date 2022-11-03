@@ -187,6 +187,7 @@ public class FunctionCallExpr extends Expr {
         HashMap<Types.$GenericTypeParam, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
         boolean successfullyValidatedArgs = true;
         for (int i = 0; i < argExprs.size(); i++) {
+          int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
           Type argType = ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i);
           try {
             validateArgExprsAndExtractConcreteGenericTypeParams(
@@ -201,7 +202,21 @@ public class FunctionCallExpr extends Expr {
             argExprs.get(i)
                 .assertExpectedExprType(scopedHeap, genericTypeParamTypeHashMap.getOrDefault(argType, argType));
             Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
-            successfullyValidatedArgs = false;
+
+            // Before declaring a failure on validating types, first validate that we actually logged a type validation
+            // error. In the case that the arg that we're currently validating is actually a concrete type and not a
+            // generic type, then it's possible that there was originally an error when trying to query the type from
+            // the argExpr, but not when we asserted the type on it directly. This would specifically be the case for
+            // uncasted lambdas and tuple-subscripts.
+            if (existingTypeErrorsFoundCount < Expr.typeErrorsFound.size()) {
+              if (ignored.getMessage().contains("Ambiguous Lambda Expression Type:")) {
+                // We want to only provide the more specific error message that is actually actionable, drop noise.
+                Expr.typeErrorsFound.setSize(existingTypeErrorsFoundCount);
+                argExprs.get(i).logTypeError(ignored);
+              }
+
+              successfullyValidatedArgs = false;
+            }
           }
         }
         if (!successfullyValidatedArgs) {
@@ -284,10 +299,15 @@ public class FunctionCallExpr extends Expr {
           }
         }
 
-        // I want to mark this concrete signature for Monomorphization codegen!
-        this.name =
-            ((BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
-                 scopedHeap.getIdentifierValue(this.name)).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
+        // We actually will need to skip this portion if this is a recursive call to a generic function during
+        // the generic type checking of that function. This recursive call is not representative of something we
+        // actually want to monomorphize.
+        if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+          // I want to mark this concrete signature for Monomorphization codegen!
+          this.name =
+              ((BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
+                   scopedHeap.getIdentifierValue(this.name)).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
+        }
       } // END LABEL GenericProcedureCallChecks:
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
