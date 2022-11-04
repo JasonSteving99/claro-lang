@@ -177,8 +177,7 @@ function Or<C1, C2>(pred1: function<C1 -> boolean>, pred2: function<C2 -> boolea
   return binaryCond(lambda (b1, b2) -> b1 or b2, pred1, pred2);
 }
 
-# TODO(steving) Currently I'm unable to require the same contract over different generic params..it's a bug.
-#requires(ColumnAccess<C1>, ColumnAccess<C2>)
+requires(ColumnAccess<C1>, ColumnAccess<C2>)
 function binaryCond<C1, C2>(
     op: function<|boolean, boolean| -> boolean>,
     pred1: function<C1 -> boolean>,

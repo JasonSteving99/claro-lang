@@ -7,10 +7,7 @@ import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -264,7 +261,7 @@ public final class Types {
     public abstract Optional<ImmutableList<String>> getGenericProcedureArgNames();
 
     // In case this is a generic procedure that has annotated required contract implementations.
-    public abstract Optional<ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>>> getOptionalRequiredContractNamesToGenericArgs();
+    public abstract Optional<ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>> getOptionalRequiredContractNamesToGenericArgs();
 
     // When comparing Types we don't ever want to care about *names* (or other metadata), these are meaningless to the
     // compiler and should be treated equivalently to a user comment in terms of the program's semantic execution. So
@@ -403,7 +400,7 @@ public final class Types {
           Boolean explicitlyAnnotatedBlocking,
           Optional<ImmutableSet<Integer>> genericBlockingOnArgs,
           Optional<ImmutableList<String>> optionalGenericProcedureArgNames,
-          Optional<ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>>> optionalRequiredContractNamesToGenericArgs) {
+          Optional<ImmutableListMultimap<String, ImmutableList<$GenericTypeParam>>> optionalRequiredContractNamesToGenericArgs) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -552,7 +549,7 @@ public final class Types {
                 .orElse("")
             + this.getOptionalRequiredContractNamesToGenericArgs()
                 .map(requiredContracts ->
-                         requiredContracts.entrySet().stream()
+                         requiredContracts.entries().stream()
                              .map(entry ->
                                       String.format(
                                           "%s<%s>",

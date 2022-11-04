@@ -104,6 +104,8 @@ public class ClaroTypeException extends Exception {
       "Invalid Contract Reference: %s does not have the correct number of type params required by %s.";
   private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT_PROCEDURE =
       "Invalid Contract Procedure Reference: Contract %s<%s> does not define any procedure named `%s`.";
+  private static final String CONTRACT_PROCEDURE_REFERENCE_WITHOUT_REQUIRED_ANNOTATION_ON_GENERIC_FUNCTION =
+      "Invalid Contract Procedure Reference: Generic procedure calls a Contract procedure %s::%s over a generic type param so should be annotated as `requires(%s<%s>)`";
   private static final String GENERIC_PROCEDURE_REQUIRES_UNDEFINED_CONTRACT =
       "Invalid Required Contract: Generic Procedure `%s` is attempting to require undefined contract `%s`.";
   private static final String GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
@@ -586,6 +588,18 @@ public class ClaroTypeException extends Exception {
             referencedIdentifierType,
             requiredContract,
             Joiner.on(", ").join(requiredContractConcreteTypes)
+        ));
+  }
+
+  public static ClaroTypeException forContractProcedureReferencedWithoutRequiredAnnotationOnGenericFunction(
+      String contractName, String procedureName, ImmutableList<Type> resolvedContractConcreteTypes) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_PROCEDURE_REFERENCE_WITHOUT_REQUIRED_ANNOTATION_ON_GENERIC_FUNCTION,
+            contractName,
+            procedureName,
+            contractName,
+            Joiner.on(", ").join(resolvedContractConcreteTypes)
         ));
   }
 }

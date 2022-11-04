@@ -7,7 +7,9 @@ import com.claro.intermediate_representation.statements.contracts.ContractImplem
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -130,6 +132,42 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       // TODO(steving) There's going to be a case where the program is ambiguous b/c the return type isn't asserted.
       throw new RuntimeException("TODO(steving) Need to handle inference when the type is not asserted by context." +
                                  " Sometimes it's actually valid.");
+    }
+
+    // If this contract procedure is getting called over any generic type params, then we need to validate that the
+    // generic function it's getting called within actually already marks this particular contract impl as `required`.
+    CheckContractImplAnnotatedRequiredWithinGenericFunctionDefinition:
+    {
+      if (resolvedContractConcreteTypes.stream()
+          .anyMatch(contractTypeParam -> contractTypeParam.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
+        Optional optionalRequiredContractNamesToGenericArgs =
+            ((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType.get())
+                .getOptionalRequiredContractNamesToGenericArgs();
+        if (!optionalRequiredContractNamesToGenericArgs.isPresent()) {
+          // In the case that we're within a lambda expr defined w/in a generic procedure definition, we need to grab
+          // the required contract impls info from a different source.
+          optionalRequiredContractNamesToGenericArgs =
+              InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs;
+        }
+        if (optionalRequiredContractNamesToGenericArgs.isPresent()
+            && !((ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
+                     optionalRequiredContractNamesToGenericArgs.get()).isEmpty()) {
+          // There are actually some contracts annotated required, let's look for one that would match the current call.
+          for (ImmutableList<Types.$GenericTypeParam> annotatedRequiredContractImplTypes :
+              ((ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
+                   optionalRequiredContractNamesToGenericArgs.get()).get(this.contractName)) {
+            if (annotatedRequiredContractImplTypes.equals(this.resolvedContractConcreteTypes)) {
+              // Good job programmer!
+              break CheckContractImplAnnotatedRequiredWithinGenericFunctionDefinition;
+            }
+          }
+        }
+        // Let's not make this a terminal exception that prevents continuing type checking. Just mark the error and
+        // continue on with type checking to find more errors.
+        this.logTypeError(
+            ClaroTypeException.forContractProcedureReferencedWithoutRequiredAnnotationOnGenericFunction(
+                this.contractName, this.name, this.resolvedContractConcreteTypes));
+      }
     }
 
     // Set the canonical implementation name so that this can be referenced later simply by type.

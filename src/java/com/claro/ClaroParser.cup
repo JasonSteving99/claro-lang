@@ -19,6 +19,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.injector.InjectedKey;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.base.Strings;
 import java_cup.runtime.Symbol;
 import java.lang.Math;
@@ -287,7 +288,7 @@ nonterminal ContractImplementationStmt         contract_implementation_stmt;
 nonterminal ImmutableList.Builder<ContractProcedureImplementationStmt> contract_implementations_list;
 // Unfortunately IntelliJ is starting to take a dump on this file since it's gotten massive, so it will no longer
 // correctly parse this type even though JCup and Java are handling the file like a champ.
-nonterminal ImmutableMap.Builder/*<String, ImmutableList<Types.$GenericTypeParam>>*/  required_contracts;
+nonterminal ImmutableListMultimap.Builder/*<String, ImmutableList<Types.$GenericTypeParam>>*/  required_contracts;
 nonterminal PipeChainStmt                      pipe_chain_stmt;
 // This is just because Java is hot garbage and doesn't have tuples. The first entry will be a sink stmt.
 // The second entry will be an ImmutableList.Builder<Expr>. The Expr will be required to contain some
@@ -1440,7 +1441,7 @@ generic_function_definition_stmt ::=
 
       ImmutableList<String> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
-     RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableMap.of(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+     RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableListMultimap.of(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
    :}
  | REQUIRES LPAR required_contracts:required_contracts RPAR FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
    {:
@@ -1455,7 +1456,8 @@ generic_function_definition_stmt ::=
 
       ImmutableList<String> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
-     RESULT = new GenericFunctionDefinitionStmt(name.val, (ImmutableMap<String,ImmutableList<Types.$GenericTypeParam>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+     RESULT = new GenericFunctionDefinitionStmt(
+        name.val, (ImmutableListMultimap<String,ImmutableList<Types.$GenericTypeParam>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
    :}
   ;
 
@@ -1521,7 +1523,7 @@ required_contracts ::=
       ImmutableList<Types.$GenericTypeParam> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse().stream()
           .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
-      RESULT = ImmutableMap.<String, ImmutableList<Types.$GenericTypeParam>>builder().put(contract_name.val, genericTypesList);
+      RESULT = ImmutableListMultimap.<String, ImmutableList<Types.$GenericTypeParam>>builder().put(contract_name.val, genericTypesList);
     :}
   ;
 

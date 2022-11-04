@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
@@ -152,9 +153,30 @@ public class LambdaExpr extends Expr {
         }
       }
 
+      // Before we defer to the ProcedureDefinitionStmt for type validation, we may need to preserve required contracts
+      // if any are present.
+      boolean cleanupInternalStaticState = false;
+      if (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()) {
+        Optional<ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>>
+            optionalRequiredContractNamesToGenericArgs =
+            ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                .get())
+                .resolvedProcedureType.getOptionalRequiredContractNamesToGenericArgs();
+        if (optionalRequiredContractNamesToGenericArgs.isPresent()) {
+          InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs
+              = Optional.of(optionalRequiredContractNamesToGenericArgs.get());
+          cleanupInternalStaticState = true;
+        }
+      }
+
       // Now delegate to our internal ProcedureDefinitionStmt instance to see if it approves the types.
       delegateProcedureDefinitionStmt.registerProcedureTypeProvider(scopedHeap);
       delegateProcedureDefinitionStmt.assertExpectedExprTypes(scopedHeap);
+
+      if (cleanupInternalStaticState) {
+        InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs
+            = Optional.empty();
+      }
 
       // Recover the existing state info about whether or not ReturnStmts are supported in the scope surrounding
       // this LambdaExpr.

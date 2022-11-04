@@ -19,7 +19,8 @@ import java.util.stream.Collectors;
 
 public class GenericFunctionDefinitionStmt extends Stmt {
   private final String functionName;
-  private final ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>> requiredContractNamesToGenericArgs;
+  private final ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>
+      requiredContractNamesToGenericArgs;
   private final ImmutableList<String> genericProcedureArgNames;
   private final ImmutableMap<String, TypeProvider> argTypes;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes;
@@ -40,7 +41,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   public GenericFunctionDefinitionStmt(
       String functionName,
-      ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>> requiredContractNamesToGenericArgs,
+      ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>> requiredContractNamesToGenericArgs,
       ImmutableList<String> genericProcedureArgNames,
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
@@ -113,30 +114,31 @@ public class GenericFunctionDefinitionStmt extends Stmt {
         Types.$Contract actualContractType = (Types.$Contract) scopedHeap.getValidatedIdentifierType(requiredContract);
 
         // Check that there are the correct number of type params.
-        ImmutableList<Types.$GenericTypeParam> requiredContractGenericArgs =
-            this.requiredContractNamesToGenericArgs.get(requiredContract);
-        if (actualContractType.getTypeParamNames().size() != requiredContractGenericArgs.size()) {
-          throw ClaroTypeException.forGenericProcedureRequiresContractImplementationWithWrongNumberOfTypeParams(
-              ContractImplementationStmt.getContractTypeString(requiredContract, requiredContractGenericArgs.stream()
-                  .map(Type::toString)
-                  .collect(ImmutableList.toImmutableList())),
-              ContractImplementationStmt.getContractTypeString(requiredContract, actualContractType.getTypeParamNames())
-          );
-        }
+        for (ImmutableList<Types.$GenericTypeParam> requiredContractGenericArgs
+            : this.requiredContractNamesToGenericArgs.get(requiredContract)) {
+          if (actualContractType.getTypeParamNames().size() != requiredContractGenericArgs.size()) {
+            throw ClaroTypeException.forGenericProcedureRequiresContractImplementationWithWrongNumberOfTypeParams(
+                ContractImplementationStmt.getContractTypeString(requiredContract, requiredContractGenericArgs.stream()
+                    .map(Type::toString)
+                    .collect(ImmutableList.toImmutableList())),
+                ContractImplementationStmt.getContractTypeString(requiredContract, actualContractType.getTypeParamNames())
+            );
+          }
 
-        // Then, validate that all of the required contract type params are in the generic procedures type params list.
-        for (Types.$GenericTypeParam typeParamName : requiredContractGenericArgs) {
-          Preconditions.checkState(
-              this.genericProcedureArgNames.contains(typeParamName.getTypeParamName()),
-              String.format(
-                  "Generic parameter name `%s` required by %s<%s> not included in %s<%s>.",
-                  typeParamName,
-                  requiredContract,
-                  requiredContractGenericArgs.stream().map(Type::toString).collect(Collectors.joining(", ")),
-                  this.functionName,
-                  String.join(", ", this.genericProcedureArgNames)
-              )
-          );
+          // Then, validate that all of the required contract type params are in the generic procedures type params list.
+          for (Types.$GenericTypeParam typeParamName : requiredContractGenericArgs) {
+            Preconditions.checkState(
+                this.genericProcedureArgNames.contains(typeParamName.getTypeParamName()),
+                String.format(
+                    "Generic parameter name `%s` required by %s<%s> not included in %s<%s>.",
+                    typeParamName,
+                    requiredContract,
+                    requiredContractGenericArgs.stream().map(Type::toString).collect(Collectors.joining(", ")),
+                    this.functionName,
+                    String.join(", ", this.genericProcedureArgNames)
+                )
+            );
+          }
         }
       }
 

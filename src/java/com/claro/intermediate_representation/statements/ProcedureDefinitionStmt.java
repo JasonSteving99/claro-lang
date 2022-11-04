@@ -354,6 +354,8 @@ public class ProcedureDefinitionStmt extends Stmt {
           InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType;
       InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType =
           Optional.of(this.resolvedProcedureType);
+      Optional<ImmutableListMultimap> priorGenericProcedureDefRequiredContractNamesToGenericArgs =
+          InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs;
 
       // Before I do any actual validation of this current ProcedureDefinitionStmt, I actually want to
       // first defer downstream to all directly depended upon (via procedure call) ProcedureDefinitionStmts
@@ -459,6 +461,8 @@ public class ProcedureDefinitionStmt extends Stmt {
           priorActiveProcedureDefStmt;
       InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType =
           priorActiveProcedureResolvedType;
+      InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs =
+          priorGenericProcedureDefRequiredContractNamesToGenericArgs;
     } // End pass through body stmts.
 
     // Now we are recursively walking the graph of transitive procedure dependencies.

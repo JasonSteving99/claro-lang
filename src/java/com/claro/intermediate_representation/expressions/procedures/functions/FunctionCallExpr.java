@@ -278,23 +278,24 @@ public class FunctionCallExpr extends Expr {
         if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation
             && ((Types.ProcedureType.FunctionType) referencedIdentifierType)
                 .getOptionalRequiredContractNamesToGenericArgs().isPresent()) {
-          ImmutableMap<String, ImmutableList<Types.$GenericTypeParam>> genericFunctionRequiredContractsMap =
+          ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>> genericFunctionRequiredContractsMap =
               ((Types.ProcedureType) referencedIdentifierType).getOptionalRequiredContractNamesToGenericArgs().get();
           for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
-            ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
-            ImmutableList<Types.$GenericTypeParam> requiredContractTypeParamNames =
+            for (ImmutableList<Types.$GenericTypeParam> requiredContractTypeParamNames :
                 ((Types.ProcedureType) referencedIdentifierType).getOptionalRequiredContractNamesToGenericArgs()
                     .get()
-                    .get(requiredContract);
-            for (Types.$GenericTypeParam requiredContractTypeParam : requiredContractTypeParamNames) {
-              requiredContractConcreteTypesBuilder.add(
-                  genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
-            }
-            ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
-            if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
-                requiredContract, requiredContractConcreteTypes))) {
-              throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
-                  this.name, referencedIdentifierType, requiredContract, requiredContractConcreteTypes);
+                    .get(requiredContract)) {
+              ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+              for (Types.$GenericTypeParam requiredContractTypeParam : requiredContractTypeParamNames) {
+                requiredContractConcreteTypesBuilder.add(
+                    genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
+              }
+              ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
+              if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
+                  requiredContract, requiredContractConcreteTypes))) {
+                throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
+                    this.name, referencedIdentifierType, requiredContract, requiredContractConcreteTypes);
+              }
             }
           }
         }
