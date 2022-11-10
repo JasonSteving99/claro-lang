@@ -9,7 +9,7 @@ import com.claro.intermediate_representation.statements.contracts.ContractProced
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -138,11 +138,13 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // generic function it's getting called within actually already marks this particular contract impl as `required`.
     CheckContractImplAnnotatedRequiredWithinGenericFunctionDefinition:
     {
-      if (resolvedContractConcreteTypes.stream()
+      if (this.resolvedContractConcreteTypes.stream()
           .anyMatch(contractTypeParam -> contractTypeParam.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
         Optional optionalRequiredContractNamesToGenericArgs =
-            ((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType.get())
-                .getOptionalRequiredContractNamesToGenericArgs();
+            Optional.ofNullable(
+                ((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType
+                    .get())
+                    .getAllTransitivelyRequiredContractNamesToGenericArgs());
         if (!optionalRequiredContractNamesToGenericArgs.isPresent()) {
           // In the case that we're within a lambda expr defined w/in a generic procedure definition, we need to grab
           // the required contract impls info from a different source.
@@ -150,11 +152,11 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
               InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs;
         }
         if (optionalRequiredContractNamesToGenericArgs.isPresent()
-            && !((ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
+            && !((ListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
                      optionalRequiredContractNamesToGenericArgs.get()).isEmpty()) {
           // There are actually some contracts annotated required, let's look for one that would match the current call.
           for (ImmutableList<Types.$GenericTypeParam> annotatedRequiredContractImplTypes :
-              ((ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
+              ((ListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
                    optionalRequiredContractNamesToGenericArgs.get()).get(this.contractName)) {
             if (annotatedRequiredContractImplTypes.equals(this.resolvedContractConcreteTypes)) {
               // Good job programmer!
@@ -189,15 +191,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // yet. We'll just skip looking up the contract procedure in the scoped heap at that point and return the generic
     // type that would have aligned with the output type.
     this.originalName = this.name;
-    boolean revertNameAfterTypeValidation = false;
+    boolean revertNameAfterTypeValidation =
+        InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation;
     if (resolvedContractConcreteTypes.stream()
         .anyMatch(concreteContractType -> concreteContractType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
       // Here, we're just doing a sanity check of a generic function definition, since we're checking against generic
       // type params rather than concrete types, so, just want to do a lookup on the non-impl contract procedure name in
       // the symbol table rather than a "real" implementation.
       this.name = String.format("$%s::%s", this.contractName, this.name);
-      // We actually won't perform codegen on this generic type, so we need to use this mechanism to reset the name.
-      revertNameAfterTypeValidation = true;
     } else {
       // We can now resolve the contract's concrete types so that we can canonicalize the function call name.
       this.name = ContractProcedureImplementationStmt.getCanonicalProcedureName(

@@ -166,7 +166,6 @@ function select<C1, C2>(table: Table) -> [tuple<C1, C2>] {
   return res;
 }
 
-# TODO(steving) The contract requirements should be propagated to all caller funcs.
 function And<C1, C2>(pred1: function<C1 -> boolean>, pred2: function<C2 -> boolean>)
     -> function<Row -> boolean> {
   return binaryCond(lambda (b1, b2) -> b1 and b2, pred1, pred2);
@@ -188,6 +187,12 @@ function binaryCond<C1, C2>(
   };
 }
 
+# Required contract validation works across transitive requirements. Uncomment this line to see Claro give a compile
+# time error that And cannot be called over the (int, int) concrete type because ColumnAccess<(int, int)> isn't
+# implemented. This is correctly warned about here at the callsite to And even though this requirement is transitively
+# propagated from binaryCond() which is called within And().
+#
+#print(And((function<tuple<int, int> -> boolean>) x -> x == x, (function<tuple<int, int> -> boolean>) x -> x == x));
 
 var table: Table =
   [

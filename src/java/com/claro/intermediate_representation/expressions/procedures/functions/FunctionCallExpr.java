@@ -184,7 +184,7 @@ public class FunctionCallExpr extends Expr {
         // We're calling a generic function which means that we need to validate that the generic function's
         // requirements are upheld.
         // First, we'll check that the args match the ordering pattern of the generic signature.
-        HashMap<Types.$GenericTypeParam, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
+        HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
         boolean successfullyValidatedArgs = true;
         for (int i = 0; i < argExprs.size(); i++) {
           int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
@@ -275,18 +275,15 @@ public class FunctionCallExpr extends Expr {
         }
         // Finally, need to ensure that the required contracts are supported by the requested concrete types
         // otherwise this would be an invalid call to the generic procedure.
-        if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation
-            && ((Types.ProcedureType.FunctionType) referencedIdentifierType)
-                .getOptionalRequiredContractNamesToGenericArgs().isPresent()) {
-          ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>> genericFunctionRequiredContractsMap =
-              ((Types.ProcedureType) referencedIdentifierType).getOptionalRequiredContractNamesToGenericArgs().get();
+        if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+          ArrayListMultimap<String, ImmutableList<Type>> genericFunctionRequiredContractsMap =
+              ((Types.ProcedureType) referencedIdentifierType).getAllTransitivelyRequiredContractNamesToGenericArgs();
           for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
-            for (ImmutableList<Types.$GenericTypeParam> requiredContractTypeParamNames :
-                ((Types.ProcedureType) referencedIdentifierType).getOptionalRequiredContractNamesToGenericArgs()
-                    .get()
+            for (ImmutableList<Type> requiredContractTypeParamNames :
+                ((Types.ProcedureType) referencedIdentifierType).getAllTransitivelyRequiredContractNamesToGenericArgs()
                     .get(requiredContract)) {
               ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
-              for (Types.$GenericTypeParam requiredContractTypeParam : requiredContractTypeParamNames) {
+              for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
                 requiredContractConcreteTypesBuilder.add(
                     genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
               }
@@ -300,13 +297,20 @@ public class FunctionCallExpr extends Expr {
           }
         }
 
-        // We actually will need to skip this portion if this is a recursive call to a generic function during
-        // the generic type checking of that function. This recursive call is not representative of something we
+        // Don't mark the called generic for monomorphization if this is a call to a generic function during
+        // generic (non-monomorphization) type checking. This call would not be representative of something we
         // actually want to monomorphize.
-        if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+        if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+          // Only doing Generic Contract Requirement propagation during the generic type validation, not for each
+          // individual monomorphization.
+          ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+              .get())
+              .directTopLevelGenericProcedureDepsCalledGenericTypesMappings
+              .put(this.name, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
+        } else {
           // I want to mark this concrete signature for Monomorphization codegen!
           this.name =
-              ((BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
+              ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
                    scopedHeap.getIdentifierValue(this.name)).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
         }
       } // END LABEL GenericProcedureCallChecks:
@@ -350,7 +354,7 @@ public class FunctionCallExpr extends Expr {
   }
 
   private static Type validateArgExprsAndExtractConcreteGenericTypeParams(
-      HashMap<Types.$GenericTypeParam, Type> genericTypeParamTypeHashMap,
+      HashMap<Type, Type> genericTypeParamTypeHashMap,
       Type functionExpectedArgType,
       Type actualArgExprType) throws ClaroTypeException {
     return validateArgExprsAndExtractConcreteGenericTypeParams(
@@ -358,7 +362,7 @@ public class FunctionCallExpr extends Expr {
   }
 
   private static Type validateArgExprsAndExtractConcreteGenericTypeParams(
-      HashMap<Types.$GenericTypeParam, Type> genericTypeParamTypeHashMap,
+      HashMap<Type, Type> genericTypeParamTypeHashMap,
       Type functionExpectedArgType,
       Type actualArgExprType,
       boolean inferConcreteTypes) throws ClaroTypeException {

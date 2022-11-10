@@ -18,11 +18,13 @@ import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
   private final String consumerName;
+  private final String originalName;
   private ImmutableList<Expr> argExprs;
 
   public ConsumerFunctionCallStmt(String consumerName, ImmutableList<Expr> args) {
     super(ImmutableList.of());
     this.consumerName = consumerName;
+    this.originalName = consumerName;
     this.argExprs = args;
   }
 
@@ -153,7 +155,9 @@ public class ConsumerFunctionCallStmt extends Stmt {
 
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
-    FunctionCallExpr.validateNeededBindings(this.consumerName, referencedIdentifierType, scopedHeap);
+    // Pass in the original func name called so that for the case of monomorphized generic funcs we have a single
+    // source of truth.
+    FunctionCallExpr.validateNeededBindings(this.originalName, referencedIdentifierType, scopedHeap);
 
     // If this happens to be a call to a blocking procedure within another procedure definition, we need to
     // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph

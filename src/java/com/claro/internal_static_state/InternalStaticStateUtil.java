@@ -3,8 +3,8 @@ package com.claro.internal_static_state;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -59,6 +59,6 @@ public class InternalStaticStateUtil {
 
   // We want to enable lambda exprs to still be validated against calls to contracts over generic types to ensure that
   // the enclosing Generic procedure `requires` that implementation of the contract.
-  public static Optional<ImmutableListMultimap/*<String, ImmutableList<Types.$GenericTypeParam>>*/>
+  public static Optional<ArrayListMultimap/*<String, ImmutableList<Types.$GenericTypeParam>>*/>
       LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs = Optional.empty();
 }

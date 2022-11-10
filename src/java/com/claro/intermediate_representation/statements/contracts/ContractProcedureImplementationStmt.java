@@ -8,7 +8,6 @@ import com.claro.intermediate_representation.types.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 public class ContractProcedureImplementationStmt extends Stmt {
@@ -44,22 +43,7 @@ public class ContractProcedureImplementationStmt extends Stmt {
         contractName,
         contractTypeParams.stream()
             .map(Type::toString)
-            .map(typeString ->
-                     // Unfortunately the procedure name gets used in the generated java source, and so
-                     // we can't just use arbitrary strings here. This needs to be formatted to only use
-                     // characters valid in a Java identifier.
-                     typeString
-                         .replaceAll("\\s", Matcher.quoteReplacement("$SPACE"))
-                         .replaceAll("->", Matcher.quoteReplacement("$ARR"))
-                         .replaceAll("<", Matcher.quoteReplacement("$LANGLE"))
-                         .replaceAll(">", Matcher.quoteReplacement("$RANGLE"))
-                         .replaceAll("\\|", Matcher.quoteReplacement("$BAR"))
-                         .replaceAll("\\[", Matcher.quoteReplacement("$LBRAC"))
-                         .replaceAll("]", Matcher.quoteReplacement("$RBRAC"))
-                         .replaceAll("\\(", Matcher.quoteReplacement("$LPAR"))
-                         .replaceAll("\\)", Matcher.quoteReplacement("$RPAR"))
-                         .replaceAll(",", Matcher.quoteReplacement("$COMMA")))
-            .collect(Collectors.joining("_", "_", "_")),
+            .collect(Collectors.joining(", ", "::<", ">_")),
         procedureName
     );
   }

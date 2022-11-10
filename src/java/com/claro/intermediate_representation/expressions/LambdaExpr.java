@@ -5,8 +5,8 @@ import com.claro.intermediate_representation.expressions.term.IdentifierReferenc
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
@@ -157,11 +157,12 @@ public class LambdaExpr extends Expr {
       // if any are present.
       boolean cleanupInternalStaticState = false;
       if (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()) {
-        Optional<ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>>
+        Optional<ArrayListMultimap<String, ImmutableList<Type>>>
             optionalRequiredContractNamesToGenericArgs =
-            ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-                .get())
-                .resolvedProcedureType.getOptionalRequiredContractNamesToGenericArgs();
+            Optional.ofNullable(
+                ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+                    .get())
+                    .resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs());
         if (optionalRequiredContractNamesToGenericArgs.isPresent()) {
           InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs
               = Optional.of(optionalRequiredContractNamesToGenericArgs.get());

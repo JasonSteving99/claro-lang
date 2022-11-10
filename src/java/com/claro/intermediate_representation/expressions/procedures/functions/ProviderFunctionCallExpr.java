@@ -16,10 +16,12 @@ import java.util.function.Supplier;
 
 public class ProviderFunctionCallExpr extends Expr {
   private final String functionName;
+  private final String originalName;
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.functionName = functionName;
+    this.originalName = functionName;
   }
 
   @Override
@@ -48,7 +50,9 @@ public class ProviderFunctionCallExpr extends Expr {
 
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
-    FunctionCallExpr.validateNeededBindings(this.functionName, referencedIdentifierType, scopedHeap);
+    // Pass in the original func name called so that for the case of monomorphized generic funcs we have a single
+    // source of truth.
+    FunctionCallExpr.validateNeededBindings(this.originalName, referencedIdentifierType, scopedHeap);
 
     // If this happens to be a call to a blocking procedure within another procedure definition, we need to
     // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph

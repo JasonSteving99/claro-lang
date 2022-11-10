@@ -19,8 +19,7 @@ import java.util.stream.Collectors;
 
 public class GenericFunctionDefinitionStmt extends Stmt {
   private final String functionName;
-  private final ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>
-      requiredContractNamesToGenericArgs;
+  private final ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs;
   private final ImmutableList<String> genericProcedureArgNames;
   private final ImmutableMap<String, TypeProvider> argTypes;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes;
@@ -33,15 +32,15 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private boolean alreadyValidatedTypes = false;
 
-  private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
+  private static HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
       monomorphizations = HashBasedTable.create();
-  private static HashBasedTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, String>
+  private static HashBasedTable<String, ImmutableMap<Type, Type>, String>
       alreadyCodegendMonomorphizations = HashBasedTable.create();
   private static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
   public GenericFunctionDefinitionStmt(
       String functionName,
-      ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>> requiredContractNamesToGenericArgs,
+      ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs,
       ImmutableList<String> genericProcedureArgNames,
       ImmutableMap<String, TypeProvider> argTypes,
       Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
@@ -114,7 +113,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
         Types.$Contract actualContractType = (Types.$Contract) scopedHeap.getValidatedIdentifierType(requiredContract);
 
         // Check that there are the correct number of type params.
-        for (ImmutableList<Types.$GenericTypeParam> requiredContractGenericArgs
+        for (ImmutableList<Type> requiredContractGenericArgs
             : this.requiredContractNamesToGenericArgs.get(requiredContract)) {
           if (actualContractType.getTypeParamNames().size() != requiredContractGenericArgs.size()) {
             throw ClaroTypeException.forGenericProcedureRequiresContractImplementationWithWrongNumberOfTypeParams(
@@ -126,9 +125,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           }
 
           // Then, validate that all of the required contract type params are in the generic procedures type params list.
-          for (Types.$GenericTypeParam typeParamName : requiredContractGenericArgs) {
+          for (Type typeParamName : requiredContractGenericArgs) {
             Preconditions.checkState(
-                this.genericProcedureArgNames.contains(typeParamName.getTypeParamName()),
+                this.genericProcedureArgNames.contains(((Types.$GenericTypeParam) typeParamName).getTypeParamName()),
                 String.format(
                     "Generic parameter name `%s` required by %s<%s> not included in %s<%s>.",
                     typeParamName,
@@ -163,8 +162,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       scopedHeap.putIdentifierValueAtLevel(
           this.functionName,
           genericProcedureDefStmt.resolvedProcedureType,
-          (BiFunction<ScopedHeap, ImmutableMap<Types.$GenericTypeParam, Type>, String>)
-              this::prepareMonomorphizationForConcreteSignature,
+          (BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>) this::prepareMonomorphizationForConcreteSignature,
           0
       );
     }
@@ -197,7 +195,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private String prepareMonomorphizationForConcreteSignature(
       ScopedHeap scopedHeap,
-      ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams) {
+      ImmutableMap<Type, Type> concreteTypeParams) {
     // First thing first, don't waste effort, short-circuit if we've already seen this monomorphization or if this call
     // is being validated w/in the context of type validating a generic procedure definition before concrete types are known.
     if (GenericFunctionDefinitionStmt.monomorphizations.contains(this.functionName, concreteTypeParams)) {
@@ -287,7 +285,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     // were encountered.
     while (GenericFunctionDefinitionStmt.monomorphizations.size() > 0) {
       // Iterate over a copy of the table that might actually get modified during this loop.
-      ImmutableTable<String, ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt>
+      ImmutableTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
           monomorphizationsCopy = ImmutableTable.copyOf(GenericFunctionDefinitionStmt.monomorphizations);
       // Clear every monomorphization concrete signature map, since we've consumed that now, keeping each map for each
       // generic procedure name so that we're able to actually add entries to it uninterrupted during type validation below.
@@ -295,9 +293,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       for (String currGenericProcedureName : monomorphizationsCopy.rowKeySet()) {
         ImmutableList<String> currGenericProcedureArgNames =
             GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.get(currGenericProcedureName).genericProcedureArgNames;
-        for (Map.Entry<ImmutableMap<Types.$GenericTypeParam, Type>, ProcedureDefinitionStmt> preparedMonomorphization
+        for (Map.Entry<ImmutableMap<Type, Type>, ProcedureDefinitionStmt> preparedMonomorphization
             : monomorphizationsCopy.row(currGenericProcedureName).entrySet()) {
-          ImmutableMap<Types.$GenericTypeParam, Type> concreteTypeParams = preparedMonomorphization.getKey();
+          ImmutableMap<Type, Type> concreteTypeParams = preparedMonomorphization.getKey();
           ProcedureDefinitionStmt monomorphization = preparedMonomorphization.getValue();
 
           // This is technically a recursive function, so we need to ensure that we haven't reached a monomorphization

@@ -48,6 +48,13 @@ public class ProcedureDefinitionStmt extends Stmt {
   private Optional<ImmutableList<ProcedureDefinitionStmt>> optionalConcreteVariantsForKeywordGenericProcedure =
       Optional.empty();
 
+  // In the case that this procedure is Generic and also calls into another Generic procedure, we'll need to make sure
+  // that we track which types the downstream function was called with, as we will need to know which specific types
+  // are passed to the called procedure in order to translate that procedure's Contract requirements into the actual
+  // requirements needed by this function implied by the call.
+  public final HashMultimap<String, ImmutableMap<Type, Type>>
+      directTopLevelGenericProcedureDepsCalledGenericTypesMappings = HashMultimap.create();
+
   public ProcedureDefinitionStmt(
       String procedureName,
       ImmutableMap<String, TypeProvider> argTypeProviders,
@@ -354,7 +361,7 @@ public class ProcedureDefinitionStmt extends Stmt {
           InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType;
       InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType =
           Optional.of(this.resolvedProcedureType);
-      Optional<ImmutableListMultimap> priorGenericProcedureDefRequiredContractNamesToGenericArgs =
+      Optional<ArrayListMultimap> priorGenericProcedureDefRequiredContractNamesToGenericArgs =
           InternalStaticStateUtil.LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs;
 
       // Before I do any actual validation of this current ProcedureDefinitionStmt, I actually want to
@@ -504,6 +511,8 @@ public class ProcedureDefinitionStmt extends Stmt {
           // ---------------------- BEGIN UPDATE FUNCTION ATTRIBUTES! --------------------- //
           // Finally we can trust the dep's transitive used keys!
           this.resolvedProcedureType.getUsedInjectedKeys().addAll(depProcedureDef.getUsedInjectedKeys());
+          // Update the required contracts.
+          propagateGenericProcedureRequirements(initialFringeProcedureDep, depProcedureDef);
           // And finally update the blocking attribute if this function transitively depends on a blocking op.
           if (depProcedureDef.getIsBlocking().get()) {
             this.resolvedProcedureType.getBlockingProcedureDeps().put(initialFringeProcedureDep, depProcedureDef);
@@ -580,6 +589,8 @@ public class ProcedureDefinitionStmt extends Stmt {
               // Filter out all the keys that were already provided by the nested using block.
               ? Sets.difference(depProcedureDef.getUsedInjectedKeys(), optionalKeysAlreadyProvidedToDep.get())
               : depProcedureDef.getUsedInjectedKeys());
+      // Update the required contracts.
+      propagateGenericProcedureRequirements(lookaheadCycleBreakingProcedureDep, depProcedureDef);
       // And finally update the blocking attributes if this function transitively depends on a blocking op.
       if (depProcedureDef.getIsBlocking().get()) {
         this.resolvedProcedureType.getBlockingProcedureDeps().put(lookaheadCycleBreakingProcedureDep, depProcedureDef);
@@ -622,6 +633,36 @@ public class ProcedureDefinitionStmt extends Stmt {
         } else {
           throw ClaroTypeException.forInvalidBlockingAnnotationOnNonBlockingProcedureDefinition(
               this.procedureName, this.resolvedProcedureType);
+        }
+      }
+    }
+  }
+
+  private void propagateGenericProcedureRequirements(String lookaheadCycleBreakingProcedureDep, Types.ProcedureType depProcedureDef) {
+    if (this.resolvedProcedureType.getGenericProcedureArgNames().isPresent()) {
+      if (this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs() != null
+          && depProcedureDef.getAllTransitivelyRequiredContractNamesToGenericArgs() != null) {
+        // I can't just lift the required contracts straight from the downstream procedure, since it has its
+        // own generic type param naming scheme (e.g. foo<T, V> vs bar<T1, V1>), so I need to remap acccording
+        // to the particular call(s) to the downstream procedure.
+        for (ImmutableMap<Type, Type> calledGenericTypes
+            : this.directTopLevelGenericProcedureDepsCalledGenericTypesMappings.get(lookaheadCycleBreakingProcedureDep)) {
+          for (String depRequiredContract
+              : depProcedureDef.getAllTransitivelyRequiredContractNamesToGenericArgs().keySet()) {
+            for (ImmutableList<Type> depRequiredGenericTypes :
+                depProcedureDef.getAllTransitivelyRequiredContractNamesToGenericArgs()
+                    .get(depRequiredContract)) {
+              this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs()
+                  .put(
+                      depRequiredContract,
+                      // Here, we finally need to map the names from the downstream procedure namespace, into
+                      // the namespace of the current procedure.
+                      depRequiredGenericTypes.stream()
+                          .map(calledGenericTypes::get)
+                          .collect(ImmutableList.toImmutableList())
+                  );
+            }
+          }
         }
       }
     }

@@ -222,3 +222,16 @@ print(persistResult);
 #}
 #
 #print(testRec("this will break", 0));
+
+
+# TODO(steving) I still need to enable the definition of generic procedures that are generic over type parameters as
+# TODO(steving) well as being blocking-generic. E.g.
+#requires(SomeContract<T, V>)
+#blocking:deferFn function example<T, V>(t: T, deferFn: blocking? function<V -> V>) -> V {
+#  return deferFn(SomeContract::apply(t));
+#}
+
+# TODO(steving) I still need to enable generic procedures to be used as first class objects. E.g.
+#print(persist);
+#var persistPeopleFn: function<Person -> boolean> = persist;
+#var persistDogsFn: function<Dog -> boolean> = persist;

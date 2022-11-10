@@ -260,9 +260,6 @@ public final class Types {
     // In case this is a generic procedure, indicate the names of the generic args here.
     public abstract Optional<ImmutableList<String>> getGenericProcedureArgNames();
 
-    // In case this is a generic procedure that has annotated required contract implementations.
-    public abstract Optional<ImmutableListMultimap<String, ImmutableList<Types.$GenericTypeParam>>> getOptionalRequiredContractNamesToGenericArgs();
-
     // When comparing Types we don't ever want to care about *names* (or other metadata), these are meaningless to the
     // compiler and should be treated equivalently to a user comment in terms of the program's semantic execution. So
     // Make these fields *ignored* by AutoValue so that we can compare function type equality.
@@ -291,6 +288,11 @@ public final class Types {
     // of keys that are directly depended on by this procedure, and then by the set of all of its transitive
     // deps. This is done in multiple phases, because we're parsing a DAG in linear order.
     final AtomicReference<HashSet<Key>> autoValueIgnoredUsedInjectedKeys = new AtomicReference<>();
+    // This field is mutable specifically because we need to be able to update this mapping first with all
+    // contract impls that are directly required by this procedure, and then by all of its transitively
+    // required contract impls. This is done in multiple phases, because we're parsing a DAG in linear order.
+    final AtomicReference<ArrayListMultimap<String, ImmutableList<Type>>>
+        allTransitivelyRequiredContractNamesToGenericArgs = new AtomicReference<>();
     // This field indicates whether this procedure is *actually* blocking based on whether a blocking operation is reachable.
     final AtomicReference<Boolean> autoValueIgnored_IsBlocking = new AtomicReference<>(false);
     // If this procedure is marked as blocking, this field *MAY* be populated to indicate that the blocking attribute
@@ -301,13 +303,6 @@ public final class Types {
     final AtomicReference<Boolean> autoValueIgnored_IsGraph = new AtomicReference<>(false);
     // ---------------------- END PROCEDURE ATTRIBUTES! --------------------- //
 
-    // TODO(steving) From Claro user perspective, there should actually be TWO DIFFERENT TYPES:
-    //   1. function<foo -> bar>
-    //   2. blocking function<foo -> bar>
-    //  and blocking is an attribute that will have the effect of coloring all transitively dependent procedures as
-    //  blocking procedures. This would enable thread safe usage of procedure references as higher order arguments to
-    //  graph functions because then the Graph Function could actually validate that there is literally no usage of
-    //  blocking code, and also preventing abstraction leaking via first class function support.
     public AtomicReference<Boolean> getIsBlocking() {
       return autoValueIgnored_IsBlocking;
     }
@@ -322,6 +317,10 @@ public final class Types {
 
     public HashSet<Key> getUsedInjectedKeys() {
       return autoValueIgnoredUsedInjectedKeys.get();
+    }
+
+    public ArrayListMultimap<String, ImmutableList<Type>> getAllTransitivelyRequiredContractNamesToGenericArgs() {
+      return allTransitivelyRequiredContractNamesToGenericArgs.get();
     }
 
     // We need a ref to the original ProcedureDefinitionStmt for recursively asserting types to collect
@@ -400,7 +399,7 @@ public final class Types {
           Boolean explicitlyAnnotatedBlocking,
           Optional<ImmutableSet<Integer>> genericBlockingOnArgs,
           Optional<ImmutableList<String>> optionalGenericProcedureArgNames,
-          Optional<ImmutableListMultimap<String, ImmutableList<$GenericTypeParam>>> optionalRequiredContractNamesToGenericArgs) {
+          Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -409,14 +408,15 @@ public final class Types {
             returnType,
             explicitlyAnnotatedBlocking,
             genericBlockingOnArgs,
-            optionalGenericProcedureArgNames,
-            optionalRequiredContractNamesToGenericArgs
+            optionalGenericProcedureArgNames
         );
 
         functionType.autoValueIgnoredHasArgs.set(true);
         functionType.autoValueIgnoredHasReturnValue.set(true);
         functionType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
         functionType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
+        functionType.allTransitivelyRequiredContractNamesToGenericArgs.set(
+            optionalRequiredContractNamesToGenericArgs.map(ArrayListMultimap::create).orElse(null));
 
         if (overrideBaseType != BaseType.FUNCTION) {
           functionType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
@@ -443,7 +443,6 @@ public final class Types {
             argTypes,
             returnType,
             explicitlyAnnotatedBlocking,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty()
         );
@@ -547,7 +546,7 @@ public final class Types {
                             .map(genArgName -> Types.$GenericTypeParam.forTypeParamName(genArgName).toString())
                             .collect(Collectors.joining(", ", " Generic Over {", "}")))
                 .orElse("")
-            + this.getOptionalRequiredContractNamesToGenericArgs()
+            + Optional.ofNullable(this.getAllTransitivelyRequiredContractNamesToGenericArgs())
                 .map(requiredContracts ->
                          requiredContracts.entries().stream()
                              .map(entry ->
@@ -599,7 +598,6 @@ public final class Types {
             explicitlyAnnotatedBlocking,
             Optional.empty(),
             // Actually there's no such thing as a generic provider function, it's literally not possible.
-            Optional.empty(),
             Optional.empty()
         );
 
@@ -623,7 +621,6 @@ public final class Types {
             ImmutableList.of(),
             returnType,
             explicitlyAnnotatedBlocking,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty()
         );
@@ -768,7 +765,6 @@ public final class Types {
             argTypes,
             explicitlyAnnotatedBlocking,
             genericBlockingOnArgs,
-            Optional.empty(), // TODO(steving) Implement generic consumer functions.
             Optional.empty() // TODO(steving) Implement generic consumer functions.
         );
 
@@ -793,7 +789,6 @@ public final class Types {
             BaseType.CONSUMER_FUNCTION,
             argTypes,
             explicitlyAnnotatedBlocking,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty()
         );
@@ -936,7 +931,7 @@ public final class Types {
   // none at all by Claro programs.
   @AutoValue
   public abstract static class $GenericTypeParam extends Type {
-    public static Optional<Map<$GenericTypeParam, Type>> concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+    public static Optional<Map<Type, Type>> concreteTypeMappingsForBetterErrorMessages = Optional.empty();
 
     public abstract String getTypeParamName();
 
