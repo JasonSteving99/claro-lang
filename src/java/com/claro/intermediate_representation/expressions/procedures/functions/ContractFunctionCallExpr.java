@@ -21,6 +21,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
   private String originalName;
+  private Type assertedOutputType;
 
   public ContractFunctionCallExpr(
       String contractName,
@@ -57,6 +58,13 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type assertedOutputType) throws ClaroTypeException {
     resolveContractType(scopedHeap);
+
+    // Before we do any type checking, we essentially want to disable worrying about exact matches on generic
+    // type params. For a contract, we simply would want to know that the contract is listed in the requirements
+    // but for its generic argument positions it can be passed literally any type (since the existence of that
+    // contract impl will actually be validated at the callsite to the generic function, not here).
+    Expr.validatingContractProcCallWithinGenericProc = true;
+
 
     // In the case that the Contract's concrete types were explicitly asserted, we have no extra work to do.
     // Otherwise, we have the extra task of inferring the Contract Implementation being referenced according
@@ -114,7 +122,11 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       this.resolvedContractConcreteTypes = contractConcreteTypesBuilder.build();
     }
 
+    this.assertedOutputType = assertedOutputType;
     super.assertExpectedExprType(scopedHeap, assertedOutputType);
+
+    // Return type validation to the default state where Generic type params must be strictly checked for equality.
+    Expr.validatingContractProcCallWithinGenericProc = false;
   }
 
   @Override
@@ -130,8 +142,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           .collect(ImmutableList.toImmutableList());
     } else if (this.resolvedContractConcreteTypes == null) {
       // TODO(steving) There's going to be a case where the program is ambiguous b/c the return type isn't asserted.
-      throw new RuntimeException("TODO(steving) Need to handle inference when the type is not asserted by context." +
-                                 " Sometimes it's actually valid.");
+      throw new RuntimeException("TODO(steving) ContractFunctionCallExpr.java: Need to handle inference when the type" +
+                                 " is not asserted by context. Sometimes it's actually valid.");
     }
 
     // If this contract procedure is getting called over any generic type params, then we need to validate that the
@@ -218,6 +230,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     if (revertNameAfterTypeValidation) {
       this.name = this.originalName;
     }
+
+    // In case we actually would return a generic type here (bc we're still within a generic type validation phase), we
+    // can just go ahead and assume it safe to return the asserted type. This is because we know that when the Generic
+    // Procedure that this contract function call is made within is actually called, the correct monomorphization for
+    // this contract will be selected since the generic procedure's contract requirements will have been validated.
+    if (res.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
+      return this.assertedOutputType;
+    }
     return res;
   }
 
@@ -236,6 +256,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     if (!resolvedContractType.getProcedureNames().contains(this.originalName == null ? this.name : this.originalName)) {
       throw ClaroTypeException.forContractReferenceUndefinedProcedure(
           this.contractName, this.resolvedContractType.getTypeParamNames(), this.name);
+    }
+
+    // Ensure that we're starting off with a clean slate in regards to this.name being set to the original procedure
+    // name. This is in the case that this contract function call is actually happening within a blocking-generic
+    // procedure body, in which case the same ContractFunctionCallExpr node is being reused for type checking.
+    if (this.originalName != null) {
+      this.name = this.originalName;
+      this.originalName = null;
     }
   }
 

@@ -17,6 +17,7 @@ import java.util.function.Supplier;
 
 public abstract class Expr extends Node {
   protected boolean acceptUndecided = false;
+  public static boolean validatingContractProcCallWithinGenericProc = false;
 
   // Use these fields to provide more richer error messaging rather than simply throwing Exceptions.
   public static final Stack<Consumer<String>> typeErrorsFound = new Stack<>();
@@ -55,7 +56,8 @@ public abstract class Expr extends Node {
       this.assertNoUndecidedTypeLeak(validatedExprType, expectedExprType);
 
       if (!validatedExprType.equals(expectedExprType)
-          && !(expectedExprType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)
+          && !(validatingContractProcCallWithinGenericProc
+               && expectedExprType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)
                && validatedExprType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
         // If a node happens to support some forms of type coercion based on programmer-asserted type annotations,
         // then they should override this method to potentially coerce the expr into the desired type as necessary.

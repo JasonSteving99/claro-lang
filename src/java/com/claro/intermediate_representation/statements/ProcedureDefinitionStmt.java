@@ -258,7 +258,14 @@ public class ProcedureDefinitionStmt extends Stmt {
                       Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
                       procedureDefinitionStmt,
                       false,
-                      Optional.empty()
+                      /*genericBlockingOnArgs=*/Optional.empty(),
+                      this.resolvedProcedureType.getGenericProcedureArgNames(),
+                      /*optionalRequiredContractNamesToGenericArgs=*/
+                      Optional.ofNullable(
+                          this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs() == null
+                          ? null
+                          : ImmutableListMultimap.copyOf(
+                              this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs()))
                   );
           blockingConcreteType =
               procedureDefinitionStmt ->
@@ -269,7 +276,14 @@ public class ProcedureDefinitionStmt extends Stmt {
                       Sets.newHashSet(this.resolvedProcedureType.getUsedInjectedKeys()),
                       procedureDefinitionStmt,
                       true,
-                      Optional.empty()
+                      /*genericBlockingOnArgs=*/Optional.empty(),
+                      this.resolvedProcedureType.getGenericProcedureArgNames(),
+                      /*optionalRequiredContractNamesToGenericArgs=*/
+                      Optional.ofNullable(
+                          this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs() == null
+                          ? null
+                          : ImmutableListMultimap.copyOf(
+                              this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs()))
                   );
           break;
         case CONSUMER_FUNCTION:
@@ -638,7 +652,7 @@ public class ProcedureDefinitionStmt extends Stmt {
     }
   }
 
-  private void propagateGenericProcedureRequirements(String lookaheadCycleBreakingProcedureDep, Types.ProcedureType depProcedureDef) {
+  private void propagateGenericProcedureRequirements(String procedureDep, Types.ProcedureType depProcedureDef) {
     if (this.resolvedProcedureType.getGenericProcedureArgNames().isPresent()) {
       if (this.resolvedProcedureType.getAllTransitivelyRequiredContractNamesToGenericArgs() != null
           && depProcedureDef.getAllTransitivelyRequiredContractNamesToGenericArgs() != null) {
@@ -646,7 +660,7 @@ public class ProcedureDefinitionStmt extends Stmt {
         // own generic type param naming scheme (e.g. foo<T, V> vs bar<T1, V1>), so I need to remap acccording
         // to the particular call(s) to the downstream procedure.
         for (ImmutableMap<Type, Type> calledGenericTypes
-            : this.directTopLevelGenericProcedureDepsCalledGenericTypesMappings.get(lookaheadCycleBreakingProcedureDep)) {
+            : this.directTopLevelGenericProcedureDepsCalledGenericTypesMappings.get(procedureDep)) {
           for (String depRequiredContract
               : depProcedureDef.getAllTransitivelyRequiredContractNamesToGenericArgs().keySet()) {
             for (ImmutableList<Type> depRequiredGenericTypes :

@@ -224,12 +224,42 @@ print(persistResult);
 #print(testRec("this will break", 0));
 
 
-# TODO(steving) I still need to enable the definition of generic procedures that are generic over type parameters as
-# TODO(steving) well as being blocking-generic. E.g.
-#requires(SomeContract<T, V>)
-#blocking:deferFn function example<T, V>(t: T, deferFn: blocking? function<V -> V>) -> V {
-#  return deferFn(SomeContract::apply(t));
-#}
+############################################################################################################
+## EXAMPLE OF DEFINING A GENERIC FUNCTION TO BE BLOCKING (NOT TO BE CONFUSED W/ BLOCKING-GENERIC)
+############################################################################################################
+
+blocking function genericBlockingFunc<T>(futureArg: future<T>) -> T {
+  var res <-| futureArg;
+  return res;
+}
+
+###########################################################################################################
+## EXAMPLE OF DEFINING A GENERIC FUNCTION TO ALSO BE BLOCKING-GENERIC
+############################################################################################################
+
+requires(Conversion<T, V>)
+blocking:deferFn function example<T, V>(t: T, deferFn: blocking? function<V -> V>) -> V {
+  return deferFn(Conversion::applyConversion(t));
+}
+
+print("----------------------------------------------------------");
+print(example(100, (function<string -> string>) x -> x));
+
+blocking function block(x: string) -> string {
+  print(x);
+  var res <-| fooGraph(100);
+  return res;
+}
+
+graph function fooGraph(x: int) -> future<string> {
+  root res <- example(@arg, (function<string -> string>) x -> x);
+  # Uncomment the below line for a compile-time error preventing a deadlock.
+#  root res <- example(@arg, block);
+  node arg <- x;
+}
+var graphres <-| fooGraph(10);
+print(graphres);
+
 
 # TODO(steving) I still need to enable generic procedures to be used as first class objects. E.g.
 #print(persist);

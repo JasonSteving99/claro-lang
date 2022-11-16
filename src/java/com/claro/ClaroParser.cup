@@ -1459,6 +1459,69 @@ generic_function_definition_stmt ::=
      RESULT = new GenericFunctionDefinitionStmt(
         name.val, (ImmutableListMultimap<String,ImmutableList<Type>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
    :}
+ | BLOCKING FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableListMultimap.of(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+   :}
+ | REQUIRES LPAR required_contracts:required_contracts RPAR BLOCKING FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+   {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(
+        name.val, (ImmutableListMultimap<String,ImmutableList<Type>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+   :}
+  | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(
+        name.val, /*requiredContracts=*/ImmutableListMultimap.of(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
+    :}
+  | REQUIRES LPAR required_contracts:required_contracts RPAR generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+     // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     returnTypeHolder.set(outputTypeProvider);
+     returnTypeHolder = null;
+     // This production matched a function defined by a list of statements followed by a return Expr to eval.
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new GenericFunctionDefinitionStmt(
+        name.val, (ImmutableListMultimap<String,ImmutableList<Type>>) required_contracts.build(), genericTypesList, argTypesMap, /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
+    :}
   ;
 
 generic_blocking_on ::=

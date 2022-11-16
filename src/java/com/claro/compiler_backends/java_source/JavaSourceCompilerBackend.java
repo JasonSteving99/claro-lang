@@ -95,6 +95,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
   private void warnErrorsFound(ClaroParser claroParser) {
     int totalErrorsFound = claroParser.errorsFound + Expr.typeErrorsFound.size() + ProgramNode.miscErrorsFound.size();
-    System.err.println(totalErrorsFound + " Error" + (totalErrorsFound > 1 ? "s" : ""));
+    System.err.println(Math.max(totalErrorsFound, 1) + " Error" + (totalErrorsFound > 1 ? "s" : ""));
   }
 }

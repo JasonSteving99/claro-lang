@@ -29,7 +29,7 @@ public class FunctionCallExpr extends Expr {
   public boolean hashNameForCodegen = false;
   public final ImmutableList<Expr> argExprs;
   private Type assertedOutputTypeForGenericFunctionCallUse;
-  private String originalName;
+  public String originalName;
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -91,7 +91,11 @@ public class FunctionCallExpr extends Expr {
         this.argExprs.size()
     );
 
-    if (((Types.ProcedureType.FunctionType) referencedIdentifierType).getAnnotatedBlocking() == null) {
+    if (((Types.ProcedureType.FunctionType) referencedIdentifierType).getAnnotatedBlocking() == null
+        // If the procedure being called is both generic and blocking-generic, then let's handle that all at once
+        // in the generic case.
+        // TODO(steving) At some point refactor away the special case for only being blocking-generic.
+        && !((Types.ProcedureType) referencedIdentifierType).getGenericProcedureArgNames().isPresent()) {
       // This function must be generic over the blocking keyword, so need to see if the call is targeting a concrete
       // type signature for this function.
       ImmutableSet<Integer> blockingGenericArgIndices =
@@ -186,12 +190,16 @@ public class FunctionCallExpr extends Expr {
         // First, we'll check that the args match the ordering pattern of the generic signature.
         HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
         boolean successfullyValidatedArgs = true;
+        boolean foundBlockingFuncArg = false;
         for (int i = 0; i < argExprs.size(); i++) {
           int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
           Type argType = ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i);
           try {
-            validateArgExprsAndExtractConcreteGenericTypeParams(
+            Type validatedType = validateArgExprsAndExtractConcreteGenericTypeParams(
                 genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
+            if (validatedType instanceof Types.ProcedureType) {
+              foundBlockingFuncArg |= ((Types.ProcedureType) validatedType).getIsBlocking().get();
+            }
           } catch (ClaroTypeException ignored) {
             // In case we're not able to structurally validate this arg's type aligns with the generic structure of the
             // function's expected arg type, then we want to alert the programmer with a log line that actually points to
@@ -280,8 +288,7 @@ public class FunctionCallExpr extends Expr {
               ((Types.ProcedureType) referencedIdentifierType).getAllTransitivelyRequiredContractNamesToGenericArgs();
           for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
             for (ImmutableList<Type> requiredContractTypeParamNames :
-                ((Types.ProcedureType) referencedIdentifierType).getAllTransitivelyRequiredContractNamesToGenericArgs()
-                    .get(requiredContract)) {
+                genericFunctionRequiredContractsMap.get(requiredContract)) {
               ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
               for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
                 requiredContractConcreteTypesBuilder.add(
@@ -308,26 +315,35 @@ public class FunctionCallExpr extends Expr {
               .directTopLevelGenericProcedureDepsCalledGenericTypesMappings
               .put(this.name, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
         } else {
-          // I want to mark this concrete signature for Monomorphization codegen!
+          // I want to mark this concrete signature for Monomorphization codegen! Note - this is subtle, but the
+          // single monomorphization will be reused by both the blocking and non-blocking variants if the generic
+          // procedure happened to also be blocking-generic as this subtle difference has no impact on the gen'd code..
           this.name =
               ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
                    scopedHeap.getIdentifierValue(this.name)).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
+        }
+
+        // If this was blocking-generic in addition, then we need to update the referenced identifier type.
+        if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking() == null) {
+          // From now, we'll stop validating against the generic type signature, and validate against this concrete
+          // signature since we know which one we want to use to continue type-checking with now. (Note, this is a
+          // bit of a white lie - the blocking concrete variant signature has *all* blocking for the blocking-generic
+          // args, which is not necessarily the case for the *actual* args, but this doesn't matter since after this
+          // point we're actually done with the args type checking, and we'll move onto codegen where importantly the
+          // generated code is all exactly the same across blocking/non-blocking).
+          referencedIdentifierType =
+              scopedHeap.getValidatedIdentifierType(
+                  (foundBlockingFuncArg ? "$blockingConcreteVariant_" : "$nonBlockingConcreteVariant_")
+                  // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt rather
+                  + ((ProcedureDefinitionStmt)
+                         ((Types.ProcedureType.FunctionType) referencedIdentifierType)
+                             .getProcedureDefStmt()).procedureName);
         }
       } // END LABEL GenericProcedureCallChecks:
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
       for (int i = 0; i < this.argExprs.size(); i++) {
-        Expr currArgExpr = this.argExprs.get(i);
-        // We have to handle the case where the defined arg type is actually a generic param, in which case
-        // we're actually currently validating against a generic function definition body and only care that
-        // the type we're passing in is also a generic type (since the correct type will be validated at the
-        // call site).
-        if (false && definedArgTypes.get(i).baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-          argExprs.get(i).assertExpectedBaseType(scopedHeap, BaseType.$GENERIC_TYPE_PARAM);
-        } else {
-          // This arg is not being treated as generic, so assert against the static defined type.
-          currArgExpr.assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
-        }
+        this.argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
       }
     }
 
@@ -412,7 +428,7 @@ public class FunctionCallExpr extends Expr {
           if (functionExpectedArgType.baseType().equals(BaseType.PROVIDER_FUNCTION)) {
             // Providers have no args so don't fall into the next checks.
             return Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-                validatedReturnType, ((Types.ProcedureType) functionExpectedArgType).getAnnotatedBlocking());
+                validatedReturnType, ((Types.ProcedureType) actualArgExprType).getAnnotatedBlocking());
           }
           // Intentional fallthrough - cuz hey programming should be fun and cute sometimes. Fight me, future Jason.
         case CONSUMER_FUNCTION: // Both FUNCTION and CONSUMER_FUNCTION need to validate args, so do it once here.
@@ -430,12 +446,12 @@ public class FunctionCallExpr extends Expr {
           }
           if (functionExpectedArgType.baseType().equals(BaseType.CONSUMER_FUNCTION)) {
             return Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
-                validatedArgTypes.build(), ((Types.ProcedureType) functionExpectedArgType).getAnnotatedBlocking());
+                validatedArgTypes.build(), ((Types.ProcedureType) actualArgExprType).getAnnotatedBlocking());
           }
           return Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
               validatedArgTypes.build(),
               validatedReturnType,
-              ((Types.ProcedureType) functionExpectedArgType).getAnnotatedBlocking()
+              ((Types.ProcedureType) actualArgExprType).getAnnotatedBlocking()
           );
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
