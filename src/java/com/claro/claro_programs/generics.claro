@@ -261,7 +261,20 @@ var graphres <-| fooGraph(10);
 print(graphres);
 
 
-# TODO(steving) I still need to enable generic procedures to be used as first class objects. E.g.
-#print(persist);
-#var persistPeopleFn: function<Person -> boolean> = persist;
-#var persistDogsFn: function<Dog -> boolean> = persist;
+
+###########################################################################################################
+## EXAMPLE OF USING GENERIC PROCEDURES AS A FIRST-CLASS OBJECT!
+############################################################################################################
+
+print("----------------------------------------------------------");
+var exampleFnAsFirstClassObj: function<|int, function<string -> string>| -> string> = example;
+print(exampleFnAsFirstClassObj(-100, x -> x));
+var exampleBlockingFnAsFirstClassObj: blocking function<|int, blocking function<string -> string>| -> string> = example;
+print(exampleBlockingFnAsFirstClassObj(100, block));
+
+# It's invalid to reference a Generic Procedure as a first class object w/o an explicit contextual type assertion. This
+# is due to monomorphization, as a result of which each specialization of a Generic Procedure is backed by unique
+# generated code, so this restriction exists so that the compiler is able to statically determine with certainty which
+# concrete generated procedure should be referenced. Uncomment this for a compile-time error explaining this in detail.
+#var shouldFailWithAmbiguousTypes = persist;
+#print(shouldFailWithAmbiguousTypes);

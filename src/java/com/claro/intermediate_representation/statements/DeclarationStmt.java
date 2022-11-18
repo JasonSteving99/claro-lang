@@ -85,24 +85,29 @@ public class DeclarationStmt extends Stmt {
       }
       scopedHeap.observeIdentifier(this.IDENTIFIER, declaredType);
     } else {
-      // Infer the identifier's type only the first time it's assigned to.
-      this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
+      try {
+        // Infer the identifier's type only the first time it's assigned to.
+        this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
 
-      // If this is a blocking declaration stmt then we need to ensure that we're unwrapping a future.
-      if (blocking) {
-        // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
-        // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
-        InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-            .ifPresent(
-                procedureDefinitionStmt ->
-                    ((ProcedureDefinitionStmt) procedureDefinitionStmt)
-                        .resolvedProcedureType.getIsBlocking().set(true));
+        // If this is a blocking declaration stmt then we need to ensure that we're unwrapping a future.
+        if (blocking) {
+          // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
+          // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
+          InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+              .ifPresent(
+                  procedureDefinitionStmt ->
+                      ((ProcedureDefinitionStmt) procedureDefinitionStmt)
+                          .resolvedProcedureType.getIsBlocking().set(true));
 
-        // Let's defer Expr's assertions since that will automatically handle logging.
-        ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.FUTURE);
-        // Unwrap the type since we'll block to unwrap the value.
-        this.identifierValidatedInferredType =
-            this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
+          // Let's defer Expr's assertions since that will automatically handle logging.
+          ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.FUTURE);
+          // Unwrap the type since we'll block to unwrap the value.
+          this.identifierValidatedInferredType =
+              this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
+        }
+      } catch (ClaroTypeException e) {
+        // If there was some type issue, then let's attribute the error to the expression and move on with typechecking.
+        ((Expr) this.getChildren().get(0)).logTypeError(e);
       }
 
       scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);

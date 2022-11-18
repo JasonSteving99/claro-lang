@@ -1,7 +1,7 @@
 package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
-import com.claro.intermediate_representation.expressions.term.StringTerm;
+import com.claro.intermediate_representation.expressions.term.Term;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
@@ -137,7 +137,7 @@ public class ModuleDefinitionStmt extends Stmt {
                                  scopedHeap.getIdentifierValue(String.format("$%s_init", depModuleName)))
                                 .apply(
                                     ImmutableList.of(
-                                        new StringTerm("unused", null, -1, -1, -1)),
+                                        Term.getDummyTerm(Types.STRING, "unused")),
                                     scopedHeap
                                 ));
                     return null;
@@ -279,7 +279,7 @@ public class ModuleDefinitionStmt extends Stmt {
                          scopedHeap.getIdentifierValue(String.format("$%s_teardown", depModuleName)))
                         .apply(
                             ImmutableList.of(
-                                new StringTerm("unused", null, -1, -1, -1)),
+                                Term.getDummyTerm(Types.STRING, "unused")),
                             scopedHeap
                         ));
             return null;

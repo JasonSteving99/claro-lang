@@ -114,6 +114,20 @@ public class ClaroTypeException extends Exception {
       "Invalid Generic Procedure Call: For the call to the following generic procedure `%s` with the following signature:\n\t\t`%s`\n\tThe output types cannot be fully inferred by the argument types alone. The output type must be contextually constrained by either a type annotation or a static cast.";
   private static final String GENERIC_PROCEDURE_CALL_FOR_CONCRETE_TYPES_WITH_REQUIRED_CONTRACT_IMPLEMENTATION_MISSING =
       "Invalid Generic Procedure Call: For the call to the following generic procedure `%s` with the following signature:\n\t\t`%s`\n\tNo implementation of the required contract %s<%s>.";
+  private static final String
+      INVALID_GENERIC_PROCEDURE_REFERENCE_AS_FIRST_CLASS_OBJECT_WITHOUT_CONTEXTUAL_TYPE_ASSERTION =
+      "Illegal Generic Procedure Reference: Generic Procedure `%s` with the following signature:\n\t\t`%s`\n" +
+      "\tmay not be referenced as a First Class object without a contextual assertion of the concrete procedure" +
+      " type requested. \n" +
+      "\tTry adding an explicit type annotation for the concrete procedure signature you need as in the below example.\n\n" +
+      "\tE.g.:\n" +
+      "\t\tFor signature:\n" +
+      "\t\t\trequires(...)\n" +
+      "\t\t\tfunction genericFooFn<T, V>(t: T) -> V {...}\n" +
+      "\t\tTry something like this (ensuring Foo and Bar satisfy any Contract Requirements):\n" +
+      "\t\t\tvar fn: function<Foo -> Bar> = genericFooFn;\n" +
+      "\t\tBad:\n" +
+      "\t\t\tvar fn = genericFooFn;\n";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -600,6 +614,16 @@ public class ClaroTypeException extends Exception {
             procedureName,
             contractName,
             Joiner.on(", ").join(resolvedContractConcreteTypes)
+        ));
+  }
+
+  public static ClaroTypeException forInvalidGenericProcedureReferenceAsFirstClassObjectWithoutContextualTypeAssertion(
+      String procedureName, Type procedureType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_GENERIC_PROCEDURE_REFERENCE_AS_FIRST_CLASS_OBJECT_WITHOUT_CONTEXTUAL_TYPE_ASSERTION,
+            procedureName,
+            procedureType
         ));
   }
 }

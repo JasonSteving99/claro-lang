@@ -17,4 +17,20 @@ public abstract class Term extends Expr {
   // Override this method for Terms that actually need to do something with this ScopedHeap.
   @Override
   public abstract Type getValidatedExprType(ScopedHeap unusedScopedHeap) throws ClaroTypeException;
+
+  // Convenience method to make life easy for synthetic nodes that are needed simply for the sake of hardcoding some
+  // type checking case.
+  public static Term getDummyTerm(Type dummyType, Object dummyTermValue) {
+    return new Term(null, -1, -1, -1) {
+      @Override
+      public Type getValidatedExprType(ScopedHeap unusedScopedHeap) throws ClaroTypeException {
+        return dummyType;
+      }
+
+      @Override
+      public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+        return dummyTermValue;
+      }
+    };
+  }
 }
