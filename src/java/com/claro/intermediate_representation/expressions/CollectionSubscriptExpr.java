@@ -13,10 +13,13 @@ import java.util.function.Supplier;
 
 public class CollectionSubscriptExpr extends Expr {
 
+  private boolean isString = false;
+
   private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
       ImmutableSet.of(
           BaseType.LIST,
-          BaseType.TUPLE
+          BaseType.TUPLE,
+          BaseType.STRING
       );
 
   public CollectionSubscriptExpr(Expr collectionNodeExpr, Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -34,7 +37,14 @@ public class CollectionSubscriptExpr extends Expr {
     }
     ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
 
-    Type type = ((Types.Collection) collectionExprType).getElementType();
+    Type type;
+
+    if (collectionExprType.baseType().equals(BaseType.STRING)) {
+      type = Types.STRING;
+      this.isString = true;
+    } else {
+      type = ((Types.Collection) collectionExprType).getElementType();
+    }
 
     if (!this.acceptUndecided) {
       if (type.baseType().equals(BaseType.UNDECIDED)) {
@@ -51,14 +61,29 @@ public class CollectionSubscriptExpr extends Expr {
     GeneratedJavaSource exprGenJavaSource0 = getChildren().get(0).generateJavaSourceOutput(scopedHeap);
     GeneratedJavaSource exprGenJavaSource1 = getChildren().get(1).generateJavaSourceOutput(scopedHeap);
 
-    GeneratedJavaSource subscriptExprGenJavaSource =
-        exprGenJavaSource0.createMerged(
-            GeneratedJavaSource.forJavaSourceBody(
-                new StringBuilder(
-                    String.format(
-                        ".getElement(%s)",
-                        exprGenJavaSource1.javaSourceBody().toString()
-                    ))));
+    GeneratedJavaSource subscriptExprGenJavaSource;
+    if (this.isString) {
+      subscriptExprGenJavaSource =
+          GeneratedJavaSource.forJavaSourceBody(new StringBuilder("Character.toString("))
+              .createMerged(
+                  exprGenJavaSource0.createMerged(
+                      GeneratedJavaSource.forJavaSourceBody(
+                          new StringBuilder(
+                              String.format(
+                                  ".charAt(%s))",
+                                  exprGenJavaSource1.javaSourceBody().toString()
+                              ))))
+              );
+    } else {
+      subscriptExprGenJavaSource =
+          exprGenJavaSource0.createMerged(
+              GeneratedJavaSource.forJavaSourceBody(
+                  new StringBuilder(
+                      String.format(
+                          ".getElement(%s)",
+                          exprGenJavaSource1.javaSourceBody().toString()
+                      ))));
+    }
 
     // We've already consumed the javaSourceBody, we're safe to clear it.
     exprGenJavaSource1.javaSourceBody().setLength(0);
@@ -68,6 +93,11 @@ public class CollectionSubscriptExpr extends Expr {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    if (this.isString) {
+      int index = (int) getChildren().get(1).generateInterpretedOutput(scopedHeap);
+      return ((String) getChildren().get(0).generateInterpretedOutput(scopedHeap))
+          .substring(index, index + 1);
+    }
     return ((Collection) getChildren().get(0).generateInterpretedOutput(scopedHeap))
         .getElement((int) getChildren().get(1).generateInterpretedOutput(scopedHeap));
   }

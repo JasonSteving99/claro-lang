@@ -1,6 +1,6 @@
 package(
     default_visibility = [
-        "//src/java/com/claro/claro_programs:__pkg__",
+        "//src/java/com/claro/claro_programs:__subpackages__",
         "//src/java/com/claro/compiler_backends:__subpackages__",
         "//src/java/com/claro/intermediate_representation:__pkg__",
         "//src/java/com/claro/stdlib:__subpackages__",

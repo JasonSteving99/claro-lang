@@ -201,8 +201,10 @@ terminal LexedValue<String>  LOG_PREFIX;
 terminal LexedValue<String>  PRINT;
 // This grammar also has a builtin numeric() function for casting booleans to doubles.
 terminal LexedValue<String>  NUMERIC_BOOL;
-// This grammar also has a builtin input() functino for reading a number from stdin.
+// This grammar also has a builtin input() function for reading a line from stdin.
 terminal LexedValue<String>  INPUT;
+// This grammar also has a builtin isInputReady() function for checking whether a line is ready to be read on stdin.
+terminal LexedValue<String>  IS_INPUT_READY;
 // This grammar also has a builtin len() function for getting the length of an Iterable.
 terminal LexedValue<String>  LEN;
 // This grammar also has a builtin type() function for getting the type of an Expr.
@@ -266,6 +268,8 @@ nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
+// TODO(steving) FIX CODE TOO LARGE AND SUPPORT THIS CLEANER LAMBDA SYNTAX.
+//nonterminal CastExpr/*wrapping LambdaExpr*/    typed_lambda_function_expr;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ImmutableList<String>              generic_blocking_on;
@@ -306,6 +310,7 @@ nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
 nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
 nonterminal InputExpr                          input;
+nonterminal IsInputReadyExpr                   is_input_ready;
 nonterminal BoolExpr                           bool_expr;
 nonterminal BoolExpr                           equality;
 nonterminal BoolExpr                           inequality;
@@ -1009,6 +1014,8 @@ expr ::=
     :}
   | input:i
     {: RESULT = i; :}
+  | is_input_ready:i
+    {: RESULT = i; :}
   | list:l
     {: RESULT = l; :}
   | collection_subscript:l
@@ -1097,6 +1104,13 @@ input ::=
        int endCol = max(ileft + i.len, lpleft + lp.len, promptleft + prompt.len, rpleft + rp.len);
 
        RESULT = new InputExpr(prompt.val, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  ;
+
+is_input_ready ::=
+    INPUT LPAR RPAR
+    {:
+       RESULT = new IsInputReadyExpr();
     :}
   ;
 
@@ -1661,6 +1675,90 @@ lambda_function_expr ::=
        RESULT = new LambdaExpr(stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
     :}
   ;
+
+// TODO(steving) FIX CODE TOO LARGE ERROR!
+//typed_lambda_function_expr ::=
+//    LPAR:lp IDENTIFIER:arg_name COLON builtin_type:arg_type RPAR ARROW:a builtin_type:return_type LCURLY expr:implicit_return_expr RCURLY
+//    LPAR IDENTIFIER COLON builtin_type RPAR ARROW builtin_type LCURLY expr RCURLY
+//    {:
+//      Supplier<String> currentLinesSupplier =
+//         joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+//      int startCol = min(arg_nameleft, aleft, implicit_return_exprleft);
+//      int endCol = max(arg_nameleft + arg_name.len, aleft + a.len, implicit_return_expr.endCol);
+//
+//      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+//      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+//      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+//      LambdaExpr lambdaExpr = new LambdaExpr(ImmutableList.of(arg_name.val), new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_expr.currentLineNumber, startCol, endCol);
+//      RESULT = new CastExpr(
+//        ImmediateTypeProvider.of(
+//          Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+//            ImmutableList.of(((LexedValue<Type>) arg_type.value).val),
+//            ((LexedValue<Type>) return_type.value).val,
+//            /*explicitlyAnnotatedBlocking=*/false
+//          )),
+//        lambdaExpr,
+//        currentLinesSupplier, lpright, startCol, endCol);
+//      RESULT = null;
+//    :}
+//  | LPAR IDENTIFIER:arg_name COLON builtin_type:arg_type RPAR ARROW:a builtin_type:return_type LCURLY:lc stmt_list:stmt_list RCURLY:rc
+//    {:
+//      Supplier<String> currentLinesSupplier =
+//         joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", lcright + 2 > rcright ? lcright : lcright + 1), new Line(rc.currentInputLine, rcright));
+//      int startCol = min(arg_nameleft, aleft, lcleft, rcleft);
+//      int endCol = max(arg_nameleft + arg_name.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+//
+//      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+//      RESULT = new LambdaExpr(ImmutableList.of(arg_name.val), stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
+//    :}
+//  | LPAR:lp function_args_types_list:backwards_arg_types RPAR:rp ARROW:a builtin_type:return_type LCURLY expr:implicit_return_expr RCURLY
+//    {:
+//      Supplier<String> currentLinesSupplier =
+//         joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+//      int startCol = min(lamleft, lpleft, first_arg_nameleft, cleft, arg_names.left, rpleft, aleft, implicit_return_exprleft);
+//      int endCol = max(lamleft + lam.len, lpleft + lp.len, first_arg_nameleft + first_arg_name.len, cleft + c.len, arg_names.left + ((LexedValue)arg_names.value).len, rpleft + rp.len, aleft + a.len, implicit_return_expr.endCol);
+//
+//      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+//      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+//      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+//      RESULT = new LambdaExpr(((LexedValue<ImmutableList.Builder<String>>)arg_names.value).val.add(first_arg_name.val).build().reverse(), new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_exprright, startCol, endCol);
+//    :}
+//  | LPAR:lp function_args_types_list:backwards_arg_types RPAR:rp ARROW:a builtin_type:return_type LCURLY:lc stmt_list:stmt_list RCURLY:rc
+//    {:
+//      Supplier<String> currentLinesSupplier =
+//         joinExprLines(new Line(lam.currentInputLine, lamright), new Line(lp.currentInputLine, lpright), new Line(first_arg_name.currentInputLine, first_arg_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue)arg_names.value).currentInputLine, arg_namesright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", lcright + 2 > rcright ? lcright : lcright + 1), new Line(rc.currentInputLine, rcright));
+//      int startCol = min(lamleft, lpleft, first_arg_nameleft, cleft, arg_names.left, rpleft, aleft, lcleft, rcleft);
+//      int endCol = max(lamleft + lam.len, lpleft + lp.len, first_arg_nameleft + first_arg_name.len, cleft + c.len, arg_names.left + ((LexedValue)arg_names.value).len, rpleft + rp.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+//
+//      // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+//      RESULT = new LambdaExpr(((LexedValue<ImmutableList.Builder<String>>)arg_names.value).val.add(first_arg_name.val).build().reverse(), stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
+//    :}
+//  | LPAR:lp RPAR:rp ARROW:a builtin_type:return_type LCURLY expr:implicit_return_expr RCURLY
+//    {:
+//      Supplier<String> currentLinesSupplier =
+//         joinExprLines(new Line(lp.currentInputLine, lpright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(implicit_return_expr.currentLine, implicit_return_expr.currentLineNumber));
+//      int startCol = min(lpleft, rpleft, aleft, implicit_return_expr.startCol);
+//      int endCol = max(lpleft + lp.len, rpleft + rp.len, aleft + a.len, implicit_return_expr.endCol);
+//
+//      // In this case, we can generate our own settable reference to a TypeProvider for the ReturnStmt.
+//      AtomicReference<TypeProvider> returnTypeReference = new AtomicReference<>(null);
+//      ReturnStmt implicitReturnStmt = new ReturnStmt(implicit_return_expr, returnTypeReference);
+//      RESULT = new LambdaExpr(new StmtListNode(implicitReturnStmt), returnTypeReference, currentLinesSupplier, implicit_return_expr.currentLineNumber, startCol, endCol);
+//    :}
+//  | LPAR:lp RPAR:rp ARROW:a builtin_type:return_type LCURLY:lc stmt_list:stmt_list RCURLY:rc
+//    {:
+//       // We won't throw type errors at this level for the StmtListNode itself (that'll be handled on the Exprs contained w/in)
+//       // so intentionally ignore the StmtListNode here for error lines. Pointers may be slightly off if programmer has
+//       // terrible indentation but in that case, fuck em.
+//       Supplier<String> currentLinesSupplier =
+//          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(rp.currentInputLine, rpright), new Line(a.currentInputLine, aright), new Line(lc.currentInputLine, lcright), new Line(() -> "...", aright + 2 > rcright ? aright : aright + 1), new Line(rc.currentInputLine, rcright));
+//       int startCol = min(lpleft, rpleft, aleft, lcleft, rcleft);
+//       int endCol = max(lpleft + lp.len, rpleft + rp.len, aleft + a.len, lcleft + lc.len, rcleft + rc.len);
+//
+//       // In this case we can pass on the TypeProvider reference that any ReturnStmts have been using.
+//       RESULT = new LambdaExpr(stmt_list, returnTypeHolder, currentLinesSupplier, rcright, startCol, endCol);
+//    :}
+//  ;
 
 identifier_list ::=
     IDENTIFIER:arg_name COMMA:c identifier_list:tail

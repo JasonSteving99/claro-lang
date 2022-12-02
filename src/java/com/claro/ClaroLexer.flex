@@ -171,6 +171,7 @@ WhiteSpace     = [ \t\f]
     "print"            { return symbol(Calc.PRINT, 0, 5, "print"); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL, 0, 12, "numeric_bool"); }
     "input"            { return symbol(Calc.INPUT, 0, 5, "input"); }
+    "isInputReady"     { return symbol(Calc.INPUT, 0, 12, "isInputReady"); }
     "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
     "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
     "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }

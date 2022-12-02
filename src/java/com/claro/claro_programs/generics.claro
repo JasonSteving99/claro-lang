@@ -251,6 +251,7 @@ blocking function block(x: string) -> string {
   return res;
 }
 
+# TODO(steving) Need to add support for Generics to Graph Functions!
 graph function fooGraph(x: int) -> future<string> {
   root res <- example(@arg, (function<string -> string>) x -> x);
   # Uncomment the below line for a compile-time error preventing a deadlock.
@@ -268,8 +269,10 @@ print(graphres);
 
 print("----------------------------------------------------------");
 var exampleFnAsFirstClassObj: function<|int, function<string -> string>| -> string> = example;
+print(exampleFnAsFirstClassObj);
 print(exampleFnAsFirstClassObj(-100, x -> x));
 var exampleBlockingFnAsFirstClassObj: blocking function<|int, blocking function<string -> string>| -> string> = example;
+print(exampleBlockingFnAsFirstClassObj);
 print(exampleBlockingFnAsFirstClassObj(100, block));
 
 # It's invalid to reference a Generic Procedure as a first class object w/o an explicit contextual type assertion. This

@@ -6,11 +6,18 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
 public class LenExpr extends Expr {
+  private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
+      ImmutableSet.of(
+          BaseType.LIST,
+          BaseType.STRING
+      );
+
   public LenExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(e), currentLine, currentLineNumber, startCol, endCol);
   }
@@ -18,7 +25,7 @@ public class LenExpr extends Expr {
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     // TODO(steving) Add support for len of Array/Tuple as well.
-    ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.LIST);
+    ((Expr) this.getChildren().get(0)).assertSupportedExprBaseType(scopedHeap, SUPPORTED_EXPR_BASE_TYPES);
 
     return Types.INTEGER;
   }
