@@ -16,6 +16,7 @@ public class AddNumericExpr extends NumericExpr {
   private static final ImmutableSet<Type> SUPPORTED_ADD_OPERAND_TYPES = ImmutableSet.of(Types.INTEGER, Types.FLOAT);
   private final String TYPE_SUPPORT_ERROR_MESSAGE =
       "Internal Compiler Error: Currently `+` is not supported for types other than Integer and Double.";
+  private boolean isFloat = false;
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public AddNumericExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -31,6 +32,7 @@ public class AddNumericExpr extends NumericExpr {
     Type actualRhsType = rhs.assertSupportedExprType(scopedHeap, SUPPORTED_ADD_OPERAND_TYPES);
 
     if (actualLhsType.equals(Types.FLOAT) || actualRhsType.equals(Types.FLOAT)) {
+      this.isFloat = true;
       return Types.FLOAT;
     } else {
       return Types.INTEGER;
@@ -46,7 +48,8 @@ public class AddNumericExpr extends NumericExpr {
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
                 String.format(
-                    "(%s + %s)",
+                    "%s.valueOf(%s + %s)",
+                    this.isFloat ? "Double" : "Integer",
                     exprGenJavaSource0.javaSourceBody().toString(),
                     exprGenJavaSource1.javaSourceBody().toString()
                 )));

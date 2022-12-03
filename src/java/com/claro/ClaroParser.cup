@@ -31,6 +31,7 @@ import java.util.Stack;
 import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -47,6 +48,24 @@ action code {:
       res.append("\t");
     }
     return res.toString();
+  }
+
+  private Expr constructBinaryExpr(Expr a, LexedValue<String> op, Integer opleft, Integer opright, Expr b, Function<Supplier<String>, BiFunction<Integer, Integer, Expr>> constructor) {
+    Supplier<String> currentLinesSupplier =
+      joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(op.currentInputLine, opright), new Line(b.currentLine, b.currentLineNumber));
+    int startCol = min(a.startCol, opleft, b.startCol);
+    int endCol = max(a.endCol, opleft + op.len, b.endCol);
+
+    return constructor.apply(currentLinesSupplier).apply(startCol, endCol);
+  }
+
+  private CollectionSubscriptExpr constructCollectionSubscriptExpr(Expr l, LexedValue<String> lb, int lbleft, int lbright, Expr e, LexedValue<String> rb, int rbleft, int rbright) {
+     Supplier<String> currentLinesSupplier =
+        joinExprLines(new Line(l.currentLine, l.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
+     int startCol = min(l.startCol, lbleft, e.startCol, rbleft);
+     int endCol = max(l.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
+
+     return new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
   }
 :}
 
@@ -170,7 +189,7 @@ parser code {:
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  EXPONENTIATE;
-terminal LexedValue<String>  MULTIPLY, DIVIDE;
+terminal LexedValue<String>  MULTIPLY, DIVIDE, MODULUS;
 terminal LexedValue<String>  PLUS, MINUS;
 terminal LexedValue<String>  INCREMENT, DECREMENT;
 terminal LexedValue<String>  SEMICOLON;
@@ -340,7 +359,7 @@ precedence left EQUALS, NOT_EQUALS;
 precedence left AND, OR, NOT;
 precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
-precedence left MULTIPLY, DIVIDE;
+precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
 precedence left WHILE;
@@ -936,12 +955,7 @@ expr ::=
     :}
   | expr:a PLUS:p expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(p.currentInputLine, pright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, pleft, b.startCol);
-       int endCol = max(a.endCol, pleft + p.len, b.endCol);
-
-       RESULT = new AddNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+       RESULT = constructBinaryExpr(a, p, pleft, pright, b, (currentLinesSupplier) -> (startCol, endCol) -> new AddNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | identifier_increment:i
     {: RESULT = i; :}
@@ -949,39 +963,23 @@ expr ::=
     {: RESULT = i; :}
   | expr:a MINUS:m expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(m.currentInputLine, mright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, mleft, b.startCol);
-       int endCol = max(a.endCol, mleft + m.len, b.endCol);
-
-       RESULT = new SubtractNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+       RESULT = constructBinaryExpr(a, m, mleft, mright, b, (currentLinesSupplier) -> (startCol, endCol) -> new SubtractNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a MULTIPLY:m expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(m.currentInputLine, mright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, mleft, b.startCol);
-       int endCol = max(a.endCol, mleft + m.len, b.endCol);
-
-       RESULT = new MultiplyNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+       RESULT = constructBinaryExpr(a, m, mleft, mright, b, (currentLinesSupplier) -> (startCol, endCol) -> new MultiplyNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a DIVIDE:d expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(d.currentInputLine, dright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, dleft, b.startCol);
-       int endCol = max(a.endCol, dleft + d.len, b.endCol);
-
-       RESULT = new DivideNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+       RESULT = constructBinaryExpr(a, d, dleft, dright, b, (currentLinesSupplier) -> (startCol, endCol) -> new DivideNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
+    :}
+  | expr:a MODULUS:m expr:b
+    {:
+       RESULT = constructBinaryExpr(a, m, mleft, mright, b, (currentLinesSupplier) -> (startCol, endCol) -> new ModulusNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a EXPONENTIATE:ex expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(ex.currentInputLine, exright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, exleft, b.startCol);
-       int endCol = max(a.endCol, exleft + ex.len, b.endCol);
-
-       RESULT = new ExponentiateNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol);
+       RESULT = constructBinaryExpr(a, ex, exleft, exright, b, (currentLinesSupplier) -> (startCol, endCol) -> new ExponentiateNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | parenthesized_expr:p
     {: RESULT = p; :}
@@ -1108,7 +1106,7 @@ input ::=
   ;
 
 is_input_ready ::=
-    INPUT LPAR RPAR
+    IS_INPUT_READY LPAR RPAR
     {:
        RESULT = new IsInputReadyExpr();
     :}
@@ -1191,57 +1189,32 @@ collection_subscript ::=
     // nesting available for the given number of subscripts in this specific context.
     collection_subscript:l LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(l.currentLine, l.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(l.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(l.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(l, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | list:l LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(l.currentLine, l.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(l.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(l.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(l, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | identifier:i LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(i.currentLine, i.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(i.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(i.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(i, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(i, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(f.currentLine, f.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(f.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(f.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(f, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(f, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | provider_function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(f.currentLine, f.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(f.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(f.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(f, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(f, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | parenthesized_expr:p LBRACKET:lb expr:e RBRACKET:rb
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(p.currentLine, p.currentLineNumber), new Line(lb.currentInputLine, lbright), new Line(e.currentLine, e.currentLineNumber), new Line(rb.currentInputLine, rbright));
-       int startCol = min(p.startCol, lbleft, e.startCol, rbleft);
-       int endCol = max(p.endCol, lbleft + lb.len, e.endCol, rbleft + rb.len);
-
-       RESULT = new CollectionSubscriptExpr(p, e, currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = constructCollectionSubscriptExpr(p, lb, lbleft, lbright, e, rb, rbleft, rbright);
+    :}
+  | UP_ARROW:a LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       Term p = new PipeChainBackreferenceTerm(a.currentInputLine, aright, aleft, aleft + a.len);
+       RESULT = constructCollectionSubscriptExpr(p, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   ;
 

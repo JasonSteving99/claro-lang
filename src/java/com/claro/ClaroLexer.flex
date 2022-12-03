@@ -114,6 +114,7 @@ WhiteSpace     = [ \t\f]
     "*"                { return symbol(Calc.MULTIPLY, 0, 1, "*"); }
     "**"                { return symbol(Calc.EXPONENTIATE, 0, 2, "**"); }
     "/"                { return symbol(Calc.DIVIDE, 0, 1, "/");}
+    "%"                { return symbol(Calc.MODULUS, 0, 1, "%");}
     "("                { return symbol(Calc.LPAR, 0, 1, "("); }
     ")"                { return symbol(Calc.RPAR, 0, 1, ")"); }
     "{"                {
@@ -171,7 +172,7 @@ WhiteSpace     = [ \t\f]
     "print"            { return symbol(Calc.PRINT, 0, 5, "print"); }
     "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL, 0, 12, "numeric_bool"); }
     "input"            { return symbol(Calc.INPUT, 0, 5, "input"); }
-    "isInputReady"     { return symbol(Calc.INPUT, 0, 12, "isInputReady"); }
+    "isInputReady"     { return symbol(Calc.IS_INPUT_READY, 0, 12, "isInputReady"); }
     "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
     "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
     "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }

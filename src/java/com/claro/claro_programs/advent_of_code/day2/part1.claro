@@ -1,0 +1,62 @@
+# https://adventofcode.com/2022/day/2#part1
+
+alias Move : int
+
+var ROCK: Move = 1;
+var PAPER: Move = 2;
+var SCISSORS: Move = 3;
+
+alias CanonicalizerFn : function<string -> Move>
+
+# Claro doesn't have globals at that moment, so to access the constants at the top of the file I need to make this func
+# into a lambda instead of defining as a procedure def stmt so that I can capture a closure of the outer scope...
+# In the future perhaps I'll add a way to define file-level constants that are accessible within procedure def stmts.
+var getCanonicalizerFnForEncodedMoves: function<|string, string, string| -> CanonicalizerFn> =
+  lambda (encodedMove1, encodedMove2, encodedMove3) -> {
+    return move -> {
+      # Claro still doesn't support a builtin map/dict type so gotta do these things with if-else chains...
+      if (move == encodedMove1) {
+        return ROCK;
+      } else if (move == encodedMove2) {
+        return PAPER;
+      } else if (move == encodedMove3) {
+        return SCISSORS;
+      }
+      # Unreachable: In the future Claro will support an exhaustive-checked `match` statement that'll clean this up.
+      return -1;
+    };
+  };
+
+var canonicalizeOppMove: CanonicalizerFn = getCanonicalizerFnForEncodedMoves("A", "B", "C");
+var canonicalizeMyMove: CanonicalizerFn = getCanonicalizerFnForEncodedMoves("X", "Y", "Z");
+
+function checkMyRoundScore(myMove: Move, oppMove: Move) -> int {
+  var outcomeScore: int;
+  if (myMove == oppMove) { # Draw
+    outcomeScore = 3;
+  } else if (((myMove % 3) + 1) == oppMove) { # Loss
+    # This is an unnecessarily "clever" solution. I'm only doing this as an excuse to motivate adding the `%` modulus
+    # operator to the language.
+    outcomeScore = 0;
+  } else { # Win
+    outcomeScore = 6;
+  }
+
+  # The total round score is the outcome + the arbitrary point value assigned to each move.
+  return outcomeScore + myMove;
+}
+
+
+var totalScore = 0;
+
+while(isInputReady()) {
+  var roundStr = input("");
+  var oppMove = roundStr[0];
+  var myMove = roundStr[2];
+
+  [canonicalizeMyMove(myMove), canonicalizeOppMove(oppMove)]
+    |> checkMyRoundScore(^[0], ^[1])
+    |> totalScore = totalScore + ^;
+}
+
+print(totalScore);
