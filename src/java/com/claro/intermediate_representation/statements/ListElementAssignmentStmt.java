@@ -17,7 +17,8 @@ public class ListElementAssignmentStmt extends Stmt {
   private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
       ImmutableSet.of(
           BaseType.LIST,
-          BaseType.TUPLE
+          BaseType.TUPLE,
+          BaseType.MAP
       );
 
   public ListElementAssignmentStmt(CollectionSubscriptExpr collectionSubscriptExpr, Expr e) {
@@ -50,13 +51,21 @@ public class ListElementAssignmentStmt extends Stmt {
       return;
     }
 
-    // We should already know the type of the list on the lhs, so assert that the value on the rhs has the expected type.
-    ((Expr) this.getChildren().get(2)).assertExpectedExprType(
-        scopedHeap,
-        ((Types.Collection) listExprType).getElementType()
-    );
-    // Can only index into Lists using Integers.
-    ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+    // Type check the index and rhs exprs.
+    if (listExprType.baseType().equals(BaseType.MAP)) {
+      ((Expr) this.getChildren().get(1)).assertExpectedExprType(
+          scopedHeap, listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS));
+      ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+          scopedHeap,
+          listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)
+      );
+    } else {
+      ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+      ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+          scopedHeap,
+          ((Types.Collection) listExprType).getElementType()
+      );
+    }
   }
 
   @Override

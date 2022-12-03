@@ -19,7 +19,8 @@ public class CollectionSubscriptExpr extends Expr {
       ImmutableSet.of(
           BaseType.LIST,
           BaseType.TUPLE,
-          BaseType.STRING
+          BaseType.STRING,
+          BaseType.MAP
       );
 
   public CollectionSubscriptExpr(Expr collectionNodeExpr, Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -35,13 +36,24 @@ public class CollectionSubscriptExpr extends Expr {
       collectionExpr.assertSupportedExprBaseType(scopedHeap, SUPPORTED_EXPR_BASE_TYPES);
       throw ClaroTypeException.forInvalidSubscriptForNonCollectionType(collectionExprType, SUPPORTED_EXPR_BASE_TYPES);
     }
-    ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+
+    // Check that the subscript expr is a valid type.
+    if (collectionExprType.baseType().equals(BaseType.MAP)) {
+      ((Expr) this.getChildren().get(1)).assertExpectedExprType(
+          scopedHeap,
+          collectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS)
+      );
+    } else {
+      ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+    }
 
     Type type;
 
     if (collectionExprType.baseType().equals(BaseType.STRING)) {
       type = Types.STRING;
       this.isString = true;
+    } else if (collectionExprType.baseType().equals(BaseType.MAP)) {
+      type = collectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
     } else {
       type = ((Types.Collection) collectionExprType).getElementType();
     }

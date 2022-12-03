@@ -1,0 +1,21 @@
+var m: {string: int} = {"foo": 1, "bar": 2};
+print(m);
+type(m);
+print(m["foo"]);
+m["foo"] = 99;
+m["new"] = 1000;
+print(m);
+# Uncomment any of the following lines for a compile-time type error for invalid key type.
+#print(m[2]);
+#m["bar"] = "baz";
+
+var m2 = {1:"foo", 2:"bar"};
+print(m2);
+type(m2);
+print(m2[2]);
+m2[2] = "baz";
+m2[99] = "new";
+print(m2);
+# Uncomment any of the following lines for a compile-time type error for invalid key type.
+#print(m2["foo"]);
+#m2[1] = 99;

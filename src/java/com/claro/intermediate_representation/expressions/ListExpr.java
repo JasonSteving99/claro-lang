@@ -69,6 +69,13 @@ public class ListExpr extends Expr {
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
     if (initializerArgExprsList.isEmpty()) {
+      // Definitely have a list here, the user can't lie and call it something else. Early check here before type
+      // inference only in the case of an empty initializer since we'll give a better error message in the non-empty
+      // case if waiting until after inference.
+      if (!expectedExprType.baseType().equals(BaseType.LIST)) {
+        logTypeError(new ClaroTypeException(BaseType.LIST, expectedExprType));
+        return;
+      }
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
       this.emptyListValueType = Optional.of(expectedExprType);
       this.validatedListType = expectedExprType;

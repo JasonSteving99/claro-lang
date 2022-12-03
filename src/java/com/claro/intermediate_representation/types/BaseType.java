@@ -15,11 +15,10 @@ public enum BaseType {
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),
   ARRAY,
-  LIST("[%s]", "ClaroList<%s>"), // Linked. TODO(steving) Make this linked.
+  LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.
   TUPLE("(%s)", "ClaroTuple"),
-  IMMUTABLE_MAP,
-  MAP,
+  MAP("{%s: %s}", "ClaroMap"),
   BUILDER(
       "builder<%s>", // E.g. builder<Foo>
       "%s.Builder" // E.g. Foo.Builder

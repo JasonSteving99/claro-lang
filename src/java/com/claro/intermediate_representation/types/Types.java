@@ -54,6 +54,25 @@ public final class Types {
   }
 
   @AutoValue
+  public abstract static class MapType extends Type {
+    public static final String PARAMETERIZED_TYPE_KEYS = "$keys";
+    public static final String PARAMETERIZED_TYPE_VALUES = "$values";
+
+    public static MapType forKeyValueTypes(Type keysType, Type valuesType) {
+      return new AutoValue_Types_MapType(BaseType.MAP, ImmutableMap.of(PARAMETERIZED_TYPE_KEYS, keysType, PARAMETERIZED_TYPE_VALUES, valuesType));
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.MapType.forKeyValueTypes(%s, %s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEYS).getJavaSourceClaroType(),
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_VALUES).getJavaSourceClaroType()
+      );
+    }
+  }
+
+  @AutoValue
   public abstract static class TupleType extends Type implements Collection {
 
     public abstract ImmutableList<Type> getValueTypes();
@@ -949,13 +968,13 @@ public final class Types {
       return String.format(
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
           concreteTypeMappingsForBetterErrorMessages.map(
-              mapping -> {
-                Type mappedType = mapping.getOrDefault(this, this);
-                if (mappedType.equals(this)) {
-                  return this.getTypeParamName();
-                }
-                return mappedType.toString();
-              })
+                  mapping -> {
+                    Type mappedType = mapping.getOrDefault(this, this);
+                    if (mappedType.equals(this)) {
+                      return this.getTypeParamName();
+                    }
+                    return mappedType.toString();
+                  })
               .orElse(this.getTypeParamName())
       );
     }

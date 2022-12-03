@@ -30,6 +30,8 @@ public class ClaroTypeException extends Exception {
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the expected type to assert this type at compile-time.";
   private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION =
       "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
+  private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_MAP_INITIALIZATION =
+      "The type of this empty map is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty map `{}` assigned to it to assert this type statically at compile-time.";
   public static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
       // WARNING: CHECKING AGAINST THIS IN FunctionCallExpr.java! DO NOT CHANGE THIS STRING WITHOUT CHECKING THERE FIRST.
       "Ambiguous Lambda Expression Type: Type hint required. When a lambda Expr's type is not constrained by its context, the type must be statically declared via either a type annotation, or a cast.";
@@ -137,6 +139,10 @@ public class ClaroTypeException extends Exception {
     super(String.format(INVALID_TYPE_ERROR_MESSAGE_FMT_STR, actualType, expectedType));
   }
 
+  public ClaroTypeException(BaseType actualBaseType, Type expectedType) {
+    super(String.format(INVALID_TYPE_ERROR_MESSAGE_FMT_STR, actualBaseType, expectedType));
+  }
+
   public static ClaroTypeException forInvalidSubscriptForNonCollectionType(Type actualType, ImmutableSet<?> expectedTypeOptions) {
     return new ClaroTypeException(INVALID_SUBSCRIPT_FOR_NON_COLLECTION_TYPE);
   }
@@ -199,6 +205,10 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forUndecidedTypeLeakEmptyListInitialization() {
     return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_EMPTY_LIST_INITIALIZATION);
+  }
+
+  public static ClaroTypeException forUndecidedTypeLeakEmptyMapInitialization() {
+    return new ClaroTypeException(MISSING_TYPE_DECLARATION_FOR_EMPTY_MAP_INITIALIZATION);
   }
 
   public static ClaroTypeException forAmbiguousLambdaExprMissingTypeDeclarationForLambdaInitialization() {

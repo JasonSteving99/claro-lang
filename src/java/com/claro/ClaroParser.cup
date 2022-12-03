@@ -262,6 +262,8 @@ nonterminal Stmt                               stmt;
 nonterminal StmtListNode                       stmt_list;
 nonterminal StmtListNode                       stmts_and_defs_list;
 nonterminal ListExpr                           list;
+nonterminal MapExpr                            map;
+nonterminal ImmutableList.Builder/*<ImmutableList<Expr>>*/ map_initializer_kv_list;
 nonterminal TupleExpr                          tuple;
 nonterminal CollectionSubscriptExpr            collection_subscript;
 nonterminal Symbol/*ImmutableList.Builder<Expr>*/  args_list;
@@ -330,10 +332,10 @@ nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
 nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
 nonterminal InputExpr                          input;
 nonterminal IsInputReadyExpr                   is_input_ready;
-nonterminal BoolExpr                           bool_expr;
-nonterminal BoolExpr                           equality;
-nonterminal BoolExpr                           inequality;
-nonterminal BoolExpr                           bool_arithmetic;
+nonterminal Expr/*BoolExpr*/                   bool_expr;
+nonterminal Expr/*BoolExpr*/                   equality;
+nonterminal Expr/*BoolExpr*/                   inequality;
+nonterminal Expr/*BoolExpr*/                   bool_arithmetic;
 // TODO(steving) In order to support the delayed parsing of all user-defined types, just replace this type with
 // TODO(steving) Function<ScopedHeap, TypeProvider> or some other equivalent functional interface and then you'll be good to add
 // TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
@@ -600,6 +602,27 @@ builtin_type ::=
           endCol, // line number
           new LexedValue(
             (TypeProvider) (scopedHeap) -> Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | LCURLY:la builtin_type:key COLON:c builtin_type:value RCURLY:ra
+    // Maps are defined like {string:int} to avoid a new keyword `map` since I'd like to not impair functional style,
+    // where map is a well known function.
+    {:
+       LexedValue<TypeProvider> keyLexedVal = (LexedValue<TypeProvider>) key.value;
+       LexedValue<TypeProvider> valueLexedVal = (LexedValue<TypeProvider>) value.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(la.currentInputLine, laright), new Line(keyLexedVal.currentInputLine, key.right), new Line(c.currentInputLine, cright), new Line(valueLexedVal.currentInputLine, value.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(laleft, key.left, cleft, value.left, raleft);
+       int endCol = max(laleft + la.len, key.left + keyLexedVal.len, cleft + c.len, value.left + valueLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.MapType.forKeyValueTypes(keyLexedVal.val.resolveType(scopedHeap), valueLexedVal.val.resolveType(scopedHeap)),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -1016,6 +1039,8 @@ expr ::=
     {: RESULT = i; :}
   | list:l
     {: RESULT = l; :}
+  | map:m
+    {: RESULT = m; :}
   | collection_subscript:l
     {: RESULT = l; :}
   | LEN:len LPAR:lp expr:e RPAR:rp
@@ -1134,6 +1159,28 @@ list ::=
     :}
   ;
 
+map ::=
+    LCURLY:lc RCURLY:rc
+    {:
+      RESULT = new MapExpr(ImmutableList.of(), joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
+    :}
+  | LCURLY:lc map_initializer_kv_list:initializer RCURLY:rc
+    {:
+      RESULT = new MapExpr(initializer.build().reverse(), joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
+    :}
+  ;
+
+map_initializer_kv_list ::=
+    expr:k COLON expr:v COMMA map_initializer_kv_list:tail
+    {:
+      RESULT = tail.add(ImmutableList.of(k, v));
+    :}
+  | expr:k COLON expr:v
+    {:
+      RESULT = ImmutableList.builder().add(ImmutableList.of(k, v));
+    :}
+  ;
+
 tuple ::=
     // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
     LPAR:lp expr:head COMMA:c args_list:tailValues RPAR:rp
@@ -1231,21 +1278,11 @@ bool_expr ::=
 equality ::=
     expr:a EQUALS:e expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(e.currentInputLine, eright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, eleft, b.startCol);
-       int endCol = max(a.endCol, eleft + e.len, b.endCol);
-
-       RESULT = new EqualsBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, e, eleft, eright, b, (currentLinesSupplier) -> (startCol, endCol) -> new EqualsBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a NOT_EQUALS:ne expr:b
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(ne.currentInputLine, neright), new Line(b.currentLine, b.currentLineNumber));
-       int startCol = min(a.startCol, neleft, b.startCol);
-       int endCol = max(a.endCol, neleft + ne.len, b.endCol);
-
-       RESULT = new NotEqualsBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, ne, neleft, neright, b, (currentLinesSupplier) -> (startCol, endCol) -> new NotEqualsBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   ;
 
@@ -2497,48 +2534,30 @@ builder_setter_chain ::=
 inequality ::=
     expr:a L_ANGLE_BRACKET:l expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(l.currentInputLine, lright), new Line(b));
-       int startCol = min(a.startCol, lleft, b.startCol);
-       int endCol = max(a.endCol, lleft + l.len, b.endCol);
-       RESULT = new LessThanBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, l, lleft, lright, b, (currentLinesSupplier) -> (startCol, endCol) -> new LessThanBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a R_ANGLE_BRACKET:r expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(r.currentInputLine, rright), new Line(b));
-       int startCol = min(a.startCol, rleft, b.startCol);
-       int endCol = max(a.endCol, rleft + r.len, b.endCol);
-       RESULT = new GreaterThanBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, r, rleft, rright, b, (currentLinesSupplier) -> (startCol, endCol) -> new GreaterThanBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a LTE:lte expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(lte.currentInputLine, lteright), new Line(b));
-       int startCol = min(a.startCol, lteleft, b.startCol);
-       int endCol = max(a.endCol, lteleft + lte.len, b.endCol);
-       RESULT = new LessThanOrEqualToBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, lte, lteleft, lteright, b, (currentLinesSupplier) -> (startCol, endCol) -> new LessThanOrEqualToBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | expr:a GTE:gte expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(gte.currentInputLine, gteright), new Line(b));
-       int startCol = min(a.startCol, gteleft, b.startCol);
-       int endCol = max(a.endCol, gteleft + gte.len, b.endCol);
-       RESULT = new GreaterThanOrEqualToBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, gte, gteleft, gteright, b, (currentLinesSupplier) -> (startCol, endCol) -> new GreaterThanOrEqualToBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   ;
 
 bool_arithmetic ::=
     expr:a AND:and expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(and.currentInputLine, andright), new Line(b));
-       int startCol = min(a.startCol, andleft, b.startCol);
-       int endCol = max(a.endCol, andleft + and.len, b.endCol);
-       RESULT = new AndBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, and, andleft, andright, b, (currentLinesSupplier) -> (startCol, endCol) -> new AndBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
-  | expr:a OR:o expr:b
+  | expr:a OR:or expr:b
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(a), new Line(o.currentInputLine, oright), new Line(b));
-       int startCol = min(a.startCol, oleft, b.startCol);
-       int endCol = max(a.endCol, oleft + o.len, b.endCol);
-       RESULT = new OrBoolExpr(a, b, currentLinesSupplier, b.currentLineNumber, startCol, endCol);
+       RESULT = constructBinaryExpr(a, or, orleft, orright, b, (currentLinesSupplier) -> (startCol, endCol) -> new OrBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
   | NOT:n expr:a
     {:

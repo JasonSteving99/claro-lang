@@ -122,6 +122,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "maps_compiled_claro_image",
+    srcs = [":maps_compiled_claro"],
+    java_name = "maps",
+)
+
+claro_library(
+    name = "maps_compiled_claro",
+    src = "maps.claro",
+)
+
+claro_binary(
     name = "modules_compiled_claro_image",
     srcs = [":modules_compiled_claro"],
     java_name = "modules",

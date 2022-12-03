@@ -436,8 +436,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.ConcreteType;\n" +
             "import com.claro.intermediate_representation.types.Type;\n" +
             "import com.claro.intermediate_representation.types.Types;\n" +
-            "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;\n" +
-            "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
