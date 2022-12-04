@@ -15,7 +15,8 @@ public class LenExpr extends Expr {
   private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
       ImmutableSet.of(
           BaseType.LIST,
-          BaseType.STRING
+          BaseType.STRING,
+          BaseType.MAP
       );
 
   public LenExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {

@@ -18,7 +18,7 @@ public enum BaseType {
   LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.
   TUPLE("(%s)", "ClaroTuple"),
-  MAP("{%s: %s}", "ClaroMap"),
+  MAP("{%s: %s}", "ClaroMap<%s, %s>"),
   BUILDER(
       "builder<%s>", // E.g. builder<Foo>
       "%s.Builder" // E.g. Foo.Builder
