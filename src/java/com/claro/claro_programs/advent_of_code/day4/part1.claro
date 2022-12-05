@@ -1,0 +1,40 @@
+# https://adventofcode.com/2022/day/4#part1
+
+function parseInts(s: string) -> [int] {
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  var res: [int] = [];
+  var currInt = 0;
+  var i = 0;
+  while (i < len(s)) {
+    if (s[i] in charToIntMap) { # Still parsing the currInt.
+      currInt = (currInt * 10) + charToIntMap[s[i]];
+    } else { # Found the delimiter btwn ints.
+      append(res, currInt);
+      currInt = 0;
+    }
+    ++i;
+  }
+  # Don't drop the last one.
+  append(res, currInt);
+
+  return res;
+}
+
+alias Range: tuple<int, int>
+function isEitherRangeSubset(ranges: tuple<Range, Range>) -> boolean {
+  var r1 = (Range) ranges[0];
+  var r2 = (Range) ranges[1];
+  return ((((int) r1[0]) >= ((int) r2[0])) and (((int) r1[1]) <= ((int) r2[1])))
+         or
+         ((((int) r2[0]) >= ((int) r1[0])) and (((int) r2[1]) <= ((int) r1[1])));
+}
+
+
+var subsetCount = 0;
+while (isInputReady()) {
+  parseInts(input())
+    |> ((^[0], ^[1]), (^[2], ^[3]))
+    |> isEitherRangeSubset(^)
+    |> subsetCount = subsetCount + numeric_bool(^);
+}
+print(subsetCount);

@@ -98,8 +98,8 @@ print(filterResult);
 ##########################################################################
 
 requires(Conversion<In, Out>)
-function defer<In, Out>(in: In) -> Out {
-  return Conversion::applyConversion(in);
+function defer<In, Out>(i: In) -> Out {
+  return Conversion::applyConversion(i);
 }
 
 function mapDeferringToContractImpl<I, O>(inputList: [I]) -> [O] {

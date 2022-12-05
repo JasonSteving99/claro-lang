@@ -3,7 +3,9 @@ print(m);
 type(m);
 print(m["foo"]);
 m["foo"] = 99;
+print("new" in m);
 m["new"] = 1000;
+print("new" in m);
 print(m);
 # Uncomment any of the following lines for a compile-time type error for invalid key type.
 #print(m[2]);
@@ -14,7 +16,9 @@ print(m2);
 type(m2);
 print(m2[2]);
 m2[2] = "baz";
+print(99 in m2);
 m2[99] = "new";
+print(99 in m2);
 print(m2);
 # Uncomment any of the following lines for a compile-time type error for invalid key type.
 #print(m2["foo"]);
