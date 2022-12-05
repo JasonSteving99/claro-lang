@@ -45,4 +45,23 @@ public class ClaroTuple implements Collection {
   public Type getClaroType() {
     return claroType;
   }
+
+  // TODO(steving) I need to be able to do a simple equality check on tuples in Claro code. This would involve also
+  //  figuring out the appropriate way to override the hashcode() method... leaving that for later.
+//  @Override
+//  public boolean equals(Object other) {
+//    if (!(other instanceof ClaroTuple)) {
+//      return false;
+//    }
+//    ClaroTuple otherTuple = (ClaroTuple) other;
+//    if (this.length() != otherTuple.length()) {
+//      return false;
+//    }
+//    for (Object value : this.values) {
+//      if (!value.equals(otherTuple)) {
+//        return false;
+//      }
+//    }
+//    return true;
+//  }
 }

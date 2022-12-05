@@ -67,6 +67,19 @@ action code {:
 
      return new CollectionSubscriptExpr(l, e, currentLinesSupplier, rbright, startCol, endCol);
   }
+
+  private InputExpr constructInputExpr(
+    Optional<LexedValue<String>> prompt, int promptleft, int promptright, LexedValue<String> i, int ileft, int iright, LexedValue<String> lp, int lpleft, int lpright, LexedValue<String> rp, int rpleft, int rpright
+  ) {
+     Supplier<String> currentLinesSupplier =
+        prompt.isPresent()
+        ? joinExprLines(new Line(i.currentInputLine, iright), new Line(lp.currentInputLine, lpright), new Line(prompt.get().currentInputLine, promptright), new Line(rp.currentInputLine, rpright))
+        : joinExprLines(new Line(i.currentInputLine, iright), new Line(lp.currentInputLine, lpright), new Line(rp.currentInputLine, rpright));
+     int startCol = min(ileft, lpleft, prompt.isPresent() ? promptleft : Integer.MAX_VALUE, rpleft);
+     int endCol = max(ileft + i.len, lpleft + lp.len, prompt.isPresent() ? promptleft + prompt.get().len : -1, rpleft + rp.len);
+
+     return new InputExpr(prompt.map(p -> p.val), currentLinesSupplier, rpright, startCol, endCol);
+  }
 :}
 
 parser code {:
@@ -201,6 +214,7 @@ terminal LexedValue<String>  UNDERSCORE;
 terminal LexedValue<String>  VAR, ASSIGNMENT;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
+terminal LexedValue<String>  IN;
 terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
@@ -352,6 +366,7 @@ nonterminal Symbol/*ImmutableList.Builder<InjectedKey>*/ injected_keys_list;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence left IN;
 precedence left COMMA;
 precedence left IDENTIFIER;
 precedence left SEMICOLON;
@@ -1004,6 +1019,10 @@ expr ::=
     {:
        RESULT = constructBinaryExpr(a, ex, exleft, exright, b, (currentLinesSupplier) -> (startCol, endCol) -> new ExponentiateNumericExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
     :}
+  | expr:a IN:in expr:b
+    {:
+       RESULT = constructBinaryExpr(a, in, inleft, inright, b, (currentLinesSupplier) -> (startCol, endCol) -> new InBoolExpr(a, b, currentLinesSupplier, bright, startCol, endCol));
+    :}
   | parenthesized_expr:p
     {: RESULT = p; :}
   | LOG_PREFIX:log float:float_base LPAR:lp expr:arg RPAR:rp
@@ -1024,7 +1043,7 @@ expr ::=
 
        RESULT = new LogNumericExpr(arg, int_base, currentLinesSupplier, rpright, startCol, endCol);
     :}
-  | NUMERIC_BOOL:num LPAR:lp bool_expr:b RPAR:rp
+  | NUMERIC_BOOL:num LPAR:lp expr:b RPAR:rp
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(num.currentInputLine, numright), new Line(lp.currentInputLine, lpright), new Line(b.currentLine, b.currentLineNumber), new Line(rp.currentInputLine, rpright));
@@ -1121,12 +1140,11 @@ parenthesized_expr ::=
 input ::=
     INPUT:i LPAR:lp STRING:prompt RPAR:rp
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(i.currentInputLine, iright), new Line(lp.currentInputLine, lpright), new Line(prompt.currentInputLine, promptright), new Line(rp.currentInputLine, rpright));
-       int startCol = min(ileft, lpleft, promptleft, rpleft);
-       int endCol = max(ileft + i.len, lpleft + lp.len, promptleft + prompt.len, rpleft + rp.len);
-
-       RESULT = new InputExpr(prompt.val, currentLinesSupplier, rpright, startCol, endCol);
+       RESULT = constructInputExpr(Optional.of(prompt), promptleft, promptright, i, ileft, iright, lp, lpleft, lpright, rp, rpleft, rpright);
+    :}
+  | INPUT:i LPAR:lp RPAR:rp
+    {:
+       RESULT = constructInputExpr(Optional.empty(), -1, -1, i, ileft, iright, lp, lpleft, lpright, rp, rpleft, rpright);
     :}
   ;
 

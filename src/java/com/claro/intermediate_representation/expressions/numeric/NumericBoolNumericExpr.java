@@ -24,13 +24,17 @@ public class NumericBoolNumericExpr extends NumericExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            "(%s ? 1 : 0)",
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap)
-        )
-    );
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource res = ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource ternary = GeneratedJavaSource.forJavaSourceBody(
+        new StringBuilder(
+            String.format(
+                "(%s ? 1 : 0)",
+                res.javaSourceBody()
+            )));
+    // Already consumed the java source of the boolean expr.
+    res.javaSourceBody().setLength(0);
+    return res.createMerged(ternary);
   }
 
   @Override

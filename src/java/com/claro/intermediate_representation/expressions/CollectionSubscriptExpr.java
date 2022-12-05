@@ -53,6 +53,15 @@ public class CollectionSubscriptExpr extends Expr {
       type = Types.STRING;
       this.isString = true;
     } else if (collectionExprType.baseType().equals(BaseType.MAP)) {
+      // TODO(steving) This should be modelled as a oneof<T|KeyErr> or something like that once the type system
+      //  is mature enough for that. In this way, the return type would have to be checked with something like:
+      //  var res = m["foo"];
+      //  match(type(res)) {
+      //    case string:
+      //      print("Found what I was looking for: {res}");
+      //    case KeyErr: # Where KeyErr is defined as an enum w/ multiple vals like KeyErr::Missing inside it.
+      //      panic("Expected key wasn't found! Error: {res}");
+      //  }
       type = collectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
     } else {
       type = ((Types.Collection) collectionExprType).getElementType();
