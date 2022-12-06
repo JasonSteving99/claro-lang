@@ -54,7 +54,7 @@ function getFirstAndLast(strList: [string]) -> tuple<string, string> {
 }
 
 function join(toJoin: tuple<string, string>, joiner: string) -> string {
-  return "{(string) toJoin[0]}{joiner}{(string) toJoin[1]}";
+  return "{toJoin[0]}{joiner}{toJoin[1]}";
 }
 
 consumer dumpToScreen(x: int) {

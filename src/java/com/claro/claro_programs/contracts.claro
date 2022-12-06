@@ -100,8 +100,8 @@ print(bar("sup "));
 
 requires(BinaryMathOps<T,V,R>)
 function pairwiseSum<T, V, R>(ttuple: tuple<T, T>, vtuple: tuple<V, V>) -> tuple<R, R> {
-  var res1: R = BinaryMathOps::add(((T) ttuple[0]), ((V) vtuple[0]));
-  var res2: R = BinaryMathOps::add(((T) ttuple[1]), ((V) vtuple[1]));
+  var res1: R = BinaryMathOps::add(ttuple[0], vtuple[0]);
+  var res2: R = BinaryMathOps::add(ttuple[1], vtuple[1]);
   return (res1, res2);
 }
 
@@ -110,8 +110,8 @@ print("Testing Generic function pairwiseSum<string, string, string>:");
 var ttuple: tuple<string, string> = ("Hello, generic ", "This is ");
 var vtuple: tuple<string, string> = ("Claro world!", "effing sweet.");
 var firstGenericResult: tuple<string, string> = pairwiseSum(ttuple, vtuple);
-print((string) firstGenericResult[0]);
-print((string) firstGenericResult[1]);
+print(firstGenericResult[0]);
+print(firstGenericResult[1]);
 
 
 # TODO(steving) Somehow, Claro still has no way to convert btwn string <-> int...crazy, huh. Fix this.
@@ -120,14 +120,14 @@ print((string) firstGenericResult[1]);
 #var ttuple2: tuple<string, string> = ("Number of problems I got: ", "Generics ain't ");
 #var vtuple2: tuple<int, int> = (99, 1);
 #var secondGenericResult: tuple<string, string> = pairwiseSum(ttuple2, vtuple2);
-#print((string) secondGenericResult[0]);
-#print((string) secondGenericResult[1]);
+#print(secondGenericResult[0]);
+#print(secondGenericResult[1]);
 
 print("----------------------------------------------------------");
 print("Testing Generic function pairwiseSum<int, int, int>:");
 var ttuple3: tuple<int, int> = (1, 99);
 var vtuple3: tuple<int, int> = (99, 1);
 var thirdGenericResult: tuple<int, int> = pairwiseSum(ttuple3, vtuple3);
-print((int) thirdGenericResult[0]);
-print((int) thirdGenericResult[1]);
+print(thirdGenericResult[0]);
+print(thirdGenericResult[1]);
 

@@ -130,6 +130,8 @@ public class ClaroTypeException extends Exception {
       "\t\t\tvar fn: function<Foo -> Bar> = genericFooFn;\n" +
       "\t\tBad:\n" +
       "\t\t\tvar fn = genericFooFn;\n";
+  private static final String TUPLE_SUBSCRIPT_INDEX_OUT_OF_BOUNDS =
+      "Tuple Subscript Literal Out of Bounds:\n\tFor subscript on tuple of type: %s\n\tFound:\n\t\t%s\n\tExpected:\n\t\tindex in range [0, %s)";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -634,6 +636,16 @@ public class ClaroTypeException extends Exception {
             INVALID_GENERIC_PROCEDURE_REFERENCE_AS_FIRST_CLASS_OBJECT_WITHOUT_CONTEXTUAL_TYPE_ASSERTION,
             procedureName,
             procedureType
+        ));
+  }
+
+  public static ClaroTypeException forTupleIndexOutOfBounds(Type collectionExprType, int tupleActualSize, int literalIndex) {
+    return new ClaroTypeException(
+        String.format(
+            TUPLE_SUBSCRIPT_INDEX_OUT_OF_BOUNDS,
+            collectionExprType,
+            literalIndex,
+            tupleActualSize
         ));
   }
 }

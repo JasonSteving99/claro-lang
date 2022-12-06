@@ -8,7 +8,36 @@ print(t);
 var t2 = ((2, "later after reassignment"), 0, [1,2]);
 print(t2);
 
-# Because of the undecidability problem for the general case of tuple-subscripting, the programmer must cast the
-# tuple-subscript Expr to a compile-time expected type.
-t = (tuple<int, string>) t2[0]; # Motivated by the thought experiment here of "What is the type of `t2[randomChoice(0,1)]` ?"
-print(t);
+function randomChoice(a: int, b: int) -> int {
+  # There's no builtin RNG so let's ask the user.
+  if (input("Left or right? (L/R): ") == "L") {
+    return a;
+  } else {
+    return b;
+  }
+}
+# Because of the undecidability problem for the general case of tuple-subscripting, IF YOU WANT TO USE A
+# NON-INTEGER-LITERAL subscript value, then Claro will not be able to statically determine the type of the value that
+# you're referencing. So in that case the programmer must cast the tuple-subscript Expr to a compile-time expected type
+# that will be checked at runtime.
+var t3 = ("LEFT", "RIGHT", -999);
+# Here Claro doesn't know the type at compile-time. Although, you may trust the runtime logic of your program to claim
+# you're sure of this type, Claro depends on certain facts, so you must insert a runtime cast to validate your
+# assumptions so that the rest of Claro's type checking is not invalidated by a programmer mistake.
+# Note this code is intentionally a potential runtime type error, but the programmer has explicitly opted into this by
+# explicitly signaling this potential runtime error by way of the noisy cast. Claro is erring on the side of making
+# code smellier in cases where it's clearly a potential problem.
+# TODO(steving) In the future, I'd likely want to model this situation as returning a oneof<string|RuntimeTypeMismatchErr>.
+# Uncomment for compile-time error requiring the explicit cast.
+#var castRes = t3[randomChoice(0, 2)];
+print("\n\nIf you pick 'R' on the upcoming question you'll trigger a runtime exception!");
+var castRes = (string) t3[randomChoice(0, 2)];
+print(castRes);
+type(castRes);
+# However, note that you can very conveniently work with tuple subscripts using literals.
+var strVal = t3[1];
+print(strVal);
+type(strVal);
+# For constant tuple subscripts, Claro even does bounds checking for you.
+# Uncomment the below for compile-time errors.
+#strVal = t3[9];

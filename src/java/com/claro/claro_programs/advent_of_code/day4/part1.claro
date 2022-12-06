@@ -22,11 +22,11 @@ function parseInts(s: string) -> [int] {
 
 alias Range: tuple<int, int>
 function isEitherRangeSubset(ranges: tuple<Range, Range>) -> boolean {
-  var r1 = (Range) ranges[0];
-  var r2 = (Range) ranges[1];
-  return ((((int) r1[0]) >= ((int) r2[0])) and (((int) r1[1]) <= ((int) r2[1])))
+  var r1 = ranges[0];
+  var r2 = ranges[1];
+  return ((r1[0] >= r2[0]) and (r1[1] <= r2[1]))
          or
-         ((((int) r2[0]) >= ((int) r1[0])) and (((int) r2[1]) <= ((int) r1[1])));
+         ((r2[0] >= r1[0]) and (r2[1] <= r1[1]));
 }
 
 

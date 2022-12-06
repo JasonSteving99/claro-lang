@@ -7,7 +7,7 @@ import com.claro.intermediate_representation.types.Types;
 import java.util.function.Supplier;
 
 final public class IntegerTerm extends Term {
-  private final Integer value;
+  public final Integer value;
 
   public IntegerTerm(Integer value, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(currentLine, currentLineNumber, startCol, endCol);

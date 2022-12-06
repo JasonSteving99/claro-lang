@@ -11,7 +11,6 @@ claro_binary(
 claro_library(
     name = "part1_lib",
     src = "part1.claro",
-    debug = True,
 )
 
 claro_binary(

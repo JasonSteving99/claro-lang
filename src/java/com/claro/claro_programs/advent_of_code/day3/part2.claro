@@ -23,14 +23,14 @@ while (isInputReady()) {
   var rucksack = input("");
   var i = 0;
   var foundBadge = (false, ""); # Claro still needs a `break` keyword. Haven't added this yet since it's hard in the REPL.
-  while ((i < len(rucksack)) and (not ((boolean) foundBadge[0]))) {
+  while ((i < len(rucksack)) and (not foundBadge[0])) {
     foundBadge = (isAlreadySeen(i, seen1, rucksack) and isAlreadySeen(i, seen2, rucksack), rucksack[i]);
     ++i;
   }
 
-  print("Badge: {(string) foundBadge[1]}");
+  print("Badge: {foundBadge[1]}");
 
-  badgeTotalPriorities = badgeTotalPriorities + priorities[(string) foundBadge[1]];
+  badgeTotalPriorities = badgeTotalPriorities + priorities[foundBadge[1]];
   zero(seen1);
   zero(seen2);
 }

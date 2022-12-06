@@ -15,3 +15,6 @@ print("First name:\t\t{input("what is your first name?")}\nLast name:\t\t{input(
 var fmtStrLambda : function<string -> string> = s -> "<<<{s}>>>";
 print(fmtStrLambda("FOO"));
 print(fmtStrLambda("BAR"));
+
+# You can put anything into a fmt string and it will be converted to its string representation:
+print("Can fmt values of arbitrary types: {(["fmt strings", "are convenient"], 100)}");

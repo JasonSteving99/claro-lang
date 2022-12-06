@@ -22,11 +22,12 @@ public class FormatStringExpr extends Expr {
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // Go through all the fmtExprArgs and assert that they're all String type Exprs.
+    // TODO(steving) In the future I'll want to instead defer to some builtin Contract, like Conversion<T, string>.
+    // I don't have any particular type constraints on anything formatted. I'll just call .toString() on whatever's
+    // passed.
     for (Expr expr : this.fmtExprArgs) {
-      expr.assertExpectedExprType(scopedHeap, Types.STRING);
+      expr.getValidatedExprType(scopedHeap);
     }
-
     return Types.STRING;
   }
 

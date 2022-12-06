@@ -21,12 +21,12 @@ while (isInputReady()) {
     ++i;
   }
   var foundDuplicate = (false, "");
-  while ((i < len(rucksack)) and (not ((boolean) foundDuplicate[0]))) {
+  while ((i < len(rucksack)) and (not foundDuplicate[0])) {
     foundDuplicate = (seen[priorities[rucksack[i]]] > 0, rucksack[i]);
     ++i;
   }
 
-  dupesTotalPriorities = dupesTotalPriorities + priorities[(string) foundDuplicate[1]];
+  dupesTotalPriorities = dupesTotalPriorities + priorities[foundDuplicate[1]];
   zero(seen);
 }
 

@@ -22,7 +22,7 @@ implement Conversion<int, string> as IntToStrConversion {
 
 implement Conversion<tuple<int, int>, [int]> as TupleIntIntToListInt {
   function applyConversion(from: tuple<int, int>) -> [int] {
-    return [(int) from[0], (int) from[1]];
+    return [from[0], from[1]];
   }
 }
 
@@ -168,12 +168,12 @@ contract HasId<T> {
 }
 implement HasId<Person> as PersonId {
   function getId(p: Person) -> ID {
-    return (ID) p[1];
+    return p[1];
   }
 }
 implement HasId<Dog> as DogId {
   function getId(d: Dog) -> ID {
-    return (ID) d[2];
+    return d[2];
   }
 }
 
