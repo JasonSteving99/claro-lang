@@ -388,7 +388,7 @@ public class FunctionCallExpr extends Expr {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP);
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
       // In the case that this positional arg is a generic param type, then actually we need to just accept
       // whatever type is in the passed arg expr.
@@ -456,13 +456,14 @@ public class FunctionCallExpr extends Expr {
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
         case TUPLE:
+        case MAP:
           ImmutableList<Type> expectedParameterizedArgTypes =
               functionExpectedArgType.parameterizedTypeArgs().values().asList();
           ImmutableList<Type> actualParameterizedArgTypes = actualArgExprType.parameterizedTypeArgs().values().asList();
 
-          ImmutableList.Builder<Type> validatedParameterizedArgTypes = ImmutableList.builder();
+          ImmutableList.Builder<Type> validatedParameterizedArgTypesBuilder = ImmutableList.builder();
           for (int i = 0; i < functionExpectedArgType.parameterizedTypeArgs().size(); i++) {
-            validatedParameterizedArgTypes.add(
+            validatedParameterizedArgTypesBuilder.add(
                 validateArgExprsAndExtractConcreteGenericTypeParams(
                     genericTypeParamTypeHashMap,
                     expectedParameterizedArgTypes.get(i),
@@ -470,13 +471,17 @@ public class FunctionCallExpr extends Expr {
                     inferConcreteTypes
                 ));
           }
+          ImmutableList<Type> validatedParameterizedArgTypes = validatedParameterizedArgTypesBuilder.build();
           switch (functionExpectedArgType.baseType()) {
             case FUTURE:
-              return Types.FutureType.wrapping(validatedParameterizedArgTypes.build().get(0));
+              return Types.FutureType.wrapping(validatedParameterizedArgTypes.get(0));
             case LIST:
-              return Types.ListType.forValueType(validatedParameterizedArgTypes.build().get(0));
+              return Types.ListType.forValueType(validatedParameterizedArgTypes.get(0));
             case TUPLE:
-              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes.build());
+              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes);
+            case MAP:
+              return Types.MapType.forKeyValueTypes(
+                  validatedParameterizedArgTypes.get(0), validatedParameterizedArgTypes.get(1));
           }
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");

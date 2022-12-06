@@ -1,0 +1,36 @@
+# https://adventofcode.com/2022/day/6#part1
+
+function getOrDefault<K,V>(m: {K: V}, k: K, defaultVal: V) -> V { # Generics is really easy in Claro, why not flex it?
+  if (k in m) {
+    return m[k];
+  }
+  m[k] = defaultVal;
+  return defaultVal;
+}
+
+function max(x: int, y: int) -> int {
+  if (x >= y) {
+    return x;
+  }
+  return y;
+}
+
+var countUniqueNeeded = 4;
+var seenMap: {string: int} = {};
+var buffer = input();
+var i = 0;
+var consecutiveUnique = 0;
+var latestDuplicateIndex = -1;
+while (i < len(buffer) and consecutiveUnique < countUniqueNeeded) {
+  var currCharSeenAt = getOrDefault(seenMap, buffer[i], -99);
+  if (currCharSeenAt < max(i - countUniqueNeeded - 1, latestDuplicateIndex)) {
+    consecutiveUnique = consecutiveUnique + 1;
+  } else {
+    consecutiveUnique = i - seenMap[buffer[i]];
+    latestDuplicateIndex = seenMap[buffer[i]];
+  }
+  seenMap[buffer[i]] = i;
+  ++i;
+}
+
+print("Found packet marker ending at: ind {i} - {buffer[i-4]}{buffer[i-3]}{buffer[i-2]}{buffer[i-1]}");
