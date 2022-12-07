@@ -80,6 +80,36 @@ action code {:
 
      return new InputExpr(prompt.map(p -> p.val), currentLinesSupplier, rpright, startCol, endCol);
   }
+
+  private Expr constructSetOrTuple(LexedValue<String> lp, int lpleft, int lpright, Expr head, LexedValue<String> c, int cleft, int cright, Symbol tailValues, LexedValue<String> rp, int rpleft, int rpright, BiFunction<ImmutableList<Expr>, Supplier<String>, BiFunction<Integer, Integer, Expr>> constructor) {
+    Supplier<String> currentLinesSupplier =
+       joinExprLines(new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright));
+    int startCol = min(lpleft, head.startCol, cleft, tailValues.left, rpleft);
+    int endCol = max(lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len);
+
+    ImmutableList.Builder<Expr> values = ImmutableList.builder();
+    values.add(head);
+    values.addAll(((LexedValue<ImmutableList.Builder<Expr>>) tailValues.value).val.build().reverse());
+    return constructor.apply(values.build(), currentLinesSupplier).apply(startCol, endCol);
+  }
+
+  private Symbol constructBuiltinType(LexedValue<String> lb, int lbleft, int lbright, Symbol t, LexedValue<String> rb, int rbleft, int rbright, Function<LexedValue<TypeProvider>, TypeProvider> typeProviderConstructor) {
+    LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>) t.value;
+    Supplier<String> currentLinesSupplier =
+      joinExprLines(new Line(lb.currentInputLine, lbright), new Line(tLexedVal.currentInputLine, t.right), new Line(rb.currentInputLine, rbright));
+    int startCol = min(lbleft, t.left, rbleft);
+    int endCol = max(lbleft + lb.len, t.left + tLexedVal.len, rbleft + rb.len);
+
+    return new Symbol(
+      -1,
+      startCol,
+      endCol, // line number
+      new LexedValue(
+        typeProviderConstructor.apply(tLexedVal),
+        currentLinesSupplier,
+        endCol - startCol)
+      );
+    }
 :}
 
 parser code {:
@@ -279,6 +309,7 @@ nonterminal ListExpr                           list;
 nonterminal MapExpr                            map;
 nonterminal ImmutableList.Builder/*<ImmutableList<Expr>>*/ map_initializer_kv_list;
 nonterminal TupleExpr                          tuple;
+nonterminal SetExpr                            set;
 nonterminal CollectionSubscriptExpr            collection_subscript;
 nonterminal Symbol/*ImmutableList.Builder<Expr>*/  args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
@@ -605,21 +636,15 @@ builtin_type ::=
     :}
   | LBRACKET:lb builtin_type:t RBRACKET:rb
     {:
-       LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>) t.value;
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(lb.currentInputLine, lbright), new Line(tLexedVal.currentInputLine, t.right), new Line(rb.currentInputLine, rbright));
-       int startCol = min(lbleft, t.left, rbleft);
-       int endCol = max(lbleft + lb.len, t.left + tLexedVal.len, rbleft + rb.len);
-
-       RESULT = new Symbol(
-          -1,
-          startCol,
-          endCol, // line number
-          new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap)),
-            currentLinesSupplier,
-            endCol - startCol)
-       );
+       RESULT = constructBuiltinType(
+           lb, lbleft, lbright, t, rb, rbleft, rbright,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap)));
+    :}
+  | LCURLY:lb builtin_type:t RCURLY:rb
+    {:
+       RESULT = constructBuiltinType(
+           lb, lbleft, lbright, t, rb, rbleft, rbright,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> Types.SetType.forValueType(tLexedVal.val.resolveType(scopedHeap)));
     :}
   | LCURLY:la builtin_type:key COLON:c builtin_type:value RCURLY:ra
     // Maps are defined like {string:int} to avoid a new keyword `map` since I'd like to not impair functional style,
@@ -804,23 +829,6 @@ builtin_type ::=
           endCol, // line number
           new LexedValue(
             (TypeProvider) (scopedHeap) -> Types.TupleType.forValueTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
-            currentLinesSupplier,
-            endCol - startCol)
-       );
-    :}
-  | BUILDER:b L_ANGLE_BRACKET:la IDENTIFIER:built_type_name R_ANGLE_BRACKET:ra
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(b.currentInputLine, bright), new Line(la.currentInputLine, laright), new Line(built_type_name.currentInputLine, built_type_nameright), new Line(ra.currentInputLine, raright));
-       int startCol = min(bleft, laleft, built_type_nameleft, raleft);
-       int endCol = max(bleft + b.len, laleft + la.len, built_type_nameleft + built_type_name.len, raleft + ra.len);
-
-       RESULT = new Symbol(
-          -1,
-          startCol,
-          endCol, // line number
-          new LexedValue(
-            Types.BuilderType.forStructTypeName(built_type_name.val),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -1093,6 +1101,8 @@ expr ::=
     {: RESULT = b; :}
   | tuple:t
     {: RESULT = t; :}
+  | set:s
+    {: RESULT = s; :}
   | LPAR:lp builtin_type:asserted_type RPAR:rp expr:casted_expr
     {:
        Supplier<String> currentLinesSupplier =
@@ -1203,15 +1213,15 @@ tuple ::=
     // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
     LPAR:lp expr:head COMMA:c args_list:tailValues RPAR:rp
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright));
-       int startCol = min(lpleft, head.startCol, cleft, tailValues.left, rpleft);
-       int endCol = max(lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len);
+       RESULT = (TupleExpr) constructSetOrTuple(lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new TupleExpr(values, lines, rpright, startCol, endCol));
+    :}
+  ;
 
-       ImmutableList.Builder<Expr> tupleValues = ImmutableList.builder();
-       tupleValues.add(head);
-       tupleValues.addAll(((LexedValue<ImmutableList.Builder<Expr>>) tailValues.value).val.build().reverse());
-       RESULT = new TupleExpr(tupleValues.build(), currentLinesSupplier, rpright, startCol, endCol);
+set ::=
+    // Sets distinguish themselves from parenthesized expressions by having at least one comma, and tuples by {} instead of ().
+    LCURLY:lp expr:head COMMA:c args_list:tailValues RCURLY:rp
+    {:
+       RESULT = (SetExpr) constructSetOrTuple(lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new SetExpr(values, lines, rpright, startCol, endCol));
     :}
   ;
 

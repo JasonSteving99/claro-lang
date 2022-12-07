@@ -1,0 +1,16 @@
+# Claro now supports mutable sets out of the box!
+
+var t: {int} = {1,2,3};
+print("t: {t}");
+type(t);
+print("2 in t: {2 in t}");
+print("9 in t: {9 in t}");
+
+# TODO(steving) I still need all of the following operations to be supported before sets will actually be meaningful.
+#  - `add(s, val);`
+#  - `remove(s, val);`
+#  - `union(s, s2);`
+#  - `intersection(s, s2);`
+#  - `symmetricDifference(s, s2);`
+
+# TODO(steving) It's still not possible to define an empty list, because the syntax `{}` is ambiguous with empty Map.

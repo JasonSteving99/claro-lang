@@ -177,6 +177,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "sets_compiled_claro_image",
+    srcs = [":sets_compiled_claro"],
+    java_name = "sets",
+)
+
+claro_library(
+    name = "sets_compiled_claro",
+    src = "sets.claro",
+)
+
+claro_binary(
     name = "structs_compiled_claro_image",
     srcs = [":structs_compiled_claro"],
     java_name = "structs",

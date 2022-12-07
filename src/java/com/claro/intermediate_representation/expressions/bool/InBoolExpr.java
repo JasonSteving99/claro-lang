@@ -10,12 +10,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
+import java.util.Set;
 import java.util.function.Supplier;
 
 public class InBoolExpr extends BoolExpr {
 
   private final Expr lhs;
   private final Expr rhs;
+  private BaseType collectionType = null;
 
   public InBoolExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -27,12 +29,18 @@ public class InBoolExpr extends BoolExpr {
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     // rhs has to be a Map.
     Type rhsType = rhs.getValidatedExprType(scopedHeap);
-    if (!rhsType.baseType().equals(BaseType.MAP)) {
-      rhs.logTypeError(new ClaroTypeException(rhsType, BaseType.MAP));
-    } else {
+    if (rhsType.baseType().equals(BaseType.MAP)) {
+      this.collectionType = BaseType.MAP;
       // lhs has to be of the rhs's key type.
-      lhs.assertExpectedExprType(scopedHeap, rhsType.parameterizedTypeArgs()
-          .get(Types.MapType.PARAMETERIZED_TYPE_KEYS));
+      lhs.assertExpectedExprType(
+          scopedHeap, rhsType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS));
+    } else if (rhsType.baseType().equals(BaseType.SET)) {
+      this.collectionType = BaseType.SET;
+      // lhs has to be of the rhs's key type.
+      lhs.assertExpectedExprType(
+          scopedHeap, rhsType.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE));
+    } else {
+      rhs.logTypeError(new ClaroTypeException(rhsType, ImmutableSet.of(BaseType.MAP, BaseType.SET)));
     }
 
     return Types.BOOLEAN;
@@ -51,8 +59,9 @@ public class InBoolExpr extends BoolExpr {
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
-                "%s.containsKey(%s)",
+                "%s.%s(%s)",
                 rhsGeneratedJavaSource.javaSourceBody(),
+                this.collectionType.equals(BaseType.MAP) ? "containsKey" : "contains",
                 lhsGeneratedJavaSource.javaSourceBody()
             )
         ));
@@ -67,7 +76,11 @@ public class InBoolExpr extends BoolExpr {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    return ((HashMap) this.rhs.generateInterpretedOutput(scopedHeap))
-        .containsKey(this.lhs.generateInterpretedOutput(scopedHeap));
+    if (this.collectionType.equals(BaseType.MAP)) {
+      return ((HashMap) this.rhs.generateInterpretedOutput(scopedHeap))
+          .containsKey(this.lhs.generateInterpretedOutput(scopedHeap));
+    }
+    return ((Set) this.rhs.generateInterpretedOutput(scopedHeap))
+        .contains(this.lhs.generateInterpretedOutput(scopedHeap));
   }
 }

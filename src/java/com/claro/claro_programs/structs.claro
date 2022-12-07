@@ -9,9 +9,7 @@ struct FirstStruct {
   field2: string
 }
 
-#var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
-# For some reason the above line works but this explicit type def line still doesn't.
-var firstStructBuilder: builder<FirstStruct> = FirstStruct.builder().field1(99).field2("ninety-nine");
+var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
 type(firstStructBuilder);
 print(firstStructBuilder);
 
@@ -47,7 +45,7 @@ print(b);
 
 
 # Functions can be parameterized by, and return StructTypes.
-function getBar(f: Foo) -> builder<Bar> {
-  return Bar.builder().foo(f);
+function getBar(f: Foo) -> Bar {
+  return Bar.builder().foo(f).build();
 }
 print(getBar(Foo.builder().i(-9).s("negative-nine").build()));

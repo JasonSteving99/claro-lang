@@ -73,6 +73,23 @@ public final class Types {
   }
 
   @AutoValue
+  public abstract static class SetType extends Type {
+    public static final String PARAMETERIZED_TYPE = "$values";
+
+    public static SetType forValueType(Type valueType) {
+      return new AutoValue_Types_SetType(BaseType.SET, ImmutableMap.of(PARAMETERIZED_TYPE, valueType));
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.SetType.forValueType(%s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE).getJavaSourceClaroType()
+      );
+    }
+  }
+
+  @AutoValue
   public abstract static class TupleType extends Type implements Collection {
 
     public abstract ImmutableList<Type> getValueTypes();
