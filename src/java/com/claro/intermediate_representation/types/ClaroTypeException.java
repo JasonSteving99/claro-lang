@@ -132,6 +132,10 @@ public class ClaroTypeException extends Exception {
       "\t\t\tvar fn = genericFooFn;\n";
   private static final String TUPLE_SUBSCRIPT_INDEX_OUT_OF_BOUNDS =
       "Tuple Subscript Literal Out of Bounds:\n\tFor subscript on tuple of type: %s\n\tFound:\n\t\t%s\n\tExpected:\n\t\tindex in range [0, %s)";
+  private static final String TUPLE_SUBSCRIPT_ASSIGNMENT_FOR_NON_COMPILE_TIME_CONSTANT_INDEX =
+      "Invalid Tuple Subscript: Subscript must be an integer literal for reassignment of elements within a tuple.";
+  private static final String TUPLE_HAS_UNEXPECTED_SIZE =
+      "Tuple Has Wrong Number of Elements:\n\tFound:\n\t\t%s\n\tExpected:\n\t\t%s - %s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -647,5 +651,20 @@ public class ClaroTypeException extends Exception {
             literalIndex,
             tupleActualSize
         ));
+  }
+
+  public static Exception forTupleIndexNonLiteralForAssignment() {
+    return new ClaroTypeException(TUPLE_SUBSCRIPT_ASSIGNMENT_FOR_NON_COMPILE_TIME_CONSTANT_INDEX);
+  }
+
+  public static Exception forTupleHasUnexpectedSize(int expectedSize, int actualSize, Type expectedType) {
+    return new ClaroTypeException(
+        String.format(
+            TUPLE_HAS_UNEXPECTED_SIZE,
+            actualSize,
+            expectedSize,
+            expectedType
+        )
+    );
   }
 }

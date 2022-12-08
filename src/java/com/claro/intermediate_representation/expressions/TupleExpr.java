@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 public class TupleExpr extends Expr {
 
   private final ImmutableList<Expr> tupleValues;
+  private Types.TupleType assertedType;
   private Types.TupleType type;
 
   public TupleExpr(ImmutableList<Expr> tupleValues, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -22,12 +24,36 @@ public class TupleExpr extends Expr {
   }
 
   @Override
-  public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
-    for (Expr expr : tupleValues) {
-      valueTypesBuilder.add(expr.getValidatedExprType(scopedHeap));
+  public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    // Know for a fact this is a Tuple, the user can't assert anything else.
+    if (!expectedExprType.baseType().equals(BaseType.TUPLE)) {
+      logTypeError(new ClaroTypeException(BaseType.TUPLE, expectedExprType));
+      return;
     }
-    this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build());
+    this.assertedType = (Types.TupleType) expectedExprType;
+    super.assertExpectedExprType(scopedHeap, expectedExprType);
+  }
+
+  @Override
+  public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    if (this.assertedType != null) { // Type was asserted by programmer, we have to check that the actual types align.
+      if (this.tupleValues.size() != this.assertedType.getValueTypes().size()) {
+        logTypeError(
+            ClaroTypeException.forTupleHasUnexpectedSize(
+                this.assertedType.getValueTypes().size(), this.tupleValues.size(), this.assertedType));
+      } else {
+        for (int i = 0; i < this.assertedType.getValueTypes().size(); i++) {
+          this.tupleValues.get(i).assertExpectedExprType(scopedHeap, this.assertedType.getValueTypes().get(i));
+        }
+      }
+      this.type = this.assertedType;
+    } else { // Type wasn't asserted by programmer, we get to infer it.
+      ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
+      for (Expr expr : tupleValues) {
+        valueTypesBuilder.add(expr.getValidatedExprType(scopedHeap));
+      }
+      this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build());
+    }
     return type;
   }
 

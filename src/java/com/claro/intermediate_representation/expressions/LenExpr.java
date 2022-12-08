@@ -34,8 +34,12 @@ public class LenExpr extends Expr {
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res =
-        ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
-    res.javaSourceBody().append(".length()");
+        // This is a super unfortunate boxing that needs to be done to convert to the basic Claro `int` type which should
+        // always be `Integer` in Java source. This is just so that I can always call `.equals()` on everything in Claro.
+        GeneratedJavaSource.forJavaSourceBody(new StringBuilder("new Integer("))
+            .createMerged(
+                ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap));
+    res.javaSourceBody().append(".length())");
     return res;
   }
 

@@ -19,6 +19,11 @@ public class ClaroTuple implements Collection {
     this.values = values;
   }
 
+  public void set(int index, Object val) {
+    // Bounds for Tuple reassignment were already checked at compile time.
+    this.values[index] = val;
+  }
+
   @SuppressWarnings("unchecked") // The whole point is that we're already checking this.
   public <T> T getElement(int i) {
     return (T) this.values[i];

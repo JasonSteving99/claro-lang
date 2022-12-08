@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.CollectionSubscriptExpr;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.expressions.term.IntegerTerm;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
@@ -59,6 +60,24 @@ public class ListElementAssignmentStmt extends Stmt {
           scopedHeap,
           listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)
       );
+    } else if (listExprType.baseType().equals(BaseType.TUPLE)) {
+      Expr subscriptExpr = (Expr) this.getChildren().get(1);
+      if (!(subscriptExpr instanceof IntegerTerm)) { // Tuples can only be subscripted for re-assignment using a literal.
+        subscriptExpr.logTypeError(ClaroTypeException.forTupleIndexNonLiteralForAssignment());
+      } else {
+        // We know we have a compile-time constant integer literal, so I'm going to bounds check for the user now.
+        int subscriptValue = ((IntegerTerm) subscriptExpr).value;
+        ImmutableList<Type> tupleTypes = ((Types.TupleType) listExprType).getValueTypes();
+        if (subscriptValue >= tupleTypes.size() || subscriptValue < 0) {
+          subscriptExpr.logTypeError(
+              ClaroTypeException.forTupleIndexOutOfBounds(listExprType, tupleTypes.size(), subscriptValue));
+        } else {
+          ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+              scopedHeap,
+              tupleTypes.get(subscriptValue)
+          );
+        }
+      }
     } else {
       ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
       ((Expr) this.getChildren().get(2)).assertExpectedExprType(
