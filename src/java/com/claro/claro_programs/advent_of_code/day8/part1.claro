@@ -1,0 +1,51 @@
+# https://adventofcode.com/2022/day/8#part1
+
+provider getRow() -> [int] {
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  var res: [int] = [];
+  var s = input();
+  var i = 0;
+  while (i < len(s)) {
+    append(res, charToIntMap[s[i++]]);
+  }
+  return res;
+}
+
+consumer findVisibleFromPosition(
+    forest: [[int]], seen: {tuple<int, int>: int}, start: tuple<int, int>, end: tuple<int, int>, dir: tuple<int, int>) {
+  var curr = start;
+  var prevTallest = forest[curr[0] - dir[0]][curr[1] - dir[1]];
+  while (curr != end) {
+    var currHeight = forest[curr[0]][curr[1]];
+    if (currHeight > prevTallest) {
+      # We can see this one over the previous tallest one.
+      seen[curr] = 1; # Wishlist: I'd rather use a set, but Claro sets currently don't support mutation.
+      prevTallest = currHeight;
+    }
+    curr = (curr[0] + dir[0], curr[1] + dir[1]);
+  }
+}
+
+
+var forest: [[int]] = [];
+while (isInputReady()) {
+  append(forest, getRow());
+}
+
+var seen: {tuple<int, int>: int} = {};
+
+# Input is a square so we can do it all in a single loop.
+var i = 1;
+while (i < len(forest) - 1) {
+  findVisibleFromPosition(forest, seen, (1, i), (len(forest) - 1, i), (1, 0)); # Top down.
+  findVisibleFromPosition(forest, seen, (len(forest) - 2, i), (0,i), (-1, 0)); # Bottom up.
+  findVisibleFromPosition(forest, seen, (i, 1), (i, len(forest[0]) - 1), (0, 1)); # Left to right.
+  findVisibleFromPosition(forest, seen, (i, len(forest[0]) - 2), (i, 0), (0, -1)); # Right to left.
+  ++i;
+}
+
+var internalTreeCount = len(seen);
+var edgeTreeCount = (2 * len(forest[0])) + (2 * (len(forest) - 2));
+print("Found {internalTreeCount} visible internal trees.");
+print("Found {edgeTreeCount} visible edge trees.");
+print("Total: {internalTreeCount + edgeTreeCount}");

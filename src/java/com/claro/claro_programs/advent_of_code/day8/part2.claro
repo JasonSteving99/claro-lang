@@ -1,0 +1,76 @@
+# https://adventofcode.com/2022/day/8#part2
+
+consumer getRow(forest: [[int]], seen: [[tuple<int, int, int, int>]]) {
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  append(forest, []);
+  append(seen, []);
+  var s = input();
+  var i = 0;
+  while (i < len(s)) {
+    append(forest[len(forest) - 1], charToIntMap[s[i++]]);
+    append(seen[len(seen) - 1], (0,0,0,0));
+  }
+}
+
+consumer findVisibleFromPosition(
+    forest: [[int]],
+    seen: [[tuple<int, int, int, int>]],
+    start: tuple<int, int>,
+    end: tuple<int, int>,
+    dir: tuple<int, int>,
+    # Interestingly, I've currently set it up such that Claro requires an int literal subscript to be able to reassign
+    # to a tuple value.. hence I can't dynamically take some arg here and index into the seen tuple totally generically.
+    # This is what the workaround to that potentially uncommon situation looks like.. I'm still considering its merits.
+    updateSeen: consumer<tuple<int, int, int, int>, int>) {
+  # If you're already on the edge, you get a zero.
+  if (start != end) {
+    updateSeen(seen[start[0]][start[1]], 1);
+    var curr = (start[0] + dir[0], start[1] + dir[1]);
+    var startHeight = forest[start[0]][start[1]];
+    while ((curr != end) and (forest[curr[0]][curr[1]] < startHeight)) {
+      updateSeen(seen[start[0]][start[1]], 1);
+      curr = (curr[0] + dir[0], curr[1] + dir[1]);
+    }
+  }
+}
+
+
+var forest: [[int]] = [];
+var seen: [[tuple<int, int, int, int>]] = [];
+while (isInputReady()) {
+  getRow(forest, seen);
+}
+
+var r = 0;
+while (r < len(forest)) {
+  var c = 0;
+  while (c < len(forest[0])) {
+    findVisibleFromPosition(forest, seen, (r, c), (len(forest) - 1, c), (1, 0), lambda (t, i) -> { t[0] = t[0] + i; }); # Top down.
+    findVisibleFromPosition(forest, seen, (len(forest) - r - 1, c), (0,c), (-1, 0), lambda (t, i) -> { t[1] = t[1] + i; }); # Bottom up.
+    findVisibleFromPosition(forest, seen, (r, c), (r, len(forest[0]) - 1), (0, 1), lambda (t, i) -> { t[2] = t[2] + i; }); # Left to right.
+    findVisibleFromPosition(forest, seen, (r, len(forest[0]) - c - 1), (r, 0), (0, -1), lambda (t, i) -> { t[3] = t[3] + i; }); # Right to left.
+    ++c;
+  }
+  ++r;
+}
+
+# Now collect the highest "scenic score".
+var maxScenicScore = 0;
+var maxTree = (0, 0);
+r = 0;
+while (r < len(seen)) {
+  var c = 0;
+  while (c < len(seen[0])) {
+    var t = seen[r][c];
+    var currScenicScore = t[0] * t[1] * t[2] * t[3];
+    if (currScenicScore > maxScenicScore) {
+      maxScenicScore = currScenicScore;
+      maxTree = (r, c);
+    }
+    ++c;
+  }
+  ++r;
+}
+
+print("Max Scenic Score: {maxScenicScore}");
+print("Max Tree: {maxTree} - {seen[maxTree[0]][maxTree[1]]}");
