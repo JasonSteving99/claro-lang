@@ -1,0 +1,38 @@
+# https://adventofcode.com/2022/day/10#part1
+
+var XReg = 1;
+var cycle = 21; # Starting on cycle 21 makes it easy to just mod40 everything.
+var signalStrength = 0;
+var adding = (false, 0);
+while (isInputReady()) {
+  if (cycle % 40 == 0) {
+    signalStrength = signalStrength + (cycle - 20) * XReg;
+    print("Signal Strength on Cycle {cycle - 20}: {signalStrength}");
+  }
+  if (adding[0]) {
+    XReg = XReg + adding[1];
+    adding = (false, 0);
+  } else {
+    var instr = input();
+    if (instr[0] == "a") { # noop
+      adding = (true, parseAddXInstr(instr));
+    }
+  }
+  ++cycle;
+}
+print("Signal Strength: {signalStrength}");
+
+function parseAddXInstr(s: string) -> int {
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  var neg = s[5] == "-";
+  var res = 0;
+  var i = 5 + numeric_bool(neg);
+  while (i < len(s)) {
+    res = (res * 10) + charToIntMap[s[i++]];
+  }
+  # Wishlist: if expression. `return -res if neg else res;`
+  if (neg) {
+    return -res;
+  }
+  return res;
+}

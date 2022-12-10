@@ -1,0 +1,42 @@
+# https://adventofcode.com/2022/day/10#part2
+
+var XReg = 1;
+var cycle = 1;
+var adding = (false, 0);
+var currCRTLine = "";
+while (isInputReady()) {
+  var pixelVal = ".";
+  if ((cycle % 40 >= XReg) and (cycle % 40 <= XReg + 2)) {
+    pixelVal = "#"; # Turns out the XReg is overlapping the currently drawn pixel.
+  }
+  currCRTLine = "{currCRTLine}{pixelVal}"; # Wishlist: Hilariously Claro doesn't support concat with `+` yet...
+  if (cycle % 40 == 0) { # Reached end of line.
+    print(currCRTLine);
+    currCRTLine = "";
+  }
+  if (adding[0]) {
+    XReg = XReg + adding[1];
+    adding = (false, 0);
+  } else {
+    var instr = input();
+    if (instr[0] == "a") { # noop
+      adding = (true, parseAddXInstr(instr));
+    }
+  }
+  ++cycle;
+}
+
+function parseAddXInstr(s: string) -> int {
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  var neg = s[5] == "-";
+  var res = 0;
+  var i = 5 + numeric_bool(neg);
+  while (i < len(s)) {
+    res = (res * 10) + charToIntMap[s[i++]];
+  }
+  # Wishlist: if expression. `return -res if neg else res;`
+  if (neg) {
+    return -res;
+  }
+  return res;
+}
