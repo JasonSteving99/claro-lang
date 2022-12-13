@@ -1,0 +1,133 @@
+# https://adventofcode.com/2022/day/11#part2
+
+# Wishlist: Structs.
+alias Op : tuple<string, boolean, int> # (op, isOldVar, opVal)
+alias Monkey : tuple<Queue, Op, int, int, int> # item worry levels, Operation, Test Op, Test True Monkey, Test False Monkey
+
+provider parseMonkey() -> Monkey {
+  # Cleanup unused first line. Use gross hack to avoid Claro complaining about unused data.
+  var trashcan = "";
+  trashcan = "{trashcan}{input()}";
+
+  var parseNum: function<|int, string| -> tuple<int, int>> =
+    lambda (startInd, s) -> {
+      var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+      var i = startInd;
+      var res = 0;
+      while (not ((i >= len(s)) or (s[i] == ","))) {
+        res = (res * 10) + charToIntMap[s[i++]];
+      }
+      return (res, i);
+    };
+
+  # First parse the starting worry levels.
+  var worryLevels = getQueue();
+  var i = 18;
+  var line = input();
+  while (i < len(line)) {
+    var numRes = parseNum(i, line);
+    # Wishlist: Not totally applicable here, but, tuple-unpacking assignment - `var a, b = (1, "foo");`.
+    push(worryLevels, numRes[0] + 0.0);
+    i = numRes[1] + 2;
+  }
+
+  # Now parse the Update operation.
+  line = input();
+  var updateOp: Op;
+  if (line[25] == "o") { # Var referencing `old`.
+    updateOp = (line[23], true, 0);
+  } else { # Updating w/ numeric val.
+    updateOp = (line[23], false, parseNum(25, line)[0]);
+  }
+
+  # Now parse the Divisibility test.
+  var divisibilityTest = parseNum(21, input())[0];
+
+  # Last, parse the Monkeys to pass to on the test result.
+  var testTrueMonkey = parseNum(29, input())[0];
+  var testFalseMonkey = parseNum(30, input())[0];
+
+  # Cleanup trailing empty line. Use gross hack to avoid Claro complaining about unused data.
+  trashcan = "{trashcan}{input()}"; # Wishlist: `_ = input();`
+
+  return (worryLevels, updateOp, divisibilityTest, testTrueMonkey, testFalseMonkey);
+}
+
+function floor(f: float) -> float {
+  return f - (f % 1);
+}
+
+# Wishlist: This would all be much simpler with a builtin queue data type.
+# Wishlist: structs.
+alias Queue: tuple<[float], int> # values, headInd, len
+provider getQueue() -> Queue { # Constructor.
+  return (([float]) [], 0);
+}
+function popHead(q: Queue) -> float {
+  # We're never freeing memory here, this list will never shrink. Also no bounds checking. Both fine for this puzzle.
+  var res = q[0][q[1]];
+  q[1] = q[1] + 1;
+  if (q[1] == len(q[0])) {
+    q[0] = [];
+    q[1] = 0;
+  }
+  return res;
+}
+consumer push(q: Queue, val: float) {
+  append(q[0], val);
+}
+
+consumer simulateRound(monkeys: [Monkey], modFactor: int, monkeyInspectionCounts: [int]) {
+  var i = 0;
+  while (i < len(monkeys)) {
+    var items: Queue = monkeys[i][0];
+    while (items[1] < len(items[0])) {
+      monkeyInspectionCounts[i] = monkeyInspectionCounts[i] + 1;
+      var updated = execUpdateOp(popHead(items), monkeys[i][1], modFactor);
+      var nextMonkey: Monkey;
+      if ((updated % monkeys[i][2]) == 0.0) {
+        nextMonkey = monkeys[monkeys[i][3]];
+      } else {
+        nextMonkey = monkeys[monkeys[i][4]];
+      }
+      push(nextMonkey[0], updated);
+    }
+    ++i;
+  }
+}
+
+function execUpdateOp(f: float, op: Op, modFactor: int) -> float {
+  var updated: float;
+  var opVal: float = op[2] + 0.0;
+  if (op[1]) {
+    opVal = f; # op is smth like `old + old`.
+  }
+  if (op[0] == "+") {
+    updated = f + opVal;
+  } else { # op == "*".
+    updated = f * opVal;
+  }
+  return floor(updated % modFactor);
+}
+
+var monkeys: [Monkey] = [];
+var monkeyInspectionCounts: [int] = [];
+# In part2 we no longer get to mod updated worry levels by 3 every time. So numbers get huge. If I mod every value by
+# the product of all monkeys' test divisors, then I'll be able to keep the values to a manageable size and still figure
+# out the appropriate next monkey to pass to.
+var modFactor = 1;
+while (isInputReady()) {
+  append(monkeys, parseMonkey());
+  append(monkeyInspectionCounts, 0);
+  modFactor = modFactor * monkeys[len(monkeys) - 1][2];
+}
+
+var round = 0;
+while (round++ < 10000) {
+  simulateRound(monkeys, modFactor, monkeyInspectionCounts);
+}
+var i = 0;
+while (i < len(monkeys)) {
+  print(monkeys[i]);
+  print("Inspected: {monkeyInspectionCounts[i++]}");
+}
