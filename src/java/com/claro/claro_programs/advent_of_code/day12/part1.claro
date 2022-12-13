@@ -1,0 +1,135 @@
+# https://adventofcode.com/2022/day/12#part1
+
+var charToIntMap = {
+  "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "j": 10, "k": 11, "l": 12, "m": 13, "n": 14,
+  "o": 15, "p": 16, "q": 17, "r": 18, "s": 19, "t": 20, "u": 21, "v": 22, "w": 23, "x": 24, "y": 25, "z": 26
+};
+
+var map: [[int]] = [];
+var start: Point = (-1, -1);
+var end: Point = (-1, -1);
+while (isInputReady()) {
+  var row: [int] = [];
+  var s = input();
+  var i = 0;
+  while (i < len(s)) {
+    if (s[i] == "S") {
+      start = (len(map), i);
+      append(row, charToIntMap["a"]);
+    } else if (s[i] == "E") {
+      end = (len(map), i);
+      append(row, charToIntMap["z"]);
+    } else {
+      append(row, charToIntMap[s[i]]);
+    }
+    ++i;
+  }
+  append(map, row);
+}
+alias Point : tuple<int, int>
+var visited: {Point: Point} = {};
+var fringe: Queue = getQueue();
+var seenInFringe: {Point: int} = {};
+push(fringe, (start, (-1,-1)));
+print(map);
+
+# Do BFS to find the target. I'm sorry, I know Djikstra's or A* would be "better" but I refuse to implement a minheap
+# from scratch just for an Advent of Code puzzle...tbh this was already more than enough effort.
+var done = false;
+while ((not done) and (len(fringe[0]) > 0)) {
+  var currNode = popHead(fringe);
+  visited[currNode[0]] = currNode[1];
+  if (addUnvisitedNeighborsToFringe(currNode[0], end, map, visited, fringe, seenInFringe)) {
+    visited[end] = currNode[0];
+    done = true;
+  }
+}
+
+var reconstructedPath = reconstructPath(visited, start, end);
+var r = 0;
+var rowLine = "";
+while (r < len(map)) {
+  var c = 0;
+  while (c < len(map[0])) {
+    if ((r,c) in reconstructedPath) {
+      rowLine = "{rowLine} {pad(len(reconstructedPath) - reconstructedPath[(r,c)])} "; # WISHLIST: String concat with `+`.
+    } else {
+      rowLine = "{rowLine} ... ";
+    }
+    ++c;
+  }
+  print(rowLine);
+  rowLine = "";
+  ++r;
+}
+print("Found path of length: {len(reconstructedPath) - 2}");
+
+# Adds all neighbors to the fringe and returns true iff any of the neighbors were the target.
+function addUnvisitedNeighborsToFringe(
+    loc: Point, end: Point, map: [[int]], visited: {Point: Point}, fringe: Queue, seenInFringe: {Point: int}) -> boolean {
+  var foundTarget = false;
+  var dirs = [(-1,0), (1,0), (0,-1), (0,1)];
+  var i = 0;
+  while (i < len(dirs)) {
+    var r = loc[0] + dirs[i][0];
+    var c = loc[1] + dirs[i][1];
+    if ((r >= 0) and (r < len(map)) and (c >= 0) and (c < len(map[0])) and (not ((r,c) in visited)) and (not ((r,c) in seenInFringe))) {
+      if (map[r][c] - map[loc[0]][loc[1]] <= 1) { # Can only walk uphill one level.
+        if ((r,c) == end) {
+          foundTarget = true;
+        }
+        push(fringe, ((r,c), loc)); # Add the neighbor to the fringe and mark it as having come from the curr loc.
+        seenInFringe[(r,c)] = 1; # This is just so that we don't add things to the fringe that have already been into it.
+      }
+    }
+    ++i;
+  }
+  return foundTarget;
+}
+
+function reconstructPath(visited: {Point: Point}, start: Point, end: Point) -> {Point: int} {
+  var i = 0;
+  var path = {end:i++}; # WISHLIST: I really want mutable sets.
+  var curr = end;
+  while (curr != (-1, -1)) {
+    curr = visited[curr];
+    path[curr] = i++;
+  }
+  path[start] = i;
+  return path;
+}
+
+function pad(i: int) -> string {
+  if (i > 99) {
+    return "{i}";
+  } else if (i > 9) {
+    return "0{i}";
+  }
+  return "00{i}";
+}
+
+
+########################################
+# RIPPING OFF QUEUE IMPL FROM DAY 11.
+# WISHLIST: Multi-file programs.
+########################################
+# WISHLIST: This would all be much simpler with a builtin queue data type.
+# WISHLIST: structs.
+alias Elem: tuple<Point, Point> # Location, Parent
+alias Queue: tuple<[Elem], int> # values, len
+provider getQueue() -> Queue { # Constructor.
+  return (([Elem]) [], 0);
+}
+function popHead(q: Queue) -> Elem {
+  # We're never freeing memory here, this list will never shrink. Also no bounds checking. Both fine for this puzzle.
+  var res = q[0][q[1]];
+  q[1] = q[1] + 1;
+  if (q[1] == len(q[0])) {
+    q[0] = [];
+    q[1] = 0;
+  }
+  return res;
+}
+consumer push(q: Queue, val: Elem) {
+  append(q[0], val);
+}
