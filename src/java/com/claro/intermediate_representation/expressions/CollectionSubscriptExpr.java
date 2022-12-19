@@ -2,10 +2,7 @@ package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IntegerTerm;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.Collection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -90,7 +87,11 @@ public class CollectionSubscriptExpr extends Expr {
       }
     }
 
-    return type;
+    Type res = TypeProvider.Util.maybeDereferenceAliasSelfReference(type, scopedHeap);
+    if (!res.equals(type)) {
+      this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference = Optional.of(res);
+    }
+    return res;
   }
 
   @Override

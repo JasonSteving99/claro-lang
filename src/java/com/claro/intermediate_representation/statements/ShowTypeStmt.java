@@ -32,7 +32,7 @@ public class ShowTypeStmt extends Stmt {
             String.format(
                 "System.out.println(\"%s\"); // Type of `%s` determined at compile-time,\n",
                 // TODO(steving) Once generics are implemented, technically concrete expression types may not be known at
-                // TODO(steving) compile-time (e.g. [T implements Foo] could have [FooSubClass1(), FooSubClass2(), ...]).
+                // TODO(steving) compile-time (e.g. [oneof<Foo|Bar>] could have [Foo(), Bar(), ...]).
                 // TODO(steving) in that world you'll need to actually implement the ability to decide whether to determine
                 // TODO(steving) the type at compile-time or runtime in order to correctly do `type(l[0])` for example.
                 exprType,

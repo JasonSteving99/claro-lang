@@ -33,7 +33,7 @@ public final class Types {
 
   @AutoValue
   public abstract static class ListType extends Type implements Collection {
-    private static final String PARAMETERIZED_TYPE_KEY = "$values";
+    public static final String PARAMETERIZED_TYPE_KEY = "$values";
 
     public static ListType forValueType(Type valueType) {
       return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType));

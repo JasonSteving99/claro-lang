@@ -69,33 +69,7 @@ public class StmtListNode extends Node {
     GeneratedJavaSource res =
         ((Stmt) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName);
     if (tail != null) {
-      GeneratedJavaSource tailGeneratedJavaSource =
-          tail.generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName);
-      res.javaSourceBody().append(tailGeneratedJavaSource.javaSourceBody());
-      if (tailGeneratedJavaSource.optionalStaticDefinitions().isPresent()) {
-        // We know that the static preamble only shows up if the static definitions are also present.
-        if (res.optionalStaticDefinitions().isPresent()) {
-          res.optionalStaticDefinitions().get().append(tailGeneratedJavaSource.optionalStaticDefinitions().get());
-          if (tailGeneratedJavaSource.optionalStaticPreambleStmts().isPresent()) {
-            if (res.optionalStaticPreambleStmts().isPresent()) {
-              res.optionalStaticPreambleStmts().get()
-                  .append(tailGeneratedJavaSource.optionalStaticPreambleStmts().get());
-            } else {
-              res = GeneratedJavaSource.create(
-                  res.javaSourceBody(),
-                  res.optionalStaticDefinitions().get(),
-                  tailGeneratedJavaSource.optionalStaticPreambleStmts().get()
-              );
-            }
-          }
-        } else {
-          res = GeneratedJavaSource.create(
-              res.javaSourceBody(),
-              tailGeneratedJavaSource.optionalStaticDefinitions().get(),
-              tailGeneratedJavaSource.optionalStaticPreambleStmts().get()
-          );
-        }
-      }
+      res = res.createMerged(tail.generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName));
     }
     return res;
   }

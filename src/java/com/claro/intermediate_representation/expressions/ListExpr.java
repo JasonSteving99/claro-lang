@@ -2,10 +2,7 @@ package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.Node;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 
@@ -55,7 +52,9 @@ public class ListExpr extends Expr {
       // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
       listType = emptyListValueType.get();
     } else {
-      Type listValuesType = this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap);
+      Type listValuesType = this.validatedListType == null
+                            ? this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap)
+                            : this.validatedListType.parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY);
       // Need to assert that all values in the list are of the same type.
       for (Node initialListValue : this.initializerArgExprsList) {
         ((Expr) initialListValue).assertExpectedExprType(scopedHeap, listValuesType);
@@ -68,19 +67,20 @@ public class ListExpr extends Expr {
 
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    expectedExprType = TypeProvider.Util.maybeDereferenceAliasSelfReference(expectedExprType, scopedHeap);
+    // Definitely have a list here, the user can't lie and call it something else. Early check here before type
+    // inference only in the case of an empty initializer since we'll give a better error message in the non-empty
+    // case if waiting until after inference.
+    if (!expectedExprType.baseType().equals(BaseType.LIST)) {
+      logTypeError(new ClaroTypeException(BaseType.LIST, expectedExprType));
+      return;
+    }
+    this.validatedListType = expectedExprType;
     if (initializerArgExprsList.isEmpty()) {
-      // Definitely have a list here, the user can't lie and call it something else. Early check here before type
-      // inference only in the case of an empty initializer since we'll give a better error message in the non-empty
-      // case if waiting until after inference.
-      if (!expectedExprType.baseType().equals(BaseType.LIST)) {
-        logTypeError(new ClaroTypeException(BaseType.LIST, expectedExprType));
-        return;
-      }
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
-      this.emptyListValueType = Optional.of(expectedExprType);
-      this.validatedListType = expectedExprType;
+      this.emptyListValueType = Optional.of(validatedListType);
     } else {
-      super.assertExpectedExprType(scopedHeap, expectedExprType);
+      super.assertExpectedExprType(scopedHeap, validatedListType);
     }
   }
 
@@ -106,8 +106,8 @@ public class ListExpr extends Expr {
               .collect(Collectors.joining(", ", ", ", ""));
     }
     return GeneratedJavaSource.forJavaSourceBody(
-        new StringBuilder(
-            String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs)))
+            new StringBuilder(
+                String.format(listFormatString, this.validatedListType.getJavaSourceClaroType(), initializerArgs)))
         .createMerged(initializerValsGenJavaSource.get());
   }
 

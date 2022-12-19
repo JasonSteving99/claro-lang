@@ -1,0 +1,93 @@
+########################################################################################################################
+# Aliases are a powerful feature that allow the expression of arbitrary types. In their simplest form, they may be used
+# as syntactic sugar to reduce keystrokes and cognitive overhead from typing out a full type literal. (This is not the
+# full extent of type aliases, as they allow expression of recursive types that are otherwise impossible to represent
+# via a type literal, so continue to the next example for a demo of that).
+########################################################################################################################
+
+alias IntsTo2TupleFn: function<|int, int| -> tuple<int, int>> # You can imagine typing this out is verbose/annoying.
+
+var swapped: IntsTo2TupleFn = lambda (a, b) -> (b, a);
+print("swapped(1, 2) -> {swapped(1, 2)}");
+var doubled: IntsTo2TupleFn = lambda (a, b) -> (2*a, 2*b);
+print("doubled(1, 2) -> {doubled(1, 2)}");
+
+type(doubled);
+var ddd: [IntsTo2TupleFn] = [doubled];
+type(ddd);
+type(doubled);
+
+########################################################################################################################
+# To be absolutely clear, Aliases are *not* syntactic sugar. Without aliases there would be no way to define a recursive
+# data type without resorting to defining a top-level struct.
+########################################################################################################################
+
+# TODO(steving) Rewrite this example w/ oneof<int, [IntOrList]> when supported.
+alias IntOrList : tuple<boolean, int, [IntOrList]>
+
+print("All of the following values satisfy the type definition for IntOrList:");
+var myIntOrList: IntOrList;
+myIntOrList = (true, 9, []);
+print(myIntOrList);
+
+myIntOrList = (false, -1, []);
+print(myIntOrList);
+
+myIntOrList = (false, -1,
+  [
+    (true, 2, []),
+    (false, -1,
+      [
+        (false, -1, []),
+        (true, 99, [])
+      ]
+    )
+  ]
+);
+print(myIntOrList);
+
+append(myIntOrList[2], (true, 999, []));
+print(myIntOrList);
+
+var innerListOfIntOrList = myIntOrList[2][0][2];
+append(innerListOfIntOrList, (true, 100, []));
+print(myIntOrList);
+
+# TODO(steving) Claro doesn't really have support for empty sets at the moment, but they're necessary to ever use an
+# TODO(steving) alias that defines a recursive self reference to a set type. So update this test when empty sets are supported.
+#alias NestedSet : {NestedSet}
+#var myNestedSet: NestedSet = {{}, {}};
+
+
+alias NestedMap : {int: NestedMap}
+var myNestedMap: NestedMap = {};
+print(myNestedMap);
+myNestedMap[1] = {};
+print(myNestedMap);
+myNestedMap[2] = {2: {}, 3: {999: {}}, 4: {}};
+print(myNestedMap);
+myNestedMap = myNestedMap[1];
+print(myNestedMap);
+
+alias NestedList : [NestedList]
+var myNestedList: NestedList = [];
+print(myNestedList);
+append(myNestedList, []);
+print(myNestedList);
+append(myNestedList, [[], [], [[], [[]]]]);
+print(myNestedList);
+myNestedList[1] = [];
+print(myNestedList);
+myNestedList = myNestedList[1];
+print(myNestedList);
+
+
+# Type aliases are *not* new type definitions, they are aliases as the name says, therefor they are interchangeable with
+# one another so long as they are structurally equivalent. This is by design.
+alias AltNestedList : [AltNestedList]
+var myAltNestedList: AltNestedList = [];
+myAltNestedList = myNestedList; # Here, I'm assigning a `NestedList` to a var declared as `AltNestedList`.
+print(myAltNestedList);
+
+# TODO(steving) This recursive alias should be rejected at compile-time because it's impossible to instantiate.
+alias IllegalUnboundedRecursiveAlias : tuple<int, IllegalUnboundedRecursiveAlias>

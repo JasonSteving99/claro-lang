@@ -1,10 +1,7 @@
 package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroTuple;
 import com.google.common.collect.ImmutableList;
 
@@ -25,6 +22,7 @@ public class TupleExpr extends Expr {
 
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    expectedExprType = TypeProvider.Util.maybeDereferenceAliasSelfReference(expectedExprType, scopedHeap);
     // Know for a fact this is a Tuple, the user can't assert anything else.
     if (!expectedExprType.baseType().equals(BaseType.TUPLE)) {
       logTypeError(new ClaroTypeException(BaseType.TUPLE, expectedExprType));

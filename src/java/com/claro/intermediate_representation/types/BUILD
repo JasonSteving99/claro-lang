@@ -74,7 +74,9 @@ java_library(
     name = "type_provider",
     srcs = ["TypeProvider.java"],
     deps = [
+        ":base_type",
         ":type",
+        "//:autovalue",
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
     ],
