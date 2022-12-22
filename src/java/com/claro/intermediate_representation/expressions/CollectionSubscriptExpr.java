@@ -22,9 +22,16 @@ public class CollectionSubscriptExpr extends Expr {
           BaseType.STRING,
           BaseType.MAP
       );
+  private Optional<Type> optionalAssertedType = Optional.empty();
 
   public CollectionSubscriptExpr(Expr collectionNodeExpr, Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(collectionNodeExpr, expr), currentLine, currentLineNumber, startCol, endCol);
+  }
+
+  @Override
+  public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    this.optionalAssertedType = Optional.of(expectedExprType);
+    super.assertExpectedExprType(scopedHeap, expectedExprType);
   }
 
   @Override
@@ -87,9 +94,20 @@ public class CollectionSubscriptExpr extends Expr {
       }
     }
 
-    Type res = TypeProvider.Util.maybeDereferenceAliasSelfReference(type, scopedHeap);
-    if (!res.equals(type)) {
-      this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference = Optional.of(res);
+    Type res = type;
+    // TODO(steving) This might be an egregious global performance hit to need a cast on EVERY collection access.
+    //  See if it's possible to improve this so it's a cost you only pay for if you need it. This should only be
+    //  strictly necessary if your indexing into a type defined via a recursive alias, as the
+    if (!type.baseType().equals(BaseType.UNDECIDED)) {
+      // Because types may contain recursive self references, we need to short-circuit the unbounded type recursion by
+      // introducing `Object` in the generated JavaSource. This is going to cause situations where Java won't believe me
+      // when we access the value in the collection, and Java will require a runtime cast. This unfortunately seems like
+      // a necessary cost of including recursive alias defs in Claro without generating a new class. In the future, I
+      // may want to reevaluate whether this is appropriate, and I might just want to limit this recursion to struct
+      // defs instead so that I can lose the overhead of casting on every collection access.
+      res = TypeProvider.Util.maybeDereferenceAliasSelfReference(type, scopedHeap);
+      this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference =
+          Optional.of(this.optionalAssertedType.orElse(res));
     }
     return res;
   }
@@ -125,12 +143,19 @@ public class CollectionSubscriptExpr extends Expr {
       if (this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference.isPresent()) {
         // In this case, just based on the API to the ClaroTuple implementation, Java has no idea what the type is even
         // though now in this case Claro does know this type, so I may need a cast.
+        String castedTypeJavaSource =
+            this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference.get().getJavaSourceType();
+        int end = castedTypeJavaSource.indexOf('<');
         subscriptExprGenJavaSource = GeneratedJavaSource
             .forJavaSourceBody(
                 new StringBuilder(
                     String.format(
                         "((%s) ",
                         this.javaSourceNeedsCastBecauseItDoesNotUnderstandClaroTypeInference.get().getJavaSourceType()
+                            // I only ever actually want to cast to the class like `(ClaroList)`, not `(ClaroList<...>)`
+                            // as that would be impossible to determine the actual nesting level of each value in a
+                            // recursive data structure.
+                            .substring(0, end == -1 ? castedTypeJavaSource.length() : end)
                     )))
             .createMerged(subscriptExprGenJavaSource)
             .createMerged(GeneratedJavaSource.forJavaSourceBody(new StringBuilder(")")));

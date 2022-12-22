@@ -136,6 +136,12 @@ public class ClaroTypeException extends Exception {
       "Invalid Tuple Subscript: Subscript must be an integer literal for reassignment of elements within a tuple.";
   private static final String TUPLE_HAS_UNEXPECTED_SIZE =
       "Tuple Has Wrong Number of Elements:\n\tFound:\n\t\t%s\n\tExpected:\n\t\t%s - %s";
+  private static final String IMPOSSIBLE_RECURSIVE_ALIAS_TYPE_DEFINITION =
+      "Impossible Recursive Alias Type Definition: Alias `%s` represents a type that is impossible to initialize in a " +
+      "finite number of steps. To define a recursive type you must ensure that there is an implicit \"bottom\" type " +
+      "to terminate the recursion. Try wrapping the Alias self-reference in some builtin empty-able collection:\n" +
+      "\tE.g.\n\t\tInstead of:\n\t\t\talias BadType : tuple<int, BadType>\n" +
+      "\t\tTry something like:\n\t\t\talias GoodType : tuple<int, [GoodType]>";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -666,5 +672,9 @@ public class ClaroTypeException extends Exception {
             expectedType
         )
     );
+  }
+
+  public static Exception forImpossibleRecursiveAliasTypeDefinition(String alias) {
+    return new ClaroTypeException(String.format(IMPOSSIBLE_RECURSIVE_ALIAS_TYPE_DEFINITION, alias));
   }
 }

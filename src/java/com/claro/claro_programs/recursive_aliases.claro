@@ -49,7 +49,7 @@ print(myIntOrList);
 append(myIntOrList[2], (true, 999, []));
 print(myIntOrList);
 
-var innerListOfIntOrList = myIntOrList[2][0][2];
+var innerListOfIntOrList: [IntOrList] = myIntOrList[2][0][2];
 append(innerListOfIntOrList, (true, 100, []));
 print(myIntOrList);
 
@@ -59,15 +59,27 @@ print(myIntOrList);
 #var myNestedSet: NestedSet = {{}, {}};
 
 
-alias NestedMap : {int: NestedMap}
+alias NestedMap : {int: tuple<int, NestedMap>}
 var myNestedMap: NestedMap = {};
 print(myNestedMap);
-myNestedMap[1] = {};
+myNestedMap[1] = (1, {});
 print(myNestedMap);
-myNestedMap[2] = {2: {}, 3: {999: {}}, 4: {}};
+myNestedMap[2] = (2, {2: (2, {}), 3: (3, {999: (999, {})}), 4: (4, {})});
 print(myNestedMap);
-myNestedMap = myNestedMap[1];
-print(myNestedMap);
+var myNestedMap2: NestedMap = myNestedMap[1][1];
+print(myNestedMap2);
+var incompatibleWrapper: {int: tuple<int, NestedMap>} = {10: (10, {10: (10, {9: (9, {})})})};
+print(incompatibleWrapper);
+var val = 9 in incompatibleWrapper[10][1];
+print(val);
+incompatibleWrapper = myNestedMap2;
+print(incompatibleWrapper);
+# myNestedMap2 = incompatibleWrapper; # Uncomment for compile-time type mismatch.
+#                ^^^^^^^^^^^^^^^^^^^
+# It may seem unexpected if you stare closely, but there's no clean safe way for Claro to identify that arbitrary
+# structures are equivalent to the original recursive definition. Not bc Claro can't typecheck this, but actually bc
+# when compiling down to JavaSource, we're going to have all sorts of generic type inconsistencies between the two.
+# So Claro will forbid this assignment. I'm satisfied with this for now unless some insight comes up later.
 
 alias NestedList : [NestedList]
 var myNestedList: NestedList = [];
@@ -78,8 +90,11 @@ append(myNestedList, [[], [], [[], [[]]]]);
 print(myNestedList);
 myNestedList[1] = [];
 print(myNestedList);
-myNestedList = myNestedList[1];
-print(myNestedList);
+var myNestedList2: [NestedList] = myNestedList[1];
+print(myNestedList2);
+var containsRecursiveType: {int : tuple<int, [NestedList]>} = {10 : (10, [myNestedList, []])};
+myNestedList2 = containsRecursiveType[10][1][1];
+print("myNestedList2: {myNestedList2}");
 
 
 # Type aliases are *not* new type definitions, they are aliases as the name says, therefor they are interchangeable with
@@ -89,5 +104,23 @@ var myAltNestedList: AltNestedList = [];
 myAltNestedList = myNestedList; # Here, I'm assigning a `NestedList` to a var declared as `AltNestedList`.
 print(myAltNestedList);
 
-# TODO(steving) This recursive alias should be rejected at compile-time because it's impossible to instantiate.
-alias IllegalUnboundedRecursiveAlias : tuple<int, IllegalUnboundedRecursiveAlias>
+########################################################################################################################
+# Type Aliases may also be used within Procedure Definitions and they will be scoped locally to the procedure only.
+########################################################################################################################
+
+function foo(x: int) -> int {
+  alias Bar : tuple<int, [Bar]>
+  var res: Bar = (x, []);
+  return res[0];
+}
+print("Also, aliases work within procedure definitions: {foo(99)}");
+# Uncomment to demonstrate that Bar is not known at this outer scope, since it's defined w/in the procedure above.
+#var broken: Bar = 10;
+
+########################################################################################################################
+# Some recursive aliases like the following should be rejected at compile-time because they're impossible to instantiate.
+# Uncomment the below lines to get compile time warnings from Claro indicating that these types aren't usable.
+########################################################################################################################
+#alias IllegalUnboundedRecursiveAlias : tuple<int, IllegalUnboundedRecursiveAlias>
+#alias InfiniteRecursion : InfiniteRecursion
+#alias PartialUnbounded : tuple<PartialUnbounded, [PartialUnbounded]>

@@ -24,7 +24,7 @@ public class MapExpr extends Expr {
     // Definitely have a map here, the user can't lie and call it something else. Early check here before type inference
     // only in the case of an empty initializer since we'll give a better error message in the non-empty case if waiting
     // until after inference.
-    if (this.initializerKeyValPairs.isEmpty() && !expectedExprType.baseType().equals(BaseType.MAP)) {
+    if (!expectedExprType.baseType().equals(BaseType.MAP)) {
       logTypeError(new ClaroTypeException(BaseType.MAP, expectedExprType));
       return;
     }

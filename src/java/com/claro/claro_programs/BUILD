@@ -23,17 +23,6 @@ claro_library(
 )
 
 claro_binary(
-    name = "aliases_compiled_claro_image",
-    srcs = [":aliases_compiled_claro"],
-    java_name = "aliases",
-)
-
-claro_library(
-    name = "aliases_compiled_claro",
-    src = "aliases.claro",
-)
-
-claro_binary(
     name = "contracts_compiled_claro_image",
     srcs = [":contracts_compiled_claro"],
     java_name = "contracts",
@@ -185,6 +174,17 @@ claro_binary(
 claro_library(
     name = "recursion_compiled_claro",
     src = "recursion.claro",
+)
+
+claro_binary(
+    name = "recursive_aliases_compiled_claro_image",
+    srcs = [":recursive_aliases_compiled_claro"],
+    java_name = "recursive_aliases",
+)
+
+claro_library(
+    name = "recursive_aliases_compiled_claro",
+    src = "recursive_aliases.claro",
 )
 
 claro_binary(

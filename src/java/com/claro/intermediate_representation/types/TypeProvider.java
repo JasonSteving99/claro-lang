@@ -54,8 +54,12 @@ public interface TypeProvider {
           // Encountered a recursive self-reference to the Alias currently being defined. Intentionally prevent infinite
           // recursion during type validation by artificially terminating here with a sentinel AliasSelfReferenceType.
           // This sentinel will have to be manually handled during later type checking steps that encounter this value
-          // such that they appropriately dereference the actual alias type.
-          return AliasSelfReferenceType.aliasing(typeName);
+          // such that they appropriately dereference the actual alias type. And, mark the encounter of this self
+          // reference so that AliasStmt may check for invalid self references that would consitute "impossible" types
+          // that could not be instantiated in finite steps. This marker will be removed by any outer wrapping type that
+          // has an implicit bottom so that by the time the outer AliasStmt TypeProvider is reached it can check easily.
+          scopedHeap.putIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND", null, true);
+          return AliasSelfReferenceType.aliasing(typeName, scopedHeap);
         } else {
           Optional.ofNullable(scopedHeap.getIdentifierValue(typeName))
               .filter(o -> o instanceof TypeProvider)
@@ -90,19 +94,60 @@ public interface TypeProvider {
 
   // TODO(steving) Cleanup Types.java so that it's a package instead of a single Java Class. Then this can go in that
   //  package, and have its own BUILD target and be referenced from here w/o a dependency cycle.
-  // This type serves as a hack to wrap another type simply so that I can override the toString() implementation for
-  // aliases (so that I can just print the alias name), but I still want .equals() deferring to the aliased type.
+  // This type serves as a hack to wrap another type simply so that I can do some hacky tricks to make this type's
+  // .equals() method, represent recursive equality with arbitrary nestings of recursive application of the type being
+  // self referenced. To do this the type also represents a hack in the codegen'd JavaSource to represent itself simply
+  // as `Object` with calls to collection subscripts to access this value via an "unsafe" cast that Claro will guarantee
+  // is valid.
   @AutoValue
-  public abstract static class AliasSelfReferenceType extends Type {
+  abstract class AliasSelfReferenceType extends Type {
     // We don't want anything to be included in the .equals() except for the BaseType. Two structurally equivalent
     // aliases should be considered interchangeable.
     public final AtomicReference<String> aliasName = new AtomicReference<>();
+    private final AtomicReference<Optional<ScopedHeap>> optionalScopedHeap = new AtomicReference<>();
+    private final AtomicReference<Optional<Type>> optionalRecursedType = new AtomicReference<>(Optional.empty());
 
+    public static AliasSelfReferenceType aliasing(String aliasName, ScopedHeap scopedHeap) {
+      AliasSelfReferenceType res =
+          new AutoValue_TypeProvider_AliasSelfReferenceType(BaseType.ALIAS_SELF_REFERENCE, ImmutableMap.of());
+      res.aliasName.set(aliasName);
+      res.optionalScopedHeap.set(Optional.of(scopedHeap));
+      res.optionalRecursedType.set(Optional.empty());
+      return res;
+    }
+
+    // Use this for JavaSource codegen since I don't want to maintain the ScopedHeap at runtime.
     public static AliasSelfReferenceType aliasing(String aliasName) {
       AliasSelfReferenceType res =
           new AutoValue_TypeProvider_AliasSelfReferenceType(BaseType.ALIAS_SELF_REFERENCE, ImmutableMap.of());
       res.aliasName.set(aliasName);
+      res.optionalScopedHeap.set(Optional.empty());
+      res.optionalRecursedType.set(Optional.empty());
       return res;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof AliasSelfReferenceType) {
+        return true; // All self references are equivalent, the only thing that matters is the structure to this point.
+      }
+      // Since we're comparing against some other type, it's actually possible that this is representing the recursed
+      // type unwrapped a level deeper, so we'd need to do a symbol table lookup.
+      Type recursedType;
+      if (this.optionalRecursedType.get().isPresent()) {
+        recursedType = this.optionalRecursedType.get().get();
+      } else if (this.optionalScopedHeap.get().isPresent()) {
+        recursedType = this.optionalScopedHeap.get().get().getValidatedIdentifierType(this.aliasName.get());
+        this.optionalRecursedType.set(Optional.of(recursedType));
+      } else {
+        return false;
+      }
+      return recursedType.equals(obj);
+    }
+
+    @Override
+    public int hashCode() {
+      return optionalScopedHeap.get().get().getValidatedIdentifierType(this.aliasName.get()).hashCode();
     }
 
     @Override

@@ -638,13 +638,33 @@ builtin_type ::=
     {:
        RESULT = constructBuiltinType(
            lb, lbleft, lbright, t, rb, rbleft, rbright,
-           tLexedVal -> (TypeProvider) (scopedHeap) -> Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap)));
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.ListType.forValueType(tLexedVal.val.resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+           });
     :}
   | LCURLY:lb builtin_type:t RCURLY:rb
     {:
        RESULT = constructBuiltinType(
            lb, lbleft, lbright, t, rb, rbleft, rbright,
-           tLexedVal -> (TypeProvider) (scopedHeap) -> Types.SetType.forValueType(tLexedVal.val.resolveType(scopedHeap)));
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.SetType.forValueType(tLexedVal.val.resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+           });
     :}
   | LCURLY:la builtin_type:key COLON:c builtin_type:value RCURLY:ra
     // Maps are defined like {string:int} to avoid a new keyword `map` since I'd like to not impair functional style,
@@ -662,7 +682,17 @@ builtin_type ::=
           startCol,
           endCol, // line number
           new LexedValue(
-            (TypeProvider) (scopedHeap) -> Types.MapType.forKeyValueTypes(keyLexedVal.val.resolveType(scopedHeap), valueLexedVal.val.resolveType(scopedHeap)),
+            (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.MapType.forKeyValueTypes(keyLexedVal.val.resolveType(scopedHeap), valueLexedVal.val.resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+              },
             currentLinesSupplier,
             endCol - startCol)
        );
