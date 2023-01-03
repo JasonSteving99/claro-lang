@@ -3,6 +3,7 @@ name: Push to Docker Hub
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
 
@@ -43,6 +44,12 @@ jobs:
 
           # Now we finally just need to create our tarball release of the claro_programs/ dir.
           tar --exclude='claro_programs/conditions_compiled_claro_image.runfiles/local_jdk' --exclude='claro_programs/conditions_compiled_claro_image.runfiles/claro-lang/external/local_jdk' -hczvf claro-lang-bazel-bin.tar.gz claro_programs/
+        env:
+          # Github Actions is using Bazelisk to keep Bazel up-to-date by default. Unfortunately I'm not doing this locally yet..
+          # So, in order to make sure this is building with the same version of Bazel I'm using for local development, manually
+          # set the version to what I'm using locally here.
+          # TODO(steving) In the future: upgrade to start using Bazelisk locally and then drop this.
+          USE_BAZEL_VERSION: 3.7.2-homebrew
           
       - name: Create Release
         id: create_release
