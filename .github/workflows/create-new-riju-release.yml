@@ -49,7 +49,7 @@ jobs:
           # So, in order to make sure this is building with the same version of Bazel I'm using for local development, manually
           # set the version to what I'm using locally here.
           # TODO(steving) In the future: upgrade to start using Bazelisk locally and then drop this.
-          USE_BAZEL_VERSION: 3.7.2-homebrew
+          USE_BAZEL_VERSION: 3.7.2
           
       - name: Create Release
         id: create_release
