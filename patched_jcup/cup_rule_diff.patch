@@ -1,5 +1,5 @@
 diff --git a/cup/cup.bzl b/cup/cup.bzl
-index 58f2fa3..a23383d 100644
+index 58f2fa3..c7b8514 100644
 --- a/cup/cup.bzl
 +++ b/cup/cup.bzl
 @@ -21,11 +21,15 @@ def _cup_impl(ctx):
@@ -13,13 +13,31 @@ index 58f2fa3..a23383d 100644
      if ctx.attr.interface:
          args.append("-interface")
      args.extend([ctx.file.src.path])
- 
+
 -    # TODO(regisd): Add support for CUP options.
 +    # TODO(regisd): Add support for CUP options. YOU'RE WELCOME regisd@ -clarolang
      parser_file = ctx.actions.declare_file(ctx.attr.parser + ".java")
      sym_file = ctx.actions.declare_file(ctx.attr.symbols + ".java")
      ctx.actions.run(
-@@ -64,6 +68,12 @@ cup = rule(
+@@ -47,12 +51,15 @@ cup = rule(
+             mandatory = True,
+             doc = "The CUP grammar specification",
+         ),
++
++        ### PATCH FOR CLARO LANG TO WORKAROUND JAVA CODE SIZE LIMITATIONS IN CUP GENERATED CODE ###
+         "cup_bin": attr.label(
+-            default = Label("//third_party/cup:cup_bin"),
++                default = Label("@claro-lang//patched_jcup:patched_cup_bin"),
+             executable = True,
+             cfg = "host",
+-            doc = "The java_binary of CUP",
++            doc = "The java_binary of CUP (patched by Jason Steving to workaround Java code size limitation)",
+         ),
++
+         "parser": attr.string(
+             default = "parser",
+             doc = "Name of the generated parser class",
+@@ -64,6 +71,12 @@ cup = rule(
          "interface": attr.bool(
              doc = "Outputs the symbol constant code as an interface rather than as a class.",
          ),

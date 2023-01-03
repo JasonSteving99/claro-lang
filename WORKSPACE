@@ -23,7 +23,7 @@ http_archive(
     # I'm following the http_archive patching example here:
     # https://bazelbuild.github.io/rules_nodejs/changing-rules.html#patching-the-built-in-release
     patch_args = ["-p1"],
-    patches = ["//:cup_rule_diff.patch"],
+    patches = ["//patched_jcup:cup_rule_diff.patch"],
 )
 
 load("@jflex_rules//jflex:deps.bzl", "JFLEX_ARTIFACTS")
