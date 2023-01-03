@@ -1,6 +1,5 @@
 load("@jflex_rules//jflex:jflex.bzl", "jflex")
 load("@jflex_rules//cup:cup.bzl", "cup")
-load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
@@ -31,15 +30,6 @@ def claro_binary(name, srcs, java_name):
         ]
     )
 
-def claro_image(name, srcs, java_name = "CompiledClaroProgram"):
-    java_image(
-        name = name,
-        main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
-        # Put these runfiles into their own layer.
-        layers = srcs,
-        srcs = srcs,
-    )
-
 def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
     if not src.endswith(".claro"):
         fail("claro_library: Provided src must use .claro extension.")
@@ -62,11 +52,6 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
     )
 
 def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
-    java_image(
-        name = name + "_compiler_image",
-        main_class = DEFAULT_PACKAGE_PREFIX + ".ClaroCompilerMain",
-        runtime_deps = [":" + name + "_compiler_binary"]
-    )
     native.java_binary(
         name = name + "_compiler_binary",
         main_class = DEFAULT_PACKAGE_PREFIX + ".ClaroCompilerMain",
