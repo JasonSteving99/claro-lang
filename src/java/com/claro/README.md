@@ -21,20 +21,26 @@ parsed AST Intermediate Representation. For now Claro supports the following Tar
 
 ### Java Source Target Output
 
-`$ bazel run claro_compiler_binary -- --java_source --silent`
+```
+$ bazel run claro_compiler_binary -- --java_source --silent
+```
 
 (Fully supported - primary development focus)
 
 ### REPL
 
-`$ bazel run claro_compiler_binary -- --repl --silent`
+```
+$ bazel run claro_compiler_binary -- --repl --silent
+```
 
 (Note that this works, but when using the `input()` function in the REPL, you won't be able to see what you're typing as
 input, but it will successfully parse it..)
 
 ### Interpreted
 
-`$ bazel run claro_compiler_binary -- --interpreted --silent`
+```
+$ bazel run claro_compiler_binary -- --interpreted --silent
+```
 
 (Turns out that this actually broken until we can make a change to allow the interpreted mode to read from files instead
 of System.in...since it steals input from the program itself meaning that any program using the `input()` stmt doesn't
