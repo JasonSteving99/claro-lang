@@ -1,0 +1,6 @@
+[book]
+authors = ["Jason Steving"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Claro Programming Language (DRAFT)"
