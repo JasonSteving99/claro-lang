@@ -1,4 +1,4 @@
-name: Push to Docker Hub
+name: Deploy
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
      
       - name: Build Release Artifacts
         # --incompatible_restrict_string_escapes=false because there's a bug in 
@@ -71,6 +71,32 @@ jobs:
             bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
             bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
           
-          
+  Deploy-User-Docs-to-GH-Pages:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Install mdbook
+      run: |
+        mkdir mdbook
+        curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.25/mdbook-v0.4.25-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
+        echo `pwd`/mdbook >> $GITHUB_PATH
+    - name: Deploy GitHub Pages
+      run: |
+        cd mdbook-docs
+        mdbook build
+        git worktree add gh-pages
+        git config user.name "Deploy from CI"
+        git config user.email "jasonmail99@gmail.com"
+        cd gh-pages
+        # Delete the ref to avoid keeping history.
+        git update-ref -d refs/heads/gh-pages
+        rm -rf *
+        mv ../book/* .
+        git add .
+        git commit -m "Deploy $GITHUB_SHA to gh-pages"
+        git push --force --set-upstream origin gh-pages
+
           
           
