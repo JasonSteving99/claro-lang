@@ -8,6 +8,9 @@ My hobby-horse programming language where I'll attempt to implement, from
 scratch, everything that I dream of having in other languages. This is
 likely to be forever in flux, but we'll start somewhere.
 
+# Read the [Comprehensive User Docs](https://jasonsteving99.github.io/claro-lang/)
+Please understand that these docs are a work in progress, and while they do cover the majority of the language features, there is still more to come including better examples and clearer explanations.
+
 # Learn Claro By Example! 
 Check out the [example Claro programs](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/claro_programs).
 
