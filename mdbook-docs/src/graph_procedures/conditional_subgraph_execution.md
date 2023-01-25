@@ -1,7 +1,7 @@
 # (Advanced) Conditional Subgraph Execution
 
 There will be times when you actually only want to execute some *portion* of the graph upon satisfying some condition.
-In this case, you may inject the node to a function expecting a `Provider<future<...>>` so that you may conditionally
+In this case, you may inject the node to a procedure expecting a `provider<future<...>>` so that you may conditionally
 trigger execution yourself after checking the condition:
 
 ```
@@ -36,11 +36,11 @@ sometimes, upon satisfying the condition that the user is not already a "premium
 
 ### Note on Usage of `Optional` in Above Example:
 
-If you read the above example very closely, you may have noticed that the return type of
-the `getOptionalUpgradeBannerFromDB(...)` is `Optional<future<Upgrade>>` but yet the two return statements in the
+If you read the above example very closely, you may have noticed that the return type of the
+`getOptionalUpgradeBannerFromDB(...)` is `Optional<future<Upgrade>>` but yet the two return statements in the
 function are `return Nothing;` and `return getUpgradeBannerFromDBProvider();`, neither of which reference `Optional`.
-This is making use of a type system feature upcoming very soon in the language but not yet available, `oneof<...>`
-types. I've done this to make a less distracting example, but for now, until `oneof<...>` is available, you would
+This is making use of a type system feature upcoming very soon in the language but not yet available, the `oneof<...>`
+type. I've done this to make a less distracting example, but for now, until `oneof<...>` is available, you would
 actually need to do a workaround to define your own quasi `Optional` perhaps looking something like:
 
 ```

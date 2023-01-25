@@ -1,8 +1,8 @@
 # Generic Return Type Inference
 
 One very interesting capability that you get from the combination of Claro's bidirectional type inference and generics
-is the ability to infer which Contract impl to defer to based on the expected/requested retorn type at a generic
-function callsite. Let's get more specific.
+is the ability to infer which Contract implementation to defer to based on the expected/requested return type at a
+procedure call-site. Let's get more specific.
 
 ```
 contract Index<T, R> {
@@ -15,9 +15,11 @@ implement Index<[int], int> {
     }
 }
 
-implement Index<[int], tuple<boolean, int>> {
-    function get(l: [int], ind: int) -> tuple<boolean, int> {
-        if (ind < len(l) and ind >= 0) {
+alias SafeRes : tuple<boolean, int>
+
+implement Index<[int], SafeRes> {
+    function get(l: [int], ind: int) -> SafeRes {
+        if (ind >= 0 and ind < len(l)) {
             return (true, l[ind]);
         }
         return (false, -1);
@@ -26,14 +28,14 @@ implement Index<[int], tuple<boolean, int>> {
 ```
 
 For the above implementations of `Index<T, R>`, you'll notice that each function, `Index::get`, only differs in its
-return type but not in the arg type. So, Claro must determine which impl to defer to by way of the contextually expected
-return type. This, I believe leads to some very convenient ergonomics for configurability.
+return type but not in the arg types. So, Claro must determine which implementation to defer to by way of the
+contextually expected return type. This, I believe leads to some very convenient ergonomics for configurability, though
+the onus for "appropriate" use of this feature is a design decision given to developers.
 
 ```
-alias Result: tuple<boolean, int>
-
 var l = [1,2,3];
-var unsafeRes: int = Index::get(1, 10); # out of bounds runtime err.
-var safeRes: Result = Index::get(1, 10); # (false, -1)
-var ambiguous = Index::get(1, 10); # Compiler error, ambiguity
+var outOfBoundsInd = 10;
+var unsafeRes: int = Index::get(l, outOfBoundsInd); # out of bounds runtime err.
+var safeRes: SafeRes = Index::get(l, outOfBoundsInd); # (false, -1)
+var ambiguous = Index::get(l, outOfBoundsInd); # Compiler error, ambiguous call to `Index::get`.
 ```

@@ -1,7 +1,7 @@
 # Types Constrained by Context
 
 Whenever a type is contextually required, the value/expression placed in that position will be type checked to have the
-expected type. Otherwise the compiler tries to infer the type.
+expected type. Otherwise, the compiler tries to infer the type.
 
 For example, when you assign a value to a variable declared to have some type, the assigned value must contextually have
 the same type as the variable, and Claro will statically type-check that this is true:

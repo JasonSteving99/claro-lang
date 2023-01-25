@@ -1,14 +1,16 @@
 # If-Else
 
 ```
-var x: boolean = getBoolFromUser(); #Could change each run.
-var s: string; #Declared but uninitialized. 
+var x: boolean = getBoolFromUser();
+var s: string; # Declared but uninitialized. 
 if (x) { # Curly braces are not optional.
     s = "blue";
-} else { # Could have also added an else if (..) {...}} block
+else if (...) {
+    s = "green";
+} else {
     s = "red";
 }
-print(s); # Prints "blue" or "red".
+print(s); # Prints "blue", "green", or "red".
 ```
 
 The above example is valid, but would become a compilation error if you removed one of the branches, because `s` might
@@ -19,6 +21,8 @@ var x: boolean = ...;
 var s: string;
 if (x) {
     s = "blue";
+} else if (...) {
+    s = "green";
 }
 print(s); #Error: Use of uninitialized var.
 ```

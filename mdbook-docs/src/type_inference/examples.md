@@ -17,4 +17,4 @@ var l = [(1, true), (2, false)];
 ```
 
 Each corresponding statement has exactly the same meaning. They differ only syntactically. Each variable is still
-declared to have teh same static type you'd expect.
+declared to have the same static type you'd expect.

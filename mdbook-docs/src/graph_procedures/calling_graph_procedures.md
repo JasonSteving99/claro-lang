@@ -3,8 +3,8 @@
 As you've already seen, if you call a Graph Procedure from within another Graph (composition) then Claro will
 automatically handle the scheduling for you so that downstream nodes receive the value when it's ready. If you tried
 calling a Graph Procedure from the top-level of a file, or from a non-Graph Procedure, then you'll see you receive a
-value wrapped in a `future<...>`. This is because the Graph Procedure may not be done running yet, as Claro follows the
-Async pattern for concurrent execution.
+value wrapped in a `future<...>`. This is because, as Claro follows the Async pattern for concurrent execution, some
+nodes in the Graph Procedure may not be done running yet meaning that the overall Graph result may not be ready either.
 
 ```
 var graphRes: future<Foo> = fooGraph(...);

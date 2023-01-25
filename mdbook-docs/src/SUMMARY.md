@@ -4,7 +4,7 @@
     - [Hello, World!](./chapter_1/hello_world.md)
 - [Common Programming Concepts](./common_programming_concepts.md)
     - [Variables & Primitive Types](./common_programming_concepts/variables_and_types.md)
-    - [Seperate Variable Declaration & Initialization](./common_programming_concepts/sep_var_decl_and_init.md)
+    - [Separate Variable Declaration & Initialization](./common_programming_concepts/sep_var_decl_and_init.md)
     - [Variable Reassignment](./common_programming_concepts/var_reassignment.md)
     - [Control Flow](./control_flow.md)
         - [If-Else](./control_flow/if_else.md)
