@@ -5,9 +5,8 @@ alias Op : tuple<string, boolean, int> # (op, isOldVar, opVal)
 alias Monkey : tuple<Queue, Op, int, int, int> # item worry levels, Operation, Test Op, Test True Monkey, Test False Monkey
 
 provider parseMonkey() -> Monkey {
-  # Cleanup unused first line. Use gross hack to avoid Claro complaining about unused data.
-  var trashcan = "";
-  trashcan = "{trashcan}{input()}";
+  # Cleanup unused first line.
+  _ = input();
 
   var parseNum: function<|int, string| -> tuple<int, int>> =
     lambda (startInd, s) -> {
@@ -48,7 +47,7 @@ provider parseMonkey() -> Monkey {
   var testFalseMonkey = parseNum(30, input())[0];
 
   # Cleanup trailing empty line. Use gross hack to avoid Claro complaining about unused data.
-  trashcan = "{trashcan}{input()}"; # Wishlist: `_ = input();`
+  _ = input();
 
   return (worryLevels, updateOp, divisibilityTest, testTrueMonkey, testFalseMonkey);
 }

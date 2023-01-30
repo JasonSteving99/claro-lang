@@ -953,6 +953,32 @@ identifier_assignment ::=
 trashcan_assignment ::=
     UNDERSCORE ASSIGNMENT identifier:identifier SEMICOLON
     {: RESULT = new TrashcanAssignmentStmt(identifier); :}
+  | UNDERSCORE ASSIGNMENT function_call_expr:function_call SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(function_call); :}
+  | UNDERSCORE ASSIGNMENT provider_function_call_expr:provider_call SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(provider_call); :}
+  | UNDERSCORE ASSIGNMENT input:input_call SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(input_call); :}
+
+  | // These only exist to allow you to still call procedures with return type generics.
+    UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp function_call_expr:function_call
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(function_call.currentLine, function_call.currentLineNumber));
+       int startCol = min(lpleft, asserted_type.left, rpleft, function_call.startCol);
+       int endCol = max(lpleft + lp.len, asserted_type.left + ((LexedValue)asserted_type.value).len, rpleft + rp.len, function_call.endCol);
+
+       RESULT = new TrashcanAssignmentStmt(new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, function_call, currentLinesSupplier, function_call.currentLineNumber, startCol, endCol));
+    :}
+  | UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp provider_function_call_expr:provider_call
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(provider_call.currentLine, provider_call.currentLineNumber));
+       int startCol = min(lpleft, asserted_type.left, rpleft, provider_call.startCol);
+       int endCol = max(lpleft + lp.len, asserted_type.left + ((LexedValue)asserted_type.value).len, rpleft + rp.len, provider_call.endCol);
+
+       RESULT = new TrashcanAssignmentStmt(new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, provider_call, currentLinesSupplier, provider_call.currentLineNumber, startCol, endCol));
+    :}
   ;
 
 identifier_increment_stmt ::=

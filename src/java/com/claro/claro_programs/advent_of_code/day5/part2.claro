@@ -108,9 +108,7 @@ consumer parseAndExecuteNextCommand(stacks: [Stack]) {
 }
 
 var stacks = parseAndPopulateStacks();
-# Wishlist: I still need traschcan assignment so Claro will allow me to sometimes not use data w/o needing to print it.
-#  E.g.: `_ = input();`. Explicitly show I'm throwing it away, and Claro shouldn't complain about "unused".
-print(input());
+_ = input();
 print(stacks);
 while (isInputReady()) {
   parseAndExecuteNextCommand(stacks);

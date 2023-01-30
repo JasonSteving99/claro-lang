@@ -73,7 +73,7 @@ print(mapResult);
 # TODO(steving) to imagine a way to get the lambda to have its type asserted onto it, when the typical generic func call
 # TODO(steving) flow is to infer each arg's type (which lambda does not support as its syntax is ambiguous).
 #var mapResult: [boolean] = map([1, 90, -13, 0], x -> x >= 0);
-#var mapResult: [boolean] = map([1, 90, -13, 0], (x: int) -> boolean { return x >= 0; });
+#var mapResult = map([1, 90, -13, 0], (x: int) -> boolean { return x >= 0; });
 
 
 function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {

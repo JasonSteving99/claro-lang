@@ -3,8 +3,7 @@ print(x);
 
 callMeMaybe("Can call functions defined below.");
 consumer callMeMaybe(userMessage: string) {
-  print("This was the user message!:");
-  print(userMessage);
+  print("This was the user message!:\n{userMessage}");
 }
 
 function helloFunWorld(message: string, someInt: int) -> string {
@@ -21,10 +20,8 @@ function helloFunWorld(message: string, someInt: int) -> string {
   var userResponse = input("Should we call the other function? (y/n): ");
   if (userResponse == "y") {
     callMeMaybe(input("What's your message?: "));
-    print("Please ignore this next bit...Claro doesn't allow dead code so I'm using it....");
   } else {
-    print("We're not gonna call the other function cuz your response was the following instead of 'y'");
-    print(userResponse);
+    print("We're not gonna call the other function cuz your response was {userResponse} instead of 'y'");
   }
 
   return res;

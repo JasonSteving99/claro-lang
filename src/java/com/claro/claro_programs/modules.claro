@@ -111,16 +111,14 @@ function getMockStringGenerator(maxCount:int, mockString:string, doneString:stri
   if (maxCount <= 0) {
     # If we have no terminating condition, just return mockString unconditionally.
     return curr -> {
-      print("TODO(steving) Need trashcan operator...");
-      print(curr);
+      _ = curr;
       return mockString;
     };
   }
 
   # If we have a terminating condition return this generator.
   return curr -> {
-    print("TODO(steving) Need trashcan operator...");
-    print(curr);
+    _ = curr;
     if (x++ < maxCount) {
       return mockString;
     } else {
@@ -140,18 +138,16 @@ module ProdModule using(FancyPrompter) {
   bind askUserQuestion:consumer<string> to s -> { print(s); };
   bind dbConnection:function<int -> string> to
     id -> {
-      print(id);
-      print("You're the DB...give me the question for id:");
+      print("You're the DB...give me the question for id: {id}");
       return input("");
     };
 }
 module TestModule {
   bind getDataFromUser:provider<string> to partiallyApplyInt(getMockStringGenerator(3, "TEST", ""), -1);
-  bind askUserQuestion:consumer<string> to s -> { print("TODO(steving) implement no-op instruction in Claro. {s}"); };
+  bind askUserQuestion:consumer<string> to s -> { _ = s; };
   bind dbConnection:function<int -> string> to
     id -> {
-      print("TODO(steving) impl trashcan. `_ = id;`");
-      print(id);
+      _ = id;
       return "TEST";
     };
 }
