@@ -1327,9 +1327,9 @@ collection_subscript ::=
     {:
        RESULT = constructCollectionSubscriptExpr(l, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
-  | identifier:i LBRACKET:lb expr:e RBRACKET:rb
+  | term:t LBRACKET:lb expr:e RBRACKET:rb
     {:
-       RESULT = constructCollectionSubscriptExpr(i, lb, lbleft, lbright, e, rb, rbleft, rbright);
+       RESULT = constructCollectionSubscriptExpr(t, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
     {:
@@ -1341,11 +1341,6 @@ collection_subscript ::=
     :}
   | parenthesized_expr:p LBRACKET:lb expr:e RBRACKET:rb
     {:
-       RESULT = constructCollectionSubscriptExpr(p, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | UP_ARROW:a LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       Term p = new PipeChainBackreferenceTerm(a.currentInputLine, aright, aleft, aleft + a.len);
        RESULT = constructCollectionSubscriptExpr(p, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   ;

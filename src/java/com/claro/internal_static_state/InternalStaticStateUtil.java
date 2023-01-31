@@ -28,8 +28,8 @@ public class InternalStaticStateUtil {
   // referenced node will be added to this list so that this GraphNodeDefinitionStmt knows which upstream deps it needs
   // to gen code for. Since GraphNodeReferences are only valid within the scope of matching a GraphNodeDefinition this
   // is valid and safe.
-  public static ImmutableList.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder =
-      ImmutableList.builder();
+  public static ImmutableSet.Builder<String> GraphNodeDefinitionStmt_upstreamGraphNodeReferencesBuilder =
+      ImmutableSet.builder();
   // This set of upstream deps refers to the same node references as the above list, but membership in this set
   // indicates that the reference is implicitly indicating the user wants control over lazy evaluation of the node
   // via access to the subgraph as a provider to execute on demand instead of depending on the already computed result.

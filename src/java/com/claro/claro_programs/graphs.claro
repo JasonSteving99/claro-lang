@@ -223,17 +223,6 @@ using(ImmediateFutureModule) {
 var f: blocking function<|boolean, int, int, int| -> int> = maybeRecurseBlockingIndirectly;
 print(f(false, -1, -1, -1));
 
-# TODO: Currently if a node uses a single node reference more than once, then Claro will incorrectly codegen a method
-# TODO: using the same arg name twice. Claro should detect this and only list/pass the arg once.
-#graph function foo(l: [[int]], l2: [int]) -> future<boolean> {
-#  node reassign <- appendAndReturn(l, l2);
-#  root observeRaceRes <- (@reassign)[len(@reassign) - 1] == l2;
-#}
-#function appendAndReturn<T>(l: [T], toAppend: T) -> [T] {
-#  append(l, toAppend);
-#  return l;
-#}
-
 ######################################################################################################
 # DEMONSTRATE THREADED DATA RACES: CLARO SHOULD PROGRESS IN THE DIRECTION OF FORBIDDING ALL OF THESE.
 ######################################################################################################
@@ -268,8 +257,8 @@ graph function unsafeAliasingViaNodeProcedureArgs(l: [[int]], l2: [int]) -> futu
   # `l2` was already referencing. This would mean that subsequent nodes could be racing to mutate the same underlying
   # data w/o Claro being able to track it. In the future, Claro will forbid this use of mutable data in Graph nodes.
   node unsafeAlias <- appendAndReturn(l, l2);
-  node unsafeAliasLen <- delay(30, len(@unsafeAlias));
-  node update1 <- appendAndReturn((@unsafeAlias)[@unsafeAliasLen - 1], 2);
+  node delayedUnsafeAliasLen <- delay(30, len(@unsafeAlias));
+  node update1 <- appendAndReturn((@unsafeAlias)[@delayedUnsafeAliasLen - 1], 2);
   node update2 <- appendAndReturn(l2, 999);
   root observeRaceRes <- printAndReturn(@update1, @update2);
 }
