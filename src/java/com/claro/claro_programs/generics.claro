@@ -67,13 +67,16 @@ print("----------------------------------------------------------");
 print("Testing generic function map<|[int], function<int, boolean>| -> [boolean]>");
 var mapResult = map([1, 90, -13, 0], (function<int -> boolean>) x -> x >= 0);
 print(mapResult);
+# This syntax is semantically equivalent to the one above. The inline lambda signature types are just cleaner and make
+# it more obvious that there's actually no runtime cast going on here, you're just telling Claro the lambda type.
+mapResult = map([1, 90, -13, 0], (x: int) -> boolean { return x >= 0; });
+print(mapResult);
 
 # TODO(steving) I'd like the following type inference to be supported. All of the information is there
 # TODO(steving) so Claro should be able to figure this out, but I'm leaving it as a TODO for now since it's really hard
 # TODO(steving) to imagine a way to get the lambda to have its type asserted onto it, when the typical generic func call
 # TODO(steving) flow is to infer each arg's type (which lambda does not support as its syntax is ambiguous).
 #var mapResult: [boolean] = map([1, 90, -13, 0], x -> x >= 0);
-#var mapResult = map([1, 90, -13, 0], (x: int) -> boolean { return x >= 0; });
 
 
 function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
@@ -90,7 +93,7 @@ function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
 
 print("----------------------------------------------------------");
 print("Testing generic function filter<|[int], function<int, boolean>| -> [int]>");
-var filterResult = filter([1, 90, -13, 0], (function<int -> boolean>) x -> x > 0);
+var filterResult = filter([1, 90, -13, 0], (x: int) -> boolean { return x > 0; });
 print(filterResult);
 
 ##########################################################################
@@ -146,7 +149,7 @@ print("Testing generic function mapThroughIntermediate<int, float, boolean>");
 var intsAsBools =
   mapThroughIntermediate(
     [-1, 2, 3, -4],
-    (function<float -> boolean>) x -> {
+    (x: float) -> boolean {
       if (x >= 0) {
         return true;
       }
@@ -243,7 +246,7 @@ blocking:deferFn function example<T, V>(t: T, deferFn: blocking? function<V -> V
 }
 
 print("----------------------------------------------------------");
-print(example(100, (function<string -> string>) x -> x));
+print(example(100, (x: string) -> string { return x; }));
 
 blocking function block(x: string) -> string {
   print(x);
@@ -253,7 +256,7 @@ blocking function block(x: string) -> string {
 
 # TODO(steving) Need to add support for Generics to Graph Functions!
 graph function fooGraph(x: int) -> future<string> {
-  root res <- example(@arg, (function<string -> string>) x -> x);
+  root res <- example(@arg, (x: string) -> string { return x; });
   # Uncomment the below line for a compile-time error preventing a deadlock.
 #  root res <- example(@arg, block);
   node arg <- x;

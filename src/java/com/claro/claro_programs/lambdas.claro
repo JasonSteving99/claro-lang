@@ -129,3 +129,24 @@ while (lllcurr > 0) {
 }
 print("done");
 print(xxx);
+
+
+####################################################################################################
+# DEMONSTRATE INLINE LAMBDA TYPE SIGNATURE SYNTAX
+# This will allow you to avoid having to use a cast or a full variable type annotation as it enables
+# Claro to "infer" the correct type, as you're explicitly stating it within the lambda expr itself.
+####################################################################################################
+
+var doubleFn = (x:int, y:string) -> int {
+  _ = y;
+  print("doubling:");
+  return x * 2;
+};
+
+var dumpDouble = lambda (x: int) -> {
+  print(doubleFn(x, "ignored"));
+};
+
+var getNum = lambda () -> int { return 10; };
+
+dumpDouble(getNum());

@@ -237,8 +237,8 @@ table
 
 print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
 table
-  |> where(^, And((function<Age -> boolean>) a ->a[0] > 25, (function<Age -> boolean>) a -> a[0] < 50))
-  |> where(^, (function<Name -> boolean>) n ->  n != "Laura")
+  |> where(^, And((a: Age) -> boolean { return a[0] > 25; }, (a: Age) -> boolean { return a[0] < 50; }))
+  |> where(^, (n: Name) -> boolean { return n != "Laura"; })
   |> ([tuple<Name, Age>]) select(^)
   |> print(^);
 
@@ -246,8 +246,8 @@ table
 # generic function to ensure that multiple specializations are supported.
 print("Another way to do the same thing by chaining calls to And.");
 (function<Age -> boolean>) a -> a[0] > 25
-  |> And(^, (function<Age -> boolean>) a -> a[0] < 50) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
-  |> And(^, (function<Name -> boolean>) n ->  n != "Laura")    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
+  |> And(^, (a: Age) -> boolean { return a[0] < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
+  |> And(^, (n: Name) -> boolean { return n != "Laura"; })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
   |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
   |> ([tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
@@ -262,12 +262,12 @@ var res: [tuple<Name, Age>] =
       Or(
         And(   # Calling: And<Row, Name>(...) -> function<Row -> boolean>
           And( # Calling: And<Age, Age>(...) -> function<Row -> boolean>
-            (function<Age -> boolean>) a -> a[0] > 25,
-            (function<Age -> boolean>) a -> a[0] < 50
+            (a: Age) -> boolean { return a[0] > 25; },
+            (a: Age) -> boolean { return a[0] < 50; }
           ),
-          (function<Name -> boolean>) n -> n != "Laura"
+          (n: Name) -> boolean { return n != "Laura"; }
         ),
-        (function<Name -> boolean>) n -> n == "George"
+        (n: Name) -> boolean { return n == "George"; }
       )
     )
   );
