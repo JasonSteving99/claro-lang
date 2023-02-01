@@ -187,9 +187,33 @@ public class FunctionCallExpr extends Expr {
       {
         // We're calling a generic function which means that we need to validate that the generic function's
         // requirements are upheld.
-        // First, we'll check that the args match the ordering pattern of the generic signature.
         HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
-        boolean successfullyValidatedArgs = true;
+
+        // First, we want to allow "generic return type inference" to influence the expected arg types based on the
+        // call-site contextually asserting some or all of the concrete arg types.
+        if (this.assertedOutputTypeForGenericFunctionCallUse != null) {
+          // Here, the programmer is trying to constrain the full concrete type signature of this call contextually.
+          Type expectedGenericReturnType = ((Types.ProcedureType) referencedIdentifierType).getReturnType();
+          try {
+            // Make note of the asserted arg types in the generic->concrete type map so that the upcoming arg checking
+            // takes these asserted types into account.
+            validateArgExprsAndExtractConcreteGenericTypeParams(
+                genericTypeParamTypeHashMap,
+                expectedGenericReturnType,
+                this.assertedOutputTypeForGenericFunctionCallUse
+            );
+          } catch (ClaroTypeException ignored) {
+            // In this case, we know that we can let the type error be thrown by the Expr.assertExpectedExprType.
+            Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
+                Optional.of(genericTypeParamTypeHashMap);
+            calledFunctionReturnType = expectedGenericReturnType;
+            // There's no point in checking any of the args if there's no way that the call will yield the correct type.
+            break GenericProcedureCallChecks;
+          }
+          calledFunctionReturnType = this.assertedOutputTypeForGenericFunctionCallUse;
+        }
+
+        // Then, we'll check that the args match the ordering pattern of the generic signature.
         boolean foundBlockingFuncArg = false;
         for (int i = 0; i < argExprs.size(); i++) {
           int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
@@ -205,33 +229,45 @@ public class FunctionCallExpr extends Expr {
             // function's expected arg type, then we want to alert the programmer with a log line that actually points to
             // the entire arg, not the one place where there was a mismatch internally in the structure. This is a UX choice
             // that I might come to have a different opinion on later.
-            Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
-                Optional.of(genericTypeParamTypeHashMap);
-            argExprs.get(i)
-                .assertExpectedExprType(scopedHeap, genericTypeParamTypeHashMap.getOrDefault(argType, argType));
-            Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
 
-            // Before declaring a failure on validating types, first validate that we actually logged a type validation
-            // error. In the case that the arg that we're currently validating is actually a concrete type and not a
-            // generic type, then it's possible that there was originally an error when trying to query the type from
-            // the argExpr, but not when we asserted the type on it directly. This would specifically be the case for
-            // uncasted lambdas and tuple-subscripts.
-            if (existingTypeErrorsFoundCount < Expr.typeErrorsFound.size()) {
-              if (ignored.getMessage().contains("Ambiguous Lambda Expression Type:")) {
-                // We want to only provide the more specific error message that is actually actionable, drop noise.
-                Expr.typeErrorsFound.setSize(existingTypeErrorsFoundCount);
-                argExprs.get(i).logTypeError(ignored);
-              }
+            // We want to only provide the more specific error message that is actually actionable, drop noise.
+            Expr.typeErrorsFound.setSize(existingTypeErrorsFoundCount);
 
-              successfullyValidatedArgs = false;
+            // Infer whatever concrete type info that we can from the concrete types that we've already come across.
+            Type inferredRequiredConcreteType =
+                validateArgExprsAndExtractConcreteGenericTypeParams(
+                    // Must use a copy of the inferred type map because otherwise generic types will be added to the map
+                    // accidentally as though they are concrete types - this would invalidate the type checks on
+                    // subsequent args.
+                    (HashMap<Type, Type>) genericTypeParamTypeHashMap.clone(),
+                    ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i),
+                    ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i),
+                    /*inferConcreteTypes=*/ true
+                );
+
+            // If we're trying to do a type assertion of a first-class procedure arg without having fully inferred the
+            // Generic types that compose the procedure arg, we need to throw a specific error message indicating that
+            // the caller must assert the type of the procedure arg themselves with either a cast or the inline-typed
+            // lambda syntax (i.e. `(x:int) -> boolean { ... }`).
+            if (argType instanceof Types.ProcedureType
+                && ignored.getMessage().contains("Ambiguous Lambda Expression Type:")
+                && (((Types.ProcedureType) inferredRequiredConcreteType).getArgTypes().stream()
+                        .anyMatch(t -> t instanceof Types.$GenericTypeParam)
+                    || (((Types.ProcedureType) inferredRequiredConcreteType).hasReturnValue()
+                        &&
+                        ((Types.ProcedureType) inferredRequiredConcreteType).getReturnType() instanceof Types.$GenericTypeParam))) {
+
+              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
+                  Optional.of(genericTypeParamTypeHashMap);
+              String partialInferredLambdaType = inferredRequiredConcreteType.toString();
+              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+              argExprs.get(i)
+                  .logTypeError(
+                      ClaroTypeException.forAmbiguousLambdaFirstClassGenericArg(i, partialInferredLambdaType));
+            } else {
+              argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
             }
           }
-        }
-        if (!successfullyValidatedArgs) {
-          // I've literally never used this Java feature before and it's kinda blowing my mind, but this is preventing
-          // us from completely uselessly checking the return types since we don't even have a match the generic types
-          // needed for the args, so there's no way to use that information to derive what the correct return type should be.
-          break GenericProcedureCallChecks;
         }
         // Now, we need to check if the output type should have been constrained by the arg types, or by the
         // surrounding context.
@@ -263,23 +299,6 @@ public class FunctionCallExpr extends Expr {
               ((Types.ProcedureType) referencedIdentifierType).getReturnType(),
               /*inferConcreteTypes=*/true
           );
-        } else {
-          // Here, the programmer is trying to constrain the full concrete type signature of this call contextually.
-          Type expectedGenericReturnType = ((Types.ProcedureType) referencedIdentifierType).getReturnType();
-          try {
-            validateArgExprsAndExtractConcreteGenericTypeParams(
-                genericTypeParamTypeHashMap,
-                expectedGenericReturnType,
-                this.assertedOutputTypeForGenericFunctionCallUse
-            );
-          } catch (ClaroTypeException ignored) {
-            // In this case, we know that we can let the type error be thrown by the Expr.assertExpectedExprType.
-            Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
-                Optional.of(genericTypeParamTypeHashMap);
-            calledFunctionReturnType = expectedGenericReturnType;
-            break GenericProcedureCallChecks;
-          }
-          calledFunctionReturnType = this.assertedOutputTypeForGenericFunctionCallUse;
         }
         // Finally, need to ensure that the required contracts are supported by the requested concrete types
         // otherwise this would be an invalid call to the generic procedure.

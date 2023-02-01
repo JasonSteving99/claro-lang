@@ -142,6 +142,16 @@ public class ClaroTypeException extends Exception {
       "to terminate the recursion. Try wrapping the Alias self-reference in some builtin empty-able collection:\n" +
       "\tE.g.\n\t\tInstead of:\n\t\t\talias BadType : tuple<int, BadType>\n" +
       "\t\tTry something like:\n\t\t\talias GoodType : tuple<int, [GoodType]>";
+  private static final String AMBIGUOUS_LAMBDA_FIRST_CLASS_GENERIC_ARG =
+      "Ambiguous Lambda Expr as Generic Arg: The type signature of the lambda passed as arg %s is ambiguous.\n" +
+      "\tClaro infers generic types from left-to-right, starting from the\n" +
+      "\tcontextually expected return type (if constrained) then continuing with\n" +
+      "\targ type inference. Upon reaching the lambda passed as arg %s, Claro does\n" +
+      "\tnot have enough information to infer the lambda's full type signature.\n" +
+      "\t\tClaro partially inferred the following arg type:\n" +
+      "\t\t\t%s\n" +
+      "\tYou must provide an explicit type annotation to constrain the generic\n" +
+      "\ttype(s) in arg %s!";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -676,5 +686,18 @@ public class ClaroTypeException extends Exception {
 
   public static Exception forImpossibleRecursiveAliasTypeDefinition(String alias) {
     return new ClaroTypeException(String.format(IMPOSSIBLE_RECURSIVE_ALIAS_TYPE_DEFINITION, alias));
+  }
+
+  public static Exception forAmbiguousLambdaFirstClassGenericArg(
+      int argNumber, String inferredPartialType) {
+    return new ClaroTypeException(
+        String.format(
+            AMBIGUOUS_LAMBDA_FIRST_CLASS_GENERIC_ARG,
+            argNumber,
+            argNumber,
+            inferredPartialType,
+            argNumber
+        )
+    );
   }
 }
