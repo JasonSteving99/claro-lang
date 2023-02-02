@@ -183,182 +183,40 @@ public class FunctionCallExpr extends Expr {
                      ((Types.ProcedureType.FunctionType) referencedIdentifierType)
                          .getProcedureDefStmt()).procedureName);
     } else if (((Types.ProcedureType) referencedIdentifierType).getGenericProcedureArgNames().isPresent()) {
-      GenericProcedureCallChecks:
-      {
-        // We're calling a generic function which means that we need to validate that the generic function's
-        // requirements are upheld.
-        HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
-
-        // First, we want to allow "generic return type inference" to influence the expected arg types based on the
-        // call-site contextually asserting some or all of the concrete arg types.
-        if (this.assertedOutputTypeForGenericFunctionCallUse != null) {
-          // Here, the programmer is trying to constrain the full concrete type signature of this call contextually.
-          Type expectedGenericReturnType = ((Types.ProcedureType) referencedIdentifierType).getReturnType();
-          try {
-            // Make note of the asserted arg types in the generic->concrete type map so that the upcoming arg checking
-            // takes these asserted types into account.
-            validateArgExprsAndExtractConcreteGenericTypeParams(
-                genericTypeParamTypeHashMap,
-                expectedGenericReturnType,
-                this.assertedOutputTypeForGenericFunctionCallUse
-            );
-          } catch (ClaroTypeException ignored) {
-            // In this case, we know that we can let the type error be thrown by the Expr.assertExpectedExprType.
-            Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
-                Optional.of(genericTypeParamTypeHashMap);
-            calledFunctionReturnType = expectedGenericReturnType;
-            // There's no point in checking any of the args if there's no way that the call will yield the correct type.
-            break GenericProcedureCallChecks;
-          }
-          calledFunctionReturnType = this.assertedOutputTypeForGenericFunctionCallUse;
-        }
-
-        // Then, we'll check that the args match the ordering pattern of the generic signature.
-        boolean foundBlockingFuncArg = false;
-        for (int i = 0; i < argExprs.size(); i++) {
-          int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
-          Type argType = ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i);
-          try {
-            Type validatedType = validateArgExprsAndExtractConcreteGenericTypeParams(
-                genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
-            if (validatedType instanceof Types.ProcedureType) {
-              foundBlockingFuncArg |= ((Types.ProcedureType) validatedType).getIsBlocking().get();
-            }
-          } catch (ClaroTypeException ignored) {
-            // In case we're not able to structurally validate this arg's type aligns with the generic structure of the
-            // function's expected arg type, then we want to alert the programmer with a log line that actually points to
-            // the entire arg, not the one place where there was a mismatch internally in the structure. This is a UX choice
-            // that I might come to have a different opinion on later.
-
-            // We want to only provide the more specific error message that is actually actionable, drop noise.
-            Expr.typeErrorsFound.setSize(existingTypeErrorsFoundCount);
-
-            // Infer whatever concrete type info that we can from the concrete types that we've already come across.
-            Type inferredRequiredConcreteType =
-                validateArgExprsAndExtractConcreteGenericTypeParams(
-                    // Must use a copy of the inferred type map because otherwise generic types will be added to the map
-                    // accidentally as though they are concrete types - this would invalidate the type checks on
-                    // subsequent args.
-                    (HashMap<Type, Type>) genericTypeParamTypeHashMap.clone(),
-                    ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i),
-                    ((Types.ProcedureType) referencedIdentifierType).getArgTypes().get(i),
-                    /*inferConcreteTypes=*/ true
-                );
-
-            // If we're trying to do a type assertion of a first-class procedure arg without having fully inferred the
-            // Generic types that compose the procedure arg, we need to throw a specific error message indicating that
-            // the caller must assert the type of the procedure arg themselves with either a cast or the inline-typed
-            // lambda syntax (i.e. `(x:int) -> boolean { ... }`).
-            if (argType instanceof Types.ProcedureType
-                && ignored.getMessage().contains("Ambiguous Lambda Expression Type:")
-                && (((Types.ProcedureType) inferredRequiredConcreteType).getArgTypes().stream()
-                        .anyMatch(t -> t instanceof Types.$GenericTypeParam)
-                    || (((Types.ProcedureType) inferredRequiredConcreteType).hasReturnValue()
-                        &&
-                        ((Types.ProcedureType) inferredRequiredConcreteType).getReturnType() instanceof Types.$GenericTypeParam))) {
-
-              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
-                  Optional.of(genericTypeParamTypeHashMap);
-              String partialInferredLambdaType = inferredRequiredConcreteType.toString();
-              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
-              argExprs.get(i)
-                  .logTypeError(
-                      ClaroTypeException.forAmbiguousLambdaFirstClassGenericArg(i, partialInferredLambdaType));
-            } else {
-              argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
-            }
-          }
-        }
-        // Now, we need to check if the output type should have been constrained by the arg types, or by the
-        // surrounding context.
-        if (this.assertedOutputTypeForGenericFunctionCallUse == null) {
-          // Here, the programmer assumes that the args to this procedure alone were sufficient to constrain the full
-          // concrete type signature.
-          for (String genericTypeParamName : ((Types.ProcedureType) referencedIdentifierType).getGenericProcedureArgNames()
-              .get()) {
-            // We need to validate that all of the generic param names have had concrete types assigned by the arg checks alone.
-            if (!genericTypeParamTypeHashMap.containsKey(Types.$GenericTypeParam.forTypeParamName(genericTypeParamName))) {
-              // at least one of the generic type parameters is not fully understood by the args alone, so we need to
-              // let the programmer know that they must constrain that contextually.
-              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
-                  Optional.of(genericTypeParamTypeHashMap);
-              ClaroTypeException e =
-                  ClaroTypeException.forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(this.name, referencedIdentifierType);
-              Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
-              this.logTypeError(e);
-              break GenericProcedureCallChecks;
-            }
-          }
-          // Here, I'm confident that I should be able to do inference of the actual output type.
-          // This probably seems crazy, passing the same type twice, but the point is that with inferTypes set to true
-          // if the generic type is found within the concrete types map, that concrete type will be returned instead of
-          // the generic type in the "actual" type we pass in.
-          calledFunctionReturnType = validateArgExprsAndExtractConcreteGenericTypeParams(
-              genericTypeParamTypeHashMap,
-              ((Types.ProcedureType) referencedIdentifierType).getReturnType(),
-              ((Types.ProcedureType) referencedIdentifierType).getReturnType(),
-              /*inferConcreteTypes=*/true
-          );
-        }
-        // Finally, need to ensure that the required contracts are supported by the requested concrete types
-        // otherwise this would be an invalid call to the generic procedure.
-        if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
-          ArrayListMultimap<String, ImmutableList<Type>> genericFunctionRequiredContractsMap =
-              ((Types.ProcedureType) referencedIdentifierType).getAllTransitivelyRequiredContractNamesToGenericArgs();
-          for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
-            for (ImmutableList<Type> requiredContractTypeParamNames :
-                genericFunctionRequiredContractsMap.get(requiredContract)) {
-              ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
-              for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
-                requiredContractConcreteTypesBuilder.add(
-                    genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
-              }
-              ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
-              if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
-                  requiredContract, requiredContractConcreteTypes))) {
-                throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
-                    this.name, referencedIdentifierType, requiredContract, requiredContractConcreteTypes);
-              }
-            }
-          }
-        }
-
-        // Don't mark the called generic for monomorphization if this is a call to a generic function during
-        // generic (non-monomorphization) type checking. This call would not be representative of something we
-        // actually want to monomorphize.
-        if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
-          // Only doing Generic Contract Requirement propagation during the generic type validation, not for each
-          // individual monomorphization.
-          ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-              .get())
-              .directTopLevelGenericProcedureDepsCalledGenericTypesMappings
-              .put(this.name, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
-        } else {
-          // I want to mark this concrete signature for Monomorphization codegen! Note - this is subtle, but the
-          // single monomorphization will be reused by both the blocking and non-blocking variants if the generic
-          // procedure happened to also be blocking-generic as this subtle difference has no impact on the gen'd code..
-          this.name =
-              ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
-                   scopedHeap.getIdentifierValue(this.name)).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap));
-        }
-
-        // If this was blocking-generic in addition, then we need to update the referenced identifier type.
-        if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking() == null) {
-          // From now, we'll stop validating against the generic type signature, and validate against this concrete
-          // signature since we know which one we want to use to continue type-checking with now. (Note, this is a
-          // bit of a white lie - the blocking concrete variant signature has *all* blocking for the blocking-generic
-          // args, which is not necessarily the case for the *actual* args, but this doesn't matter since after this
-          // point we're actually done with the args type checking, and we'll move onto codegen where importantly the
-          // generated code is all exactly the same across blocking/non-blocking).
-          referencedIdentifierType =
-              scopedHeap.getValidatedIdentifierType(
-                  (foundBlockingFuncArg ? "$blockingConcreteVariant_" : "$nonBlockingConcreteVariant_")
-                  // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt rather
-                  + ((ProcedureDefinitionStmt)
-                         ((Types.ProcedureType.FunctionType) referencedIdentifierType)
-                             .getProcedureDefStmt()).procedureName);
-        }
-      } // END LABEL GenericProcedureCallChecks:
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // !WARNING! CONSIDER THE ENTIRE BELOW SECTION AS CONCEPTUALLY A SINGLE INLINED FUNCTION CALL. EDIT AS A UNIT.
+      //
+      // This hackery is a workaround for Java not supporting true reference semantics to allowing variables to be
+      // updated by called functions, and also not allowing painless multiple returns. So these AtomicReferences are
+      // used as a workaround to simulate some sort of "out params". All of this only exists because I need this exact
+      // same behavior in the implementations of FunctionCallExpr/ProviderFunctionCallExpr/ConsumerFunctionCallStmt.
+      // Take this as another example of where Java's concept of hierarchical type structures is a fundamentally broken
+      // design (Consumer calls are clearly a Stmt, but really it should share behavior w/ the Provider/Function call
+      // Exprs but yet there's no way to model that relationship with a type hierarchy).
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      AtomicReference<Type> calledFunctionReturnType_OUT_PARAM = new AtomicReference<>(calledFunctionReturnType);
+      AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM =
+          new AtomicReference<>((Types.ProcedureType) referencedIdentifierType);
+      AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.name);
+      try {
+        validateGenericProcedureCall(
+            Optional.of(this),
+            Optional.ofNullable(this.assertedOutputTypeForGenericFunctionCallUse),
+            this.argExprs,
+            scopedHeap,
+            // "Out params".
+            calledFunctionReturnType_OUT_PARAM,
+            referencedIdentifierType_OUT_PARAM,
+            procedureName_OUT_PARAM
+        );
+      } catch (Exception e) {
+        throw e;
+      } finally {
+        // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
+        calledFunctionReturnType = calledFunctionReturnType_OUT_PARAM.get();
+        referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();
+        this.name = procedureName_OUT_PARAM.get();
+      }
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
       for (int i = 0; i < this.argExprs.size(); i++) {
@@ -388,7 +246,195 @@ public class FunctionCallExpr extends Expr {
     return calledFunctionReturnType;
   }
 
-  private static Type validateArgExprsAndExtractConcreteGenericTypeParams(
+  // TODO(steving) Clean this up; this implementation is the result of factoring out what used to be an inline
+  //  implementation above, that reassigned local variables (hence the AtomicReferences).
+  public static void validateGenericProcedureCall(
+      Optional<Expr> optionalThisExprWithReturnValue, // Only set this for Function/Provider, not Consumer.
+      Optional<Type> assertedOutputTypeForGenericFunctionCallUse,
+      ImmutableList<Expr> argExprs,
+      ScopedHeap scopedHeap,
+      // Java is garbage so there's no painless way to do anything resembling multiple returns, so instead here's this
+      // gnarly hack. Taking in atomic refs so that I can simply use these as "out params" for lack of a better
+      // mechanism w/ language support....
+      AtomicReference<Type> calledFunctionReturnType_OUT_PARAM,
+      AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM,
+      AtomicReference<String> procedureName_OUT_PARAM
+  ) throws ClaroTypeException {
+    // We're calling a generic function which means that we need to validate that the generic function's
+    // requirements are upheld.
+    HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
+
+    // First, we want to allow "generic return type inference" to influence the expected arg types based on the
+    // call-site contextually asserting some or all of the concrete arg types.
+    if (assertedOutputTypeForGenericFunctionCallUse.isPresent()) {
+      // Here, the programmer is trying to constrain the full concrete type signature of this call contextually.
+      Type expectedGenericReturnType = referencedIdentifierType_OUT_PARAM.get().getReturnType();
+      try {
+        // Make note of the asserted arg types in the generic->concrete type map so that the upcoming arg checking
+        // takes these asserted types into account.
+        validateArgExprsAndExtractConcreteGenericTypeParams(
+            genericTypeParamTypeHashMap,
+            expectedGenericReturnType,
+            assertedOutputTypeForGenericFunctionCallUse.get()
+        );
+      } catch (ClaroTypeException ignored) {
+        // In this case, we know that we can let the type error be thrown by the Expr.assertExpectedExprType.
+        Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
+            Optional.of(genericTypeParamTypeHashMap);
+        calledFunctionReturnType_OUT_PARAM.set(expectedGenericReturnType);
+        // There's no point in checking any of the args if there's no way that the call will yield the correct type.
+        return;
+      }
+      calledFunctionReturnType_OUT_PARAM.set(assertedOutputTypeForGenericFunctionCallUse.get());
+    }
+
+    // Then, we'll check that the args match the ordering pattern of the generic signature.
+    boolean foundBlockingFuncArg = false;
+    for (int i = 0; i < argExprs.size(); i++) {
+      int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
+      Type argType = referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i);
+      try {
+        Type validatedType = validateArgExprsAndExtractConcreteGenericTypeParams(
+            genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
+        if (validatedType instanceof Types.ProcedureType) {
+          foundBlockingFuncArg |= ((Types.ProcedureType) validatedType).getIsBlocking().get();
+        }
+      } catch (ClaroTypeException ignored) {
+        // In case we're not able to structurally validate this arg's type aligns with the generic structure of the
+        // function's expected arg type, then we want to alert the programmer with a log line that actually points to
+        // the entire arg, not the one place where there was a mismatch internally in the structure. This is a UX choice
+        // that I might come to have a different opinion on later.
+
+        // We want to only provide the more specific error message that is actually actionable, drop noise.
+        Expr.typeErrorsFound.setSize(existingTypeErrorsFoundCount);
+
+        // Infer whatever concrete type info that we can from the concrete types that we've already come across.
+        Type inferredRequiredConcreteType =
+            validateArgExprsAndExtractConcreteGenericTypeParams(
+                // Must use a copy of the inferred type map because otherwise generic types will be added to the map
+                // accidentally as though they are concrete types - this would invalidate the type checks on
+                // subsequent args.
+                (HashMap<Type, Type>) genericTypeParamTypeHashMap.clone(),
+                referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i),
+                referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i),
+                /*inferConcreteTypes=*/ true
+            );
+
+        // If we're trying to do a type assertion of a first-class procedure arg without having fully inferred the
+        // Generic types that compose the procedure arg, we need to throw a specific error message indicating that
+        // the caller must assert the type of the procedure arg themselves with either a cast or the inline-typed
+        // lambda syntax (i.e. `(x:int) -> boolean { ... }`).
+        if (argType instanceof Types.ProcedureType
+            && ignored.getMessage().contains("Ambiguous Lambda Expression Type:")
+            && (((Types.ProcedureType) inferredRequiredConcreteType).getArgTypes().stream()
+                    .anyMatch(t -> t instanceof Types.$GenericTypeParam)
+                || (((Types.ProcedureType) inferredRequiredConcreteType).hasReturnValue()
+                    &&
+                    ((Types.ProcedureType) inferredRequiredConcreteType).getReturnType() instanceof Types.$GenericTypeParam))) {
+
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
+              Optional.of(genericTypeParamTypeHashMap);
+          String partialInferredLambdaType = inferredRequiredConcreteType.toString();
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+          argExprs.get(i)
+              .logTypeError(
+                  ClaroTypeException.forAmbiguousLambdaFirstClassGenericArg(i, partialInferredLambdaType));
+        } else {
+          argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
+        }
+      }
+    }
+    // Now, we need to check if the output type should have been constrained by the arg types, or by the
+    // surrounding context. Only do this checking if the procedure call produces an output.
+    if (!assertedOutputTypeForGenericFunctionCallUse.isPresent() && optionalThisExprWithReturnValue.isPresent()) {
+      // Here, the programmer assumes that the args to this procedure alone were sufficient to constrain the full
+      // concrete type signature.
+      for (String genericTypeParamName : referencedIdentifierType_OUT_PARAM.get().getGenericProcedureArgNames().get()) {
+        // We need to validate that all of the generic param names have had concrete types assigned by the arg checks alone.
+        if (!genericTypeParamTypeHashMap.containsKey(Types.$GenericTypeParam.forTypeParamName(genericTypeParamName))) {
+          // at least one of the generic type parameters is not fully understood by the args alone, so we need to
+          // let the programmer know that they must constrain that contextually.
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =
+              Optional.of(genericTypeParamTypeHashMap);
+          ClaroTypeException e =
+              ClaroTypeException.forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get());
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+          optionalThisExprWithReturnValue.get().logTypeError(e);
+          return;
+        }
+      }
+      // Here, I'm confident that I should be able to do inference of the actual output type.
+      // This probably seems crazy, passing the same type twice, but the point is that with inferTypes set to true
+      // if the generic type is found within the concrete types map, that concrete type will be returned instead of
+      // the generic type in the "actual" type we pass in.
+      calledFunctionReturnType_OUT_PARAM.set(
+          validateArgExprsAndExtractConcreteGenericTypeParams(
+              genericTypeParamTypeHashMap,
+              referencedIdentifierType_OUT_PARAM.get().getReturnType(),
+              referencedIdentifierType_OUT_PARAM.get().getReturnType(),
+              /*inferConcreteTypes=*/true
+          ));
+    }
+    // Finally, need to ensure that the required contracts are supported by the requested concrete types
+    // otherwise this would be an invalid call to the generic procedure.
+    if (!InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+      ArrayListMultimap<String, ImmutableList<Type>> genericFunctionRequiredContractsMap =
+          referencedIdentifierType_OUT_PARAM.get().getAllTransitivelyRequiredContractNamesToGenericArgs();
+      for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
+        for (ImmutableList<Type> requiredContractTypeParamNames :
+            genericFunctionRequiredContractsMap.get(requiredContract)) {
+          ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+          for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
+            requiredContractConcreteTypesBuilder.add(
+                genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
+          }
+          ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
+          if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
+              requiredContract, requiredContractConcreteTypes))) {
+            throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
+                procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get(), requiredContract, requiredContractConcreteTypes);
+          }
+        }
+      }
+    }
+
+    // Don't mark the called generic for monomorphization if this is a call to a generic function during
+    // generic (non-monomorphization) type checking. This call would not be representative of something we
+    // actually want to monomorphize.
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
+      // Only doing Generic Contract Requirement propagation during the generic type validation, not for each
+      // individual monomorphization.
+      ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+          .get())
+          .directTopLevelGenericProcedureDepsCalledGenericTypesMappings
+          .put(procedureName_OUT_PARAM.get(), ImmutableMap.copyOf(genericTypeParamTypeHashMap));
+    } else {
+      // I want to mark this concrete signature for Monomorphization codegen! Note - this is subtle, but the
+      // single monomorphization will be reused by both the blocking and non-blocking variants if the generic
+      // procedure happened to also be blocking-generic as this subtle difference has no impact on the gen'd code..
+      procedureName_OUT_PARAM.set(
+          ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
+               scopedHeap.getIdentifierValue(procedureName_OUT_PARAM.get())).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap)));
+    }
+
+    // If this was blocking-generic in addition, then we need to update the referenced identifier type.
+    if (referencedIdentifierType_OUT_PARAM.get().getAnnotatedBlocking() == null) {
+      // From now, we'll stop validating against the generic type signature, and validate against this concrete
+      // signature since we know which one we want to use to continue type-checking with now. (Note, this is a
+      // bit of a white lie - the blocking concrete variant signature has *all* blocking for the blocking-generic
+      // args, which is not necessarily the case for the *actual* args, but this doesn't matter since after this
+      // point we're actually done with the args type checking, and we'll move onto codegen where importantly the
+      // generated code is all exactly the same across blocking/non-blocking).
+      referencedIdentifierType_OUT_PARAM.set(
+          (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(
+              (foundBlockingFuncArg ? "$blockingConcreteVariant_" : "$nonBlockingConcreteVariant_")
+              // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt rather
+              + ((ProcedureDefinitionStmt) referencedIdentifierType_OUT_PARAM.get()
+                  .getProcedureDefStmt()).procedureName));
+    }
+  }
+
+  public static Type validateArgExprsAndExtractConcreteGenericTypeParams(
       HashMap<Type, Type> genericTypeParamTypeHashMap,
       Type functionExpectedArgType,
       Type actualArgExprType) throws ClaroTypeException {
@@ -396,7 +442,7 @@ public class FunctionCallExpr extends Expr {
         genericTypeParamTypeHashMap, functionExpectedArgType, actualArgExprType, false);
   }
 
-  private static Type validateArgExprsAndExtractConcreteGenericTypeParams(
+  public static Type validateArgExprsAndExtractConcreteGenericTypeParams(
       HashMap<Type, Type> genericTypeParamTypeHashMap,
       Type functionExpectedArgType,
       Type actualArgExprType,

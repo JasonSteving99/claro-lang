@@ -12,12 +12,15 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.Hashing;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
-  private final String consumerName;
+  private String consumerName;
+  public boolean hashNameForCodegen = false;
   private final String originalName;
   private ImmutableList<Expr> argExprs;
 
@@ -65,7 +68,11 @@ public class ConsumerFunctionCallStmt extends Stmt {
         this.argExprs.size()
     );
 
-    if (consumerType.getAnnotatedBlocking() == null) {
+    if (consumerType.getAnnotatedBlocking() == null
+        // If the procedure being called is both generic and blocking-generic, then let's handle that all at once
+        // in the generic case.
+        // TODO(steving) At some point refactor away the special case for only being blocking-generic.
+        && !consumerType.getGenericProcedureArgNames().isPresent()) {
       // This function must be generic over the blocking keyword, so need to see if the call is targeting a concrete
       // type signature for this function.
       ImmutableSet<Integer> blockingGenericArgIndices =
@@ -144,6 +151,36 @@ public class ConsumerFunctionCallStmt extends Stmt {
               + ((ProcedureDefinitionStmt)
                      ((Types.ProcedureType.ConsumerType) referencedIdentifierType)
                          .getProcedureDefStmt()).procedureName);
+    } else if (consumerType.getGenericProcedureArgNames().isPresent()) {
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // !WARNING! CONSIDER THE ENTIRE BELOW SECTION AS CONCEPTUALLY A SINGLE INLINED FUNCTION CALL. EDIT AS A UNIT.
+      //
+      // This hackery is a workaround for Java not supporting true reference semantics to allowing variables to be
+      // updated by called functions, and also not allowing painless multiple returns. So these AtomicReferences are
+      // used as a workaround to simulate some sort of "out params". All of this only exists because I need this exact
+      // same behavior in the implementations of FunctionCallExpr/ProviderFunctionCallExpr/ConsumerFunctionCallStmt.
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM =
+          new AtomicReference<>((Types.ProcedureType) referencedIdentifierType);
+      AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.consumerName);
+      try {
+        FunctionCallExpr.validateGenericProcedureCall(
+            /*optionalThisExprWithReturnValue=*/ Optional.empty(),
+            /*assertedOutputTypeForGenericFunctionCallUse=*/ Optional.empty(),
+                                                 this.argExprs,
+                                                 scopedHeap,
+                                                 // "Out params".
+            /*calledFunctionReturnType_OUT_PARAM=*/ new AtomicReference<>(null),
+                                                 referencedIdentifierType_OUT_PARAM,
+                                                 procedureName_OUT_PARAM
+        );
+      } catch (Exception e) {
+        throw e;
+      } finally {
+        // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
+        referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();
+        this.consumerName = procedureName_OUT_PARAM.get();
+      }
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
       for (int i = 0; i < this.argExprs.size(); i++) {
@@ -179,7 +216,26 @@ public class ConsumerFunctionCallStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
-    scopedHeap.markIdentifierUsed(this.consumerName);
+    // It's possible that during the process of monomorphization when we are doing type checking over a particular
+    // signature, this function call might represent the identification of a new signature for a generic function that
+    // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    if (!this.consumerName.contains("$MONOMORPHIZATION")) {
+      scopedHeap.markIdentifierUsed(this.consumerName);
+    } else {
+      this.hashNameForCodegen = true;
+    }
+
+    if (this.hashNameForCodegen) {
+      // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
+      // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
+      // still unique.
+      this.consumerName =
+          String.format(
+              "%s__%s",
+              this.originalName,
+              Hashing.sha256().hashUnencodedChars(this.consumerName).toString()
+          );
+    }
 
     AtomicReference<GeneratedJavaSource> argValsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
@@ -204,6 +260,11 @@ public class ConsumerFunctionCallStmt extends Stmt {
                 )
             )
         );
+
+    // This node will be potentially reused assuming that it is called within a Generic function that gets
+    // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
+    // the name now.
+    this.consumerName = this.originalName;
 
     return consumerFnGenJavaSource.createMerged(argValsGenJavaSource.get());
   }

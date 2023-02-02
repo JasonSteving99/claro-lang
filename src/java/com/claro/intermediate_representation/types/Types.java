@@ -818,6 +818,39 @@ public final class Types {
         return consumerType;
       }
 
+      public static ConsumerType forConsumerArgTypes(
+          ImmutableList<Type> argTypes,
+          BaseType overrideBaseType,
+          Set<Key> directUsedInjectedKeys,
+          Stmt procedureDefinitionStmt,
+          Boolean explicitlyAnnotatedBlocking,
+          Optional<ImmutableSet<Integer>> genericBlockingOnArgs,
+          Optional<ImmutableList<String>> optionalGenericProcedureArgNames,
+          Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs) {
+        ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
+            BaseType.CONSUMER_FUNCTION,
+            argTypes,
+            explicitlyAnnotatedBlocking,
+            genericBlockingOnArgs,
+            optionalGenericProcedureArgNames
+        );
+
+        consumerType.autoValueIgnoredHasArgs.set(true);
+        consumerType.autoValueIgnoredHasReturnValue.set(false);
+        consumerType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
+        consumerType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
+        consumerType.allTransitivelyRequiredContractNamesToGenericArgs.set(
+            optionalRequiredContractNamesToGenericArgs.map(ArrayListMultimap::create).orElse(null));
+
+        if (overrideBaseType != BaseType.CONSUMER_FUNCTION) {
+          consumerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));
+        } else {
+          consumerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
+        }
+
+        return consumerType;
+      }
+
       public static ConsumerType typeLiteralForConsumerArgTypes(
           ImmutableList<Type> argTypes,
           Boolean explicitlyAnnotatedBlocking) {

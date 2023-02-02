@@ -94,7 +94,7 @@ function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
 
 print("----------------------------------------------------------");
 print("Testing generic function filter<|[int], function<int, boolean>| -> [int]>");
-var filterResult = filter([1, 90, -13, 0], (x: int) -> boolean { return x > 0; });
+var filterResult: [int] = filter([1, 90, -13, 0], x ->  x > 0);
 print(filterResult);
 
 ##########################################################################
@@ -157,6 +157,22 @@ var intsAsBools =
       return false;
     });
 print(intsAsBools);
+
+
+############################################################################################################
+## DEMONSTRATE A GENERIC CONSUMER FUNCTION
+############################################################################################################
+
+consumer genericConsumer<T>(t: T) {
+  print(t);
+}
+
+print("----------------------------------------------------------");
+print("Testing generic consumer genericConsumer<T>");
+genericConsumer(10);
+genericConsumer("ten");
+genericConsumer(["ten"]);
+
 
 ############################################################################################################
 ## TOY EXAMPLE SHOWING HOW A FRAMEWORK MIGHT USE THIS TO PROVIDE FUNCTIONALITY W/O KNOWING ABOUT YOUR TYPES

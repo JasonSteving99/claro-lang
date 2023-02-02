@@ -23,7 +23,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   private final ImmutableList<String> genericProcedureArgNames;
   private final ImmutableMap<String, TypeProvider> argTypes;
   private final Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes;
-  private final TypeProvider outputTypeProvider;
+  private final Optional<TypeProvider> outputTypeProvider;
   private final StmtListNode stmtListNode;
   private final Boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
@@ -38,16 +38,16 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       alreadyCodegendMonomorphizations = HashBasedTable.create();
   private static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
-  public GenericFunctionDefinitionStmt(
-      String functionName,
-      ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs,
-      ImmutableList<String> genericProcedureArgNames,
-      ImmutableMap<String, TypeProvider> argTypes,
-      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
-      TypeProvider outputTypeProvider,
-      StmtListNode stmtListNode,
-      Boolean explicitlyAnnotatedBlocking,
-      Optional<ImmutableList<String>> optionalGenericBlockingOnArgs) {
+  public GenericFunctionDefinitionStmt( // FUNCTION
+                                        String functionName,
+                                        ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs,
+                                        ImmutableList<String> genericProcedureArgNames,
+                                        ImmutableMap<String, TypeProvider> argTypes,
+                                        Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
+                                        TypeProvider outputTypeProvider,
+                                        StmtListNode stmtListNode,
+                                        Boolean explicitlyAnnotatedBlocking,
+                                        Optional<ImmutableList<String>> optionalGenericBlockingOnArgs) {
     super(ImmutableList.of());
 
     this.functionName = functionName;
@@ -55,7 +55,31 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     this.genericProcedureArgNames = genericProcedureArgNames;
     this.argTypes = argTypes;
     this.optionalInjectedKeysTypes = optionalInjectedKeysTypes;
-    this.outputTypeProvider = outputTypeProvider;
+    this.outputTypeProvider = Optional.of(outputTypeProvider);
+    this.stmtListNode = stmtListNode;
+    this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
+    this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
+
+    GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.put(this.functionName, this);
+  }
+
+  public GenericFunctionDefinitionStmt( // CONSUMER
+                                        String functionName,
+                                        ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs,
+                                        ImmutableList<String> genericProcedureArgNames,
+                                        ImmutableMap<String, TypeProvider> argTypes,
+                                        Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
+                                        StmtListNode stmtListNode,
+                                        Boolean explicitlyAnnotatedBlocking,
+                                        Optional<ImmutableList<String>> optionalGenericBlockingOnArgs) {
+    super(ImmutableList.of());
+
+    this.functionName = functionName;
+    this.requiredContractNamesToGenericArgs = requiredContractNamesToGenericArgs;
+    this.genericProcedureArgNames = genericProcedureArgNames;
+    this.argTypes = argTypes;
+    this.optionalInjectedKeysTypes = optionalInjectedKeysTypes;
+    this.outputTypeProvider = Optional.empty();
     this.stmtListNode = stmtListNode;
     this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
     this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
@@ -234,39 +258,74 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   }
 
   private ProcedureDefinitionStmt generateProcedureDefStmt(String canonicalProcedureName) {
-    return new ProcedureDefinitionStmt(
-        canonicalProcedureName,
-        argTypes,
-        optionalInjectedKeysTypes,
-        (thisProcedureDefinitionStmt) ->
-            (scopedHeap) ->
-                Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-                    argTypes.values()
-                        .stream()
-                        .map(t -> t.resolveType(scopedHeap))
-                        .collect(ImmutableList.toImmutableList()),
-                    outputTypeProvider.resolveType(scopedHeap),
-                    BaseType.FUNCTION,
-                    optionalInjectedKeysTypes
-                        .map(
-                            injectedKeysTypes ->
-                                injectedKeysTypes.stream()
-                                    .map(
-                                        injectedKey ->
-                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
-                                    .collect(Collectors.toSet())
-                        )
-                        .orElse(Sets.newHashSet()),
-                    thisProcedureDefinitionStmt,
-                    explicitlyAnnotatedBlocking,
-                    optionalGenericBlockingOnArgs
-                        .map(genericBlockingOnArgs ->
-                                 mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList())),
-                    Optional.of(this.genericProcedureArgNames),
-                    Optional.of(this.requiredContractNamesToGenericArgs)
-                ),
-        stmtListNode
-    );
+    if (outputTypeProvider.isPresent()) { // FUNCTION
+      return new ProcedureDefinitionStmt(
+          canonicalProcedureName,
+          argTypes,
+          optionalInjectedKeysTypes,
+          (thisProcedureDefinitionStmt) ->
+              (scopedHeap) ->
+                  Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                      argTypes.values()
+                          .stream()
+                          .map(t -> t.resolveType(scopedHeap))
+                          .collect(ImmutableList.toImmutableList()),
+                      outputTypeProvider.get().resolveType(scopedHeap),
+                      BaseType.FUNCTION,
+                      optionalInjectedKeysTypes
+                          .map(
+                              injectedKeysTypes ->
+                                  injectedKeysTypes.stream()
+                                      .map(
+                                          injectedKey ->
+                                              new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                      .collect(Collectors.toSet())
+                          )
+                          .orElse(Sets.newHashSet()),
+                      thisProcedureDefinitionStmt,
+                      explicitlyAnnotatedBlocking,
+                      optionalGenericBlockingOnArgs
+                          .map(genericBlockingOnArgs ->
+                                   mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList())),
+                      Optional.of(this.genericProcedureArgNames),
+                      Optional.of(this.requiredContractNamesToGenericArgs)
+                  ),
+          stmtListNode
+      );
+    } else { // CONSUMER
+      return new ProcedureDefinitionStmt(
+          canonicalProcedureName,
+          argTypes,
+          optionalInjectedKeysTypes,
+          (thisProcedureDefinitionStmt) ->
+              (scopedHeap) ->
+                  Types.ProcedureType.ConsumerType.forConsumerArgTypes(
+                      argTypes.values()
+                          .stream()
+                          .map(t -> t.resolveType(scopedHeap))
+                          .collect(ImmutableList.toImmutableList()),
+                      BaseType.CONSUMER_FUNCTION,
+                      optionalInjectedKeysTypes
+                          .map(
+                              injectedKeysTypes ->
+                                  injectedKeysTypes.stream()
+                                      .map(
+                                          injectedKey ->
+                                              new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                      .collect(Collectors.toSet())
+                          )
+                          .orElse(Sets.newHashSet()),
+                      thisProcedureDefinitionStmt,
+                      explicitlyAnnotatedBlocking,
+                      optionalGenericBlockingOnArgs
+                          .map(genericBlockingOnArgs ->
+                                   mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList())),
+                      Optional.of(this.genericProcedureArgNames),
+                      Optional.of(this.requiredContractNamesToGenericArgs)
+                  ),
+          stmtListNode
+      );
+    }
   }
 
   @Override
