@@ -109,7 +109,29 @@ action code {:
         currentLinesSupplier,
         endCol - startCol)
       );
-    }
+  }
+
+  private ContractProcedureImplementationStmt constructContractProcImplStmtForGenericProcDefStmt(
+      GenericFunctionDefinitionStmt f) {
+    return new ContractProcedureImplementationStmt(
+        f.functionName,
+              (canonName, scopedHeap) -> {
+          String origName = f.functionName;
+          f.functionName = canonName;
+          if (scopedHeap == null) {
+            // In this case we're updating the name specifically for the sake of creating a name suitable for
+                  // codegen, so that means we also need to update the monorphizations.
+                  f.genericProcedureDefStmt.procedureName = canonName;
+          } else {
+            try {
+              f.registerGenericProcedureTypeProvider(scopedHeap);
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
+          return f;
+        });
+  }
 :}
 
 parser code {:
@@ -2488,6 +2510,7 @@ contract_signature_defs_list ::=
   ;
 
 // TODO(steving) Support all procedure signatures here. However, don't model `using` in the contracts.
+// TODO(steving)   - Providers, Consumers, Blocking-Generics, Generics
 contract_procedure_signature_definition_stmt ::=
    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
    {:
@@ -2495,7 +2518,33 @@ contract_procedure_signature_definition_stmt ::=
      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
      ImmutableMap<String, TypeProvider> argTypesMap =
          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
    :}
   ;
 
@@ -2513,12 +2562,23 @@ contract_implementations_list ::=
     {: RESULT = tail.add(new ContractProcedureImplementationStmt(c)); :}
   | provider_function_definition_stmt:p contract_implementations_list:tail
     {: RESULT = tail.add(new ContractProcedureImplementationStmt(p)); :}
+  | generic_function_definition_stmt:f contract_implementations_list:tail
+    {: RESULT = tail.add(constructContractProcImplStmtForGenericProcDefStmt(f)); :}
+// TODO(steving) Support Consumers in Contracts.
+//  | generic_consumer_function_definition_stmt:c contract_implementations_list:tail
+//    {: RESULT = tail.add(new ContractProcedureImplementationStmt(c)); :}
+
   | function_definition_stmt:f
     {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(f)); :}
   | consumer_function_definition_stmt:c
     {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(c)); :}
   | provider_function_definition_stmt:p
     {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(p)); :}
+  | generic_function_definition_stmt:f
+    {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(constructContractProcImplStmtForGenericProcDefStmt(f)); :}
+// TODO(steving) Support Consumers in Contracts.
+//  | generic_consumer_function_definition_stmt:c
+//    {: RESULT = ImmutableList.<ContractProcedureImplementationStmt>builder().add(new ContractProcedureImplementationStmt(c)); :}
   ;
 
 pipe_chain_stmt ::=

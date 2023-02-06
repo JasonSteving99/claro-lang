@@ -3,10 +3,7 @@ package com.claro.internal_static_state;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.*;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -53,6 +50,9 @@ public class InternalStaticStateUtil {
 
   public static String ContractDefinitionStmt_currentContractName;
   public static ImmutableList<String> ContractDefinitionStmt_currentContractGenericTypeParamNames;
+  public static HashSet<String> ContractDefinitionStmt_genericContractImplProceduresCanonicalNames = new HashSet<>();
+  public static HashBasedTable<String, ImmutableMap<Type, Type>, /*Node.GeneratedJavaSource*/Object>
+      GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations = HashBasedTable.create();
 
   public static boolean GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
   public static boolean GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = false;

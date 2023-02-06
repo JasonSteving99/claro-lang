@@ -13,6 +13,7 @@ java_library(
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:structural_concrete_generic_type_validation_util",
         "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
         "//src/java/com/claro/intermediate_representation/types:base_type",

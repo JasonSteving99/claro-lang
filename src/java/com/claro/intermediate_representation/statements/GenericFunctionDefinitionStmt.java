@@ -18,7 +18,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public class GenericFunctionDefinitionStmt extends Stmt {
-  private final String functionName;
+  public String functionName;
   private final ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs;
   private final ImmutableList<String> genericProcedureArgNames;
   private final ImmutableMap<String, TypeProvider> argTypes;
@@ -28,15 +28,15 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   private final Boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
 
-  private ProcedureDefinitionStmt genericProcedureDefStmt;
+  public ProcedureDefinitionStmt genericProcedureDefStmt;
 
   private boolean alreadyValidatedTypes = false;
 
-  private static HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
+  private static final HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
       monomorphizations = HashBasedTable.create();
-  private static HashBasedTable<String, ImmutableMap<Type, Type>, String>
+  private static final HashBasedTable<String, ImmutableMap<Type, Type>, String>
       alreadyCodegendMonomorphizations = HashBasedTable.create();
-  private static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
+  public static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
   public GenericFunctionDefinitionStmt( // FUNCTION
                                         String functionName,
@@ -59,8 +59,6 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     this.stmtListNode = stmtListNode;
     this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
     this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
-
-    GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.put(this.functionName, this);
   }
 
   public GenericFunctionDefinitionStmt( // CONSUMER
@@ -83,8 +81,6 @@ public class GenericFunctionDefinitionStmt extends Stmt {
     this.stmtListNode = stmtListNode;
     this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
     this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
-
-    GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.put(this.functionName, this);
   }
 
   private static ImmutableSet<Integer> mapArgNamesToIndex(ImmutableList<String> argNames, ImmutableList<String> args) {
@@ -100,6 +96,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   public void registerGenericProcedureTypeProvider(ScopedHeap scopedHeap) throws ClaroTypeException {
     if (!this.alreadyValidatedTypes) {
       this.alreadyValidatedTypes = true;
+
+      // Register this instance under its canonicalized name for lookup in later codegen.
+      GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.put(this.functionName, this);
 
       // Make sure that the procedure name isn't already in use.
       if (scopedHeap.isIdentifierDeclared(this.functionName)) {
@@ -392,11 +391,29 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           // For this, I'll use sha256 hashing. The reason is that Java has started to complain about some generated
           // class names being too long (e.g. one was >550 chars for a monomorphization over a complex data structure).
           String originalMonomorphizationName = monomorphization.procedureName;
-          monomorphization.procedureName = currGenericProcedureName + "__" + Hashing.sha256()
-              .hashUnencodedChars(monomorphization.procedureName)
-              .toString();
-          monomorphizationsCodeGen =
-              monomorphizationsCodeGen.createMerged(monomorphization.generateJavaSourceOutput(scopedHeap));
+          // It's possible that this generic procedure was defined w/in a Contract impl, in which case we can't just
+          // codegen directly into the top-level, this GeneratedJavaSource needs to be set aside to be included inline
+          // with the Contract impl's codegen.
+          if (!InternalStaticStateUtil.ContractDefinitionStmt_genericContractImplProceduresCanonicalNames
+              .contains(currGenericProcedureName)) {
+            monomorphization.procedureName = currGenericProcedureName + "__" + Hashing.sha256()
+                .hashUnencodedChars(monomorphization.procedureName)
+                .toString();
+            GeneratedJavaSource currMonomorphizationCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
+            monomorphizationsCodeGen =
+                monomorphizationsCodeGen.createMerged(currMonomorphizationCodeGen);
+          } else {
+            // Need to drop the "$ContractName::<Concrete,Types>___" prefix to make it callable.
+            monomorphization.procedureName =
+                // TODO(steving) This substring approach is fairly hacky...is there a better solution?
+                currGenericProcedureName.substring(currGenericProcedureName.indexOf("___") + 3)
+                + "__" + Hashing.sha256()
+                    .hashUnencodedChars(monomorphization.procedureName)
+                    .toString();
+            GeneratedJavaSource currMonomorphizationCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
+            InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+                .put(currGenericProcedureName, concreteTypeParams, currMonomorphizationCodeGen);
+          }
           // We only need the hash name during codegen, we'll keep the readable name during internal evaluation to make
           // debugging easier.
           monomorphization.procedureName = originalMonomorphizationName;

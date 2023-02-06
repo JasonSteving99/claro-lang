@@ -47,6 +47,12 @@ public class ProviderFunctionCallExpr extends Expr {
         referencedIdentifierType,
         this.functionName
     );
+    Preconditions.checkState(
+        !((Types.ProcedureType) referencedIdentifierType).hasArgs(),
+        "Expected %s args for function %s but none given!",
+        ((Types.ProcedureType) referencedIdentifierType).getArgTypes().size(),
+        this.functionName
+    );
 
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).

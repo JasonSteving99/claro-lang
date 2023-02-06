@@ -471,7 +471,9 @@ public final class Types {
       public static FunctionType typeLiteralForArgsAndReturnTypes(
           ImmutableList<Type> argTypes,
           Type returnType,
-          Boolean explicitlyAnnotatedBlocking) {
+          Boolean explicitlyAnnotatedBlocking,
+          Optional<ImmutableSet<Integer>> optionalAnnotatedBlockingGenericOverArgs,
+          Optional<ImmutableList<String>> optionalGenericProcedureArgNames) {
         // Inheritance has gotten out of hand yet again.... FunctionType doesn't fit within the mold and won't have a
         // parameterizedTypeArgs map used
         FunctionType functionType = new AutoValue_Types_ProcedureType_FunctionType(
@@ -479,8 +481,8 @@ public final class Types {
             argTypes,
             returnType,
             explicitlyAnnotatedBlocking,
-            Optional.empty(),
-            Optional.empty()
+            optionalAnnotatedBlockingGenericOverArgs,
+            optionalGenericProcedureArgNames
         );
 
         functionType.autoValueIgnoredHasArgs.set(true);
@@ -490,6 +492,13 @@ public final class Types {
         functionType.getIsBlocking().set(explicitlyAnnotatedBlocking);
 
         return functionType;
+      }
+
+      public static FunctionType typeLiteralForArgsAndReturnTypes(
+          ImmutableList<Type> argTypes,
+          Type returnType,
+          Boolean explicitlyAnnotatedBlocking) {
+        return typeLiteralForArgsAndReturnTypes(argTypes, returnType, explicitlyAnnotatedBlocking, Optional.empty(), Optional.empty());
       }
 
       @Override
@@ -853,13 +862,15 @@ public final class Types {
 
       public static ConsumerType typeLiteralForConsumerArgTypes(
           ImmutableList<Type> argTypes,
-          Boolean explicitlyAnnotatedBlocking) {
+          Boolean explicitlyAnnotatedBlocking,
+          Optional<ImmutableSet<Integer>> optionalAnnotatedBlockingGenericOverArgs,
+          Optional<ImmutableList<String>> optionalGenericProcedureArgNames) {
         ConsumerType consumerType = new AutoValue_Types_ProcedureType_ConsumerType(
             BaseType.CONSUMER_FUNCTION,
             argTypes,
             explicitlyAnnotatedBlocking,
-            Optional.empty(),
-            Optional.empty()
+            optionalAnnotatedBlockingGenericOverArgs,
+            optionalGenericProcedureArgNames
         );
 
         consumerType.autoValueIgnoredHasArgs.set(true);
@@ -867,6 +878,12 @@ public final class Types {
         consumerType.getIsBlocking().set(explicitlyAnnotatedBlocking);
 
         return consumerType;
+      }
+
+      public static ConsumerType typeLiteralForConsumerArgTypes(
+          ImmutableList<Type> argTypes,
+          Boolean explicitlyAnnotatedBlocking) {
+        return typeLiteralForConsumerArgTypes(argTypes, explicitlyAnnotatedBlocking, Optional.empty(), Optional.empty());
       }
 
       @Override

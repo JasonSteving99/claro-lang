@@ -131,3 +131,58 @@ var thirdGenericResult: tuple<int, int> = pairwiseSum(ttuple3, vtuple3);
 print(thirdGenericResult[0]);
 print(thirdGenericResult[1]);
 
+# TODO(steving) Implement support for Providers used as contract procedures.
+####################################################################################################
+# DEMONSTRATE CONTRACTS THAT INCLUDE PROVIDER SIGNATURES
+####################################################################################################
+#
+#contract Default<T> {
+#  provider get() -> T;
+#}
+#
+#implement Default<int> as DefaultInt {
+#  provider get() -> int {
+#    return 0;
+#  }
+#}
+#
+#var defaultInt: int = Default::get();
+#print(defaultInt);
+#
+#requires(Default<T>)
+#provider getDefault<T>() -> T {
+#  return Default::get();
+#}
+#
+#defaultInt = getDefault();
+#print(defaultInt);
+
+
+####################################################################################################
+# DEMONSTRATE CONTRACTS THAT INCLUDE GENERIC SIGNATURES
+####################################################################################################
+
+contract Foo<T> {
+  function doIt<V>(t: T, v: V) -> tuple<T, V>;
+}
+
+implement Foo<int> as IntFoo {
+  function doIt<V>(t: int, v: V) -> tuple<int, V> {
+    return (2 * t, v);
+  }
+}
+implement Foo<string> as StringFoo {
+  function doIt<V>(t: string, v: V) -> tuple<string, V> {
+    return ("formatted: {t}", v);
+  }
+}
+
+var t: tuple<int, string> = Foo::doIt(10, "ten");
+type(t);
+print(t);
+var t2: tuple<int, [string]> = Foo::doIt(10, ["ten"]);
+type(t2);
+print(t2);
+var t3: tuple<string, [string]> = Foo::doIt("10", ["ten"]);
+type(t3);
+print(t3);

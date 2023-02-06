@@ -193,17 +193,17 @@ public class ContractImplementationStmt extends Stmt {
                 "%s__%s",
                 this.contractProcedureImplementationStmts.get(i).procedureName,
                 Hashing.sha256()
-                    .hashUnencodedChars(this.contractProcedureImplementationStmts.get(i).procedureDefinitionStmt.procedureName)
+                    .hashUnencodedChars(this.contractProcedureImplementationStmts.get(i).canonicalProcedureName)
                     .toString()
             );
-    this.contractProcedureImplementationStmts.get(0).procedureDefinitionStmt.procedureName =
-        getHashedContractProcedureImplName.apply(0);
+    this.contractProcedureImplementationStmts.get(0)
+        .updateProcedureDefName(getHashedContractProcedureImplName.apply(0));
     Function<Integer, GeneratedJavaSource> noteOriginalType =
         i ->
             GeneratedJavaSource.forStaticDefinitions(new StringBuilder(
                 String.format(
                     "/*%s*/\n",
-                    this.contractProcedureImplementationStmts.get(i).procedureDefinitionStmt.resolvedProcedureType.toString()
+                    this.contractProcedureImplementationStmts.get(i).resolvedProcedureType.toString()
                 )));
     GeneratedJavaSource implementationProcedureDefinitions =
         noteOriginalType.apply(0).createMerged(
@@ -211,7 +211,7 @@ public class ContractImplementationStmt extends Stmt {
     int i = 1;
     for (ContractProcedureImplementationStmt implementationStmt :
         this.contractProcedureImplementationStmts.subList(1, this.contractProcedureImplementationStmts.size())) {
-      implementationStmt.procedureDefinitionStmt.procedureName = getHashedContractProcedureImplName.apply(i);
+      implementationStmt.updateProcedureDefName(getHashedContractProcedureImplName.apply(i));
       implementationProcedureDefinitions =
           noteOriginalType.apply(i).createMerged(
               implementationProcedureDefinitions.createMerged(implementationStmt.generateJavaSourceOutput(scopedHeap)));
