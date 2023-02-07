@@ -262,7 +262,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           canonicalProcedureName,
           argTypes,
           optionalInjectedKeysTypes,
-          (thisProcedureDefinitionStmt) ->
+          (unusedThisProcedureDefinitionStmt) ->
               (scopedHeap) ->
                   Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
                       argTypes.values()
@@ -281,7 +281,12 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                                       .collect(Collectors.toSet())
                           )
                           .orElse(Sets.newHashSet()),
-                      thisProcedureDefinitionStmt,
+                      // In the case of Generic procedures, we need to ensure that the recursive dep procedure type
+                      // validation goes first through the GenericFunctionDefinitionStmt rather than skipping straight
+                      // to the encapsulated ProcedureDefinitionStmt since this would miss the necessary setup process
+                      // needed for generic procedures before type checking could be handled successfully in
+                      // ProcedureDefinitionStmt.
+                      GenericFunctionDefinitionStmt.this,
                       explicitlyAnnotatedBlocking,
                       optionalGenericBlockingOnArgs
                           .map(genericBlockingOnArgs ->
@@ -296,7 +301,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
           canonicalProcedureName,
           argTypes,
           optionalInjectedKeysTypes,
-          (thisProcedureDefinitionStmt) ->
+          (unusedThisProcedureDefinitionStmt) ->
               (scopedHeap) ->
                   Types.ProcedureType.ConsumerType.forConsumerArgTypes(
                       argTypes.values()
@@ -314,7 +319,12 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                                       .collect(Collectors.toSet())
                           )
                           .orElse(Sets.newHashSet()),
-                      thisProcedureDefinitionStmt,
+                      // In the case of Generic procedures, we need to ensure that the recursive dep procedure type
+                      // validation goes first through the GenericFunctionDefinitionStmt rather than skipping straight
+                      // to the encapsulated ProcedureDefinitionStmt since this would miss the necessary setup process
+                      // needed for generic procedures before type checking could be handled successfully in
+                      // ProcedureDefinitionStmt.
+                      GenericFunctionDefinitionStmt.this,
                       explicitlyAnnotatedBlocking,
                       optionalGenericBlockingOnArgs
                           .map(genericBlockingOnArgs ->

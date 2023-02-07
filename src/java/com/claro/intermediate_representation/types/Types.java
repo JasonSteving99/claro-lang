@@ -359,8 +359,8 @@ public final class Types {
       return allTransitivelyRequiredContractNamesToGenericArgs.get();
     }
 
-    // We need a ref to the original ProcedureDefinitionStmt for recursively asserting types to collect
-    // transitively used keys.
+    // We need a ref to the original ProcedureDefinitionStmt (or GenericFunctionDefinitionStmt in the case of a generic
+    // procedure) for recursively asserting types to collect transitively used keys.
     final AtomicReference<Stmt> autoValueIgnoredProcedureDefStmt = new AtomicReference<>();
 
     public Stmt getProcedureDefStmt() {

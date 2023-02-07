@@ -25,6 +25,8 @@ public class ContractImplementationStmt extends Stmt {
   private String canonicalImplementationName;
   private ContractDefinitionStmt contractDefinitionStmt;
   private ImmutableList<String> concreteTypeStrings;
+  static GeneratedJavaSource dependencyGenericProcedureDefCodegenJavaSource =
+      GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
 
   public ContractImplementationStmt(
       String contractName,
@@ -225,7 +227,16 @@ public class ContractImplementationStmt extends Stmt {
         .append(implementationProcedureDefinitions.optionalStaticDefinitions().orElse(new StringBuilder()))
         .append("}");
 
-    return GeneratedJavaSource.create(new StringBuilder(), res, new StringBuilder());
+    // Because it's possible that some contract procedure impls may have deferred to a Generic procedure, then it's
+    // possible that there's some generic procedure def that needs to be collected and generated *outside* the
+    // class being generated for this contract impl.
+    GeneratedJavaSource codegenRes =
+        ContractImplementationStmt.dependencyGenericProcedureDefCodegenJavaSource.
+            createMerged(GeneratedJavaSource.create(new StringBuilder(), res, new StringBuilder()));
+    // Already used, drop the reference to the dependent generic codegens.
+    ContractImplementationStmt.dependencyGenericProcedureDefCodegenJavaSource =
+        GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
+    return codegenRes;
   }
 
   @Override

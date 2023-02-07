@@ -173,9 +173,12 @@ implement Foo<int> as IntFoo {
 }
 implement Foo<string> as StringFoo {
   function doIt<V>(t: string, v: V) -> tuple<string, V> {
-    return ("formatted: {t}", v);
+    return ("formatted: {t}", identity(v));
   }
 }
+
+# Just ensuring that we're still able to call other generic procedures from within generic contract procedures.
+function identity<A>(a: A) -> A { return a; }
 
 var t: tuple<int, string> = Foo::doIt(10, "ten");
 type(t);

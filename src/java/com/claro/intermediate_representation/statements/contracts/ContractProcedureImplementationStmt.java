@@ -10,12 +10,14 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class ContractProcedureImplementationStmt extends Stmt {
@@ -147,22 +149,55 @@ public class ContractProcedureImplementationStmt extends Stmt {
     }
   }
 
+  // NOTE ON CODEGEN PASS ORDERING: As a result of ContractImplementationStmts containing generic procedure defs, the
+  // codegen for contract impls must actually run *last*. This is to ensure that all calls to generic contract
+  // procedures have been codegend (thereby resulting in monomorphization codegen of the called generic procedure) by
+  // the time that contract procedure impl codegen happens. This difficulty only exists because Claro decided to codegen
+  // contract procedure defs nested within a class encapsulating the contract procedure impls...this is at odds with the
+  // rest of the codegen which simply throws procedure defs in the top level...likely it would have been simpler to do
+  // the same with contract procedure impls, and rely on generated naming conventions to distinguish procedures that
+  // belong to a contract impl. For impl detail on delaying the codegen of ContractImplementationStmts, check
+  // StmtListNode which hardcoded this delay.
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // In the case that this Contract procedure was actually Generic, then the codegen phase for generic funcs may have
     // already run and set monomorphizations for this contract procedure implementation. Check for that, and if any
     // are found, then just produce the Java source for those.
-    if (InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
-        .containsRow(this.canonicalProcedureName)) {
+    Supplier<GeneratedJavaSource> generatedJavaSourceSupplier = () -> {
       final GeneratedJavaSource[] monomorphizationsCodegen =
+          // Array only b/c I want to be able to update from lambda.
           {GeneratedJavaSource.forJavaSourceBody(new StringBuilder())};
       InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
-          .values().forEach(monoCodegen -> {
-            monomorphizationsCodegen[0] = monomorphizationsCodegen[0].createMerged((GeneratedJavaSource) monoCodegen);
-          });
+          .row(ContractProcedureImplementationStmt.this.canonicalProcedureName).values().forEach(
+              monoCodegen ->
+                  monomorphizationsCodegen[0] =
+                      monomorphizationsCodegen[0].createMerged((GeneratedJavaSource) monoCodegen));
+      // Now that we're done with codegen for this contract, we should drop the GeneratedJavaSources for the
+      // monomorphizations from the static map. Just being a good citizen to avoid holding memory too long.
+      ImmutableSet<ImmutableMap<Type, Type>> monomorphizationConcreteTypes =
+          ImmutableSet.copyOf(
+              InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+                  .row(ContractProcedureImplementationStmt.this.canonicalProcedureName).keySet());
+      monomorphizationConcreteTypes.forEach(
+          c -> InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+              .remove(ContractProcedureImplementationStmt.this.canonicalProcedureName, c));
       return monomorphizationsCodegen[0];
+    };
+
+
+    if (InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+        .containsRow(this.canonicalProcedureName)) {
+      return generatedJavaSourceSupplier.get();
     }
-    return this.procedureDefinitionStmt.generateJavaSourceOutput(scopedHeap);
+
+    GeneratedJavaSource res = this.procedureDefinitionStmt.generateJavaSourceOutput(scopedHeap);
+    if (InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+        .containsRow(this.canonicalProcedureName)) {
+      ContractImplementationStmt.dependencyGenericProcedureDefCodegenJavaSource =
+          ContractImplementationStmt.dependencyGenericProcedureDefCodegenJavaSource.createMerged(res);
+      return generatedJavaSourceSupplier.get();
+    }
+    return res;
   }
 
   @Override

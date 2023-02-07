@@ -429,9 +429,24 @@ public class FunctionCallExpr extends Expr {
       referencedIdentifierType_OUT_PARAM.set(
           (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(
               (foundBlockingFuncArg ? "$blockingConcreteVariant_" : "$nonBlockingConcreteVariant_")
-              // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt rather
-              + ((ProcedureDefinitionStmt) referencedIdentifierType_OUT_PARAM.get()
-                  .getProcedureDefStmt()).procedureName));
+              // Refer to the name of the procedure as defined by the owning ProcedureDefinitionStmt or GenericFunctionDef
+              + referencedIdentifierType_OUT_PARAM.get().getGenericProcedureArgNames()
+                  .map(unused -> { // Now know that we're looking at a GenericProcedureDefinitionStmt.
+                    try {
+                      // Make use of reflection because I'm sick of fighting Bazel's circular deps restrictions. It's
+                      // already made a major mess of this code just trying not to reference the type
+                      // GenericFunctionDefinitionStmt by name...
+                      return referencedIdentifierType_OUT_PARAM.get().getProcedureDefStmt().getClass()
+                          .getField("functionName")
+                          .get(referencedIdentifierType_OUT_PARAM.get().getProcedureDefStmt());
+                    } catch (NoSuchFieldException | IllegalAccessException e) {
+                      throw new ClaroParserException("Internal Compiler Error: GenericFunctionDefinitionStmt.functionName not found. Some code change broke the hacky reflection looking up the field.");
+                    }
+                  })
+                  .orElseGet(() ->
+                                 ((ProcedureDefinitionStmt) referencedIdentifierType_OUT_PARAM.get()
+                                     .getProcedureDefStmt())
+                                     .procedureName)));
     }
   }
 
