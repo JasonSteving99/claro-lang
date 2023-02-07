@@ -17,6 +17,7 @@ import com.google.common.collect.*;
 import com.google.common.hash.Hashing;
 
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,50 +109,8 @@ public class FunctionCallExpr extends Expr {
         if (blockingGenericArgIndices.contains(i)) {
           // Generically attempting to accept a concrete blocking variant that the user gave for this arg.
           Types.ProcedureType maybeBlockingArgType = (Types.ProcedureType) definedArgTypes.get(i);
-          Type concreteArgType;
-          switch (maybeBlockingArgType.baseType()) {
-            case FUNCTION:
-              concreteArgType = argExprs.get(i).assertSupportedExprType(
-                  scopedHeap,
-                  ImmutableSet.of(
-                      Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
-                          maybeBlockingArgType.getArgTypes(),
-                          maybeBlockingArgType.getReturnType(),
-                          true
-                      ),
-                      Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
-                          maybeBlockingArgType.getArgTypes(),
-                          maybeBlockingArgType.getReturnType(),
-                          false
-                      )
-                  )
-              );
-              break;
-            case CONSUMER_FUNCTION:
-              concreteArgType = argExprs.get(i).assertSupportedExprType(
-                  scopedHeap,
-                  ImmutableSet.of(
-                      Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
-                          maybeBlockingArgType.getArgTypes(), true),
-                      Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
-                          maybeBlockingArgType.getArgTypes(), false)
-                  )
-              );
-              break;
-            case PROVIDER_FUNCTION:
-              concreteArgType = argExprs.get(i).assertSupportedExprType(
-                  scopedHeap,
-                  ImmutableSet.of(
-                      Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-                          maybeBlockingArgType.getReturnType(), true),
-                      Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-                          maybeBlockingArgType.getReturnType(), false)
-                  )
-              );
-              break;
-            default:
-              throw new ClaroParserException("Internal Compiler Error: Grammar allowed a non-procedure type to be annotated blocking!");
-          }
+          Type concreteArgType =
+              getBlockingGenericArgVariantType(scopedHeap, this.argExprs.get(i), maybeBlockingArgType);
           // We'll determine the hard rule, that if even a single of the blocking-generic-args are blocking, then
           // the entire function call is blocking.
           isBlocking = ((Types.ProcedureType) concreteArgType).getAnnotatedBlocking();
@@ -246,6 +205,55 @@ public class FunctionCallExpr extends Expr {
     return calledFunctionReturnType;
   }
 
+  private static Type getBlockingGenericArgVariantType(
+      ScopedHeap scopedHeap, Expr argExpr, Types.ProcedureType maybeBlockingArgType) throws ClaroTypeException {
+    Type concreteArgType;
+    switch (maybeBlockingArgType.baseType()) {
+      case FUNCTION:
+        concreteArgType = argExpr.assertSupportedExprType(
+            scopedHeap,
+            ImmutableSet.of(
+                Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                    maybeBlockingArgType.getArgTypes(),
+                    maybeBlockingArgType.getReturnType(),
+                    true
+                ),
+                Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                    maybeBlockingArgType.getArgTypes(),
+                    maybeBlockingArgType.getReturnType(),
+                    false
+                )
+            )
+        );
+        break;
+      case CONSUMER_FUNCTION:
+        concreteArgType = argExpr.assertSupportedExprType(
+            scopedHeap,
+            ImmutableSet.of(
+                Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                    maybeBlockingArgType.getArgTypes(), true),
+                Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+                    maybeBlockingArgType.getArgTypes(), false)
+            )
+        );
+        break;
+      case PROVIDER_FUNCTION:
+        concreteArgType = argExpr.assertSupportedExprType(
+            scopedHeap,
+            ImmutableSet.of(
+                Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                    maybeBlockingArgType.getReturnType(), true),
+                Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                    maybeBlockingArgType.getReturnType(), false)
+            )
+        );
+        break;
+      default:
+        throw new ClaroParserException("Internal Compiler Error: Grammar allowed a non-procedure type to be annotated blocking!");
+    }
+    return concreteArgType;
+  }
+
   // TODO(steving) Clean this up; this implementation is the result of factoring out what used to be an inline
   //  implementation above, that reassigned local variables (hence the AtomicReferences).
   public static void validateGenericProcedureCall(
@@ -298,6 +306,12 @@ public class FunctionCallExpr extends Expr {
             StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
                 genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
         if (validatedType instanceof Types.ProcedureType) {
+          // Since the above structural type checking doesn't actually validate the complete signature, check that
+          // explicitly here to pick up any blocking annotation(s).
+          if (!Objects.equals(((Types.ProcedureType) validatedType).getAnnotatedBlocking(), ((Types.ProcedureType) argType).getAnnotatedBlocking())) {
+            // Hack to get things to fall into below catch-clause to get a clean error message.
+            throw new ClaroTypeException("Internal Compiler Error: Blocking Annotation Mismatch Between Args!");
+          }
           foundBlockingFuncArg |= ((Types.ProcedureType) validatedType).getIsBlocking().get();
         }
       } catch (ClaroTypeException ignored) {
@@ -341,7 +355,16 @@ public class FunctionCallExpr extends Expr {
               .logTypeError(
                   ClaroTypeException.forAmbiguousLambdaFirstClassGenericArg(i, partialInferredLambdaType));
         } else {
-          argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
+          if (inferredRequiredConcreteType instanceof Types.ProcedureType
+              && ((Types.ProcedureType) inferredRequiredConcreteType).getAnnotatedBlocking() == null) {
+            // Here we validate that the actual given arg is the correct type modulo the blocking annotation.
+            Type concreteType =
+                FunctionCallExpr.getBlockingGenericArgVariantType(
+                    scopedHeap, argExprs.get(i), (Types.ProcedureType) inferredRequiredConcreteType);
+            foundBlockingFuncArg |= ((Types.ProcedureType) concreteType).getAnnotatedBlocking();
+          } else {
+            argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
+          }
         }
       }
     }

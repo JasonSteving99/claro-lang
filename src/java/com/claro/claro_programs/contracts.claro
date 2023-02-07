@@ -180,6 +180,8 @@ implement Foo<string> as StringFoo {
 # Just ensuring that we're still able to call other generic procedures from within generic contract procedures.
 function identity<A>(a: A) -> A { return a; }
 
+print("----------------------------------------------------------");
+print("Testing Foo::doIt<T>:");
 var t: tuple<int, string> = Foo::doIt(10, "ten");
 type(t);
 print(t);
@@ -189,3 +191,43 @@ print(t2);
 var t3: tuple<string, [string]> = Foo::doIt("10", ["ten"]);
 type(t3);
 print(t3);
+
+
+####################################################################################################
+# DEMONSTRATE CONTRACTS THAT INCLUDE BOTH BLOCKING-GENERICS AND GENERIC TYPE PARAMS
+####################################################################################################
+
+contract Bar<O> {
+  blocking:mapFn function doIt<I>(i: I, mapFn: blocking? function<I -> O>) -> O;
+  blocking function doItBlocking<I>(i: I, mapFn: blocking function<I -> O>) -> O;
+}
+implement Bar<int> as IntBar {
+  blocking:mapFn function doIt<I>(i: I, mapFn: blocking? function<I -> int>) -> int {
+    return mapFn(i);
+  }
+  blocking function doItBlocking<I>(i: I, mapFn: blocking function<I -> int>) -> int {
+    return mapFn(i);
+  }
+}
+
+graph function testGraph(i: int) -> future<int> {
+  root res <- (int) Bar::doIt(@imm, (x: int) -> int { return 2 * x; });
+# Uncomment this line to get an error message indicating that you're not allowed to call blocking procedures from here.
+#  root res <- (int) Bar::doIt(@imm, blocker);
+  node imm <- i;
+}
+blocking function blocker(i: int) -> int {
+  var res <-| testGraph(i);
+  return res;
+}
+
+print("----------------------------------------------------------");
+print("Testing Blocking Generics with Bar<T>::doIt");
+print((int) Bar::doIt(2, (x: int) -> int { return 2 * x; }));
+print((int) Bar::doIt(2, blocker));
+
+print("----------------------------------------------------------");
+print("Testing Blocking Function Bar<T>::doItBlocking");
+print((int) Bar::doItBlocking(2, blocker));
+# Uncomment this line to get a type mismatch error indicating that a blocking function is expected.
+#print((int) Bar::doItBlocking(2, (x: int) -> int { return 2 * x; }));

@@ -95,6 +95,10 @@ public class LambdaExpr extends Expr {
       // it's actually important that this only runs once.
       this.alreadyAssertedTypes = true;
 
+      if (!(expectedExprType instanceof Types.ProcedureType)) {
+        throw ClaroTypeException.forInvalidLambdaExprCast(expectedExprType);
+      }
+
       // Before we delegate to our ProcedureDefinitionStmt, we need to make sure that we're able to preserve
       // the status of whether or not ReturnStmts are allowed in the outer scope that this lambda is defined in.
       Optional<String> outerScopeWithinProcedureScope = ReturnStmt.withinProcedureScope;

@@ -152,6 +152,8 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\tYou must provide an explicit type annotation to constrain the generic\n" +
       "\ttype(s) in arg %s!";
+  private static final String INVALID_LAMBDA_CAST =
+      "Invalid Lambda Expr Cast: Cannot cast lambda to non-procedure type!\n\tExpected: %s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -697,6 +699,15 @@ public class ClaroTypeException extends Exception {
             argNumber,
             inferredPartialType,
             argNumber
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidLambdaExprCast(Type expectedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_LAMBDA_CAST,
+            expectedExprType
         )
     );
   }

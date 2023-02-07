@@ -2546,6 +2546,26 @@ contract_procedure_signature_definition_stmt ::=
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
      RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
    :}
+ | BLOCKING FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.of(genericTypesList));
+   :}
+ | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), Optional.of(genericTypesList));
+   :}
   ;
 
 contract_implementation_stmt ::=
