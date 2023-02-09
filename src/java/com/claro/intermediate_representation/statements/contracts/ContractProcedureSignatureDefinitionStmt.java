@@ -1,17 +1,18 @@
 package com.claro.intermediate_representation.statements.contracts;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public final String procedureName;
@@ -24,6 +25,12 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
 
   public ImmutableList<GenericSignatureType> resolvedArgTypes;
   public Optional<GenericSignatureType> resolvedOutputType;
+
+  // The following fields provide ContractFunctionCall impl with a very quick lookup to determine the simplest set of
+  // args it needs to do type inference on in order to determine the Contract Impl to dispatch to.
+  public ImmutableSet<Integer> inferContractImplTypesFromArgs;
+  public boolean contextualOutputTypeAssertionRequired;
+  public Optional<ImmutableSet<Integer>> inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted;
 
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
@@ -93,20 +100,58 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     }
     // Preserve the resolved signature types so that we can validate against this for contract impls later on.
     this.resolvedArgTypes = resolvedTypesBuilder.build();
-    this.resolvedOutputType = this.optionalOutputTypeProvider.map(
-        outputTypeProvider -> {
-          Type resolvedOutputType = outputTypeProvider.resolveType(scopedHeap);
-          if (resolvedOutputType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-            return GenericSignatureType.forTypeParamName(
-                ((Types.$GenericTypeParam) resolvedOutputType).getTypeParamName());
-          } else {
-            return GenericSignatureType.forResolvedType(resolvedOutputType);
-          }
-        });
+    if (this.optionalOutputTypeProvider.isPresent()) {
+      Type resolvedOutputType = this.optionalOutputTypeProvider.get().resolveType(scopedHeap);
+      if (resolvedOutputType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
+        this.resolvedOutputType =
+            Optional.of(
+                GenericSignatureType.forTypeParamName(
+                    ((Types.$GenericTypeParam) resolvedOutputType).getTypeParamName()));
+      } else {
+        this.resolvedOutputType = Optional.of(GenericSignatureType.forResolvedType(resolvedOutputType));
+      }
+    } else {
+      this.resolvedOutputType = Optional.empty();
+    }
     // Drop the temporary GenericTypeParams placed in the symbol table just for the sake of the generic args.
     this.optionalGenericTypesList.ifPresent(
         l -> l.forEach(scopedHeap::deleteIdentifierValue)
     );
+
+    // Later on, when this Contract procedure actually gets called, in order to determine which Contract Impl to
+    // specifically defer to, we'll need to do type inference on the concrete args passed on that specific call. We will
+    // end up following that Contract Impl inference by actual Procedure call type validation. So, when we're doing
+    // Contract Impl inference, we want to check the *least* number of types that would give us the validated type info
+    // necessary to defer to the correct Contract Impl. So, here we'll make note of which args are *necessary* to check
+    // when inferring the Contract Impl to defer to.
+    HashMap<String, Integer> leftmostArgReferencingContractTypeParams = Maps.newHashMap();
+    Set<String> contractTypeParamNames =
+        Sets.newHashSet(InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames);
+    for (int i = 0; i < this.resolvedArgTypes.size() && contractTypeParamNames.size() > 0; i++) {
+      for (Types.$GenericTypeParam referencedGenType :
+          this.resolvedArgTypes.get(i).getGenericContractTypeParamsReferencedByType()) {
+        if (contractTypeParamNames.contains(referencedGenType.getTypeParamName())) {
+          leftmostArgReferencingContractTypeParams.put(referencedGenType.getTypeParamName(), i);
+          contractTypeParamNames.remove(referencedGenType.getTypeParamName());
+        }
+      }
+    }
+    this.inferContractImplTypesFromArgs = ImmutableSet.copyOf(leftmostArgReferencingContractTypeParams.values());
+    this.contextualOutputTypeAssertionRequired =
+        this.resolvedOutputType.isPresent() && contractTypeParamNames.size() > 0;
+    this.inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted =
+        this.resolvedOutputType.map(
+            resolvedOutputType ->
+                leftmostArgReferencingContractTypeParams.entrySet()
+                    .stream()
+                    .filter(
+                        e ->
+                            !resolvedOutputType
+                                .getGenericContractTypeParamsReferencedByType()
+                                .contains(Types.$GenericTypeParam.forTypeParamName(e.getKey())))
+                    .map(Map.Entry::getValue)
+                    .collect(ImmutableSet.toImmutableSet()));
+
 
     // Now put the signature in the scoped heap so that we can validate it's not reused in this contract.
     Type procedureType;
@@ -223,14 +268,28 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
 
     public abstract Optional<String> getOptionalGenericTypeParamName();
 
+    public abstract ImmutableSet<Types.$GenericTypeParam> getGenericContractTypeParamsReferencedByType();
+
     public static GenericSignatureType forTypeParamName(String name) {
       return new AutoValue_ContractProcedureSignatureDefinitionStmt_GenericSignatureType(
-          Optional.empty(), Optional.of(name));
+          Optional.empty(), Optional.of(name), ImmutableSet.of(Types.$GenericTypeParam.forTypeParamName(name)));
     }
 
-    public static GenericSignatureType forResolvedType(Type resolvedType) {
+    public static GenericSignatureType forResolvedType(Type resolvedType) throws ClaroTypeException {
+      HashMap<Type, Type> referencedGenericTypes = Maps.newHashMap();
+      StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+          referencedGenericTypes,
+          resolvedType,
+          resolvedType
+      );
       return new AutoValue_ContractProcedureSignatureDefinitionStmt_GenericSignatureType(
-          Optional.of(resolvedType), Optional.empty());
+          Optional.of(resolvedType),
+          Optional.empty(),
+          referencedGenericTypes.keySet()
+              .stream()
+              .map(k -> (Types.$GenericTypeParam) k)
+              .collect(ImmutableSet.toImmutableSet())
+      );
     }
 
     public Type toType() {

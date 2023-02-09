@@ -182,13 +182,13 @@ function identity<A>(a: A) -> A { return a; }
 
 print("----------------------------------------------------------");
 print("Testing Foo::doIt<T>:");
-var t: tuple<int, string> = Foo::doIt(10, "ten");
+var t = Foo::doIt(10, "ten");
 type(t);
 print(t);
-var t2: tuple<int, [string]> = Foo::doIt(10, ["ten"]);
+var t2 = Foo::doIt(10, ["ten"]);
 type(t2);
 print(t2);
-var t3: tuple<string, [string]> = Foo::doIt("10", ["ten"]);
+var t3 = Foo::doIt("10", ["ten"]);
 type(t3);
 print(t3);
 
@@ -231,3 +231,22 @@ print("Testing Blocking Function Bar<T>::doItBlocking");
 print((int) Bar::doItBlocking(2, blocker));
 # Uncomment this line to get a type mismatch error indicating that a blocking function is expected.
 #print((int) Bar::doItBlocking(2, (x: int) -> int { return 2 * x; }));
+
+
+
+####################################################################################################
+# TODO(steving) DEMONSTRATE CONTRACTS THAT INCLUDE CONSUMER SIGNATURES
+####################################################################################################
+#
+#contract Consumes<T> {
+#  consumer prefixPrint(prefix: string, t: T);
+#}
+#implement Consumes<int> as IntConsumes {
+#  consumer prefixPrint(prefix: string, t: int) {
+#    print("{prefix}: {t}");
+#  }
+#}
+#
+#print("----------------------------------------------------------");
+#print("Testing Consumer Consumes<T>::prefixPrint");
+#Consumes::prefixPrint("My Int", 1);

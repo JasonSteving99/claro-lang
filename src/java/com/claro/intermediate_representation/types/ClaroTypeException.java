@@ -108,6 +108,8 @@ public class ClaroTypeException extends Exception {
       "Invalid Contract Procedure Reference: Contract %s<%s> does not define any procedure named `%s`.";
   private static final String CONTRACT_PROCEDURE_REFERENCE_WITHOUT_REQUIRED_ANNOTATION_ON_GENERIC_FUNCTION =
       "Invalid Contract Procedure Reference: Generic procedure calls a Contract procedure %s::%s over a generic type param so should be annotated as `requires(%s<%s>)`";
+  private static final String CONTRACT_PROCEDURE_CALL_OVER_UNIMPLEMENTED_CONCRETE_TYPES =
+      "Invalid Contract Procedure Reference: No implementation of %s found.";
   private static final String GENERIC_PROCEDURE_REQUIRES_UNDEFINED_CONTRACT =
       "Invalid Required Contract: Generic Procedure `%s` is attempting to require undefined contract `%s`.";
   private static final String GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
@@ -154,6 +156,8 @@ public class ClaroTypeException extends Exception {
       "\ttype(s) in arg %s!";
   private static final String INVALID_LAMBDA_CAST =
       "Invalid Lambda Expr Cast: Cannot cast lambda to non-procedure type!\n\tExpected: %s";
+  private static final String AMBIGUOUS_CONTRACT_PROCEDURE_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION =
+      "Ambiguous Contract Procedure Call: Calls to the procedure %s<%s>::%s is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -651,6 +655,16 @@ public class ClaroTypeException extends Exception {
         ));
   }
 
+  public static ClaroTypeException forContractProcedureCallOverUnimplementedConcreteTypes(
+      String contractImplTypeString) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_PROCEDURE_CALL_OVER_UNIMPLEMENTED_CONCRETE_TYPES,
+            contractImplTypeString
+        )
+    );
+  }
+
   public static ClaroTypeException forInvalidGenericProcedureReferenceAsFirstClassObjectWithoutContextualTypeAssertion(
       String procedureName, Type procedureType) {
     return new ClaroTypeException(
@@ -708,6 +722,19 @@ public class ClaroTypeException extends Exception {
         String.format(
             INVALID_LAMBDA_CAST,
             expectedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
+      String contractName, ImmutableList<String> typeParamNames, String procedureName, Type outputType) {
+    return new ClaroTypeException(
+        String.format(
+            AMBIGUOUS_CONTRACT_PROCEDURE_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION,
+            contractName,
+            Joiner.on(", ").join(typeParamNames),
+            procedureName,
+            outputType
         )
     );
   }

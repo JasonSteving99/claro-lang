@@ -6,17 +6,21 @@ import com.claro.intermediate_representation.statements.contracts.ContractDefini
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
-import com.claro.intermediate_representation.types.*;
+import com.claro.intermediate_representation.types.BaseType;
+import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ContractFunctionCallExpr extends FunctionCallExpr {
   private final String contractName;
-  private final Optional<ImmutableList<TypeProvider>> optionalContractConcreteTypes;
   private String referencedContractImplName;
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
@@ -25,24 +29,6 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
 
   public ContractFunctionCallExpr(
       String contractName,
-      ImmutableList<TypeProvider> contractConcreteTypes,
-      String functionName,
-      ImmutableList<Expr> args,
-      Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
-    this(contractName, Optional.of(contractConcreteTypes), functionName, args, currentLine, currentLineNumber, startCol, endCol);
-  }
-
-  public ContractFunctionCallExpr(
-      String contractName,
-      String functionName,
-      ImmutableList<Expr> args,
-      Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
-    this(contractName, Optional.empty(), functionName, args, currentLine, currentLineNumber, startCol, endCol);
-  }
-
-  public ContractFunctionCallExpr(
-      String contractName,
-      Optional<ImmutableList<TypeProvider>> optionalContractConcreteTypes,
       String functionName,
       ImmutableList<Expr> args,
       Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -52,7 +38,6 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
         functionName, args, currentLine, currentLineNumber, startCol, endCol);
 
     this.contractName = contractName;
-    this.optionalContractConcreteTypes = optionalContractConcreteTypes;
   }
 
   @Override
@@ -65,61 +50,51 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // contract impl will actually be validated at the callsite to the generic function, not here).
     Expr.validatingContractProcCallWithinGenericProc = true;
 
+    ContractDefinitionStmt contractDefinitionStmt =
+        (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
+    ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt =
+        contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name);
 
-    // In the case that the Contract's concrete types were explicitly asserted, we have no extra work to do.
-    // Otherwise, we have the extra task of inferring the Contract Implementation being referenced according
-    // to the static types of the current arguments (and return type expected by the call-site's context).
-    if (!this.optionalContractConcreteTypes.isPresent()) {
-      ContractDefinitionStmt contractDefinitionStmt =
-          (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
-      // The type param might come up multiple times in the signature for this procedure, so we need to ensure that
-      // all usages of the type param have received arguments of the same type.
-      ImmutableList<ContractProcedureSignatureDefinitionStmt.GenericSignatureType> genericSignatureArgTypes =
-          contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name).resolvedArgTypes;
-      ContractProcedureSignatureDefinitionStmt.GenericSignatureType outputGenericSignatureType =
-          contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name).resolvedOutputType.get();
-      ImmutableList.Builder<Type> contractConcreteTypesBuilder = ImmutableList.builder();
-      for (String typeParamName : contractDefinitionStmt.typeParamNames) {
-        Optional<Type> currTypeParamConcreteType = Optional.empty();
-        for (int i = 0; i < genericSignatureArgTypes.size(); i++) {
-          ContractProcedureSignatureDefinitionStmt.GenericSignatureType currGenericSignatureType =
-              genericSignatureArgTypes.get(i);
-          if (currGenericSignatureType.getOptionalResolvedType().isPresent()) {
-            continue;
-          }
-          if (!currGenericSignatureType.getOptionalGenericTypeParamName().get().equals(typeParamName)) {
-            continue;
-          }
-
-          // Careful with generic type params getting reused in a function signature.
-          if (!currTypeParamConcreteType.isPresent()) {
-            // This is the first arg of this generic type param, so we can just accept it as is.
-            currTypeParamConcreteType = Optional.of(this.argExprs.get(i).getValidatedExprType(scopedHeap));
-          } else {
-            // This is not the first arg of this generic type param, so make sure it's equal to any prior matching type.
-            this.argExprs.get(i).assertExpectedExprType(scopedHeap, currTypeParamConcreteType.get());
-          }
-        }
-        // Apparently I was able infer the type of this arg, and validate that its usage matches in all necessary
-        // locations its used in the arguments list. Now one last verification it matches with the return type if
-        // applicable.
-        if (currTypeParamConcreteType.isPresent()) {
-          if (outputGenericSignatureType.getOptionalGenericTypeParamName().isPresent()
-              && outputGenericSignatureType.getOptionalGenericTypeParamName().get().equals(typeParamName)) {
-            if (!assertedOutputType.equals(currTypeParamConcreteType.get())) {
-              throw new ClaroTypeException(currTypeParamConcreteType.get(), assertedOutputType);
-            }
-          }
-        } else {
-          // Apparently the current generic type param is not used as one of the arguments to this procedure. It's
-          // type must be taken to be the type asserted by the surrounding context.
-          currTypeParamConcreteType = Optional.of(assertedOutputType);
-        }
-
-        // I'm now confident that I've correctly inferred the type intended for this generic type param.
-        contractConcreteTypesBuilder.add(currTypeParamConcreteType.get());
+    // Infer all types starting from the return type as necessary.
+    HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
+    // Let FunctionCallExpr that we're about to defer to handle throwing the exception if this was called over some
+    // consumer that doesn't even have an output type.
+    if (contractProcedureSignatureDefinitionStmt.resolvedOutputType.isPresent()) {
+      // Need to infer the output type first to preserve the semantic that the contextual types provide better type
+      // checking on the args necessary to get that desired output type.
+      try {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            inferredConcreteTypes,
+            contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType(),
+            assertedOutputType
+        );
+      } catch (ClaroTypeException ignored) {
+        // We want cleaner error messages that indicate the type mismatch more clearly.
+        throw new ClaroTypeException(
+            assertedOutputType,
+            contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
+        );
       }
-      this.resolvedContractConcreteTypes = contractConcreteTypesBuilder.build();
+      // Now, using the type information gained from the output type check, check all of the args.
+      for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted.get()) {
+        try {
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              inferredConcreteTypes,
+              contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
+              this.argExprs.get(i).getValidatedExprType(scopedHeap)
+          );
+        } catch (ClaroTypeException ignored) {
+          // We want cleaner error messages that indicate the type mismatch more clearly.
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.of(inferredConcreteTypes);
+          this.argExprs.get(i)
+              .assertExpectedExprType(scopedHeap, contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i)
+                  .toType());
+          Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+        }
+      }
+      this.resolvedContractConcreteTypes = contractDefinitionStmt.typeParamNames.stream()
+          .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
+          .collect(ImmutableList.toImmutableList());
     }
 
     this.assertedOutputType = assertedOutputType;
@@ -136,14 +111,35 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     if (this.resolvedContractType == null) {
       resolveContractType(scopedHeap);
     }
-    if (this.optionalContractConcreteTypes.isPresent()) {
-      this.resolvedContractConcreteTypes = this.optionalContractConcreteTypes.get().stream()
-          .map(typeProvider -> typeProvider.resolveType(scopedHeap))
+
+    ContractDefinitionStmt contractDefinitionStmt =
+        (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
+    ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt =
+        contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name);
+    if (this.assertedOutputType == null) {
+      if (contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired) {
+        // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
+        // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
+        // other args, therefore making Contract Impl inference via the arg types alone impossible.
+        throw ClaroTypeException.forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
+            this.contractName,
+            contractDefinitionStmt.typeParamNames,
+            this.name,
+            contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
+        );
+      }
+      // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
+      HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
+      for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgs) {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            inferredConcreteTypes,
+            contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
+            this.argExprs.get(i).getValidatedExprType(scopedHeap)
+        );
+      }
+      this.resolvedContractConcreteTypes = contractDefinitionStmt.typeParamNames.stream()
+          .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
           .collect(ImmutableList.toImmutableList());
-    } else if (this.resolvedContractConcreteTypes == null) {
-      // TODO(steving) There's going to be a case where the program is ambiguous b/c the return type isn't asserted.
-      throw new RuntimeException("TODO(steving) ContractFunctionCallExpr.java: Need to handle inference when the type" +
-                                 " is not asserted by context. Sometimes it's actually valid.");
     }
 
     // If this contract procedure is getting called over any generic type params, then we need to validate that the
@@ -219,10 +215,15 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           this.name
       );
 
-      // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
-      this.referencedContractImplName =
-          (String) scopedHeap.getIdentifierValue(
-              ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings));
+
+      String contractImplTypeString =
+          ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings);
+      if (!scopedHeap.isIdentifierDeclared(contractImplTypeString)) {
+        throw ClaroTypeException.forContractProcedureCallOverUnimplementedConcreteTypes(contractImplTypeString);
+      } else {
+        // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
+        this.referencedContractImplName = (String) scopedHeap.getIdentifierValue(contractImplTypeString);
+      }
     }
 
     // This final step defers validation of the actual types passed as args.

@@ -2512,6 +2512,7 @@ contract_signature_defs_list ::=
 // TODO(steving) Support all procedure signatures here. However, don't model `using` in the contracts.
 // TODO(steving)   - Providers, Consumers, Blocking-Generics, Generics
 contract_procedure_signature_definition_stmt ::=
+   // FUNCTIONS
    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
    {:
      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
@@ -2565,6 +2566,15 @@ contract_procedure_signature_definition_stmt ::=
       ImmutableList<String> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
      RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), Optional.of(genericTypesList));
+   :}
+
+   // CONSUMERS
+ | CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.val, argTypesMap, Optional.empty(), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
    :}
   ;
 
