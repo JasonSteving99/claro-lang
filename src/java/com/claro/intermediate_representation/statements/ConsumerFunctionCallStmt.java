@@ -19,10 +19,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
-  private String consumerName;
+  protected String consumerName;
   public boolean hashNameForCodegen = false;
   private final String originalName;
-  private ImmutableList<Expr> argExprs;
+  final protected ImmutableList<Expr> argExprs;
 
   public ConsumerFunctionCallStmt(String consumerName, ImmutableList<Expr> args) {
     super(ImmutableList.of());

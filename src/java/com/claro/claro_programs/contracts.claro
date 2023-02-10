@@ -223,30 +223,36 @@ blocking function blocker(i: int) -> int {
 
 print("----------------------------------------------------------");
 print("Testing Blocking Generics with Bar<T>::doIt");
-print((int) Bar::doIt(2, (x: int) -> int { return 2 * x; }));
-print((int) Bar::doIt(2, blocker));
+print(Bar::doIt(2, (x: int) -> int { return 2 * x; }));
+print(Bar::doIt(2, blocker));
 
 print("----------------------------------------------------------");
 print("Testing Blocking Function Bar<T>::doItBlocking");
-print((int) Bar::doItBlocking(2, blocker));
+print(Bar::doItBlocking(2, blocker));
 # Uncomment this line to get a type mismatch error indicating that a blocking function is expected.
-#print((int) Bar::doItBlocking(2, (x: int) -> int { return 2 * x; }));
+#print(Bar::doItBlocking(2, (x: int) -> int { return 2 * x; }));
 
 
 
 ####################################################################################################
-# TODO(steving) DEMONSTRATE CONTRACTS THAT INCLUDE CONSUMER SIGNATURES
+# DEMONSTRATE CONTRACTS THAT INCLUDE CONSUMER SIGNATURES
 ####################################################################################################
-#
-#contract Consumes<T> {
-#  consumer prefixPrint(prefix: string, t: T);
-#}
-#implement Consumes<int> as IntConsumes {
-#  consumer prefixPrint(prefix: string, t: int) {
-#    print("{prefix}: {t}");
-#  }
-#}
-#
-#print("----------------------------------------------------------");
-#print("Testing Consumer Consumes<T>::prefixPrint");
-#Consumes::prefixPrint("My Int", 1);
+
+contract Consumes<T> {
+  consumer prefixPrint(prefix: string, t: T);
+}
+implement Consumes<int> as IntConsumes {
+  consumer prefixPrint(prefix: string, t: int) {
+    print("{prefix}: {t}");
+  }
+}
+implement Consumes<string> as StrConsumes {
+  consumer prefixPrint(prefix: string, t: string) {
+    print("{prefix}: {t}");
+  }
+}
+
+print("----------------------------------------------------------");
+print("Testing Consumer Consumes<T>::prefixPrint");
+Consumes::prefixPrint("Contract Consumer Call", 1);
+Consumes::prefixPrint("Contract Consumer Call", "two");

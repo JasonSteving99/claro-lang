@@ -17,6 +17,8 @@ import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ContractFunctionCallExpr extends FunctionCallExpr {
@@ -42,7 +44,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
 
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type assertedOutputType) throws ClaroTypeException {
-    resolveContractType(scopedHeap);
+    this.resolveContractType(scopedHeap);
 
     // Before we do any type checking, we essentially want to disable worrying about exact matches on generic
     // type params. For a contract, we simply would want to know that the contract is listed in the requirements
@@ -109,14 +111,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // We're handling both the case that this was called with a type statically asserted by the surrounding
     // context, and that it wasn't, so cleanup in the case that contract wasn't already looked up yet.
     if (this.resolvedContractType == null) {
-      resolveContractType(scopedHeap);
+      this.resolveContractType(scopedHeap);
     }
 
     ContractDefinitionStmt contractDefinitionStmt =
         (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
     ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt =
         contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name);
-    if (this.assertedOutputType == null) {
+    if (this.assertedOutputType == null && contractProcedureSignatureDefinitionStmt.resolvedOutputType.isPresent()) {
       if (contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired) {
         // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
         // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
@@ -128,25 +130,96 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
             contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
         );
       }
+    }
+
+    Type res = this.getValidatedTypeInternal(
+        contractDefinitionStmt, contractProcedureSignatureDefinitionStmt, scopedHeap);
+
+    // In case we actually would return a generic type here (bc we're still within a generic type validation phase), we
+    // can just go ahead and assume it safe to return the asserted type. This is because we know that when the Generic
+    // Procedure that this contract function call is made within is actually called, the correct monomorphization for
+    // this contract will be selected since the generic procedure's contract requirements will have been validated.
+    if (res.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
+      return this.assertedOutputType;
+    }
+    return res;
+  }
+
+  private Type getValidatedTypeInternal(
+      ContractDefinitionStmt contractDefinitionStmt,
+      ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt,
+      ScopedHeap scopedHeap) throws ClaroTypeException {
+    AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.name);
+    AtomicReference<String> originalName_OUT_PARAM = new AtomicReference<>(this.originalName);
+    AtomicReference<String> referencedContractImplName_OUT_PARAM =
+        new AtomicReference<>(this.referencedContractImplName);
+    AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM =
+        new AtomicReference<>(this.resolvedContractConcreteTypes);
+    boolean revertNameAfterTypeValidation;
+    try {
+      revertNameAfterTypeValidation =
+          getValidatedTypeInternal(
+              this.contractName,
+              this.resolvedContractType,
+              contractDefinitionStmt,
+              contractProcedureSignatureDefinitionStmt,
+              this.argExprs,
+              Optional.of(this::logTypeError),
+              scopedHeap,
+              resolvedContractConcreteTypes_OUT_PARAM,
+              procedureName_OUT_PARAM,
+              originalName_OUT_PARAM,
+              referencedContractImplName_OUT_PARAM
+          );
+    } finally {
+      this.name = procedureName_OUT_PARAM.get();
+      this.originalName = originalName_OUT_PARAM.get();
+      this.referencedContractImplName = referencedContractImplName_OUT_PARAM.get();
+      this.resolvedContractConcreteTypes = resolvedContractConcreteTypes_OUT_PARAM.get();
+    }
+    // This final step defers validation of the actual types passed as args.
+    Type res = super.getValidatedExprType(scopedHeap);
+    if (revertNameAfterTypeValidation) {
+      procedureName_OUT_PARAM.set(originalName_OUT_PARAM.get());
+    }
+    return res;
+  }
+
+
+  public static boolean getValidatedTypeInternal(
+      final String contractName,
+      final Types.$Contract resolvedContractType,
+      ContractDefinitionStmt contractDefinitionStmt,
+      ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt,
+      ImmutableList<Expr> argExprs,
+      final Optional<Consumer<Exception>> optionalLogTypeError,
+      final ScopedHeap scopedHeap,
+      AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM,
+      AtomicReference<String> procedureName_OUT_PARAM,
+      AtomicReference<String> originalName_OUT_PARAM,
+      AtomicReference<String> referencedContractImplName_OUT_PARAM) throws ClaroTypeException {
+    // Do type inference of the concrete types by checking only the necessary args.
+    if (resolvedContractConcreteTypes_OUT_PARAM.get() == null) {
       // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
       HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
       for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgs) {
         StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
             inferredConcreteTypes,
             contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
-            this.argExprs.get(i).getValidatedExprType(scopedHeap)
+            argExprs.get(i).getValidatedExprType(scopedHeap)
         );
       }
-      this.resolvedContractConcreteTypes = contractDefinitionStmt.typeParamNames.stream()
-          .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
-          .collect(ImmutableList.toImmutableList());
+      resolvedContractConcreteTypes_OUT_PARAM.set(
+          contractDefinitionStmt.typeParamNames.stream()
+              .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
+              .collect(ImmutableList.toImmutableList()));
     }
 
     // If this contract procedure is getting called over any generic type params, then we need to validate that the
     // generic function it's getting called within actually already marks this particular contract impl as `required`.
     CheckContractImplAnnotatedRequiredWithinGenericFunctionDefinition:
     {
-      if (this.resolvedContractConcreteTypes.stream()
+      if (resolvedContractConcreteTypes_OUT_PARAM.get().stream()
           .anyMatch(contractTypeParam -> contractTypeParam.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
         Optional optionalRequiredContractNamesToGenericArgs =
             Optional.ofNullable(
@@ -165,8 +238,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           // There are actually some contracts annotated required, let's look for one that would match the current call.
           for (ImmutableList<Types.$GenericTypeParam> annotatedRequiredContractImplTypes :
               ((ListMultimap<String, ImmutableList<Types.$GenericTypeParam>>)
-                   optionalRequiredContractNamesToGenericArgs.get()).get(this.contractName)) {
-            if (annotatedRequiredContractImplTypes.equals(this.resolvedContractConcreteTypes)) {
+                   optionalRequiredContractNamesToGenericArgs.get()).get(contractName)) {
+            if (annotatedRequiredContractImplTypes.equals(resolvedContractConcreteTypes_OUT_PARAM.get())) {
               // Good job programmer!
               break CheckContractImplAnnotatedRequiredWithinGenericFunctionDefinition;
             }
@@ -174,23 +247,29 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
         }
         // Let's not make this a terminal exception that prevents continuing type checking. Just mark the error and
         // continue on with type checking to find more errors.
-        this.logTypeError(
+        ClaroTypeException badContractReferenceWithoutRequiresAnnotation =
             ClaroTypeException.forContractProcedureReferencedWithoutRequiredAnnotationOnGenericFunction(
-                this.contractName, this.name, this.resolvedContractConcreteTypes));
+                contractName, procedureName_OUT_PARAM.get(), resolvedContractConcreteTypes_OUT_PARAM.get());
+        if (optionalLogTypeError.isPresent()) {
+          optionalLogTypeError.get()
+              .accept(badContractReferenceWithoutRequiresAnnotation);
+        } else {
+          throw badContractReferenceWithoutRequiresAnnotation;
+        }
       }
     }
 
     // Set the canonical implementation name so that this can be referenced later simply by type.
     ImmutableList<String> concreteTypeStrings =
-        this.resolvedContractConcreteTypes.stream()
+        resolvedContractConcreteTypes_OUT_PARAM.get().stream()
             .map(Type::toString)
             .collect(ImmutableList.toImmutableList());
 
     // Check that there are the correct number of type params.
-    if (this.resolvedContractType.getTypeParamNames().size() != this.resolvedContractConcreteTypes.size()) {
+    if (resolvedContractType.getTypeParamNames().size() != resolvedContractConcreteTypes_OUT_PARAM.get().size()) {
       throw ClaroTypeException.forContractReferenceWithWrongNumberOfTypeParams(
-          ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings),
-          ContractImplementationStmt.getContractTypeString(this.contractName, this.resolvedContractType.getTypeParamNames())
+          ContractImplementationStmt.getContractTypeString(contractName, concreteTypeStrings),
+          ContractImplementationStmt.getContractTypeString(contractName, resolvedContractType.getTypeParamNames())
       );
     }
 
@@ -198,73 +277,91 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // possible when type validation is being performed for a generic function when arg types are actually not known
     // yet. We'll just skip looking up the contract procedure in the scoped heap at that point and return the generic
     // type that would have aligned with the output type.
-    this.originalName = this.name;
+    originalName_OUT_PARAM.set(procedureName_OUT_PARAM.get());
     boolean revertNameAfterTypeValidation =
         InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation;
-    if (resolvedContractConcreteTypes.stream()
+    if (resolvedContractConcreteTypes_OUT_PARAM.get().stream()
         .anyMatch(concreteContractType -> concreteContractType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))) {
       // Here, we're just doing a sanity check of a generic function definition, since we're checking against generic
       // type params rather than concrete types, so, just want to do a lookup on the non-impl contract procedure name in
       // the symbol table rather than a "real" implementation.
-      this.name = String.format("$%s::%s", this.contractName, this.name);
+      procedureName_OUT_PARAM.set(String.format("$%s::%s", contractName, procedureName_OUT_PARAM.get()));
     } else {
       // We can now resolve the contract's concrete types so that we can canonicalize the function call name.
-      this.name = ContractProcedureImplementationStmt.getCanonicalProcedureName(
-          this.contractName,
-          this.resolvedContractConcreteTypes,
-          this.name
+      procedureName_OUT_PARAM.set(
+          ContractProcedureImplementationStmt.getCanonicalProcedureName(
+              contractName,
+              resolvedContractConcreteTypes_OUT_PARAM.get(),
+              procedureName_OUT_PARAM.get()
+          )
       );
 
-
       String contractImplTypeString =
-          ContractImplementationStmt.getContractTypeString(this.contractName, concreteTypeStrings);
+          ContractImplementationStmt.getContractTypeString(contractName, concreteTypeStrings);
       if (!scopedHeap.isIdentifierDeclared(contractImplTypeString)) {
         throw ClaroTypeException.forContractProcedureCallOverUnimplementedConcreteTypes(contractImplTypeString);
       } else {
         // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
-        this.referencedContractImplName = (String) scopedHeap.getIdentifierValue(contractImplTypeString);
+        referencedContractImplName_OUT_PARAM.set(
+            (String) scopedHeap.getIdentifierValue(contractImplTypeString));
       }
     }
-
-    // This final step defers validation of the actual types passed as args.
-    Type res = super.getValidatedExprType(scopedHeap);
-    if (revertNameAfterTypeValidation) {
-      this.name = this.originalName;
-    }
-
-    // In case we actually would return a generic type here (bc we're still within a generic type validation phase), we
-    // can just go ahead and assume it safe to return the asserted type. This is because we know that when the Generic
-    // Procedure that this contract function call is made within is actually called, the correct monomorphization for
-    // this contract will be selected since the generic procedure's contract requirements will have been validated.
-    if (res.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-      return this.assertedOutputType;
-    }
-    return res;
+    return revertNameAfterTypeValidation;
   }
 
   private void resolveContractType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    AtomicReference<Types.$Contract> resolvedContractType_OUT_PARAM =
+        new AtomicReference<>(this.resolvedContractType);
+    AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.name);
+    AtomicReference<String> originalName_OUT_PARAM = new AtomicReference<>(this.originalName);
+    try {
+      ContractFunctionCallExpr.resolveContractType(
+          this.contractName, scopedHeap, resolvedContractType_OUT_PARAM, procedureName_OUT_PARAM, originalName_OUT_PARAM);
+    } finally {
+      // To simulate "out params" no matter what happens in this call, the side effects must occur.
+      this.resolvedContractType = resolvedContractType_OUT_PARAM.get();
+      this.name = procedureName_OUT_PARAM.get();
+      this.originalName = originalName_OUT_PARAM.get();
+    }
+  }
+
+  // In order to get some code reuse across ContractFunctionCallExpr and ContractConsumerCallStmt I unfortunately need
+  // to enable side effects to propagate to both callers. This hacked "out params" design is simply because Java doesn't
+  // give me any language level mechanism for this single procedure to have the desired side effect on both types...
+  // Claro will fix this by providing monomorphized generics over fields.
+  public static void resolveContractType(
+      String contractName,
+      ScopedHeap scopedHeap,
+      // Java is garbage so there's no painless way to do anything resembling multiple returns, so instead here's this
+      // gnarly hack. Taking in atomic refs so that I can simply use these as "out params" for lack of a better
+      // mechanism w/ language support....
+      AtomicReference<Types.$Contract> resolvedContractType_OUT_PARAM,
+      AtomicReference<String> procedureName_OUT_PARAM,
+      AtomicReference<String> originalName_OUT_PARAM)
+      throws ClaroTypeException {
     // Validate that the contract name is valid.
-    if (!scopedHeap.isIdentifierDeclared(this.contractName)) {
-      throw ClaroTypeException.forReferencingUnknownContract(this.contractName);
+    if (!scopedHeap.isIdentifierDeclared(contractName)) {
+      throw ClaroTypeException.forReferencingUnknownContract(contractName);
     }
-    Type contractType = scopedHeap.getValidatedIdentifierType(this.contractName);
+    Type contractType = scopedHeap.getValidatedIdentifierType(contractName);
     if (!contractType.baseType().equals(BaseType.$CONTRACT)) {
-      throw new ClaroTypeException(scopedHeap.getValidatedIdentifierType(this.contractName), BaseType.$CONTRACT);
+      throw new ClaroTypeException(scopedHeap.getValidatedIdentifierType(contractName), BaseType.$CONTRACT);
     }
-    this.resolvedContractType = (Types.$Contract) contractType;
+    resolvedContractType_OUT_PARAM.set((Types.$Contract) contractType);
 
     // Validate that the referenced procedure name is even actually in the referenced contract.
-    if (!resolvedContractType.getProcedureNames().contains(this.originalName == null ? this.name : this.originalName)) {
+    if (!resolvedContractType_OUT_PARAM.get().getProcedureNames().contains(
+        originalName_OUT_PARAM.get() == null ? procedureName_OUT_PARAM.get() : originalName_OUT_PARAM.get())) {
       throw ClaroTypeException.forContractReferenceUndefinedProcedure(
-          this.contractName, this.resolvedContractType.getTypeParamNames(), this.name);
+          contractName, resolvedContractType_OUT_PARAM.get().getTypeParamNames(), procedureName_OUT_PARAM.get());
     }
 
     // Ensure that we're starting off with a clean slate in regards to this.name being set to the original procedure
     // name. This is in the case that this contract function call is actually happening within a blocking-generic
     // procedure body, in which case the same ContractFunctionCallExpr node is being reused for type checking.
-    if (this.originalName != null) {
-      this.name = this.originalName;
-      this.originalName = null;
+    if (originalName_OUT_PARAM.get() != null) {
+      procedureName_OUT_PARAM.set(originalName_OUT_PARAM.get());
+      originalName_OUT_PARAM.set(null);
     }
   }
 
