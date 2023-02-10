@@ -180,7 +180,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // This final step defers validation of the actual types passed as args.
     Type res = super.getValidatedExprType(scopedHeap);
     if (revertNameAfterTypeValidation) {
-      procedureName_OUT_PARAM.set(originalName_OUT_PARAM.get());
+      this.name = originalName_OUT_PARAM.get();
     }
     return res;
   }

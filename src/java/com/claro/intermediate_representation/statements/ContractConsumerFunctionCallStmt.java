@@ -86,7 +86,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     // This final step defers validation of the actual types passed as args.
     super.assertExpectedExprTypes(scopedHeap);
     if (revertNameAfterTypeValidation) {
-      procedureName_OUT_PARAM.set(originalName_OUT_PARAM.get());
+      this.consumerName = originalName_OUT_PARAM.get();
     }
   }
 
