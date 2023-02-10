@@ -33,11 +33,23 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // We're handling both the case that this was called with a type statically asserted by the surrounding
-    // context, and that it wasn't, so cleanup in the case that contract wasn't already looked up yet.
-    if (this.resolvedContractType == null) {
-      this.resolveContractType(scopedHeap);
+    // First things first, reset to original state because type checking dictates codegen, and this node may be type
+    // checked multiple times in the case that it gets called within a generic procedure (hence, it'll at least be
+    // checked once for the generic procedure validation pass and once for any concrete monomorphization type checking).
+    {
+      referencedContractImplName = null;
+      resolvedContractConcreteTypes = null;
+      resolvedContractType = null;
+      originalName = null;
     }
+
+    this.resolveContractType(scopedHeap);
+
+    // Before we do any type checking, we essentially want to disable worrying about exact matches on generic
+    // type params. For a contract, we simply would want to know that the contract is listed in the requirements
+    // but for its generic argument positions it can be passed literally any type (since the existence of that
+    // contract impl will actually be validated at the callsite to the generic function, not here).
+    Expr.validatingContractProcCallWithinGenericProc = true;
 
     ContractDefinitionStmt contractDefinitionStmt =
         (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
@@ -49,6 +61,9 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
         contractProcedureSignatureDefinitionStmt,
         scopedHeap
     );
+
+    // Return type validation to the default state where Generic type params must be strictly checked for equality.
+    Expr.validatingContractProcCallWithinGenericProc = false;
   }
 
   private void assertExpectedExprTypesInternal(

@@ -987,7 +987,7 @@ trashcan_assignment ::=
     {: RESULT = new TrashcanAssignmentStmt(input_call); :}
 
   | // These only exist to allow you to still call procedures with return type generics.
-    UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp function_call_expr:function_call
+    UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp function_call_expr:function_call SEMICOLON
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(function_call.currentLine, function_call.currentLineNumber));
@@ -996,7 +996,7 @@ trashcan_assignment ::=
 
        RESULT = new TrashcanAssignmentStmt(new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, function_call, currentLinesSupplier, function_call.currentLineNumber, startCol, endCol));
     :}
-  | UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp provider_function_call_expr:provider_call
+  | UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp provider_function_call_expr:provider_call SEMICOLON
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(provider_call.currentLine, provider_call.currentLineNumber));

@@ -81,18 +81,22 @@ print("-------------------------------------------------------------------------
 print(foo(900000));
 print(bar("sup "));
 
-# TODO(steving) Somehow, Claro still has no way to convert btwn string <-> int...crazy, huh. Fix this.
-#implement BinaryMathOps<int, int, string> as IntegerAdditionFormattedAsString {
-#  function add(lhs: int, rhs: int) -> string {
-#    var intAdditionRes: int = BinaryMathOps<int, int, int>::add(lhs, rhs);
-#    return "Integer Addition Res String: {intAdditionRes}";
-#  }
-#}
-#print("Testing BinaryMathOps<int, int, string>::add");
-#print(BinaryMathOps<int, int, string>::add(1, 99));
-#print("...again using inference.");
-#var intintstringres: string = BinaryMathOps::add(100, 28);
-#print(intintstringres);
+implement BinaryMathOps<int, int, string> as IntegerAdditionFormattedAsString {
+  function add(lhs: int, rhs: int) -> string {
+    var intAdditionRes: int = BinaryMathOps::add(lhs, rhs);
+    return "Integer Addition Res String: {intAdditionRes}";
+  }
+  function multiply(lhs: int, rhs: int) -> string {
+    var intMultRes: int = BinaryMathOps::multiply(lhs, rhs);
+    return "Integer Multiplication Res String: {intMultRes}";
+  }
+}
+print("--------------------------------------------------------------------------------");
+print("Testing BinaryMathOps<int, int, string>::add");
+print((string) BinaryMathOps::add(1, 99));
+print("...again using inference.");
+var intintstringres: string = BinaryMathOps::add(100, 28);
+print(intintstringres);
 
 #########################################################################
 ## A FEW GENERICS EXAMPLES!!
@@ -112,16 +116,6 @@ var vtuple: tuple<string, string> = ("Claro world!", "effing sweet.");
 var firstGenericResult: tuple<string, string> = pairwiseSum(ttuple, vtuple);
 print(firstGenericResult[0]);
 print(firstGenericResult[1]);
-
-
-# TODO(steving) Somehow, Claro still has no way to convert btwn string <-> int...crazy, huh. Fix this.
-#print("----------------------------------------------------------");
-#print("Testing Generic function pairwiseSum<string, int, string>:");
-#var ttuple2: tuple<string, string> = ("Number of problems I got: ", "Generics ain't ");
-#var vtuple2: tuple<int, int> = (99, 1);
-#var secondGenericResult: tuple<string, string> = pairwiseSum(ttuple2, vtuple2);
-#print(secondGenericResult[0]);
-#print(secondGenericResult[1]);
 
 print("----------------------------------------------------------");
 print("Testing Generic function pairwiseSum<int, int, int>:");
@@ -256,3 +250,13 @@ print("----------------------------------------------------------");
 print("Testing Consumer Consumes<T>::prefixPrint");
 Consumes::prefixPrint("Contract Consumer Call", 1);
 Consumes::prefixPrint("Contract Consumer Call", "two");
+
+# Of course, generic procedures may defer to contract consumers.
+requires(Consumes<T>, BinaryMathOps<T, T, T>)
+consumer genericConsumer<T>(t: T) {
+  Consumes::prefixPrint("DEFERRED", t);
+  _ = (T) BinaryMathOps::add(t, t);
+}
+genericConsumer(3);
+genericConsumer("three");
+
