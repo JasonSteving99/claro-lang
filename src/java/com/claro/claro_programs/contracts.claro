@@ -234,15 +234,29 @@ print(Bar::doItBlocking(2, blocker));
 
 contract Consumes<T> {
   consumer prefixPrint(prefix: string, t: T);
+  blocking consumer doBlocking(doFn: blocking consumer<T>);
+  blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<T>);
 }
 implement Consumes<int> as IntConsumes {
   consumer prefixPrint(prefix: string, t: int) {
     print("{prefix}: {t}");
   }
+  blocking consumer doBlocking(doFn: blocking consumer<int>) {
+    doFn(-1);
+  }
+  blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<int>) {
+    doFn(-1);
+  }
 }
 implement Consumes<string> as StrConsumes {
   consumer prefixPrint(prefix: string, t: string) {
     print("{prefix}: {t}");
+  }
+  blocking consumer doBlocking(doFn: blocking consumer<string>) {
+    doFn("-1");
+  }
+  blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<string>) {
+    doFn("-1");
   }
 }
 
@@ -250,7 +264,30 @@ print("----------------------------------------------------------");
 print("Testing Consumer Consumes<T>::prefixPrint");
 Consumes::prefixPrint("Contract Consumer Call", 1);
 Consumes::prefixPrint("Contract Consumer Call", "two");
+print("----------------------------------------------------------");
+print("Testing Consumer Consumes<T>::doBlocking");
+Consumes::doBlocking(blockingIntConsumer);
+Consumes::doBlocking(blockingStrConsumer);
+blocking consumer blockingIntConsumer(i: int) {
+  print("called blocking int consumer");
+  var res <-| testGraph(i);
+  _ = res;
+}
+blocking consumer blockingStrConsumer(s: string) {
+  _ = s;
+  print("called blocking string consumer");
+  var res <-| testGraph(-1);
+  _ = res;
+}
+print("----------------------------------------------------------");
+print("Testing Consumer Consumes<T>::doBlockingGen");
+Consumes::doBlockingGen(blockingIntConsumer);
+Consumes::doBlockingGen(lambda (x:int) -> { print("called non-blocking int consumer"); _ = x; });
+Consumes::doBlockingGen(blockingStrConsumer);
+Consumes::doBlockingGen(lambda (x:string) -> { print("called non-blocking string consumer"); _ = x; });
 
+print("----------------------------------------------------------");
+print("Testing calling contract consumer from within generic procedure def");
 # Of course, generic procedures may defer to contract consumers.
 requires(Consumes<T>, BinaryMathOps<T, T, T>)
 consumer genericConsumer<T>(t: T) {
