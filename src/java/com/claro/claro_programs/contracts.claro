@@ -229,13 +229,16 @@ print(Bar::doItBlocking(2, blocker));
 
 
 ####################################################################################################
-# DEMONSTRATE CONTRACTS THAT INCLUDE CONSUMER SIGNATURES
+# DEMONSTRATE A CONTRACT THAT INCLUDES EVERY TYPE OF CONSUMER SIGNATURE
 ####################################################################################################
 
 contract Consumes<T> {
   consumer prefixPrint(prefix: string, t: T);
   blocking consumer doBlocking(doFn: blocking consumer<T>);
   blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<T>);
+  consumer genPrefixPrint<P>(prefix: P, t: T);
+  blocking consumer genDoBlocking<A>(ignored: T, arg: A, doFn: blocking consumer<A>);
+  blocking:doFn consumer genDoBlockingGen<A>(ignored: T, arg: A, doFn: blocking? consumer<A>);
 }
 implement Consumes<int> as IntConsumes {
   consumer prefixPrint(prefix: string, t: int) {
@@ -246,6 +249,19 @@ implement Consumes<int> as IntConsumes {
   }
   blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<int>) {
     doFn(-1);
+  }
+  consumer genPrefixPrint<P>(prefix: P, t: int) {
+    print("{prefix}: {t}");
+  }
+  blocking consumer genDoBlocking<T>(ignored: int, arg: T, doFn: blocking consumer<T>) {
+    _ = ignored;
+    print("called Consumes<int>::genDoBlocking");
+    doFn(arg);
+  }
+  blocking:doFn consumer genDoBlockingGen<T>(ignored: int, arg: T, doFn: blocking? consumer<T>) {
+    _ = ignored;
+    print("called Consumes<int>::genDoBlockingGen");
+    doFn(arg);
   }
 }
 implement Consumes<string> as StrConsumes {
@@ -258,6 +274,19 @@ implement Consumes<string> as StrConsumes {
   blocking:doFn consumer doBlockingGen(doFn: blocking? consumer<string>) {
     doFn("-1");
   }
+  consumer genPrefixPrint<P>(prefix: P, t: string) {
+    print("{prefix}: {t}");
+  }
+  blocking consumer genDoBlocking<T>(ignored: string, arg: T, doFn: blocking consumer<T>) {
+    _ = ignored;
+    print("called Consumes<string>::genDoBlocking");
+    doFn(arg);
+  }
+  blocking:doFn consumer genDoBlockingGen<T>(ignored: string, arg: T, doFn: blocking? consumer<T>) {
+    _ = ignored;
+    print("called Consumes<string>::genDoBlockingGen");
+    doFn(arg);
+  }
 }
 
 print("----------------------------------------------------------");
@@ -265,7 +294,7 @@ print("Testing Consumer Consumes<T>::prefixPrint");
 Consumes::prefixPrint("Contract Consumer Call", 1);
 Consumes::prefixPrint("Contract Consumer Call", "two");
 print("----------------------------------------------------------");
-print("Testing Consumer Consumes<T>::doBlocking");
+print("Testing Blocking Consumer Consumes<T>::doBlocking");
 Consumes::doBlocking(blockingIntConsumer);
 Consumes::doBlocking(blockingStrConsumer);
 blocking consumer blockingIntConsumer(i: int) {
@@ -280,11 +309,29 @@ blocking consumer blockingStrConsumer(s: string) {
   _ = res;
 }
 print("----------------------------------------------------------");
-print("Testing Consumer Consumes<T>::doBlockingGen");
+print("Testing Blocking-Generic Consumer Consumes<T>::doBlockingGen");
 Consumes::doBlockingGen(blockingIntConsumer);
 Consumes::doBlockingGen(lambda (x:int) -> { print("called non-blocking int consumer"); _ = x; });
 Consumes::doBlockingGen(blockingStrConsumer);
 Consumes::doBlockingGen(lambda (x:string) -> { print("called non-blocking string consumer"); _ = x; });
+print("----------------------------------------------------------");
+print("Testing Generic Consumer Consumes<T>::genPrefixPrint");
+Consumes::genPrefixPrint("Generic Contract Consumer Call", 1);
+Consumes::genPrefixPrint(1, 1);
+Consumes::genPrefixPrint("Generic Contract Consumer Call", "two");
+Consumes::genPrefixPrint(2, "two");
+print("----------------------------------------------------------");
+print("Testing Generic, Blocking Consumer Consumes<T>::genDoBlocking");
+Consumes::genDoBlocking(1, 1, blockingIntConsumer);
+Consumes::genDoBlocking(2, "two", blockingStrConsumer);
+Consumes::genDoBlocking("three", 1, blockingIntConsumer);
+Consumes::genDoBlocking("four", "two", blockingStrConsumer);
+print("----------------------------------------------------------");
+print("Testing Generic, Blocking-Generic Consumer Consumes<T>::genDoBlockingGen");
+Consumes::genDoBlockingGen(1, 1, blockingIntConsumer);
+Consumes::genDoBlockingGen(2, 2, lambda (x:int) -> { print("called non-blocking int consumer"); _ = x; });
+Consumes::genDoBlockingGen("three", "three", blockingStrConsumer);
+Consumes::genDoBlockingGen("four", "four", lambda (x:string) -> { print("called non-blocking string consumer"); _ = x; });
 
 print("----------------------------------------------------------");
 print("Testing calling contract consumer from within generic procedure def");
