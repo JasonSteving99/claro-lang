@@ -24,6 +24,15 @@ public class ClaroTypeException extends Exception {
       "Invalid type: found <%s>, but expected one of (<%s>).";
   private static final String INVALID_OPERATOR_OPERANDS_TYPE_ONE_OF_ERROR_MESSAGE_FMT_STR =
       "Internal Compiler Error: Operator `<%s>` expects one of (<%s>) for operands.";
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // BEGIN WARNING: "IF_CHANGE(UNDECIDED)"
+  //   FunctionCallExpr's type validation has a dependency on the word "UNDECIDED"
+  //   to check whether it should propagate an error or not. Bad design, sure, but
+  //   it is the current state of the world. If you're going to change these error
+  //   messages, first validate FunctionCallExpr type validation is updated too.
+  ////////////////////////////////////////////////////////////////////////////////
   private static final String UNDECIDED_TYPE_LEAK_ERROR_MESSAGE_FMT_STR =
       "The type of this expression is UNDECIDED at compile-time! You must explicitly cast the Expr to the contextually expected type <%s> to assert this type at compile-time or fix a bug if the contextually expected type isn't applicable.";
   private static final String UNDECIDED_TYPE_LEAK_GENERIC_ERROR_MESSAGE_FMT_STR =
@@ -32,6 +41,11 @@ public class ClaroTypeException extends Exception {
       "The type of this empty list is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty list `[]` assigned to it to assert this type statically at compile-time.";
   private static final String MISSING_TYPE_DECLARATION_FOR_EMPTY_MAP_INITIALIZATION =
       "The type of this empty map is UNDECIDED at compile-time! You must explicitly declare the type of a variable having the empty map `{}` assigned to it to assert this type statically at compile-time.";
+  ////////////////////////////////////////////////////////////////////////////////
+  // END WARNING: "IF_CHANGE(UNDECIDED)"
+  ////////////////////////////////////////////////////////////////////////////////
+
+
   public static final String MISSING_TYPE_DECLARATION_FOR_LAMBDA_INITIALIZATION =
       // WARNING: CHECKING AGAINST THIS IN FunctionCallExpr.java! DO NOT CHANGE THIS STRING WITHOUT CHECKING THERE FIRST.
       "Ambiguous Lambda Expression Type: Type hint required. When a lambda Expr's type is not constrained by its context, the type must be statically declared via either a type annotation, or a cast.";

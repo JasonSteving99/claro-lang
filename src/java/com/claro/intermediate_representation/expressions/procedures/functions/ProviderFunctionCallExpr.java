@@ -11,12 +11,14 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.Hashing;
 
 import java.util.function.Supplier;
 
 public class ProviderFunctionCallExpr extends Expr {
-  private final String functionName;
+  protected String functionName;
   private final String originalName;
+  protected boolean hashNameForCodegen;
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -83,9 +85,35 @@ public class ProviderFunctionCallExpr extends Expr {
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
-    scopedHeap.markIdentifierUsed(this.functionName);
+    // It's possible that during the process of monomorphization when we are doing type checking over a particular
+    // signature, this function call might represent the identification of a new signature for a generic function that
+    // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    if (!this.functionName.contains("$MONOMORPHIZATION")) {
+      scopedHeap.markIdentifierUsed(this.functionName);
+    } else {
+      this.hashNameForCodegen = true;
+    }
 
-    return new StringBuilder(String.format("%s.apply()", this.functionName));
+    if (this.hashNameForCodegen) {
+      // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
+      // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
+      // still unique.
+      this.functionName =
+          String.format(
+              "%s__%s",
+              this.originalName,
+              Hashing.sha256().hashUnencodedChars(this.functionName).toString()
+          );
+    }
+
+    StringBuilder res = new StringBuilder(String.format("%s.apply()", this.functionName));
+
+    // This node will be potentially reused assuming that it is called within a Generic function that gets
+    // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
+    // the name now.
+    this.functionName = this.originalName;
+
+    return res;
   }
 
   @Override

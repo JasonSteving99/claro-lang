@@ -16,7 +16,7 @@ import java.util.Set;
 
 public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public final String procedureName;
-  private final ImmutableMap<String, TypeProvider> argTypeProvidersByNameMap;
+  private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<TypeProvider> optionalOutputTypeProvider;
   private final Boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
@@ -34,14 +34,14 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
 
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
-      ImmutableMap<String, TypeProvider> argTypeProvidersByNameMap,
+      Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap,
       Optional<TypeProvider> optionalOutputTypeProvider,
       Boolean explicitlyAnnotatedBlocking,
       Optional<ImmutableList<String>> optionalGenericBlockingOnArgs,
       Optional<ImmutableList<String>> optionalGenericTypesList) {
     super(ImmutableList.of());
     this.procedureName = procedureName;
-    this.argTypeProvidersByNameMap = argTypeProvidersByNameMap;
+    this.optionalArgTypeProvidersByNameMap = optionalArgTypeProvidersByNameMap;
     this.optionalOutputTypeProvider = optionalOutputTypeProvider;
     this.explicitlyAnnotatedBlocking = explicitlyAnnotatedBlocking;
     this.optionalGenericBlockingOnArgs = optionalGenericBlockingOnArgs;
@@ -86,16 +86,18 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
       }
     }
     ImmutableList.Builder<GenericSignatureType> resolvedTypesBuilder = ImmutableList.builder();
-    for (Map.Entry<String, TypeProvider> argTypeByName : this.argTypeProvidersByNameMap.entrySet()) {
-      Type resolvedArgType = argTypeByName.getValue().resolveType(scopedHeap);
-      if (resolvedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-        resolvedTypesBuilder.add(
-            GenericSignatureType.forTypeParamName(
-                // All of these back flips of modeling a Type for generic type params was to be able to recover the
-                // param name here. Really this is working around a deficiency in the parser.
-                ((Types.$GenericTypeParam) resolvedArgType).getTypeParamName()));
-      } else {
-        resolvedTypesBuilder.add(GenericSignatureType.forResolvedType(resolvedArgType));
+    if (this.optionalArgTypeProvidersByNameMap.isPresent()) {
+      for (Map.Entry<String, TypeProvider> argTypeByName : this.optionalArgTypeProvidersByNameMap.get().entrySet()) {
+        Type resolvedArgType = argTypeByName.getValue().resolveType(scopedHeap);
+        if (resolvedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
+          resolvedTypesBuilder.add(
+              GenericSignatureType.forTypeParamName(
+                  // All of these back flips of modeling a Type for generic type params was to be able to recover the
+                  // param name here. Really this is working around a deficiency in the parser.
+                  ((Types.$GenericTypeParam) resolvedArgType).getTypeParamName()));
+        } else {
+          resolvedTypesBuilder.add(GenericSignatureType.forResolvedType(resolvedArgType));
+        }
       }
     }
     // Preserve the resolved signature types so that we can validate against this for contract impls later on.
@@ -156,7 +158,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     // Now put the signature in the scoped heap so that we can validate it's not reused in this contract.
     Type procedureType;
     if (this.resolvedArgTypes.size() > 0) {
-      ImmutableList<String> argNames = this.argTypeProvidersByNameMap.keySet().asList();
+      ImmutableList<String> argNames = this.optionalArgTypeProvidersByNameMap.get().keySet().asList();
       this.optionalAnnotatedBlockingGenericOnArgs =
           this.optionalGenericBlockingOnArgs.map(
               l -> l.stream()

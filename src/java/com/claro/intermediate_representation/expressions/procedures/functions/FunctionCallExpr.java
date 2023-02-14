@@ -314,7 +314,19 @@ public class FunctionCallExpr extends Expr {
           }
           foundBlockingFuncArg |= ((Types.ProcedureType) validatedType).getIsBlocking().get();
         }
-      } catch (ClaroTypeException ignored) {
+      } catch (ClaroTypeException inferenceError) {
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // BEGIN WARNING: "THEN_CHANGE(UNDECIDED)"
+        ////////////////////////////////////////////////////////////////////////////////
+        if (inferenceError.getMessage().contains("UNDECIDED")) {
+          argExprs.get(i).logTypeError(inferenceError);
+          continue;
+        }
+        ////////////////////////////////////////////////////////////////////////////////
+        // END WARNING: "THEN_CHANGE(UNDECIDED)"
+        ////////////////////////////////////////////////////////////////////////////////
+
         // In case we're not able to structurally validate this arg's type aligns with the generic structure of the
         // function's expected arg type, then we want to alert the programmer with a log line that actually points to
         // the entire arg, not the one place where there was a mismatch internally in the structure. This is a UX choice
@@ -340,7 +352,7 @@ public class FunctionCallExpr extends Expr {
         // the caller must assert the type of the procedure arg themselves with either a cast or the inline-typed
         // lambda syntax (i.e. `(x:int) -> boolean { ... }`).
         if (argType instanceof Types.ProcedureType
-            && ignored.getMessage().contains("Ambiguous Lambda Expression Type:")
+            && inferenceError.getMessage().contains("Ambiguous Lambda Expression Type:")
             && (((Types.ProcedureType) inferredRequiredConcreteType).getArgTypes().stream()
                     .anyMatch(t -> t instanceof Types.$GenericTypeParam)
                 || (((Types.ProcedureType) inferredRequiredConcreteType).hasReturnValue()
