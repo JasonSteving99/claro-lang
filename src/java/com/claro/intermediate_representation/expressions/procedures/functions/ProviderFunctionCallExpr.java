@@ -13,17 +13,30 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class ProviderFunctionCallExpr extends Expr {
   protected String functionName;
   private final String originalName;
   protected boolean hashNameForCodegen;
+  private Type assertedOutputTypeForGenericFunctionCallUse;
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.functionName = functionName;
     this.originalName = functionName;
+  }
+
+  @Override
+  public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    // We simply want to make note of the type that was asserted on this function call for the sake of
+    // GENERIC FUNCTION CALLS ONLY. For all other concrete function calls this will be ignored since we
+    // actually definitively know the return type from concrete function calls.
+    this.assertedOutputTypeForGenericFunctionCallUse = expectedExprType;
+    super.assertExpectedExprType(scopedHeap, expectedExprType);
+    Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages = Optional.empty();
   }
 
   @Override
@@ -56,6 +69,54 @@ public class ProviderFunctionCallExpr extends Expr {
         this.functionName
     );
 
+    Type calledFunctionReturnType = ((Types.ProcedureType.ProviderType) referencedIdentifierType).getReturnType();
+
+    if (((Types.ProcedureType.ProviderType) referencedIdentifierType).getGenericProcedureArgNames().isPresent()) {
+      // It's invalid to call a Generic Provider without a contextually asserted type output type.
+      if (this.assertedOutputTypeForGenericFunctionCallUse == null) {
+        // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
+        // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
+        // other args, therefore making Contract Impl inference via the arg types alone impossible.
+        throw ClaroTypeException.forGenericProviderCallWithoutRequiredContextualOutputTypeAssertion(
+            referencedIdentifierType,
+            this.functionName,
+            calledFunctionReturnType
+        );
+      }
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // !WARNING! CONSIDER THE ENTIRE BELOW SECTION AS CONCEPTUALLY A SINGLE INLINED FUNCTION CALL. EDIT AS A UNIT.
+      //
+      // This hackery is a workaround for Java not supporting true reference semantics to allowing variables to be
+      // updated by called functions, and also not allowing painless multiple returns. So these AtomicReferences are
+      // used as a workaround to simulate some sort of "out params". All of this only exists because I need this exact
+      // same behavior in the implementations of FunctionCallExpr/ProviderFunctionCallExpr/ConsumerFunctionCallStmt.
+      // Take this as another example of where Java's concept of hierarchical type structures is a fundamentally broken
+      // design (Consumer calls are clearly a Stmt, but really it should share behavior w/ the Provider/Function call
+      // Exprs but yet there's no way to model that relationship with a type hierarchy).
+      // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      AtomicReference<Type> calledFunctionReturnType_OUT_PARAM = new AtomicReference<>(calledFunctionReturnType);
+      AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM =
+          new AtomicReference<>((Types.ProcedureType) referencedIdentifierType);
+      AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.functionName);
+      try {
+        FunctionCallExpr.validateGenericProcedureCall(
+            Optional.of(this),
+            Optional.of(this.assertedOutputTypeForGenericFunctionCallUse),
+            /*argExprs=*/ ImmutableList.of(),
+            scopedHeap,
+            // "Out params".
+            calledFunctionReturnType_OUT_PARAM,
+            referencedIdentifierType_OUT_PARAM,
+            procedureName_OUT_PARAM
+        );
+      } finally {
+        // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
+        calledFunctionReturnType = calledFunctionReturnType_OUT_PARAM.get();
+        referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();
+        this.functionName = procedureName_OUT_PARAM.get();
+      }
+    }
+
     // Validate that the procedure has been called in a scope that provides the correct bindings.
     // We only care about referencing top-level functions, not any old function (e.g. not lambdas or func refs).
     // Pass in the original func name called so that for the case of monomorphized generic funcs we have a single
@@ -66,19 +127,17 @@ public class ProviderFunctionCallExpr extends Expr {
     // propagate the blocking annotation. In service of Claro's goal to provide "Fearless Concurrency" through Graph
     // Procedures, any procedure that can reach a blocking operation is marked as blocking so that we can prevent its
     // usage from Graph Functions.
-    InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-        .ifPresent(
-            procedureDefinitionStmt -> {
-              if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
-                ((ProcedureDefinitionStmt) procedureDefinitionStmt)
-                    .resolvedProcedureType.getIsBlocking().set(true);
-              }
-            });
+    if (InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()) {
+      if (((Types.ProcedureType) referencedIdentifierType).getAnnotatedBlocking()) {
+        ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
+            .resolvedProcedureType.getIsBlocking().set(true);
+      }
+    }
 
     // Now that everything checks out, go ahead and mark the function used to satisfy the compiler checks.
     scopedHeap.markIdentifierUsed(this.functionName);
 
-    return ((Types.ProcedureType.ProviderType) referencedIdentifierType).getReturnType();
+    return calledFunctionReturnType;
   }
 
   @Override

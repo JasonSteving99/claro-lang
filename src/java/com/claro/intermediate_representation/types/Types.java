@@ -627,7 +627,7 @@ public final class Types {
           Stmt procedureDefinitionStmt,
           boolean explicitlyAnnotatedBlocking) {
         return ProviderType.forReturnType(
-            returnType, BaseType.PROVIDER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, explicitlyAnnotatedBlocking);
+            returnType, BaseType.PROVIDER_FUNCTION, directUsedInjectedKeys, procedureDefinitionStmt, explicitlyAnnotatedBlocking, Optional.empty(), Optional.empty());
       }
 
       public static ProviderType forReturnType(
@@ -635,21 +635,24 @@ public final class Types {
           BaseType overrideBaseType,
           Set<Key> directUsedInjectedKeys,
           Stmt procedureDefinitionStmt,
-          boolean explicitlyAnnotatedBlocking) {
+          Boolean explicitlyAnnotatedBlocking,
+          Optional<ImmutableList<String>> optionalGenericProcedureArgNames,
+          Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs) {
         ProviderType providerType = new AutoValue_Types_ProcedureType_ProviderType(
             BaseType.PROVIDER_FUNCTION,
             ImmutableList.of(),
             returnType,
             explicitlyAnnotatedBlocking,
             Optional.empty(),
-            // Actually there's no such thing as a generic provider function, it's literally not possible.
-            Optional.empty()
+            optionalGenericProcedureArgNames
         );
 
         providerType.autoValueIgnoredHasArgs.set(false);
         providerType.autoValueIgnoredHasReturnValue.set(true);
         providerType.autoValueIgnoredUsedInjectedKeys.set(Sets.newHashSet(directUsedInjectedKeys));
         providerType.autoValueIgnoredProcedureDefStmt.set(procedureDefinitionStmt);
+        providerType.allTransitivelyRequiredContractNamesToGenericArgs.set(
+            optionalRequiredContractNamesToGenericArgs.map(ArrayListMultimap::create).orElse(null));
 
         if (overrideBaseType != BaseType.PROVIDER_FUNCTION) {
           providerType.autoValueIgnoredOptionalOverrideBaseType.set(Optional.of(overrideBaseType));

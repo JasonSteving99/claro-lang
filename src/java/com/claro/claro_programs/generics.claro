@@ -175,6 +175,44 @@ genericConsumer(["ten"]);
 
 
 ############################################################################################################
+## DEMONSTRATE A GENERIC PROVIDER FUNCTION
+############################################################################################################
+
+# This is a deceptively simple procedure. It might be easy to imagine this procedure provided as a "builtin"
+# stdlib feature implemented using compiler intrinsics that the users couldn't write in user space. It's
+# pretty fascinating seeing Claro support users writing this themselves.
+provider list<T>() -> [T] {
+  return [];
+}
+
+print("----------------------------------------------------------");
+print("Testing generic provider list<T>");
+var intList: [int] = list();
+append(intList, 1);
+print(intList);
+type(intList);
+var strList: [string] = list();
+append(strList, "one");
+print(strList);
+type(strList);
+
+############################################################################################################
+## DEMONSTRATE A GENERIC BLOCKING PROVIDER FUNCTION
+############################################################################################################
+
+blocking provider getListBlocking<T>() -> [T] {
+  _ = block("ignored");
+  return [];
+}
+
+print("----------------------------------------------------------");
+print("Testing generic blocking provider getListBlocking<T>");
+intList = getListBlocking();
+print(intList);
+strList = getListBlocking();
+print(strList);
+
+############################################################################################################
 ## TOY EXAMPLE SHOWING HOW A FRAMEWORK MIGHT USE THIS TO PROVIDE FUNCTIONALITY W/O KNOWING ABOUT YOUR TYPES
 ############################################################################################################
 
@@ -266,7 +304,7 @@ print("----------------------------------------------------------");
 print(example(100, (x: string) -> string { return x; }));
 
 blocking function block(x: string) -> string {
-  print(x);
+  _ = x; # Ignore it and be less noisy.
   var res <-| fooGraph(100);
   return res;
 }

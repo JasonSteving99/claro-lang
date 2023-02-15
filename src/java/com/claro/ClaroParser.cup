@@ -366,6 +366,7 @@ nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_
 nonterminal ConsumerFunctionDefinitionStmt     consumer_function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_consumer_function_definition_stmt;
 nonterminal ProviderFunctionDefinitionStmt     provider_function_definition_stmt;
+nonterminal GenericFunctionDefinitionStmt      generic_provider_function_definition_stmt;
 nonterminal GraphFunctionDefinitionStmt        graph_function_definition_stmt;
 nonterminal GraphProviderDefinitionStmt        graph_provider_definition_stmt;
 nonterminal GraphConsumerDefinitionStmt        graph_consumer_definition_stmt;
@@ -456,6 +457,8 @@ stmts_and_defs_list ::=
     {: RESULT = new StmtListNode(f, tail); :}
   | generic_consumer_function_definition_stmt:f stmts_and_defs_list:tail
     {: RESULT = new StmtListNode(f, tail); :}
+  | generic_provider_function_definition_stmt:f stmts_and_defs_list:tail
+    {: RESULT = new StmtListNode(f, tail); :}
 
   // We'll allow files with only a single one of these following stmts as well.
   | stmt:s
@@ -469,6 +472,8 @@ stmts_and_defs_list ::=
   | generic_function_definition_stmt:f
     {: RESULT = new StmtListNode(f); :}
   | generic_consumer_function_definition_stmt:f
+    {: RESULT = new StmtListNode(f); :}
+  | generic_provider_function_definition_stmt:f
     {: RESULT = new StmtListNode(f); :}
   ;
 
@@ -2117,6 +2122,53 @@ provider_function_definition_stmt ::=
     :}
   ;
 
+generic_provider_function_definition_stmt ::=
+    PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+
+       ImmutableList<String> genericTypesList =
+         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableListMultimap.of(), genericTypesList, ImmutableMap.of(), /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+    :}
+  | REQUIRES LPAR required_contracts:required_contracts RPAR PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+
+       ImmutableList<String> genericTypesList =
+         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      RESULT = new GenericFunctionDefinitionStmt(name.val, (ImmutableListMultimap<String,ImmutableList<Type>>) required_contracts.build(), genericTypesList, ImmutableMap.of(), /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
+    :}
+  | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+
+       ImmutableList<String> genericTypesList =
+         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      RESULT = new GenericFunctionDefinitionStmt(name.val, /*requiredContracts=*/ImmutableListMultimap.of(), genericTypesList, ImmutableMap.of(), /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+    :}
+  | REQUIRES LPAR required_contracts:required_contracts RPAR BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
+    {:
+      // Set the return type for all of the ReturnStmts that are waiting on it and reset the holder.
+      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
+      returnTypeHolder.set(outputTypeProvider);
+      returnTypeHolder = null;
+
+       ImmutableList<String> genericTypesList =
+         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      RESULT = new GenericFunctionDefinitionStmt(name.val, (ImmutableListMultimap<String,ImmutableList<Type>>) required_contracts.build(), genericTypesList, ImmutableMap.of(), /*optionalInjectedKeysTypes=*/Optional.empty(), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
+    :}
+  ;
+
 injected_keys_list ::=
     IDENTIFIER:key_name COLON:colon builtin_type:t COMMA:comma injected_keys_list:tail
     {:
@@ -2509,8 +2561,6 @@ contract_signature_defs_list ::=
     :}
   ;
 
-// TODO(steving) Support all procedure signatures here. However, don't model `using` in the contracts.
-// TODO(steving)   - Providers
 contract_procedure_signature_definition_stmt ::=
    // FUNCTIONS
    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON

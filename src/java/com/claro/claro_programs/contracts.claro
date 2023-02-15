@@ -404,3 +404,30 @@ myMap["foo"] = 99;
 print(myMap["foo"]);
 print(getOrDefault(myMap, "bar"));
 print(myMap);
+
+
+print("----------------------------------------------------------");
+print("Testing Generic Provider defaultPair<A,B> requiring Default<A>, Default<B>");
+
+requires(Default<A>, Default<B>)
+provider defaultPair<A,B>() -> tuple<A, B> {
+  return (Default::get(), Default::get());
+}
+
+var defTup: tuple<int, string> = defaultPair();
+print(defTup);
+var defTup2: tuple<string, int> = defaultPair();
+print(defTup2);
+
+print("----------------------------------------------------------");
+print("Testing Generic Blocking Provider defaultPairBlocking<A,B> requiring Default<A>, Default<B>");
+
+requires(Default<A>, Default<B>)
+blocking provider defaultPairBlocking<A,B>() -> tuple<A, B> {
+  return (Default::getBlocking(), Default::getBlocking());
+}
+
+defTup = defaultPairBlocking();
+print(defTup);
+defTup2 = defaultPairBlocking();
+print(defTup2);

@@ -168,8 +168,6 @@ public class FunctionCallExpr extends Expr {
             referencedIdentifierType_OUT_PARAM,
             procedureName_OUT_PARAM
         );
-      } catch (Exception e) {
-        throw e;
       } finally {
         // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
         calledFunctionReturnType = calledFunctionReturnType_OUT_PARAM.get();

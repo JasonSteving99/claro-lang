@@ -174,8 +174,6 @@ public class ConsumerFunctionCallStmt extends Stmt {
                                                  referencedIdentifierType_OUT_PARAM,
                                                  procedureName_OUT_PARAM
         );
-      } catch (Exception e) {
-        throw e;
       } finally {
         // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
         referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();

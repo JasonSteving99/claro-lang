@@ -68,7 +68,9 @@ public class ProviderFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                     baseType,
                     Sets.newHashSet(),
                     procedureDefinitionStmt,
-                    /*explicitlyAnnotatedBlocking=*/false
+                    /*explicitlyAnnotatedBlocking=*/false,
+                    /*optionalGenericProcedureArgNames=*/ Optional.empty(),
+                    /*optionalRequiredContractNamesToGenericArgs=*/ Optional.empty()
                 ),
         stmtListNode
     );

@@ -171,7 +171,9 @@ public class ClaroTypeException extends Exception {
   private static final String INVALID_LAMBDA_CAST =
       "Invalid Lambda Expr Cast: Cannot cast lambda to non-procedure type!\n\tExpected: %s";
   private static final String AMBIGUOUS_CONTRACT_PROCEDURE_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION =
-      "Ambiguous Contract Procedure Call: Calls to the procedure %s<%s>::%s is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
+      "Ambiguous Contract Procedure Call: Calls to the procedure `%s<%s>::%s` is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
+  private static final String AMBIGUOUS_GENERIC_PROVIDER_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION =
+      "Ambiguous Generic Provider Call: Calls to the generic `%s` `%s` is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -748,6 +750,18 @@ public class ClaroTypeException extends Exception {
             contractName,
             Joiner.on(", ").join(typeParamNames),
             procedureName,
+            outputType
+        )
+    );
+  }
+
+  public static ClaroTypeException forGenericProviderCallWithoutRequiredContextualOutputTypeAssertion(
+      Type providerType, String name, Type outputType) {
+    return new ClaroTypeException(
+        String.format(
+            AMBIGUOUS_GENERIC_PROVIDER_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION,
+            providerType,
+            name,
             outputType
         )
     );

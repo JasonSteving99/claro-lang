@@ -257,45 +257,79 @@ public class GenericFunctionDefinitionStmt extends Stmt {
   }
 
   private ProcedureDefinitionStmt generateProcedureDefStmt(String canonicalProcedureName) {
-    if (outputTypeProvider.isPresent()) { // FUNCTION
-      return new ProcedureDefinitionStmt(
-          canonicalProcedureName,
-          argTypes,
-          optionalInjectedKeysTypes,
-          (unusedThisProcedureDefinitionStmt) ->
-              (scopedHeap) ->
-                  Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-                      argTypes.values()
-                          .stream()
-                          .map(t -> t.resolveType(scopedHeap))
-                          .collect(ImmutableList.toImmutableList()),
-                      outputTypeProvider.get().resolveType(scopedHeap),
-                      BaseType.FUNCTION,
-                      optionalInjectedKeysTypes
-                          .map(
-                              injectedKeysTypes ->
-                                  injectedKeysTypes.stream()
-                                      .map(
-                                          injectedKey ->
-                                              new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
-                                      .collect(Collectors.toSet())
-                          )
-                          .orElse(Sets.newHashSet()),
-                      // In the case of Generic procedures, we need to ensure that the recursive dep procedure type
-                      // validation goes first through the GenericFunctionDefinitionStmt rather than skipping straight
-                      // to the encapsulated ProcedureDefinitionStmt since this would miss the necessary setup process
-                      // needed for generic procedures before type checking could be handled successfully in
-                      // ProcedureDefinitionStmt.
-                      GenericFunctionDefinitionStmt.this,
-                      explicitlyAnnotatedBlocking,
-                      optionalGenericBlockingOnArgs
-                          .map(genericBlockingOnArgs ->
-                                   mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList())),
-                      Optional.of(this.genericProcedureArgNames),
-                      Optional.of(this.requiredContractNamesToGenericArgs)
-                  ),
-          stmtListNode
-      );
+    if (outputTypeProvider.isPresent()) {
+      if (!this.argTypes.isEmpty()) { // FUNCTION
+        return new ProcedureDefinitionStmt(
+            canonicalProcedureName,
+            argTypes,
+            optionalInjectedKeysTypes,
+            (unusedThisProcedureDefinitionStmt) ->
+                (scopedHeap) ->
+                    Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
+                        argTypes.values()
+                            .stream()
+                            .map(t -> t.resolveType(scopedHeap))
+                            .collect(ImmutableList.toImmutableList()),
+                        outputTypeProvider.get().resolveType(scopedHeap),
+                        BaseType.FUNCTION,
+                        optionalInjectedKeysTypes
+                            .map(
+                                injectedKeysTypes ->
+                                    injectedKeysTypes.stream()
+                                        .map(
+                                            injectedKey ->
+                                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                        .collect(Collectors.toSet())
+                            )
+                            .orElse(Sets.newHashSet()),
+                        // In the case of Generic procedures, we need to ensure that the recursive dep procedure type
+                        // validation goes first through the GenericFunctionDefinitionStmt rather than skipping straight
+                        // to the encapsulated ProcedureDefinitionStmt since this would miss the necessary setup process
+                        // needed for generic procedures before type checking could be handled successfully in
+                        // ProcedureDefinitionStmt.
+                        GenericFunctionDefinitionStmt.this,
+                        explicitlyAnnotatedBlocking,
+                        optionalGenericBlockingOnArgs
+                            .map(genericBlockingOnArgs ->
+                                     mapArgNamesToIndex(genericBlockingOnArgs, argTypes.keySet().asList())),
+                        Optional.of(this.genericProcedureArgNames),
+                        Optional.of(this.requiredContractNamesToGenericArgs)
+                    ),
+            stmtListNode
+        );
+      } else { // PROVIDER
+        return new ProcedureDefinitionStmt(
+            canonicalProcedureName,
+            argTypes,
+            optionalInjectedKeysTypes,
+            (unusedThisProcedureDefinitionStmt) ->
+                (scopedHeap) ->
+                    Types.ProcedureType.ProviderType.forReturnType(
+                        outputTypeProvider.get().resolveType(scopedHeap),
+                        BaseType.PROVIDER_FUNCTION,
+                        optionalInjectedKeysTypes
+                            .map(
+                                injectedKeysTypes ->
+                                    injectedKeysTypes.stream()
+                                        .map(
+                                            injectedKey ->
+                                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                        .collect(Collectors.toSet())
+                            )
+                            .orElse(Sets.newHashSet()),
+                        // In the case of Generic procedures, we need to ensure that the recursive dep procedure type
+                        // validation goes first through the GenericFunctionDefinitionStmt rather than skipping straight
+                        // to the encapsulated ProcedureDefinitionStmt since this would miss the necessary setup process
+                        // needed for generic procedures before type checking could be handled successfully in
+                        // ProcedureDefinitionStmt.
+                        GenericFunctionDefinitionStmt.this,
+                        explicitlyAnnotatedBlocking,
+                        Optional.of(this.genericProcedureArgNames),
+                        Optional.of(this.requiredContractNamesToGenericArgs)
+                    ),
+            stmtListNode
+        );
+      }
     } else { // CONSUMER
       return new ProcedureDefinitionStmt(
           canonicalProcedureName,
