@@ -80,7 +80,8 @@ public enum BaseType {
   ),
   // TODO(steving) Decide whether Optional<T> should really just be a oneof Type defined something like oneof<T, None> where None is the empty struct None {}.
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
-  ONEOF, // A quasi union type that selects for one of a finite set of types.
+  // A union type that selects for one of a finite set of types.
+  ONEOF("oneof<%s>", "Object", Object.class),
 
   /********************************************************************************************************************/
   // Function references. Remember, in Claro, Function specifically means a standalone procedure that doesn't depend on

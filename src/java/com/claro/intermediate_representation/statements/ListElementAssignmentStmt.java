@@ -80,10 +80,22 @@ public class ListElementAssignmentStmt extends Stmt {
       }
     } else {
       ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
-      ((Expr) this.getChildren().get(2)).assertExpectedExprType(
-          scopedHeap,
-          ((Types.Collection) listExprType).getElementType()
-      );
+      Type listElementType = ((Types.Collection) listExprType).getElementType();
+      if (listElementType.baseType().equals(BaseType.ONEOF)) {
+        // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
+        // by this particular oneof instance.
+        ((Expr) this.getChildren().get(2)).assertSupportedExprType(
+            scopedHeap,
+            ImmutableSet.<Type>builder().addAll(((Types.OneofType) listElementType).getVariantTypes())
+                .add(listElementType)
+                .build()
+        );
+      } else {
+        ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+            scopedHeap,
+            ((Types.Collection) listExprType).getElementType()
+        );
+      }
     }
   }
 

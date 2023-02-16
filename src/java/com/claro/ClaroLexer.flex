@@ -187,6 +187,7 @@ WhiteSpace     = [ \t\f]
     "boolean"          { return symbol(Calc.BOOLEAN_TYPE, 0, 7, "boolean"); }
     "string"           { return symbol(Calc.STRING_TYPE, 0, 6, "string"); }
     "tuple"            { return symbol(Calc.TUPLE_TYPE, 0, 5, "tuple"); }
+    "oneof"            { return symbol(Calc.ONEOF, 0, 5, "oneof"); }
     "struct"           { return symbol(Calc.STRUCT_TYPE, 0, 6, "struct"); }
     "function"         { return symbol(Calc.FUNCTION_TYPE, 0, 8, "function"); }
     "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE, 0, 8, "consumer"); }

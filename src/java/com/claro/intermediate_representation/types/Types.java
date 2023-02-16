@@ -130,6 +130,37 @@ public final class Types {
     }
   }
 
+  @AutoValue
+  public abstract static class OneofType extends Type {
+
+    public abstract ImmutableSet<Type> getVariantTypes();
+
+    public static OneofType forVariantTypes(ImmutableList<Type> variants) {
+      ImmutableSet<Type> variantTypesSet = ImmutableSet.copyOf(variants);
+      if (variantTypesSet.size() < variants.size()) {
+        // There was a duplicate type in this oneof variant list. This is an invalid instance.
+        throw new RuntimeException(ClaroTypeException.forIllegalOneofTypeDeclarationWithDuplicatedTypes(variants, variantTypesSet));
+      }
+      return new AutoValue_Types_OneofType(BaseType.ONEOF, ImmutableMap.of(), variantTypesSet);
+    }
+
+    @Override
+    public String toString() {
+      return String.format(
+          this.baseType().getClaroCanonicalTypeNameFmtStr(),
+          this.getVariantTypes().stream().map(Type::toString).collect(Collectors.joining(", "))
+      );
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.OneofType.forVariantTypes(ImmutableList.of(%s))",
+          this.getVariantTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(","))
+      );
+    }
+  }
+
   public abstract static class StructType extends Type {
 
     public abstract String getName();

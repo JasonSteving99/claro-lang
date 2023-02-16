@@ -174,6 +174,8 @@ public class ClaroTypeException extends Exception {
       "Ambiguous Contract Procedure Call: Calls to the procedure `%s<%s>::%s` is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
   private static final String AMBIGUOUS_GENERIC_PROVIDER_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION =
       "Ambiguous Generic Provider Call: Calls to the generic `%s` `%s` is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
+  private static final String ILLEGAL_ONEOF_TYPE_DECL_W_DUPLICATED_TYPES =
+      "Illegal Oneof Type Declaration: The given type declaration `oneof<%s>` has duplicated types!\n\tInstead, rewrite it as the following:\n\t\toneof<%s>";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -763,6 +765,17 @@ public class ClaroTypeException extends Exception {
             providerType,
             name,
             outputType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalOneofTypeDeclarationWithDuplicatedTypes(
+      ImmutableList<Type> variants, ImmutableSet<Type> variantTypesSet) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_ONEOF_TYPE_DECL_W_DUPLICATED_TYPES,
+            variants.stream().map(Type::toString).collect(Collectors.joining(", ")),
+            variantTypesSet.stream().map(Type::toString).collect(Collectors.joining(", "))
         )
     );
   }

@@ -1,0 +1,92 @@
+###############################################################################################
+# DEMONSTRATE BASIC ONEOF USE
+#
+# Claro's `oneof` is more of a "meta"-type than a proper type. The below variable is defined
+# as a `oneof<string, int>` which means that, at any given point in the program, it may be
+# referencing a value of one of the listed types. In this case, it may be referencing either
+# a string or an int.
+###############################################################################################
+var firstOneof: oneof<string, int>;
+
+firstOneof = 1;
+print(firstOneof);
+firstOneof = "one";
+print(firstOneof);
+type(firstOneof);
+
+var secondOneof: oneof<int, string>;
+secondOneof = 2;
+print(secondOneof);
+secondOneof = "two";
+print(secondOneof);
+type(secondOneof);
+
+print("Oneof's are mutually assignable even if their variant types are listed in different orders:");
+print("oneof<string, int> == oneof<int, string>");
+firstOneof = secondOneof;
+print(firstOneof);
+
+print("Oneof's over different variant types are not mutually assignable:");
+print("oneof<string, int> != oneof<int, string, float>");
+var thirdOneof: oneof<int, string, float> = 1.2;
+print(thirdOneof);
+type(thirdOneof);
+
+# Uncomment below line for compile error that `oneof<int, string, float>` isn't compatible with `oneof<string, int>`.
+#firstOneof = thirdOneof;
+#thirdOneof = firstOneof;
+
+###############################################################################################
+# DEMONSTRATE USING ONEOF'S IN COLLECTIONS
+###############################################################################################
+
+var l: [oneof<string, int>] = [firstOneof];
+print(l);
+l[0] = 1;
+print(l);
+
+append(l, 3);
+append(l, "five");
+append(l, 7);
+append(l, "nine");
+print(l); # [1, 3, five, 7, nine]
+
+var lv = l[0];
+print(lv);
+type(lv);
+lv = l[2];
+print(lv);
+type(lv);
+
+append(l, lv);
+print(l);
+
+var l2: [oneof<[int], [string]>] = [];
+print(l2);
+append(l2, [1,2]);
+append(l2, ["three", "four"]);
+print(l2);
+
+
+###############################################################################################
+# DEMONSTRATE CHECKING A ONEOF'S VALUE.
+###############################################################################################
+
+var intOrString: oneof<int, string> = 1;
+
+if (intOrString == "one") {
+  print("BAD!");
+} else if (intOrString == 100) {
+  print("NAHHH");
+} else if (intOrString == 1) {
+  print("GOOD!");
+
+  # TODO(steving) SUPPORT TYPE NARROWING WITHIN CONDITIONAL BRANCHES AS APPLICABLE.
+  print("Unfortunately, the type of a oneof doesn't get narrowed just yet.");
+  print("Here, we could narrow the type to be string but we don't:");
+  type(intOrString);
+}
+
+intOrString = "one";
+print(intOrString == "one");
+print(intOrString == 1);

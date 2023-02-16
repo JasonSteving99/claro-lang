@@ -2,10 +2,13 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class AssignmentStmt extends Stmt {
 
@@ -26,7 +29,19 @@ public class AssignmentStmt extends Stmt {
         "Attempting to assign to identifier <%s> without declaring it!"
     );
     this.identifierValidatedType = scopedHeap.getValidatedIdentifierType(this.IDENTIFIER);
-    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.identifierValidatedType);
+    if (this.identifierValidatedType.baseType().equals(BaseType.ONEOF)) {
+      // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
+      // by this particular oneof instance.
+      ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+          scopedHeap,
+          ImmutableSet.<Type>builder().addAll(((Types.OneofType) this.identifierValidatedType).getVariantTypes())
+              .add(this.identifierValidatedType)
+              .build()
+      );
+    } else {
+      // If it's not a oneof type then we require an exact match.
+      ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.identifierValidatedType);
+    }
     scopedHeap.initializeIdentifier(this.IDENTIFIER);
   }
 

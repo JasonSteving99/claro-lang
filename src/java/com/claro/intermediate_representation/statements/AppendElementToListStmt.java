@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class AppendElementToListStmt extends Stmt {
   private final Expr listExpr;
@@ -33,7 +34,19 @@ public class AppendElementToListStmt extends Stmt {
       return;
     }
     // If it's actually a list I need to make sure that the type being added to the list is the correct type.
-    this.toAppendExpr.assertExpectedExprType(scopedHeap, ((Types.ListType) actualListExprType).getElementType());
+    Type declaredElementType = ((Types.ListType) actualListExprType).getElementType();
+    if (declaredElementType.baseType().equals(BaseType.ONEOF)) {
+      // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
+      // by this particular oneof instance.
+      this.toAppendExpr.assertSupportedExprType(
+          scopedHeap,
+          ImmutableSet.<Type>builder().addAll(((Types.OneofType) declaredElementType).getVariantTypes())
+              .add(declaredElementType)
+              .build()
+      );
+    } else {
+      this.toAppendExpr.assertExpectedExprType(scopedHeap, declaredElementType);
+    }
   }
 
   @Override

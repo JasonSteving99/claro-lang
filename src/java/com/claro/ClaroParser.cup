@@ -300,7 +300,7 @@ terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
-                 FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
+                 ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  RETURN;
 terminal LexedValue<String>  IMMUTABLE;
@@ -724,6 +724,24 @@ builtin_type ::=
                 }
                 return resolvedType;
               },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | ONEOF:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.currentInputLine, tright), new Line(la.currentInputLine, laright), new Line(argTypesLexedVal.currentInputLine, arg_types.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.len, laleft + la.len, arg_types.left + argTypesLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.OneofType.forVariantTypes(argTypesLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
             currentLinesSupplier,
             endCol - startCol)
        );

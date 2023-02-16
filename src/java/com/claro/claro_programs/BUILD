@@ -144,6 +144,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "oneof_compiled_claro_image",
+    srcs = [":oneof_compiled_claro"],
+    java_name = "oneof",
+)
+
+claro_library(
+    name = "oneof_compiled_claro",
+    src = "oneof.claro",
+)
+
+
+claro_binary(
     name = "piping_compiled_claro_image",
     srcs = [":piping_compiled_claro"],
     java_name = "piping",

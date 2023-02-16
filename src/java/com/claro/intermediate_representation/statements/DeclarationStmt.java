@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
@@ -77,10 +78,21 @@ public class DeclarationStmt extends Stmt {
     if (optionalIdentifierDeclaredTypeProvider.isPresent()) {
       Type declaredType = optionalIdentifierDeclaredTypeProvider.get().resolveType(scopedHeap);
       if (!this.getChildren().isEmpty()) {
-        ((Expr) this.getChildren().get(0)).assertExpectedExprType(
-            scopedHeap,
-            blocking ? Types.FutureType.wrapping(declaredType) : declaredType
-        );
+        if (declaredType.baseType().equals(BaseType.ONEOF)) {
+          // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
+          // by this particular oneof instance.
+          ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+              scopedHeap,
+              ImmutableSet.<Type>builder().addAll(((Types.OneofType) declaredType).getVariantTypes())
+                  .add(blocking ? Types.FutureType.wrapping(declaredType) : declaredType)
+                  .build()
+          );
+        } else {
+          ((Expr) this.getChildren().get(0)).assertExpectedExprType(
+              scopedHeap,
+              blocking ? Types.FutureType.wrapping(declaredType) : declaredType
+          );
+        }
         scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
       scopedHeap.observeIdentifier(this.IDENTIFIER, declaredType);
