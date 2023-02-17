@@ -2,10 +2,12 @@ package com.claro.intermediate_representation.expressions.bool;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -30,22 +32,46 @@ public class EqualsBoolExpr extends BoolExpr {
     Expr rhs = (Expr) this.getChildren().get(1);
     if (lhsType.baseType().equals(BaseType.ONEOF)) {
       // By definition, we'll allow any of the type variants supported by this particular oneof instance.
-      rhs.assertSupportedExprType(
+      Type actualRhsType = rhs.assertSupportedExprType(
           scopedHeap,
           ImmutableSet.<Type>builder().addAll(((Types.OneofType) lhsType).getVariantTypes())
               .add(lhsType)
               .build()
       );
+      // If we get here, the known oneof matches the other expr's type, but if the other expr wasn't also a oneof,
+      // then that means we're going to do some type narrowing if we're going into a condition body scope and we can
+      // narrow a specific value by identifier name (so obviously not through some collection subscript or procedure
+      // call).
+      if (InternalStaticStateUtil.IfStmt_withinConditionTypeValidation
+          && this.getChildren().get(0) instanceof IdentifierReferenceTerm
+          && !actualRhsType.baseType().equals(BaseType.ONEOF)) {
+        this.oneofsToBeNarrowed.put(
+            ((IdentifierReferenceTerm) this.getChildren().get(0)).identifier,
+            actualRhsType
+        );
+      }
       return Types.BOOLEAN;
     } else {
       Type rhsType = rhs.getValidatedExprType(scopedHeap);
       if (rhsType.baseType().equals(BaseType.ONEOF)) {
-        ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+        Type actualLhsType = ((Expr) this.getChildren().get(0)).assertSupportedExprType(
             scopedHeap,
             ImmutableSet.<Type>builder().addAll(((Types.OneofType) rhsType).getVariantTypes())
                 .add(rhsType)
                 .build()
         );
+        // If we get here, the known oneof matches the other expr's type, but if the other expr wasn't also a oneof,
+        // then that means we're going to do some type narrowing if we're going into a condition body scope and we can
+        // narrow a specific value by identifier name (so obviously not through some collection subscript or procedure
+        // call).
+        if (InternalStaticStateUtil.IfStmt_withinConditionTypeValidation
+            && this.getChildren().get(1) instanceof IdentifierReferenceTerm
+            && !actualLhsType.baseType().equals(BaseType.ONEOF)) {
+          this.oneofsToBeNarrowed.put(
+              ((IdentifierReferenceTerm) this.getChildren().get(1)).identifier,
+              actualLhsType
+          );
+        }
         return Types.BOOLEAN;
       }
     }

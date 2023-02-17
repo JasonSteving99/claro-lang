@@ -32,12 +32,25 @@ public class AssignmentStmt extends Stmt {
     if (this.identifierValidatedType.baseType().equals(BaseType.ONEOF)) {
       // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
       // by this particular oneof instance.
-      ((Expr) this.getChildren().get(0)).assertSupportedExprType(
-          scopedHeap,
-          ImmutableSet.<Type>builder().addAll(((Types.OneofType) this.identifierValidatedType).getVariantTypes())
-              .add(this.identifierValidatedType)
-              .build()
-      );
+      Type actualAssignedExprType =
+          ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+              scopedHeap,
+              ImmutableSet.<Type>builder().addAll(((Types.OneofType) this.identifierValidatedType).getVariantTypes())
+                  .add(this.identifierValidatedType)
+                  .build()
+          );
+
+      // Additionally, in case this identifier is currently being referenced within a scope where its type has been
+      // narrowed, then we need to actually undo the narrowing (a.k.a. "widen" the type) if the assignment is to some
+      // type other than what it was originally narrowed to.
+      if (this.identifierValidatedType.autoValueIgnored_IsNarrowedType.get()) {
+        String syntheticNarrowedTypeIdentifier = String.format("$NARROWED_%s", this.IDENTIFIER);
+        if (!actualAssignedExprType.equals(
+            scopedHeap.getValidatedIdentifierType(syntheticNarrowedTypeIdentifier))) {
+          scopedHeap.deleteIdentifierValue(syntheticNarrowedTypeIdentifier);
+          this.identifierValidatedType.autoValueIgnored_IsNarrowedType.set(false);
+        }
+      }
     } else {
       // If it's not a oneof type then we require an exact match.
       ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.identifierValidatedType);

@@ -157,6 +157,15 @@ public class IdentifierReferenceTerm extends Term {
     scopedHeap.markIdentifierUsed(this.identifier);
     Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.identifier);
 
+    if (referencedIdentifierType.autoValueIgnored_IsNarrowedType.get()) {
+      String narrowedTypeSyntheticIdentifier = String.format("$NARROWED_%s", this.identifier);
+      if (scopedHeap.isIdentifierDeclared(narrowedTypeSyntheticIdentifier)) {
+        referencedIdentifierType = scopedHeap.getValidatedIdentifierType(narrowedTypeSyntheticIdentifier);
+        this.alternateCodegenString =
+            Optional.of(String.format("((%s) %s)", referencedIdentifierType.getJavaSourceType(), this.identifier));
+      }
+    }
+
     // Unfortunately, unlike with blocking-generic-only procedures, we know ahead of time that we cannot allow
     // references to Generic Procedures as first class objects unless a matching concrete type signature is
     // asserted in the source: e.g.

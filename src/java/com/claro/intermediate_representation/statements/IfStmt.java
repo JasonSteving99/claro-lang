@@ -2,8 +2,11 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.bool.BoolExpr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -57,10 +60,43 @@ public class IfStmt extends Stmt {
     boolean enableBranchInspection = optionalTerminalElseClause.isPresent();
 
     for (IfStmt ifStmt : getConditionStack()) {
-      ((Expr) ifStmt.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+      // Need to make note of the fact that now we're doing condition type validation so that we can actually
+      // handle type-narrowing of oneofs in the case that the user has written an equality check on a oneof type
+      // against a concrete type.
+      InternalStaticStateUtil.IfStmt_withinConditionTypeValidation = true;
+      Expr conditionExpr = (Expr) ifStmt.getChildren().get(0);
+      conditionExpr.assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+      InternalStaticStateUtil.IfStmt_withinConditionTypeValidation = false;
 
       scopedHeap.observeNewScope(enableBranchInspection);
+
+      // Now, check if there is any type-narrowing variable declaration that needs to be prepended before the explicitly
+      // given body stmt list.
+      ImmutableList.Builder<Type> originalIdentifierTypeMarkedNarrowedBuilder = ImmutableList.builder();
+      if (conditionExpr instanceof BoolExpr) {
+        BoolExpr conditionBoolExpr = (BoolExpr) conditionExpr;
+        if (!conditionBoolExpr.oneofsToBeNarrowed.isEmpty()) {
+          conditionBoolExpr.oneofsToBeNarrowed.forEach(
+              (identifierName, narrowedType) -> {
+                // First need to mark the identifier's type as having been narrowed so that any references to it know that
+                // they should instead be referencing the synthetic narrowed identifier. This will be reset after.
+                Type originalIdentifierTypeMarkedNarrowed = scopedHeap.getValidatedIdentifierType(identifierName);
+                originalIdentifierTypeMarkedNarrowed.autoValueIgnored_IsNarrowedType.set(true);
+                originalIdentifierTypeMarkedNarrowedBuilder.add(originalIdentifierTypeMarkedNarrowed);
+
+                String narrowedTypeSyntheticIdentifier = String.format("$NARROWED_%s", identifierName);
+                scopedHeap.putIdentifierValueAllowingHiding(
+                    narrowedTypeSyntheticIdentifier, narrowedType, null);
+                scopedHeap.markIdentifierUsed(narrowedTypeSyntheticIdentifier);
+              });
+        }
+      }
+
       ((StmtListNode) ifStmt.getChildren().get(1)).assertExpectedExprTypes(scopedHeap);
+
+      // Before leaving, unmark any narrowed types.
+      originalIdentifierTypeMarkedNarrowedBuilder.build().forEach(t -> t.autoValueIgnored_IsNarrowedType.set(false));
+
       scopedHeap.exitCurrObservedScope(false);
     }
     if (optionalTerminalElseClause.isPresent()) {

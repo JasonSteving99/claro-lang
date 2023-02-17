@@ -1,12 +1,16 @@
 package com.claro.intermediate_representation.expressions.bool;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
+import java.util.HashMap;
 import java.util.function.Supplier;
 
 public class AndBoolExpr extends BoolExpr {
@@ -18,6 +22,27 @@ public class AndBoolExpr extends BoolExpr {
   @Override
   protected ImmutableSet<Type> getSupportedOperandTypes() {
     return ImmutableSet.of(Types.BOOLEAN);
+  }
+
+  @Override
+  public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+    Type validatedType = super.getValidatedExprType(scopedHeap);
+
+    // Detect any type narrowing information that's learned from *both* conditional branches.
+    this.oneofsToBeNarrowed.putAll(getOneofsToBeNarrowed(this.getChildren().get(0)));
+    this.oneofsToBeNarrowed.putAll(getOneofsToBeNarrowed(this.getChildren().get(1)));
+
+    return validatedType;
+  }
+
+  private static HashMap<String, Type> getOneofsToBeNarrowed(Node operand) {
+    if (operand.getClass().getSimpleName().equals("ParenthesizedExpr")) {
+      return ((BoolExpr) operand.getChildren().get(0)).oneofsToBeNarrowed;
+    } else if (operand instanceof BoolExpr) {
+      return ((BoolExpr) operand).oneofsToBeNarrowed;
+    } else {
+      return Maps.newHashMap();
+    }
   }
 
   @Override

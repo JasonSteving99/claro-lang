@@ -5,11 +5,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 public abstract class Type {
   public abstract BaseType baseType();
 
   // name -> Type.
   public abstract ImmutableMap<String, Type> parameterizedTypeArgs();
+
+  // In order for codegen of a narrowed type to correctly produce references to the synthetic variable casted to the
+  // appropriate type, we need a way to determine that the identifier is actually referencing the narrowed type and
+  // not the original identifier. THIS IS METADATA - DO NOT CONSIDER FOR EQUALITY CHECKS.
+  public final AtomicReference<Boolean> autoValueIgnored_IsNarrowedType = new AtomicReference<>(false);
 
   public String getJavaSourceType() {
     String res;

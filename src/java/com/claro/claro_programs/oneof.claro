@@ -69,24 +69,78 @@ print(l2);
 
 
 ###############################################################################################
-# DEMONSTRATE CHECKING A ONEOF'S VALUE.
+# DEMONSTRATE TYPE "NARROWING" BY EQUALITY CHECKING A ONEOF'S VALUE.
 ###############################################################################################
 
 var intOrString: oneof<int, string> = 1;
 
 if (intOrString == "one") {
-  print("BAD!");
+  print("NOPE!");
+  var e = intOrString[2];
+  print("But we have successfully narrowed the typ{e} and can treat as a string!");
 } else if (intOrString == 100) {
   print("NAHHH");
-} else if (intOrString == 1) {
+} else if ((intOrString == 1) or (intOrString == 2)) {
+  print("----------------------------------------------------------------------------------------------------");
   print("GOOD!");
-
-  # TODO(steving) SUPPORT TYPE NARROWING WITHIN CONDITIONAL BRANCHES AS APPLICABLE.
-  print("Unfortunately, the type of a oneof doesn't get narrowed just yet.");
-  print("Here, we could narrow the type to be string but we don't:");
+  print("Here, these nested conditions guarantee that the type can be narrowed!");
+  print("The narrowed type is no longer a oneof:");
   type(intOrString);
+  print("Watch me do math with intOrString (which is set to `{intOrString}`): `intOrString + 99 = {intOrString + 99}`");
+  print("----------------------------------------------------------------------------------------------------");
+}
+
+print(intOrString);
+
+if (((intOrString == 1) or (intOrString == "one")) and (9 > 0)) {
+  print("----------------------------------------------------------------------------------------------------");
+  print("These particular nested conditions provide no guarantee that the type can be narrowed");
+  print("So the type is still a oneof:");
+  type(intOrString);
+  print("----------------------------------------------------------------------------------------------------");
 }
 
 intOrString = "one";
 print(intOrString == "one");
 print(intOrString == 1);
+
+
+###############################################################################################
+# DEMONSTRATE TYPE "WIDENING" BY ASSIGNING A TYPE OTHER THAN THE NARROWED TYPE AFTER NARROWING.
+###############################################################################################
+
+print("----------------------------------------------------------------------------------------------------");
+if (input("Do you want an int? Y/N (if no we'll use string):") == "Y") {
+  intOrString = 10;
+} else {
+  intOrString = "ten";
+}
+
+if (intOrString == 10) {
+  print("You chose to use int!");
+  print("Here's some math over intOrString={intOrString}: `intOrString / 2 = {intOrString / 2}`");
+  print("That all worked because the type has been narrowed to:");
+  type(intOrString);
+  print("But now, I'll update the value to one of the other variant types.");
+  print("intOrString = \"ten\";\nNow type(intOrString) results in:");
+  intOrString = "ten";
+  type(intOrString);
+  print("The type has been \"widened\"!");
+} else if (intOrString == "ten") {
+  print("You chose to use string!");
+  print("Here's the string you chose: {intOrString}");
+  print("And here's each char on a seperate line to prove the string ops work:");
+  var i = 0;
+  while (i < len(intOrString)) {
+    print("Char {i + 1}: {intOrString[i]}");
+    i++;
+  }
+  print("That all worked because the type has been narrowed to:");
+  type(intOrString);
+  print("But now, I'll update the value to one of the other variant types.");
+  print("intOrString = 10;\nNow type(intOrString) results in:");
+  intOrString = 10;
+  type(intOrString);
+  print("The type has been \"widened\"!");
+}
+print(intOrString);

@@ -8,10 +8,14 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
+import java.util.HashMap;
 import java.util.function.Supplier;
 
 public abstract class BoolExpr extends Expr {
+  public final HashMap<String, Type> oneofsToBeNarrowed = Maps.newHashMap();
+
   // For now this class is left empty, though in the future it'll likely contain at least typing information.
   public BoolExpr(ImmutableList<Node> children, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(children, currentLine, currentLineNumber, startCol, endCol);

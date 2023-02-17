@@ -61,4 +61,5 @@ public class InternalStaticStateUtil {
   // the enclosing Generic procedure `requires` that implementation of the contract.
   public static Optional<ArrayListMultimap/*<String, ImmutableList<Types.$GenericTypeParam>>*/>
       LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs = Optional.empty();
+  public static boolean IfStmt_withinConditionTypeValidation = false;
 }
