@@ -50,7 +50,7 @@ public class ClaroRuntimeUtilities {
       );
 
   // Implementation of this shutdown hook taken directly from ExecutorService documentation: https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html?is-external=true#:~:text=void%20shutdownAndAwaitTermination(ExecutorService,Thread.currentThread().interrupt()%3B%0A%20%20%20%7D%0A%20%7D
-  public static void shutdownAndAwaitTermination(ExecutorService pool) {
+  public static void $shutdownAndAwaitTermination(ExecutorService pool) {
     pool.shutdown(); // Disable new tasks from being submitted
     try {
       // Wait a while for existing tasks to terminate
@@ -99,5 +99,10 @@ public class ClaroRuntimeUtilities {
     // Now that we're confident that this value has the type that we actually thought it had, feel free to keep working
     // with it as stated.
     return evaluatedCastedExprValue;
+  }
+
+  public static boolean $instanceof_ClaroTypeImpl(Object obj, Type checkedType) {
+    return (obj instanceof ClaroTypeImplementation)
+           && ((ClaroTypeImplementation) obj).getClaroType().equals(checkedType);
   }
 }

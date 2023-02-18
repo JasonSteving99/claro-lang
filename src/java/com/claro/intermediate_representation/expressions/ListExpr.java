@@ -1,7 +1,6 @@
 package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
-import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
@@ -55,9 +54,20 @@ public class ListExpr extends Expr {
       Type listValuesType = this.validatedListType == null
                             ? this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap)
                             : this.validatedListType.parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY);
-      // Need to assert that all values in the list are of the same type.
-      for (Node initialListValue : this.initializerArgExprsList) {
-        ((Expr) initialListValue).assertExpectedExprType(scopedHeap, listValuesType);
+      if (listValuesType.baseType().equals(BaseType.ONEOF)) {
+        // Need to assert that all values are one of the expected variant types.
+        for (Expr initialListValue : this.initializerArgExprsList) {
+          initialListValue.assertSupportedExprOneofTypeVariant(
+              scopedHeap,
+              listValuesType,
+              ((Types.OneofType) listValuesType).getVariantTypes()
+          );
+        }
+      } else {
+        // Need to assert that all values in the list are of the same type.
+        for (Expr initialListValue : this.initializerArgExprsList) {
+          initialListValue.assertExpectedExprType(scopedHeap, listValuesType);
+        }
       }
       listType = Types.ListType.forValueType(listValuesType);
     }

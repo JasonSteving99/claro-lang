@@ -144,3 +144,49 @@ if (intOrString == 10) {
   print("The type has been \"widened\"!");
 }
 print(intOrString);
+
+
+###############################################################################################
+# DEMONSTRATE CHECKING IF ONEOF IS "INSTANCEOF" OF SOME TYPE.
+###############################################################################################
+
+var myOneof: oneof<string, int, float> = 1.0;
+
+print("----------------------------------------------------------------------------------------------------");
+print("Test `instanceof` operator:");
+var isCheckedType = myOneof instanceof int;
+print("`myOneof instanceof int`: {isCheckedType}");
+isCheckedType = myOneof instanceof float;
+print("`myOneof instanceof float`: {isCheckedType}");
+
+var oneofList: [oneof<int, string>] = [1, "two", 3, "four"];
+var i = 0;
+while (i < len(oneofList)) {
+  if (oneofList[i] instanceof int) {
+    print("Found int: {oneofList[i]}");
+  } else if (oneofList[i] instanceof string) {
+    print("Found string: {oneofList[i]}");
+  }
+  ++i;
+}
+
+var intListOrStrList: oneof<[int], [string]> = [1,2,3];
+print(intListOrStrList);
+print(intListOrStrList instanceof [int]);
+print(myOneof instanceof [int]);
+
+
+###############################################################################################
+# DEMONSTRATE TYPE "NARROWING" BY CHECKING A ONEOF VARIABLE'S CURRENT VARIANT TYPE.
+###############################################################################################
+
+print("----------------------------------------------------------------------------------------------------");
+print("Test type \"narrowing\" under instanceof checks:");
+intOrString = 1;
+
+if (intOrString instanceof int) {
+  type(intOrString);
+  print(intOrString + 99);
+  # Uncomment the below line for a compile error warning that intOrString is an int not a string.
+  # print(intOrString[1]);
+}

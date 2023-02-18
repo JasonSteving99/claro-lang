@@ -267,6 +267,7 @@ terminal LexedValue<String>  VAR, ASSIGNMENT;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
 terminal LexedValue<String>  IN;
+terminal LexedValue<String>  INSTANCEOF;
 terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
@@ -404,6 +405,7 @@ nonterminal Expr/*BoolExpr*/                   bool_expr;
 nonterminal Expr/*BoolExpr*/                   equality;
 nonterminal Expr/*BoolExpr*/                   inequality;
 nonterminal Expr/*BoolExpr*/                   bool_arithmetic;
+nonterminal Expr/*BoolExpr*/                   instanceof_expr;
 // TODO(steving) In order to support the delayed parsing of all user-defined types, just replace this type with
 // TODO(steving) Function<ScopedHeap, TypeProvider> or some other equivalent functional interface and then you'll be good to add
 // TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
@@ -420,6 +422,7 @@ nonterminal Symbol/*ImmutableList.Builder<InjectedKey>*/ injected_keys_list;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence left INSTANCEOF;
 precedence left IN;
 precedence left COMMA;
 precedence left IDENTIFIER;
@@ -1401,6 +1404,8 @@ bool_expr ::=
   | inequality:b
     {: RESULT = b; :}
   | bool_arithmetic:b
+    {: RESULT = b; :}
+  | instanceof_expr:b
     {: RESULT = b; :}
   ;
 
@@ -2940,6 +2945,18 @@ bool_arithmetic ::=
        int startCol = Math.min(nleft, a.startCol);
        int endCol = Math.max(a.endCol, nleft + n.len);
        RESULT = new NotBoolExpr(a, currentLinesSupplier, a.currentLineNumber, startCol, endCol);
+    :}
+  ;
+
+instanceof_expr ::=
+    expr:a INSTANCEOF:op builtin_type:b
+    {:
+       Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(a.currentLine, a.currentLineNumber), new Line(op.currentInputLine, opright), new Line(((LexedValue) b.value).currentInputLine, b.right));
+       int startCol = min(a.startCol, opleft, b.left);
+       int endCol = max(a.endCol, opleft + op.len, b.left + ((LexedValue) b.value).len);
+
+       RESULT = new InstanceofBoolExpr(a, ((LexedValue<TypeProvider>) b.value).val, currentLinesSupplier, bright, startCol, endCol);
     :}
   ;
 

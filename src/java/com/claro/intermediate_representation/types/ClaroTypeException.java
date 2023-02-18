@@ -175,7 +175,11 @@ public class ClaroTypeException extends Exception {
   private static final String AMBIGUOUS_GENERIC_PROVIDER_CALL_MISSING_REQUIRED_CONTEXTUAL_OUTPUT_TYPE_ASSERTION =
       "Ambiguous Generic Provider Call: Calls to the generic `%s` `%s` is ambiguous without an explicit type annotation to constrain the expected generic return type `%s`.";
   private static final String ILLEGAL_ONEOF_TYPE_DECL_W_DUPLICATED_TYPES =
-      "Illegal Oneof Type Declaration: The given type declaration `oneof<%s>` has duplicated types!\n\tInstead, rewrite it as the following:\n\t\toneof<%s>";
+      "Illegal Oneof Type Declaration: The given type declaration `oneof<%s>` has duplicated types!\n\tInstead, rewrite it as the following:\n\t\t%s";
+  private static final String ILLEGAL_INSTANCEOF_CHECK_AGAINST_ONEOF_TYPE =
+      "Illegal instanceof Check: %s is not a concrete type! Use instanceof to check which concrete type variant the given oneof is currently holding.";
+  private static final String ILLEGAL_INSTANCEOF_CHECK_OVER_NON_ONEOF_EXPR =
+      "Illegal instanceof Check: %s is a statically known concrete type! Using instanceof over a statically known concrete type is never necessary.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -775,7 +779,28 @@ public class ClaroTypeException extends Exception {
         String.format(
             ILLEGAL_ONEOF_TYPE_DECL_W_DUPLICATED_TYPES,
             variants.stream().map(Type::toString).collect(Collectors.joining(", ")),
-            variantTypesSet.stream().map(Type::toString).collect(Collectors.joining(", "))
+            String.format(
+                variantTypesSet.size() > 1 ? "oneof<%s>" : "%s",
+                variantTypesSet.stream().map(Type::toString).collect(Collectors.joining(", "))
+            )
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalInstanceofCheckAgainstOneofType(Type checkedType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_INSTANCEOF_CHECK_AGAINST_ONEOF_TYPE,
+            checkedType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalInstanceofCheckOverNonOneofExpr(Type validatedOneofExprType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_INSTANCEOF_CHECK_OVER_NON_ONEOF_EXPR,
+            validatedOneofExprType
         )
     );
   }

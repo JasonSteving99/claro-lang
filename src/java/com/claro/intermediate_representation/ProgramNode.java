@@ -473,7 +473,7 @@ public class ProgramNode {
             "    } finally {\n" +
             "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
             "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
-            "      ClaroRuntimeUtilities.shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
+            "      ClaroRuntimeUtilities.$shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
             "    }\n" +
             "  }\n\n" +
             "}",
