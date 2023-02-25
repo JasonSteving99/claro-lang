@@ -38,10 +38,11 @@ public class IdentifierReferenceTerm extends Term {
   @Override
   public boolean coerceExprToExpectedType(Type expectedExprType, Type actualExprType, ScopedHeap scopedHeap) {
     // Don't bother doing any coercion if the base types don't at least match.
-    if (!actualExprType.baseType().equals(expectedExprType.baseType())) {
-      // False, indicates that coercion was not possible for the given identifier and expected type due to basic type
-      // mismatch error. We won't throw exceptions here because superclass will log this basic type mismatch for us.
-      return false;
+    if (!actualExprType.baseType().equals(expectedExprType.baseType()) ||
+        actualExprType.baseType().equals(BaseType.ONEOF)) {
+      // Defer back to the basic implementation which is going to handle the case of trying to do structural inference
+      // to allow for the possibility that a oneof may match a concrete variant type.
+      return super.coerceExprToExpectedType(expectedExprType, actualExprType, scopedHeap);
     }
 
     ImmutableSet<BaseType> allowedBaseTypesForBlockingGenerics =

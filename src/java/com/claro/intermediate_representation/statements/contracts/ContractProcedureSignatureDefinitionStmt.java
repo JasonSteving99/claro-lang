@@ -16,12 +16,12 @@ import java.util.Set;
 
 public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public final String procedureName;
-  private final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
+  final Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap;
   private final Optional<TypeProvider> optionalOutputTypeProvider;
   private final Boolean explicitlyAnnotatedBlocking;
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
   private Optional<ImmutableSet<Integer>> optionalAnnotatedBlockingGenericOnArgs = Optional.empty();
-  private Optional<ImmutableList<String>> optionalGenericTypesList;
+  public Optional<ImmutableList<String>> optionalGenericTypesList;
 
   public ImmutableList<GenericSignatureType> resolvedArgTypes;
   public Optional<GenericSignatureType> resolvedOutputType;
@@ -31,6 +31,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public ImmutableSet<Integer> inferContractImplTypesFromArgs;
   public boolean contextualOutputTypeAssertionRequired;
   public Optional<ImmutableSet<Integer>> inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted;
+  public ImmutableSet<String> requiredContextualOutputTypeAssertionTypeParamNames = ImmutableSet.of();
 
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
@@ -141,6 +142,9 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     this.inferContractImplTypesFromArgs = ImmutableSet.copyOf(leftmostArgReferencingContractTypeParams.values());
     this.contextualOutputTypeAssertionRequired =
         this.resolvedOutputType.isPresent() && contractTypeParamNames.size() > 0;
+    if (this.contextualOutputTypeAssertionRequired) {
+      this.requiredContextualOutputTypeAssertionTypeParamNames = ImmutableSet.copyOf(contractTypeParamNames);
+    }
     this.inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted =
         this.resolvedOutputType.map(
             resolvedOutputType ->
@@ -204,30 +208,58 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
 
   Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
     ImmutableList.Builder<Type> concreteArgTypesBuilder = ImmutableList.builder();
+    HashMap<Type, Type> typeParamsForInferenceMap = Maps.newHashMap();
+    typeParamsForInferenceMap.putAll(
+        concreteTypeParams.entrySet().stream().collect(
+            ImmutableMap.toImmutableMap(
+                e -> Types.$GenericTypeParam.forTypeParamName(e.getKey()),
+                Map.Entry::getValue
+            )));
+    this.optionalGenericTypesList.ifPresent(
+        genTypes -> typeParamsForInferenceMap.putAll(
+            genTypes.stream().collect(
+                ImmutableMap.toImmutableMap(
+                    Types.$GenericTypeParam::forTypeParamName,
+                    Types.$GenericTypeParam::forTypeParamName
+                ))));
     for (GenericSignatureType genericSignatureType : this.resolvedArgTypes) {
-      concreteArgTypesBuilder.add(
-          genericSignatureType
-              .getOptionalResolvedType()
-              .orElseGet(() -> {
-                // Handle the possibility that the contract procedure was actually declared to be generic so it should
-                // have generic args in addition to the ones received from the Contract itself.
-                String genericTypeName = genericSignatureType.getOptionalGenericTypeParamName().get();
-                Type contractConcreteType = concreteTypeParams.get(genericTypeName);
-                if (contractConcreteType == null) {
-                  return Types.$GenericTypeParam.forTypeParamName(genericTypeName);
-                }
-                return contractConcreteType;
-              }));
+      if (genericSignatureType.getGenericContractTypeParamsReferencedByType().isEmpty()) {
+        concreteArgTypesBuilder.add(genericSignatureType.toType());
+      } else {
+        try {
+          concreteArgTypesBuilder.add(
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  typeParamsForInferenceMap,
+                  genericSignatureType.toType(),
+                  genericSignatureType.toType(),
+                  true
+              )
+          );
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
+        }
+      }
     }
     ImmutableList<Type> concreteArgTypes = concreteArgTypesBuilder.build();
 
     Optional<Type> optionalConcreteReturnType =
         this.resolvedOutputType.map(
-            genericSignatureType ->
-                genericSignatureType
-                    .getOptionalResolvedType()
-                    .orElseGet(
-                        () -> concreteTypeParams.get(genericSignatureType.getOptionalGenericTypeParamName().get())));
+            genericSignatureType -> {
+              if (genericSignatureType.getGenericContractTypeParamsReferencedByType().isEmpty()) {
+                return genericSignatureType.toType();
+              }
+              try {
+                return StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                    typeParamsForInferenceMap,
+                    genericSignatureType.toType(),
+                    genericSignatureType.toType(),
+                    true
+                );
+              } catch (ClaroTypeException e) {
+                throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
+              }
+            }
+        );
 
     Types.ProcedureType resType;
     if (concreteArgTypes.size() > 0) {

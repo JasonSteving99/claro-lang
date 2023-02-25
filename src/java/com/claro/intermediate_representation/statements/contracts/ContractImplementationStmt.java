@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
 
+import java.util.List;
 import java.util.function.Function;
 
 public class ContractImplementationStmt extends Stmt {
@@ -82,6 +83,11 @@ public class ContractImplementationStmt extends Stmt {
       implementationStmt.registerProcedureTypeProvider(
           scopedHeap, this.contractName, this.concreteImplementationTypeParams.values().asList());
     }
+
+    // Register this implementation in the ContractDefinitionStmt so that there's an easy way to go from Contract
+    // name to implementation types w/o having to scan the whole scoped heap.
+    ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
+        .add(this.concreteImplementationTypeParams);
   }
 
   @Override
@@ -148,11 +154,6 @@ public class ContractImplementationStmt extends Stmt {
             scopedHeap, canonicalImplementationName, this.contractDefinitionStmt, this.concreteImplementationTypeParams);
       }
 
-      // Register this implementation in the ContractDefinitionStmt so that there's an easy way to go from Contract
-      // name to implementation types w/o having to scan the whole scoped heap.
-      this.contractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
-          .add(this.concreteImplementationTypeParams);
-
       // Finally, add this implementation to the scoped heap so that it can't be re-implemented.
       scopedHeap.putIdentifierValue(
           this.canonicalImplementationName,
@@ -171,7 +172,7 @@ public class ContractImplementationStmt extends Stmt {
     }
   }
 
-  public static String getContractTypeString(String contractName, ImmutableList<String> typeParams) {
+  public static String getContractTypeString(String contractName, List<String> typeParams) {
     return String.format(
         "%s<%s>",
         contractName,

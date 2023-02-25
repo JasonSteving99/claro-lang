@@ -275,7 +275,7 @@ public enum BaseType {
   private final String javaNewTypeDefinitionStmtFmtStr;
   // Fmt string setting up the use of the new type which must be placed at the *very beginning* of the generated output.
   private final Optional<String> javaNewTypeStaticPreambleFormatStr;
-  private final Optional<Class<?>> nativeJavaSourceImplClazz;
+  public final Optional<Class<?>> nativeJavaSourceImplClazz;
 
   BaseType(String typeName) {
     this.claroCanonicalTypeNameFmtStr = typeName;

@@ -3,9 +3,9 @@ package com.claro.intermediate_representation.statements;
 import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.*;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,8 +52,21 @@ public class ReturnStmt extends Stmt {
       }
       throw new ClaroParserException(invalidReturnReason);
     }
-    ((Expr) getChildren().get(0))
-        .assertExpectedExprType(scopedHeap, expectedTypeProvider.get().resolveType(scopedHeap));
+
+    Type expectedReturnType = this.expectedTypeProvider.get().resolveType(scopedHeap);
+    if (expectedReturnType.baseType().equals(BaseType.ONEOF)) {
+      // Since this is "assignment" to a oneof type, by definition we'll allow any of the type variants supported
+      // by this particular oneof instance.
+      ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+          scopedHeap,
+          ImmutableSet.<Type>builder().addAll(((Types.OneofType) expectedReturnType).getVariantTypes())
+              .add(expectedReturnType)
+              .build()
+      );
+    } else {
+      ((Expr) getChildren().get(0)).assertExpectedExprType(scopedHeap, expectedReturnType);
+    }
+
     // Mark the hidden variable flag tracking whether there's a return in every branch of this procedure
     // as initialized on this branch.
     scopedHeap.initializeIdentifier(String.format("$%sRETURNS", withinProcedureScope.get()));

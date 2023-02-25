@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Stack;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -25,6 +26,10 @@ public abstract class Expr extends Node {
   public final int currentLineNumber;
   public final int startCol;
   public final int endCol;
+
+  // TODO(steving) Cleanup this hot garbage.
+  public static BiFunction<Type, Type, Type>
+      StructuralConcreteGenericTypeValidationUtil_validateArgExprsAndExtractConcreteGenericTypeParams_ONLY_USE_BC_MY_BAZEL_SETUP_IS_BJORKED_AND_I_DONT_HAVE_TIME_TO_FIX_THE_CIRCULAR_DEPS;
 
   public Expr(ImmutableList<Node> children, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(children);
@@ -78,7 +83,19 @@ public abstract class Expr extends Node {
   // Return true iff coercion was successful. Keep in mind that it's valid for this to cause mutation of the underlying
   // Expr, however, keep in mind that the coercion may not have side effects visible beyond this node.
   public boolean coerceExprToExpectedType(Type expectedExprType, Type actualExprType, ScopedHeap scopedHeap) {
-    return false;
+    try {
+      Type ignored =
+          StructuralConcreteGenericTypeValidationUtil_validateArgExprsAndExtractConcreteGenericTypeParams_ONLY_USE_BC_MY_BAZEL_SETUP_IS_BJORKED_AND_I_DONT_HAVE_TIME_TO_FIX_THE_CIRCULAR_DEPS
+              .apply(
+                  expectedExprType,
+                  actualExprType
+              );
+      // Wow, we successfully matched the type coercion by doing structural type checking over the validated type, that
+      // means we found an expected oneof type matching against a concrete variant type!
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   public final Type assertSupportedExprOneofTypeVariant(

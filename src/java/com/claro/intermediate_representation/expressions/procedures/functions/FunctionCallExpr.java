@@ -28,9 +28,11 @@ import java.util.stream.Collectors;
 public class FunctionCallExpr extends Expr {
   public String name;
   public boolean hashNameForCodegen = false;
+  public boolean staticDispatchCodegen = false;
   public final ImmutableList<Expr> argExprs;
   private Type assertedOutputTypeForGenericFunctionCallUse;
   public String originalName;
+  public Optional<String> optionalExtraArgsCodegen = Optional.empty();
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -513,7 +515,7 @@ public class FunctionCallExpr extends Expr {
     GeneratedJavaSource functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
             String.format(
-                "%s.apply(%s)",
+                this.staticDispatchCodegen ? "%s(%s%s)" : "%s.apply(%s%s)",
                 this.name,
                 this.argExprs
                     .stream()
@@ -525,7 +527,10 @@ public class FunctionCallExpr extends Expr {
                       exprsGenJavaSource.set(exprsGenJavaSource.get().createMerged(currGenJavaSource));
                       return currJavaSourceBody;
                     })
-                    .collect(Collectors.joining(", "))
+                    .collect(Collectors.joining(", ")),
+                this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                ? ", " + this.optionalExtraArgsCodegen.get()
+                : ""
             )
         )
     );

@@ -6,20 +6,23 @@ import com.claro.intermediate_representation.statements.contracts.ContractDefini
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class ContractFunctionCallExpr extends FunctionCallExpr {
   private final String contractName;
@@ -28,6 +31,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private Types.$Contract resolvedContractType;
   private String originalName;
   private Type assertedOutputType;
+  private boolean isDynamicDispatch = false;
+  private Optional<ImmutableList<Type>> requiredContextualOutputTypeAssertedTypes = Optional.empty();
 
   public ContractFunctionCallExpr(
       String contractName,
@@ -97,6 +102,16 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       this.resolvedContractConcreteTypes = contractDefinitionStmt.typeParamNames.stream()
           .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
           .collect(ImmutableList.toImmutableList());
+
+      // Hold these simply to be able to codegen in the case of dynamic dispatch.
+      this.requiredContextualOutputTypeAssertedTypes =
+          contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired
+          ? Optional.of(
+              contractProcedureSignatureDefinitionStmt.requiredContextualOutputTypeAssertionTypeParamNames
+                  .stream().map(
+                      n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n))
+                  ).collect(ImmutableList.toImmutableList()))
+          : Optional.empty();
     }
 
     this.assertedOutputType = assertedOutputType;
@@ -155,6 +170,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
         new AtomicReference<>(this.referencedContractImplName);
     AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM =
         new AtomicReference<>(this.resolvedContractConcreteTypes);
+    AtomicBoolean isDynamicDispatch_OUT_PARAM = new AtomicBoolean(this.isDynamicDispatch);
     boolean revertNameAfterTypeValidation;
     try {
       revertNameAfterTypeValidation =
@@ -169,13 +185,15 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
               resolvedContractConcreteTypes_OUT_PARAM,
               procedureName_OUT_PARAM,
               originalName_OUT_PARAM,
-              referencedContractImplName_OUT_PARAM
+              referencedContractImplName_OUT_PARAM,
+              isDynamicDispatch_OUT_PARAM
           );
     } finally {
       this.name = procedureName_OUT_PARAM.get();
       this.originalName = originalName_OUT_PARAM.get();
       this.referencedContractImplName = referencedContractImplName_OUT_PARAM.get();
       this.resolvedContractConcreteTypes = resolvedContractConcreteTypes_OUT_PARAM.get();
+      this.isDynamicDispatch = isDynamicDispatch_OUT_PARAM.get();
     }
     // This final step defers validation of the actual types passed as args.
     Type res = super.getValidatedExprType(scopedHeap);
@@ -197,7 +215,9 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM,
       AtomicReference<String> procedureName_OUT_PARAM,
       AtomicReference<String> originalName_OUT_PARAM,
-      AtomicReference<String> referencedContractImplName_OUT_PARAM) throws ClaroTypeException {
+      AtomicReference<String> referencedContractImplName_OUT_PARAM,
+      AtomicBoolean isDynamicDispatch_OUT_PARAM
+  ) throws ClaroTypeException {
     // Do type inference of the concrete types by checking only the necessary args.
     if (resolvedContractConcreteTypes_OUT_PARAM.get() == null) {
       // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
@@ -299,7 +319,30 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       String contractImplTypeString =
           ContractImplementationStmt.getContractTypeString(contractName, concreteTypeStrings);
       if (!scopedHeap.isIdentifierDeclared(contractImplTypeString)) {
-        throw ClaroTypeException.forContractProcedureCallOverUnimplementedConcreteTypes(contractImplTypeString);
+        // So, we weren't able to find an implementation of the given type params. It's possible that we can find a
+        // valid dispatch target if the call was passed any oneofs whose variants have impls.
+        boolean dynamicDispatchOverOneofsIsPossible = false;
+        if (IntStream.range(0, contractDefinitionStmt.typeParamNames.size()).anyMatch(
+            i -> resolvedContractConcreteTypes_OUT_PARAM.get().get(i).baseType().equals(BaseType.ONEOF)
+                 && contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgs
+                     .get(originalName_OUT_PARAM.get()).contains(i))) {
+          List<String> requiredContractImplsForDynamicDispatchSupport =
+              getAllDynamicDispatchConcreteContractProcedureNames(
+                  contractName,
+                  contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgs.get(
+                      originalName_OUT_PARAM.get()),
+                  resolvedContractConcreteTypes_OUT_PARAM.get()
+              );
+          dynamicDispatchOverOneofsIsPossible =
+              requiredContractImplsForDynamicDispatchSupport.stream().allMatch(scopedHeap::isIdentifierDeclared);
+        }
+        if (!dynamicDispatchOverOneofsIsPossible) {
+          throw ClaroTypeException.forContractProcedureCallOverUnimplementedConcreteTypes(contractImplTypeString);
+        }
+        isDynamicDispatch_OUT_PARAM.set(true);
+        procedureName_OUT_PARAM.set(
+            String.format("%s_DYNAMIC_DISPATCH_%s", contractName, originalName_OUT_PARAM.get()));
+        referencedContractImplName_OUT_PARAM.set(String.format("$%s_DYNAMIC_DISPATCH_HANDLERS", contractName));
       } else {
         // Before leaving, just hold onto the corresponding contract's implementation name for codegen.
         referencedContractImplName_OUT_PARAM.set(
@@ -365,16 +408,63 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     }
   }
 
+  private static List<String> getAllDynamicDispatchConcreteContractProcedureNames(
+      String contractName,
+      ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
+      ImmutableList<Type> types) {
+    return getAllDynamicDispatchConcreteContractProcedureNames_helper(
+        contractName, dynamicDispatchSupportedOverTypeParamIndices, types, new ArrayList<>(), 0);
+  }
+
+  private static ArrayList<String> getAllDynamicDispatchConcreteContractProcedureNames_helper(
+      String contractName,
+      ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
+      ImmutableList<Type> types, ArrayList<Type> currTypesResolvedVariants,
+      int i) {
+    ArrayList<String> res = new ArrayList<>();
+    if (i >= types.size()) {
+      ImmutableList<String> concreteTypeStrings =
+          currTypesResolvedVariants.stream().map(Type::toString).collect(ImmutableList.toImmutableList());
+      res.add(ContractImplementationStmt.getContractTypeString(contractName, concreteTypeStrings));
+    } else if (dynamicDispatchSupportedOverTypeParamIndices.contains(i)
+               && types.get(i).baseType().equals(BaseType.ONEOF)) {
+      for (Type oneofVariant : ((Types.OneofType) types.get(i)).getVariantTypes()) {
+        currTypesResolvedVariants.add(oneofVariant);
+        res.addAll(
+            getAllDynamicDispatchConcreteContractProcedureNames_helper(
+                contractName, dynamicDispatchSupportedOverTypeParamIndices, types, currTypesResolvedVariants, i + 1));
+        currTypesResolvedVariants.remove(currTypesResolvedVariants.size() - 1);
+      }
+    } else {
+      currTypesResolvedVariants.add(types.get(i));
+      res.addAll(
+          getAllDynamicDispatchConcreteContractProcedureNames_helper(
+              contractName, dynamicDispatchSupportedOverTypeParamIndices, types, currTypesResolvedVariants, i + 1));
+      currTypesResolvedVariants.remove(currTypesResolvedVariants.size() - 1);
+    }
+    return res;
+  }
+
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(this.referencedContractImplName).append('.'));
 
-    // In order to avoid using names that are way too long for Java, we're going to hash all names within this
-    // contract implementation. I won't worry about maintaining the old names here, because these variables should
-    // never be referenced anymore after codegen.
-    super.hashNameForCodegen = true;
+    // In order to avoid using names that are way too long for Java, in the case of statically dispatched contract
+    // procedure calls, we're going to hash all names within this contract implementation. I won't worry about
+    // maintaining the old names here, because these variables should never be referenced anymore after codegen.
+    super.hashNameForCodegen = !this.isDynamicDispatch;
+    super.staticDispatchCodegen = this.isDynamicDispatch;
+    super.optionalExtraArgsCodegen = this.requiredContextualOutputTypeAssertedTypes.map(
+        outputTypes -> outputTypes.stream()
+            .map(t -> {
+              if (t instanceof ConcreteType) {
+                return t.baseType().nativeJavaSourceImplClazz.get().getSimpleName() + ".class";
+              }
+              return t.getJavaSourceClaroType();
+            }).collect(Collectors.joining(", "))
+    );
     res = res.createMerged(super.generateJavaSourceOutput(scopedHeap));
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets

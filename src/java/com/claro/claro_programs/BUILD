@@ -34,6 +34,18 @@ claro_library(
 )
 
 claro_binary(
+    name = "dynamic_dispatch_compiled_claro_image",
+    srcs = [":dynamic_dispatch_compiled_claro"],
+    java_name = "dynamic_dispatch",
+)
+
+claro_library(
+    name = "dynamic_dispatch_compiled_claro",
+    src = "dynamic_dispatch.claro",
+    debug = True,
+)
+
+claro_binary(
     name = "generics_compiled_claro_image",
     srcs = [":generics_compiled_claro"],
     java_name = "generics",

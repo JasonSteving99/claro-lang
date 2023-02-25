@@ -5,10 +5,11 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.*;
 
 import java.util.HashMap;
+import java.util.Optional;
+import java.util.Stack;
 
 public class StructuralConcreteGenericTypeValidationUtil {
   public static Type validateArgExprsAndExtractConcreteGenericTypeParams(
@@ -24,6 +25,20 @@ public class StructuralConcreteGenericTypeValidationUtil {
       Type functionExpectedArgType,
       Type actualArgExprType,
       boolean inferConcreteTypes) throws ClaroTypeException {
+    return validateArgExprsAndExtractConcreteGenericTypeParams(
+        genericTypeParamTypeHashMap, functionExpectedArgType, actualArgExprType, inferConcreteTypes, Optional.empty(), Optional.empty());
+  }
+
+  public static Type validateArgExprsAndExtractConcreteGenericTypeParams(
+      HashMap<Type, Type> genericTypeParamTypeHashMap,
+      Type functionExpectedArgType,
+      Type actualArgExprType,
+      boolean inferConcreteTypes,
+      // The below should only ever be used by dynamic dispatch codegen for the sake of deciding the call path that
+      // would produce the types we're looking for (according to what's listed in `genericTypeParamTypeHashMap`).
+      Optional<HashMap<Type, ImmutableList<ImmutableList<StringBuilder>>>> optionalTypeCheckingCodegenForDynamicDispatch,
+      Optional<Stack<ImmutableList<StringBuilder>>> optionalTypeCheckingCodegenPath
+  ) throws ClaroTypeException {
     ClaroTypeException DEFAULT_TYPE_MISMATCH_EXCEPTION =
         new ClaroTypeException("Couldn't construct matching concrete type");
     // These nested types are types that we'll structurally recurse into to search for concrete usages
@@ -40,6 +55,9 @@ public class StructuralConcreteGenericTypeValidationUtil {
         if (inferConcreteTypes) {
           return genericTypeParamTypeHashMap.get(functionExpectedArgType);
         } else if (actualArgExprType.equals(genericTypeParamTypeHashMap.get(functionExpectedArgType))) {
+          optionalTypeCheckingCodegenForDynamicDispatch.ifPresent(
+              // We only actually want the SHORTEST path to getting this type.
+              m -> m.putIfAbsent(actualArgExprType, ImmutableList.copyOf(optionalTypeCheckingCodegenPath.get())));
           return actualArgExprType;
         } else {
           throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
@@ -53,20 +71,76 @@ public class StructuralConcreteGenericTypeValidationUtil {
 
       // First I just need to validate that the base types are actually even matching.
       if (!actualArgExprType.baseType().equals(functionExpectedArgType.baseType())) {
-        throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+        // If they're not matching in the sense that the actual arg is a oneof type and the expected arg is not, then
+        // try doing structural matching against all of the oneof variant types.
+        if (actualArgExprType.baseType().equals(BaseType.ONEOF)) {
+          // However, we shouldn't just always allow oneofs instead of concrete types, because not all of Claro has been
+          // upgraded to actually acknowledge the fact that oneofs can be passed into generic type params yet.
+          HashMultimap<Type, Type> genericTypeParamAcceptedTypes = HashMultimap.create();
+          HashMap<Type, Type> tmpVariantCheckingGenTypeParamMap = Maps.newHashMap(genericTypeParamTypeHashMap);
+
+          // First, we need to make sure that we track the codegen path that we are just about to go down.
+          if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+            optionalTypeCheckingCodegenPath.get().push(
+                ImmutableList.of(
+                    new StringBuilder("((Types.OneofType) "),
+                    // Leave room for the previous type to be nested here.
+                    new StringBuilder(").getVariantTypes()")
+                ));
+          }
+          for (Type actualOneofVariantType : ((Types.OneofType) actualArgExprType).getVariantTypes()) {
+            // Collect any generic type params that we manage to collect from this arg in the tmp map.
+            validateArgExprsAndExtractConcreteGenericTypeParams(
+                tmpVariantCheckingGenTypeParamMap, functionExpectedArgType, actualOneofVariantType, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath);
+            Sets.difference(tmpVariantCheckingGenTypeParamMap.entrySet(), genericTypeParamTypeHashMap.entrySet())
+                .forEach(g -> genericTypeParamAcceptedTypes.put(g.getKey(), g.getValue()));
+            tmpVariantCheckingGenTypeParamMap = Maps.newHashMap(genericTypeParamTypeHashMap);
+          }
+          // Undo the codegen path as we unwind the stack.
+          if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+            optionalTypeCheckingCodegenPath.get().pop();
+          }
+
+          // If all of the above checks panned out without throwing, then we know that this oneof was actually valid.
+          // So we just need to update the inferred generic type params to be oneof all of the types that were accepted.
+          Sets.difference(genericTypeParamAcceptedTypes.keySet(), genericTypeParamTypeHashMap.keySet())
+              .forEach(
+                  g -> genericTypeParamTypeHashMap.put(
+                      g, Types.OneofType.forVariantTypes(ImmutableList.copyOf(genericTypeParamAcceptedTypes.get(g)))));
+          return actualArgExprType;
+        } else {
+          // Otherwise, it's a straight-up unrecoverable type mismatch, bail now.
+          throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+        }
       }
 
       // Now recurse into the structure to check internal types.
       switch (functionExpectedArgType.baseType()) {
         case FUNCTION:
         case PROVIDER_FUNCTION:
+          // First, we need to make sure that we track the codegen path that we are just about to go down.
+          if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+            optionalTypeCheckingCodegenPath.get().push(
+                ImmutableList.of(
+                    new StringBuilder("((Types.ProcedureType) "),
+                    // Leave room for the previous type to be nested here.
+                    new StringBuilder(").getReturnType()")
+                ));
+          }
           validatedReturnType =
               validateArgExprsAndExtractConcreteGenericTypeParams(
                   genericTypeParamTypeHashMap,
                   ((Types.ProcedureType) functionExpectedArgType).getReturnType(),
                   ((Types.ProcedureType) actualArgExprType).getReturnType(),
-                  inferConcreteTypes
+                  inferConcreteTypes,
+                  optionalTypeCheckingCodegenForDynamicDispatch,
+                  optionalTypeCheckingCodegenPath
               );
+          // Undo the codegen path as we unwind the stack.
+          if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+            optionalTypeCheckingCodegenPath.get().pop();
+          }
+
           if (functionExpectedArgType.baseType().equals(BaseType.PROVIDER_FUNCTION)) {
             // Providers have no args so don't fall into the next checks.
             return Types.ProcedureType.ProviderType.typeLiteralForReturnType(
@@ -82,9 +156,22 @@ public class StructuralConcreteGenericTypeValidationUtil {
           }
           ImmutableList.Builder<Type> validatedArgTypes = ImmutableList.builder();
           for (int i = 0; i < expectedArgTypes.size(); i++) {
+            // First, we need to make sure that we track the codegen path that we are just about to go down.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().push(
+                  ImmutableList.of(
+                      new StringBuilder("((Types.ProcedureType) "),
+                      // Leave room for the previous type to be nested here.
+                      new StringBuilder(").getArgTypes().get(").append(i).append(')')
+                  ));
+            }
             validatedArgTypes.add(
                 validateArgExprsAndExtractConcreteGenericTypeParams(
-                    genericTypeParamTypeHashMap, expectedArgTypes.get(i), actualArgTypes.get(i), inferConcreteTypes));
+                    genericTypeParamTypeHashMap, expectedArgTypes.get(i), actualArgTypes.get(i), inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath));
+            // Undo the codegen path as we unwind the stack.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().pop();
+            }
           }
           Types.ProcedureType actualArgExprProcedureType = (Types.ProcedureType) actualArgExprType;
           if (functionExpectedArgType.baseType().equals(BaseType.CONSUMER_FUNCTION)) {
@@ -112,13 +199,28 @@ public class StructuralConcreteGenericTypeValidationUtil {
 
           ImmutableList.Builder<Type> validatedParameterizedArgTypesBuilder = ImmutableList.builder();
           for (int i = 0; i < functionExpectedArgType.parameterizedTypeArgs().size(); i++) {
+            // First, we need to make sure that we track the codegen path that we are just about to go down.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().push(
+                  ImmutableList.of(
+                      new StringBuilder(),
+                      // Leave room for the previous type to be nested here.
+                      new StringBuilder(".parameterizedTypeArgs().values().asList().get(").append(i).append(')')
+                  ));
+            }
             validatedParameterizedArgTypesBuilder.add(
                 validateArgExprsAndExtractConcreteGenericTypeParams(
                     genericTypeParamTypeHashMap,
                     expectedParameterizedArgTypes.get(i),
                     actualParameterizedArgTypes.get(i),
-                    inferConcreteTypes
+                    inferConcreteTypes,
+                    optionalTypeCheckingCodegenForDynamicDispatch,
+                    optionalTypeCheckingCodegenPath
                 ));
+            // Undo the codegen path as we unwind the stack.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().pop();
+            }
           }
           ImmutableList<Type> validatedParameterizedArgTypes = validatedParameterizedArgTypesBuilder.build();
           switch (functionExpectedArgType.baseType()) {
@@ -138,10 +240,15 @@ public class StructuralConcreteGenericTypeValidationUtil {
     } else {
       // Otherwise, this is not a generic type param position, and we need to validate this arg against the
       // actual concrete type in the function signature.
-      if (!actualArgExprType.equals(functionExpectedArgType)) {
-        throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+      if (actualArgExprType.equals(functionExpectedArgType)
+          || (functionExpectedArgType.baseType().equals(BaseType.ONEOF)
+              && (((Types.OneofType) functionExpectedArgType).getVariantTypes().contains(actualArgExprType)
+                  || (actualArgExprType.baseType().equals(BaseType.ONEOF)
+                      && ((Types.OneofType) functionExpectedArgType).getVariantTypes()
+                          .containsAll(((Types.OneofType) actualArgExprType).getVariantTypes()))))) {
+        return actualArgExprType;
       }
-      return actualArgExprType;
+      throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
     }
   }
 }

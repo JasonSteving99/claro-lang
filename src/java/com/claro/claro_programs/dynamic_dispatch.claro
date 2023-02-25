@@ -1,0 +1,107 @@
+###############################################################################################
+# DEMONSTRATE TRUE "AD-HOC POLYMORPHISM IN CLARO BY WAY OF DYNAMIC DISPATCH OVER ONEOFS.
+#
+# This is the true expressive power of Contracts fully realized. If you call a Contract
+# procedure over a oneof<T1, ..., TN> type, then, if you think about what you're asking Claro
+# to do, you're saying that you want Claro to dynamically call whatever implementation of that
+# procedure corresponds to whatever variant you happen to be making the call over at runtime.
+# In an OOP language, this would happen via the class method lookup table at runtime. In a
+# Trait based language like Rust this would happen by doing a dynamic lookup on a vtable
+# carried around with the object's memory. In Claro, this happens by deferring to a generated
+# dynamic dispatch function (one per each Contract Procedure Definition, not per Contract
+# Procedure Impl) which chooses the appropriate impl to defer to based on the runtime variant
+# of the oneof(s) the Contract Procedure was called over. This is some runtime overhead,
+# meaning that taking advantage of runtime dynamic dispatch is strictly slower than static
+# dispatch, but you already knew that - that's how it works in every language - but sometimes
+# this type of dynamic dispatch facility is quite powerful and enables very expressive code.
+# I mean it's the entire purpose of "Object Oriented" PLs, but Claro gives you the same
+# expressiveness (and much more - via multiple-dispatch support) without any of the
+# incomprehensibility of OO as I'd argue that Claro's dispatch rules can be very intuitive
+# (unlike the multiple dispatch you get in a dynamic language like Julia which is seriously
+# complicated by the reliance on subtyping).
+###############################################################################################
+
+provider getIntOrStringFromUser() -> oneof<int, string> {
+  if (input("Want an int? (Y/N):") == "Y") {
+    print("You picked: int");
+    return 1;
+  }
+  print("Defaulting to: string");
+  return "one";
+}
+
+contract Add<T,V> {
+  function add(lhs: T, rhs: V) -> T;
+}
+
+implement Add<int, int> as IntAdd {
+  function add(lhs: int, rhs: int) -> int {
+    return lhs + rhs;
+  }
+}
+
+implement Add<string, string> as StrAdd {
+  function add(lhs: string, rhs: string) -> string {
+    return "{lhs}{rhs}";
+  }
+}
+
+implement Add<int, string> as IntStrAdd {
+  function add(lhs: int, rhs: string) -> int {
+    _ = rhs;
+    return lhs;
+  }
+}
+
+implement Add<string, int> as StrIntAdd {
+  function add(lhs: string, rhs: int) -> string {
+    _ = rhs;
+    return lhs;
+  }
+}
+
+var intOrString : oneof<int, string> = getIntOrStringFromUser();
+
+intOrString = Add::add(intOrString, intOrString); # This call is being dispatched dynamically at runtime!!
+
+print(intOrString);
+type(intOrString);
+if (intOrString instanceof int) {
+  print("You ended up with this int!: {intOrString}");
+} else if (intOrString instanceof string) {
+  print("You ended up with this string!: {intOrString}");
+}
+
+
+
+####################################################################################################
+# DEMONSTRATE DYNAMIC DISPATCH OVER ONEOF WITHIN STRUCTURED TYPE
+####################################################################################################
+
+contract TypeParamNested<T, V> {
+  function foo(l: [T]) -> [V];
+}
+
+implement TypeParamNested<int, int> as IntList {
+  function foo(l: [int]) -> [int] {
+    print("Dispatched to: TypeParamNested<int, int>");
+    return l;
+  }
+}
+implement TypeParamNested<[int], int> as NestedIntList {
+  function foo(l: [[int]]) -> [int] {
+    print("Dispatched to: TypeParamNested<[int], int>");
+    return l[0];
+  }
+}
+
+function maybeWrapList(l: [int]) -> oneof<[int], [[int]]> {
+  if (input("Should we nest the list? Y/N") == "Y") {
+    return [l];
+  }
+  return l;
+}
+
+var maybeNestedIntList: oneof<[int], [[int]]> = maybeWrapList([1,2,3]);
+var nonNestedList: [int] = TypeParamNested::foo(maybeNestedIntList);
+print(nonNestedList);

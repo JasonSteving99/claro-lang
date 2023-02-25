@@ -13,6 +13,7 @@ import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -149,7 +150,8 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
               resolvedContractConcreteTypes_OUT_PARAM,
               procedureName_OUT_PARAM,
               originalName_OUT_PARAM,
-              referencedContractImplName_OUT_PARAM
+              referencedContractImplName_OUT_PARAM,
+              new AtomicBoolean(false) // Providers can't possibly support dynamic dispatch.
           );
     } finally {
       this.functionName = procedureName_OUT_PARAM.get();

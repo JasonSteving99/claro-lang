@@ -2,12 +2,15 @@ package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 
 import java.util.Stack;
 import java.util.function.Consumer;
@@ -28,6 +31,17 @@ public class ProgramNode {
     this.stmtListNode = stmtListNode;
     this.packageString = packageString;
     this.generatedClassName = generatedClassName;
+
+    // TODO(steving) Fix this hot garbage.
+    Expr.StructuralConcreteGenericTypeValidationUtil_validateArgExprsAndExtractConcreteGenericTypeParams_ONLY_USE_BC_MY_BAZEL_SETUP_IS_BJORKED_AND_I_DONT_HAVE_TIME_TO_FIX_THE_CIRCULAR_DEPS
+        = (expected, actual) -> {
+      try {
+        return StructuralConcreteGenericTypeValidationUtil
+            .validateArgExprsAndExtractConcreteGenericTypeParams(Maps.newHashMap(), expected, actual);
+      } catch (ClaroTypeException e) {
+        throw new RuntimeException(e);
+      }
+    };
   }
 
   public StringBuilder generateTargetOutput(
@@ -243,10 +257,12 @@ public class ProgramNode {
 
   private void performContractDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
     // First need to discover all of the Contract Definitions before we can register any of the implementations.
+    ImmutableList.Builder<ContractDefinitionStmt> contractDefinitionStmts = ImmutableList.builder();
     StmtListNode currStmtListNode = stmtListNode;
     while (currStmtListNode != null) {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
       if (currStmt instanceof ContractDefinitionStmt) {
+        contractDefinitionStmts.add((ContractDefinitionStmt) currStmt);
         try {
           currStmt.assertExpectedExprTypes(scopedHeap);
         } catch (ClaroTypeException e) {
@@ -267,6 +283,11 @@ public class ProgramNode {
         ((ContractImplementationStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
       }
       currStmtListNode = currStmtListNode.tail;
+    }
+
+    // Now we simply need to register the dynamic dispatch handlers for each Contract Procedure.
+    for (ContractDefinitionStmt currContract : contractDefinitionStmts.build()) {
+      currContract.registerDynamicDispatchHandlers(scopedHeap);
     }
   }
 
@@ -437,6 +458,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.Type;\n" +
             "import com.claro.intermediate_representation.types.TypeProvider;\n" +
             "import com.claro.intermediate_representation.types.Types;\n" +
+            "import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +

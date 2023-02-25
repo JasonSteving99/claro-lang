@@ -11,6 +11,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
@@ -19,6 +20,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
   private String originalName;
+  private boolean isDynamicDispatch = false;
 
   public ContractConsumerFunctionCallStmt(
       String contractName,
@@ -76,6 +78,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
         new AtomicReference<>(this.referencedContractImplName);
     AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM =
         new AtomicReference<>(this.resolvedContractConcreteTypes);
+    AtomicBoolean isDynamicDispatch_OUT_PARAM = new AtomicBoolean(this.isDynamicDispatch);
     boolean revertNameAfterTypeValidation;
     try {
       revertNameAfterTypeValidation =
@@ -90,13 +93,15 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
               resolvedContractConcreteTypes_OUT_PARAM,
               procedureName_OUT_PARAM,
               originalName_OUT_PARAM,
-              referencedContractImplName_OUT_PARAM
+              referencedContractImplName_OUT_PARAM,
+              isDynamicDispatch_OUT_PARAM
           );
     } finally {
       this.consumerName = procedureName_OUT_PARAM.get();
       this.originalName = originalName_OUT_PARAM.get();
       this.referencedContractImplName = referencedContractImplName_OUT_PARAM.get();
       this.resolvedContractConcreteTypes = resolvedContractConcreteTypes_OUT_PARAM.get();
+      this.isDynamicDispatch = isDynamicDispatch_OUT_PARAM.get();
     }
     // This final step defers validation of the actual types passed as args.
     super.assertExpectedExprTypes(scopedHeap);
