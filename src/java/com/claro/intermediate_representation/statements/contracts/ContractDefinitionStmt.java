@@ -225,7 +225,15 @@ public class ContractDefinitionStmt extends Stmt {
     ////////////////////////////////////////////////////////////////////////////////
     res.append("static ");
     if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
-      res.append("<O> O ");
+      if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
+          .getGenericContractTypeParamsReferencedByType().isEmpty()) {
+        res.append(
+                this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
+                    .toType().getJavaSourceType())
+            .append(' ');
+      } else {
+        res.append("<O> O ");
+      }
     } else {
       res.append("void ");
     }
@@ -400,7 +408,12 @@ public class ContractDefinitionStmt extends Stmt {
       );
       res.append("\t\t\t");
       if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
-        res.append("return (O) ");
+        if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
+            .getGenericContractTypeParamsReferencedByType().isEmpty()) {
+          res.append("return ");
+        } else {
+          res.append("return (O) ");
+        }
       }
       res.append(
           String.format(

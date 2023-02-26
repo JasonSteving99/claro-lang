@@ -102,6 +102,55 @@ function maybeWrapList(l: [int]) -> oneof<[int], [[int]]> {
   return l;
 }
 
+print("\n--------------------------------------------------------------------------------");
+
 var maybeNestedIntList: oneof<[int], [[int]]> = maybeWrapList([1,2,3]);
 var nonNestedList: [int] = TypeParamNested::foo(maybeNestedIntList);
 print(nonNestedList);
+
+
+########################################################################################################
+# SILLY TRIVIAL EXAMPLE IN THE MANNER OF HOW PEOPLE TEND TO SELL THE MERITS OF OBJECT ORIENTED LANGS...
+#
+# Claro has the critical expressiveness of OO languages, but doesn't allow inheritance of implementation
+# which is the true evil of Object Oriented programming and the reason why Claro will never support
+# nominal subtyping.
+########################################################################################################
+
+
+contract Animal<A> {
+  function makeNoise(animal: A) -> string;
+}
+
+alias Dog : string # name
+
+implement Animal<Dog> as DogAnimal {
+  function makeNoise(dog: Dog) -> string {
+    return "\"woof!\" says {dog}";
+  }
+}
+
+alias Cat : tuple<string, boolean> # name, isHappy
+
+implement Animal<Cat> as CatAnimal {
+  function makeNoise(cat: Cat) -> string {
+    if (cat[1]) {
+      # A happy cat... what are the chances?
+      return "\"meoww\" says {cat[0]}";
+    }
+    return "*hates you with evil glare* don't mess with {cat[0]} right now...";
+  }
+}
+
+print("\n--------------------------------------------------------------------------------");
+var evilCat: Cat = ("Satan", false); # angry cat
+var happyCat: Cat = ("Buttons", true); # happy cat
+var dog: Dog = "Milo";
+
+
+alias MyAnimals : oneof<Dog, Cat>
+var animalList: [MyAnimals] = [evilCat, happyCat, dog];
+var i = 0;
+while (i < len(animalList)) {
+  print(Animal::makeNoise(animalList[i++]));
+}
