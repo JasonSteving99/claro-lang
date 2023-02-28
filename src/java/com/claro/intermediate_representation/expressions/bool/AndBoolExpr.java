@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public class AndBoolExpr extends BoolExpr {
@@ -30,14 +31,31 @@ public class AndBoolExpr extends BoolExpr {
 
     // Detect any type narrowing information that's learned from *both* conditional branches.
     this.oneofsToBeNarrowed.putAll(getOneofsToBeNarrowed(this.getChildren().get(0)));
-    this.oneofsToBeNarrowed.putAll(getOneofsToBeNarrowed(this.getChildren().get(1)));
+    // Ensure that if the same oneof is being narrowed in both branches, that they're being narrowed to the *same* type.
+    for (Map.Entry<String, Type> narrowingCandidate : getOneofsToBeNarrowed(this.getChildren().get(1)).entrySet()) {
+      if (this.oneofsToBeNarrowed.containsKey(narrowingCandidate.getKey())) {
+        if (!this.oneofsToBeNarrowed.get(narrowingCandidate.getKey()).equals(narrowingCandidate.getValue())) {
+          this.logTypeError(
+              ClaroTypeException.forInvalidBooleanExprImplyingASingleValueIsMoreThanOneType(
+                  narrowingCandidate.getKey(),
+                  this.oneofsToBeNarrowed.get(narrowingCandidate.getKey()),
+                  narrowingCandidate.getValue()
+              ));
+        }
+      } else {
+        this.oneofsToBeNarrowed.put(narrowingCandidate.getKey(), narrowingCandidate.getValue());
+      }
+    }
 
     return validatedType;
   }
 
   private static HashMap<String, Type> getOneofsToBeNarrowed(Node operand) {
     if (operand.getClass().getSimpleName().equals("ParenthesizedExpr")) {
-      return ((BoolExpr) operand.getChildren().get(0)).oneofsToBeNarrowed;
+      do {
+        operand = operand.getChildren().get(0);
+      } while (operand.getClass().getSimpleName().equals("ParenthesizedExpr"));
+      return ((BoolExpr) operand).oneofsToBeNarrowed;
     } else if (operand instanceof BoolExpr) {
       return ((BoolExpr) operand).oneofsToBeNarrowed;
     } else {

@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation.expressions.bool;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
@@ -41,9 +42,12 @@ public class OrBoolExpr extends BoolExpr {
     return validatedType;
   }
 
-  private static HashMap<String, Type> getOneofsToBeNarrowed(Expr operand) {
+  private static HashMap<String, Type> getOneofsToBeNarrowed(Node operand) {
     if (operand.getClass().getSimpleName().equals("ParenthesizedExpr")) {
-      return ((BoolExpr) operand.getChildren().get(0)).oneofsToBeNarrowed;
+      do {
+        operand = operand.getChildren().get(0);
+      } while (operand.getClass().getSimpleName().equals("ParenthesizedExpr"));
+      return ((BoolExpr) operand).oneofsToBeNarrowed;
     } else if (operand instanceof BoolExpr) {
       return ((BoolExpr) operand).oneofsToBeNarrowed;
     } else {

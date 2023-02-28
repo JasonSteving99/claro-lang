@@ -180,6 +180,8 @@ public class ClaroTypeException extends Exception {
       "Illegal instanceof Check: %s is not a concrete type! Use instanceof to check which concrete type variant the given oneof is currently holding.";
   private static final String ILLEGAL_INSTANCEOF_CHECK_OVER_NON_ONEOF_EXPR =
       "Illegal instanceof Check: %s is a statically known concrete type! Using instanceof over a statically known concrete type is never necessary.";
+  private static final String INVALID_BOOLEAN_EXPR_IMPLYING_A_SINGLE_VALUE_IS_MORE_THAN_ONE_TYPE =
+      "Invalid Boolean Expression: This expression implies that the given value `%s` is of *both* of the following types:\n\t\t%s\n\tAND\n\t\t%s\n\t By definition, all Claro values are of exactly *one* type, so this boolean expression is never valid.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -801,6 +803,18 @@ public class ClaroTypeException extends Exception {
         String.format(
             ILLEGAL_INSTANCEOF_CHECK_OVER_NON_ONEOF_EXPR,
             validatedOneofExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidBooleanExprImplyingASingleValueIsMoreThanOneType(
+      String identifier, Type type1, Type type2) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_BOOLEAN_EXPR_IMPLYING_A_SINGLE_VALUE_IS_MORE_THAN_ONE_TYPE,
+            identifier,
+            type1,
+            type2
         )
     );
   }
