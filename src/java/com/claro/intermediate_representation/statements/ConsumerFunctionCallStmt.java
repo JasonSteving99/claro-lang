@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class ConsumerFunctionCallStmt extends Stmt {
   protected String consumerName;
   public boolean hashNameForCodegen = false;
+  public boolean staticDispatchCodegen = false;
   private final String originalName;
   final protected ImmutableList<Expr> argExprs;
 
@@ -242,7 +243,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
                 String.format(
-                    "%s.apply(%s);\n",
+                    this.staticDispatchCodegen ? "%s(%s);" : "%s.apply(%s);",
                     this.consumerName,
                     this.argExprs
                         .stream()

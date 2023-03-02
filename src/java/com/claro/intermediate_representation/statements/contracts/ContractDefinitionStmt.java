@@ -29,6 +29,9 @@ public class ContractDefinitionStmt extends Stmt {
       Maps.newHashMap();
   public ImmutableMultimap<String, Integer> contractProceduresSupportingDynamicDispatchOverArgs =
       ImmutableMultimap.of();
+  public ImmutableMap<String, ImmutableMultimap<ImmutableMap<String, Type>, Integer>>
+      /*{ProcedureName -> {{TypeParamRequiredForContextualTypeAssertion -> Type} -> TypeParamIndex}}*/
+      contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired = ImmutableMap.of();
 
   public ContractDefinitionStmt(
       String contractName,
@@ -108,49 +111,164 @@ public class ContractDefinitionStmt extends Stmt {
   public void registerDynamicDispatchHandlers(ScopedHeap scopedHeap) {
     ImmutableMultimap.Builder<String, Integer> contractProceduresSupportingDynamicDispatchOverArgs =
         ImmutableMultimap.builder();
-    for (Map.Entry<String, ContractProcedureSignatureDefinitionStmt> currSignatureByName :
-        this.declaredContractSignaturesByProcedureName.entrySet()) {
-      Multimap<String, Type> contractGenTypeParamVariants = HashMultimap.create();
-      for (Map<String, Type> typeImplMapping : ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)) {
+    ImmutableMap.Builder<String, ImmutableMultimap<ImmutableMap<String, Type>, Integer>>
+        contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequiredBuilder
+        = ImmutableMap.builder();
+
+    final Multimap<String, Type> contractGenTypeParamVariants = HashMultimap.create();
+    if (this.declaredContractSignaturesByProcedureName.values().stream()
+        .anyMatch(c -> !c.contextualOutputTypeAssertionRequired)) {
+      // This will get used if there's at least one procedure that's not requiring generic return type inference.
+      for (Map<String, Type> typeImplMapping :
+          ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)) {
         typeImplMapping.forEach(contractGenTypeParamVariants::put);
       }
+    }
+
+    for (Map.Entry<String, ContractProcedureSignatureDefinitionStmt> currSignatureByName :
+        this.declaredContractSignaturesByProcedureName.entrySet()) {
       ImmutableMap.Builder<String, Type> contractTypeParamsAsVariantOneofsBuilder = ImmutableMap.builder();
-
       boolean isDynamicDispatchSupported = false;
-      int i = 0;
-      for (String name : contractGenTypeParamVariants.keySet()) {
-        ImmutableSet<Type> currTypeParamVariants = ImmutableSet.copyOf(contractGenTypeParamVariants.get(name));
-        isDynamicDispatchSupported |= currTypeParamVariants.size() > 1;
-        contractTypeParamsAsVariantOneofsBuilder.put(
-            name,
-            currTypeParamVariants.size() > 1
-            ? Types.OneofType.forVariantTypes(currTypeParamVariants.asList())
-            : currTypeParamVariants.asList().get(0)
-        );
-        // Make note of the fact that dynamic dispatch is supported specifically over this arg.
-        if (currTypeParamVariants.size() > 1) {
-          contractProceduresSupportingDynamicDispatchOverArgs.put(currSignatureByName.getKey(), i);
-        }
-        i++;
-      }
 
-      if (isDynamicDispatchSupported) {
-        // In this case, Dynamic Dispatch can be supported over at least one of the Contract's Type Params.
-        scopedHeap.putIdentifierValue(
-            String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, currSignatureByName.getKey()),
-            this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey())
-                .getExpectedProcedureTypeForConcreteTypeParams(contractTypeParamsAsVariantOneofsBuilder.build())
-        );
+      // In case the current procedure requires Generic Return Type Inference then we constrain the possible type params
+      // that could be used to support dynamic dispatch.
+      if (currSignatureByName.getValue().contextualOutputTypeAssertionRequired) {
+        HashMap<ImmutableMap<String, Type>, Multimap<String, Type>>
+            contractGenTypeParamVariantsByRequiredAssertedOutputTypeParamImpls = Maps.newHashMap();
+        for (Map<String, Type> contractImpl :
+            ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)) {
+          ImmutableMap<String, Type> requiredAssertedOutputTypeParamImpls = contractImpl.keySet().stream()
+              .filter(t -> currSignatureByName.getValue().requiredContextualOutputTypeAssertionTypeParamNames.contains(t))
+              .collect(ImmutableMap.toImmutableMap(
+                  t -> t,
+                  contractImpl::get
+              ));
+          Multimap<String, Type> currContractGenTypeParamVariants;
+          if (contractGenTypeParamVariantsByRequiredAssertedOutputTypeParamImpls
+              .containsKey(requiredAssertedOutputTypeParamImpls)) {
+            currContractGenTypeParamVariants = contractGenTypeParamVariantsByRequiredAssertedOutputTypeParamImpls
+                .get(requiredAssertedOutputTypeParamImpls);
+          } else {
+            currContractGenTypeParamVariants = HashMultimap.create();
+            contractGenTypeParamVariantsByRequiredAssertedOutputTypeParamImpls
+                .put(requiredAssertedOutputTypeParamImpls, currContractGenTypeParamVariants);
+          }
+          contractImpl.entrySet().stream()
+              .filter(t -> !requiredAssertedOutputTypeParamImpls.containsKey(t.getKey()))
+              .forEach(t -> currContractGenTypeParamVariants.put(t.getKey(), t.getValue()));
+        }
+
+        // Now, I know which return types are associated with which type params. Determine which are going to support
+        // dynamic dispatch based on which arg type params have multiple impl'd variants.
+        ImmutableMultimap.Builder<ImmutableMap<String, Type>, Integer>
+            dynDispatchSupportedOverTypeArgsByRequiredReturnTypeParImpls = ImmutableMultimap.builder();
+        boolean dynDispatchSupportedForAtLeastOneConcreteReturnType = false;
+        for (Map.Entry<ImmutableMap<String, Type>, Multimap<String, Type>> genTypeVariantsByRequiredAssertedTypeParImpls
+            : contractGenTypeParamVariantsByRequiredAssertedOutputTypeParamImpls.entrySet()) {
+          for (int i = 0; i < this.typeParamNames.size(); i++) {
+            String name = this.typeParamNames.get(i);
+            ImmutableSet<Type> currTypeParamVariants =
+                ImmutableSet.copyOf(genTypeVariantsByRequiredAssertedTypeParImpls.getValue().get(name));
+            if (currSignatureByName.getValue().requiredContextualOutputTypeAssertionTypeParamNames.contains(name)) {
+              contractTypeParamsAsVariantOneofsBuilder
+                  .put(name, genTypeVariantsByRequiredAssertedTypeParImpls.getKey().get(name));
+            } else if (currTypeParamVariants.size() <= 1) {
+              // If there's only even a single concrete type variant or if the curr type param is one that requires
+              // Generic Return Type Inference, then we don't support it for dynamic dispatch.
+              contractTypeParamsAsVariantOneofsBuilder.put(name, currTypeParamVariants.asList().get(0));
+            } else {
+              isDynamicDispatchSupported = true;
+              contractTypeParamsAsVariantOneofsBuilder.put(
+                  name, Types.OneofType.forVariantTypes(currTypeParamVariants.asList()));
+              // Make note of the fact that dynamic dispatch is supported specifically over this arg.
+              dynDispatchSupportedOverTypeArgsByRequiredReturnTypeParImpls
+                  .put(genTypeVariantsByRequiredAssertedTypeParImpls.getKey(), i);
+            }
+          }
+          if (isDynamicDispatchSupported) {
+            // In this case, Dynamic Dispatch can be supported over at least one of the Contract's Type Params.
+            scopedHeap.putIdentifierValue(
+                String.format(
+                    "%s_$VARIANT$_%s_DYNAMIC_DISPATCH_%s",
+                    this.contractName,
+                    Hashing.sha256().hashUnencodedChars(
+                        genTypeVariantsByRequiredAssertedTypeParImpls.getKey().values().stream()
+                            .map(Type::toString)
+                            .collect(Collectors.joining("_"))),
+                    currSignatureByName.getKey()
+                ),
+                this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey())
+                    .getExpectedProcedureTypeForConcreteTypeParams(contractTypeParamsAsVariantOneofsBuilder.build())
+            );
+          }
+          dynDispatchSupportedForAtLeastOneConcreteReturnType |= isDynamicDispatchSupported;
+          // Need to reset for the next iteration.
+          contractTypeParamsAsVariantOneofsBuilder = ImmutableMap.builder();
+          isDynamicDispatchSupported = false;
+        }
+        if (dynDispatchSupportedForAtLeastOneConcreteReturnType) {
+          // Here I'm going to put a scoped heap entry for the general dynamic dispatch type just for the sake of having
+          // something to mark used during codegen.
+          scopedHeap.putIdentifierValue(
+              String.format(
+                  "%s_DYNAMIC_DISPATCH_%s",
+                  this.contractName,
+                  currSignatureByName.getKey()
+              ),
+              null
+          );
+        }
+        contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequiredBuilder
+            .put(currSignatureByName.getKey(), dynDispatchSupportedOverTypeArgsByRequiredReturnTypeParImpls.build());
+      } else {
+        // This contract procedure doesn't require Generic Return Type Inference. Therefore we can accept any dynamic
+        // dispatch call.
+        for (int i = 0; i < this.typeParamNames.size(); i++) {
+          String name = this.typeParamNames.get(i);
+          ImmutableSet<Type> currTypeParamVariants = ImmutableSet.copyOf(contractGenTypeParamVariants.get(name));
+          if (currTypeParamVariants.size() <= 1 ||
+              currSignatureByName.getValue().requiredContextualOutputTypeAssertionTypeParamNames.contains(name)) {
+            // If there's only even a single concrete type variant or if the curr type param is one that requires
+            // Generic Return Type Inference, then we don't support it for dynamic dispatch.
+            contractTypeParamsAsVariantOneofsBuilder.put(name, currTypeParamVariants.asList().get(0));
+          } else {
+            isDynamicDispatchSupported = true;
+            contractTypeParamsAsVariantOneofsBuilder.put(
+                name, Types.OneofType.forVariantTypes(currTypeParamVariants.asList()));
+            // Make note of the fact that dynamic dispatch is supported specifically over this arg.
+            contractProceduresSupportingDynamicDispatchOverArgs.put(currSignatureByName.getKey(), i);
+          }
+        }
+
+        if (isDynamicDispatchSupported) {
+          // In this case, Dynamic Dispatch can be supported over at least one of the Contract's Type Params.
+          scopedHeap.putIdentifierValue(
+              String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, currSignatureByName.getKey()),
+              this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey())
+                  .getExpectedProcedureTypeForConcreteTypeParams(contractTypeParamsAsVariantOneofsBuilder.build())
+          );
+        }
       }
     }
     this.contractProceduresSupportingDynamicDispatchOverArgs =
         contractProceduresSupportingDynamicDispatchOverArgs.build();
+    this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired =
+        contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequiredBuilder.build();
   }
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // TODO(steving): IMPLEMENT DYNAMIC DISPATCH OVER CONTRACTS
-    if (this.contractProceduresSupportingDynamicDispatchOverArgs.isEmpty()) {
+    // TODO(steving) Technically the approach that I've followed here is actually fundamentally overlooking the fact
+    //   that for contract Foo<InParamA,InParamB,OutParam> it isn't sufficient to have impls:
+    //     - Foo<A1, B1, OutParam1>
+    //     - Foo<A2, B2, OutParam1>
+    //   So, while the ContractFunctionCall impl is correctly working around this, so there's no observable user-facing
+    //   bug - Claro's currently going to be codegen'ing a dyn dispatch switch function when it is not possible that it
+    //   would ever be used.
+    if (this.contractProceduresSupportingDynamicDispatchOverArgs.isEmpty()
+        && (this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired.isEmpty()
+            || this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
+                .values().stream().allMatch(m -> m.isEmpty()))) {
       // Nothing to codegen, no Dynamic Dispatch supported for this contract.
       return GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
     }
@@ -374,7 +492,10 @@ public class ContractDefinitionStmt extends Stmt {
                       if (this.contractProceduresSupportingDynamicDispatchOverArgs.get(procedureName).contains(n)
                           || this.declaredContractSignaturesByProcedureName.get(procedureName)
                               .requiredContextualOutputTypeAssertionTypeParamNames
-                              .contains(this.typeParamNames.get(n))) {
+                              .contains(this.typeParamNames.get(n))
+                          ||
+                          this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
+                              .get(procedureName).values().stream().anyMatch(i -> n == i)) {
                         return String.format("$%s_vtableKey", this.typeParamNames.get(n));
                       }
                       Type onlyConcreteTypeForCurrTypeParam =
@@ -430,6 +551,9 @@ public class ContractDefinitionStmt extends Stmt {
               String.join(", ", currProcedureArgNames)
           )
       );
+      if (!this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
+        res.append("\t\t\treturn;\n");
+      }
     }
     res.append("\t\tdefault:\n\t\t\tthrow new IllegalStateException(\"IMPOSSIBLE!!!\");");
     res.append("\n\t}\n");

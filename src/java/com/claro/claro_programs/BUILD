@@ -42,7 +42,6 @@ claro_binary(
 claro_library(
     name = "dynamic_dispatch_compiled_claro",
     src = "dynamic_dispatch.claro",
-    debug = True,
 )
 
 claro_binary(

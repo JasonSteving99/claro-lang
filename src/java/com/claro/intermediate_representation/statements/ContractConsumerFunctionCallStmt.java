@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.statements.contracts.ContractProced
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -79,23 +80,21 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM =
         new AtomicReference<>(this.resolvedContractConcreteTypes);
     AtomicBoolean isDynamicDispatch_OUT_PARAM = new AtomicBoolean(this.isDynamicDispatch);
-    boolean revertNameAfterTypeValidation;
     try {
-      revertNameAfterTypeValidation =
-          ContractFunctionCallExpr.getValidatedTypeInternal(
-              this.contractName,
-              this.resolvedContractType,
-              contractDefinitionStmt,
-              contractProcedureSignatureDefinitionStmt,
-              this.argExprs,
-              Optional.empty(),
-              scopedHeap,
-              resolvedContractConcreteTypes_OUT_PARAM,
-              procedureName_OUT_PARAM,
-              originalName_OUT_PARAM,
-              referencedContractImplName_OUT_PARAM,
-              isDynamicDispatch_OUT_PARAM
-          );
+      ContractFunctionCallExpr.getValidatedTypeInternal(
+          this.contractName,
+          this.resolvedContractType,
+          contractDefinitionStmt,
+          contractProcedureSignatureDefinitionStmt,
+          this.argExprs,
+          Optional.empty(),
+          scopedHeap,
+          resolvedContractConcreteTypes_OUT_PARAM,
+          procedureName_OUT_PARAM,
+          originalName_OUT_PARAM,
+          referencedContractImplName_OUT_PARAM,
+          isDynamicDispatch_OUT_PARAM
+      );
     } finally {
       this.consumerName = procedureName_OUT_PARAM.get();
       this.originalName = originalName_OUT_PARAM.get();
@@ -105,7 +104,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     }
     // This final step defers validation of the actual types passed as args.
     super.assertExpectedExprTypes(scopedHeap);
-    if (revertNameAfterTypeValidation) {
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
       this.consumerName = originalName_OUT_PARAM.get();
     }
   }
@@ -132,10 +131,15 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(this.referencedContractImplName).append('.'));
 
-    // In order to avoid using names that are way too long for Java, we're going to hash all names within this
-    // contract implementation. I won't worry about maintaining the old names here, because these variables should
-    // never be referenced anymore after codegen.
-    super.hashNameForCodegen = true;
+    // In order to avoid using names that are way too long for Java, in the case of statically dispatched contract
+    // procedure calls, we're going to hash all names within this contract implementation. I won't worry about
+    // maintaining the old names here, because these variables should never be referenced anymore after codegen.
+    super.hashNameForCodegen = !this.isDynamicDispatch;
+    super.staticDispatchCodegen = this.isDynamicDispatch;
+    if (this.consumerName.contains("$VARIANT$")) {
+      this.consumerName = String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, this.originalName);
+    }
+
     res = res.createMerged(super.generateJavaSourceOutput(scopedHeap));
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets

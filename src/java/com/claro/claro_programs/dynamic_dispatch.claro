@@ -154,3 +154,182 @@ var i = 0;
 while (i < len(animalList)) {
   print(Animal::makeNoise(animalList[i++]));
 }
+
+########################################################################################################
+# DEMONSTRATE MULTIPLE DYNAMIC DISPATCH!
+#
+# Claro goes well beyond the expressive capabilities of other traditional languages by providing full
+# language level support for statically type-checked multiple dynamic dispatch! This is a fairly complex
+# language feature, so take the time to consider the power that this is giving you. The below example is
+# taken directly from https://www.wikiwand.com/en/Multiple_dispatch#Julia. Notice how Claro achieves the
+# exact same behavior as Julia does, however, Claro doesn't require subtyping relationships whereas the
+# Julia example does. That's a massive win!
+#
+# TODO(steving) Come back to refactor this example once Claro has support for:
+# TODO(steving) 1. user defined typedefs rather than just using Aliases as a hack
+# TODO(steving) 2. struct member generic function requirements
+########################################################################################################
+
+alias Spaceship : [int] # list of len 1 with the size inside...we're hacking here until we have typedefs.
+alias Asteroid : int  # size
+
+contract Sized<T> {
+  function getSize(t: T) -> int;
+}
+implement Sized<Spaceship> as SpaceshipSize {
+  function getSize(s: Spaceship) -> int {
+    return s[0];
+  }
+}
+implement Sized<Asteroid> as AsteroidSize {
+  function getSize(a: Asteroid) -> int {
+    return a;
+  }
+}
+
+contract Collision<A, B> {
+  function collideWith(a: A, b: B) -> string;
+}
+implement Collision<Spaceship, Asteroid> as SACollission {
+  function collideWith(s: Spaceship, a: Asteroid) -> string {
+    _ = s; _ = a;
+    return "s/a";
+  }
+}
+implement Collision<Spaceship, Spaceship> as SSCollission {
+  function collideWith(s: Spaceship, s2: Spaceship) -> string {
+    _ = s; _ = s2;
+    return "s/s";
+  }
+}
+implement Collision<Asteroid, Spaceship> as ASCollission {
+  function collideWith(a: Asteroid, s: Spaceship) -> string {
+    _ = a; _ = s;
+    return "a/s";
+  }
+}
+implement Collision<Asteroid, Asteroid> as AACollission {
+  function collideWith(a: Asteroid, a2: Asteroid) -> string {
+    _ = a; _ = a2;
+    return "a/a";
+  }
+}
+
+requires(Sized<A>, Sized<B>, Collision<A, B>)
+function collide<A, B>(a: A, b: B) -> string {
+  if ((((int) Sized::getSize(a)) > 100) and (((int) Sized::getSize(b)) > 100)) {
+    return "Big boom!";
+  }
+  return Collision::collideWith(a, b);
+}
+
+# THESE CALLS ARE DEMONSTRATING STATIC MULTIPLE DISPATCH THAT CLARO CAN RESOLVE AT COMPILE-TIME.
+print("\n--------------------------------------------------------------------------------");
+var a101: Asteroid = 101;
+var s300: Spaceship = [300];
+print(collide(a101, s300));
+
+var a10: Asteroid = 10;
+var s10: Spaceship = [10];
+print(collide(a10, s10));
+
+var s101: Spaceship = [101];
+print(collide(s101, s10));
+
+# HERE, WE'LL ITERATE OVER A LIST CONTAINING BOTH SPACESHIPS AND ASTEROIDS AND THEN MAKE
+# *DYNAMIC* MULTIPLE DISPATCH CALLS THAT CLARO RESOLVES AT RUNTIME (AFTER STATICALLY
+# VALIDATING THAT THE RUNTIME DISPATCH IS GUARANTEED NOT TO HAVE A RUNTIME TYPE MISMATCH!).
+var spaceObjects: [oneof<Spaceship, Asteroid>] = [a101, s300, a10];
+print("Simulating collisions between {len(spaceObjects)} space objects!");
+i = 0;
+while (i < len(spaceObjects)) {
+  var j = 0;
+  while (j < len(spaceObjects)) {
+    # Multiple Dynamic Dispatch is happening here!
+    var collisionResult = Collision::collideWith(spaceObjects[i], spaceObjects[j]);
+    var prefix: string = "{prettyPrint(spaceObjects[i])} collides with {prettyPrint(spaceObjects[j])}: {collisionResult}";
+    print(prefix);
+    j++;
+  }
+  i++;
+}
+
+function prettyPrint(spaceObj: oneof<Spaceship, Asteroid>) -> string {
+  if (spaceObj instanceof Spaceship) {
+    return "Spaceship({spaceObj[0]})";
+  }
+  if (spaceObj instanceof Asteroid) {
+    return "Asteroid({spaceObj})";
+  }
+  # TODO(steving) Else clause should narrow oneof types in this case.
+  return "IMPOSSIBLE";
+}
+
+
+
+########################################################################################################
+# DEMONSTRATE DYNAMIC DISPATCH CALL OVER UNSUPPORTED ARGUMENTS
+#
+# The point of a statically typed language is to give you useful error messages when some code would be
+# guaranteed to fail were you to let it run. In the case of dynamic dispatch, Claro gives support by
+# acknowledging that you were trying to do dynamic dispatch (by detecting that at least one of the args
+# passed to a procedure was of a oneof type) and then providing you with a clear list of contract
+# implementations that would've been necessary in order for that particular dynamic dispatch call to be
+# supported. This is very explicitly surfacing to you at the callsite, exactly what you need to do in
+# order to make the call you're hoping to make.
+########################################################################################################
+
+contract Foo<A, B> {
+  function bar(a: A, b: B) -> boolean;
+  consumer baz(a: A, b: B);
+}
+
+implement Foo<int, string> as I {
+  function bar(a: int, b: string) -> boolean {
+    _ = a; _ = b;
+    return true;
+  }
+  consumer baz(a: int, b: string) {
+    _ = a; _ = b;
+    print("Foo<int, string>::baz!");
+  }
+}
+implement Foo<string, int> as S {
+  function bar(a: string, b: int) -> boolean {
+    _ = a; _ = b;
+    return true;
+  }
+  consumer baz(a: string, b: int) {
+    _ = a; _ = b;
+    print("Foo<string, int>::baz!");
+  }
+}
+implement Foo<int, int> as II {
+  function bar(a: int, b: int) -> boolean {
+    _ = a; _ = b;
+    return true;
+  }
+  consumer baz(a: int, b: int) {
+    _ = a; _ = b;
+    print("Foo<int, int>::baz!");
+  }
+}
+
+print("\n--------------------------------------------------------------------------------");
+var strOrInt: oneof<string, int> = getIntOrStringFromUser();
+print("Claro can make Dynamic Dispatch calls over Contract Consumers as well!");
+Foo::baz(1, strOrInt);
+
+# Uncomment the below line for a compile time error letting you know exactly why you can't make this particular
+# dynamic dispatch call over the types provided.
+#print(Foo::bar(strOrInt, strOrInt));
+
+# THE ERROR MESSAGE FOR THE ABOVE WILL BE THE FOLLOWING (BARRING ANY ERROR MESSAGE REFACTORING):
+#
+#"Invalid Contract Procedure Reference: No implementation of Foo<oneof<string, int>, oneof<string, int>> found.
+#	 If you were attempting to make a dynamic dispatch call over this Contract Procedure, then (for the given
+#   argument/return types) the following contract implementations must be present:
+#		 - Foo<string, string>		(NOT IMPLEMENTED!)
+#		 - Foo<string, int>
+#		 - Foo<int, string>
+#		 - Foo<int, int>"

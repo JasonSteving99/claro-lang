@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -136,23 +137,21 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
         new AtomicReference<>(this.referencedContractImplName);
     AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM =
         new AtomicReference<>(this.resolvedContractConcreteTypes);
-    boolean revertNameAfterTypeValidation;
     try {
-      revertNameAfterTypeValidation =
-          ContractFunctionCallExpr.getValidatedTypeInternal(
-              this.contractName,
-              this.resolvedContractType,
-              contractDefinitionStmt,
-              contractProcedureSignatureDefinitionStmt,
-              ImmutableList.of(),
-              Optional.of(this::logTypeError),
-              scopedHeap,
-              resolvedContractConcreteTypes_OUT_PARAM,
-              procedureName_OUT_PARAM,
-              originalName_OUT_PARAM,
-              referencedContractImplName_OUT_PARAM,
-              new AtomicBoolean(false) // Providers can't possibly support dynamic dispatch.
-          );
+      ContractFunctionCallExpr.getValidatedTypeInternal(
+          this.contractName,
+          this.resolvedContractType,
+          contractDefinitionStmt,
+          contractProcedureSignatureDefinitionStmt,
+          ImmutableList.of(),
+          Optional.of(this::logTypeError),
+          scopedHeap,
+          resolvedContractConcreteTypes_OUT_PARAM,
+          procedureName_OUT_PARAM,
+          originalName_OUT_PARAM,
+          referencedContractImplName_OUT_PARAM,
+          new AtomicBoolean(false) // Providers can't possibly support dynamic dispatch.
+      );
     } finally {
       this.functionName = procedureName_OUT_PARAM.get();
       this.originalName = originalName_OUT_PARAM.get();
@@ -161,7 +160,7 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
     }
     // This final step defers validation of the actual types passed as args.
     Type res = super.getValidatedExprType(scopedHeap);
-    if (revertNameAfterTypeValidation) {
+    if (InternalStaticStateUtil.GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation) {
       this.functionName = originalName_OUT_PARAM.get();
     }
     return res;

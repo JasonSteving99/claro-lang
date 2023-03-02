@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -124,6 +125,8 @@ public class ClaroTypeException extends Exception {
       "Invalid Contract Procedure Reference: Generic procedure calls a Contract procedure %s::%s over a generic type param so should be annotated as `requires(%s<%s>)`";
   private static final String CONTRACT_PROCEDURE_CALL_OVER_UNIMPLEMENTED_CONCRETE_TYPES =
       "Invalid Contract Procedure Reference: No implementation of %s found.";
+  private static final String CONTRACT_PROCEDURE_DYNAMIC_DISPATCH_CALL_OVER_UNSUPPORTED_CONTRACT_TYPE_PARAMS =
+      "%s\n\tIf you were attempting to make a dynamic dispatch call over this Contract Procedure, then (for the given argument/return types) the following contract implementations must be present:\n\t\t- %s";
   private static final String GENERIC_PROCEDURE_REQUIRES_UNDEFINED_CONTRACT =
       "Invalid Required Contract: Generic Procedure `%s` is attempting to require undefined contract `%s`.";
   private static final String GENERIC_PROCEDURE_REQUIRES_CONTRACT_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
@@ -815,6 +818,29 @@ public class ClaroTypeException extends Exception {
             identifier,
             type1,
             type2
+        )
+    );
+  }
+
+  public static ClaroTypeException forContractProcedureDynamicDispatchCallOverUnsupportedContractTypeParams(
+      String contractImplTypeString,
+      List<String> requiredContractImplsForDynamicDispatchSupport,
+      Set<String> actualImpls) {
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_PROCEDURE_DYNAMIC_DISPATCH_CALL_OVER_UNSUPPORTED_CONTRACT_TYPE_PARAMS,
+            String.format(
+                CONTRACT_PROCEDURE_CALL_OVER_UNIMPLEMENTED_CONCRETE_TYPES,
+                contractImplTypeString
+            ),
+            requiredContractImplsForDynamicDispatchSupport.stream()
+                .map(requiredImpl -> {
+                  if (actualImpls.contains(requiredImpl)) {
+                    return requiredImpl;
+                  }
+                  return String.format("%s\t\t(NOT IMPLEMENTED!)", requiredImpl);
+                })
+                .collect(Collectors.joining("\n\t\t- "))
         )
     );
   }
