@@ -53,6 +53,8 @@ public class InternalStaticStateUtil {
   public static HashSet<String> ContractDefinitionStmt_genericContractImplProceduresCanonicalNames = new HashSet<>();
   public static HashBasedTable<String, ImmutableMap<Type, Type>, /*Node.GeneratedJavaSource*/Object>
       GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations = HashBasedTable.create();
+  public static HashBasedTable<String, ImmutableMap<Type, Type>, String>
+      GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName = HashBasedTable.create();
 
   public static boolean GnericProcedureDefinitionStmt_withinGenericProcedureDefinitionTypeValidation = false;
   public static boolean GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = false;

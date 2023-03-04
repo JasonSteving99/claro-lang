@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -28,9 +29,10 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
   private String originalName;
-  private Type assertedOutputType;
+  private Type validatedOutputType;
   private boolean isDynamicDispatch = false;
   private Optional<ImmutableMap<String, Type>> requiredContextualOutputTypeAssertedTypes = Optional.empty();
+  private boolean dynamicDispatchCodegenRequiresCastBecauseOfJavasVeryLimitedTypeInference = false;
 
   public ContractFunctionCallExpr(
       String contractName,
@@ -112,7 +114,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       }
     }
 
-    this.assertedOutputType = assertedOutputType;
+    this.validatedOutputType = assertedOutputType;
     super.assertExpectedExprType(scopedHeap, assertedOutputType);
 
     // Return type validation to the default state where Generic type params must be strictly checked for equality.
@@ -131,8 +133,9 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
         (ContractDefinitionStmt) scopedHeap.getIdentifierValue(this.contractName);
     ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt =
         contractDefinitionStmt.declaredContractSignaturesByProcedureName.get(this.name);
-    if (this.assertedOutputType == null && contractProcedureSignatureDefinitionStmt.resolvedOutputType.isPresent()) {
-      if (contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired) {
+    if (contractProcedureSignatureDefinitionStmt.resolvedOutputType.isPresent()) {
+      if (this.validatedOutputType == null &&
+          contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired) {
         // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
         // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
         // other args, therefore making Contract Impl inference via the arg types alone impossible.
@@ -142,6 +145,12 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
             this.name,
             contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
         );
+      } else if (!contractProcedureSignatureDefinitionStmt.resolvedOutputType.get()
+          .getGenericContractTypeParamsReferencedByType()
+          .isEmpty()) {
+        // Also hold this simply to know if a cast will be necessary for dynamic dispatch codegen (because Java's type
+        // inference is *significantly* more limited than Claro's it needs a helping hand in cases where Claro doesn't).
+        this.dynamicDispatchCodegenRequiresCastBecauseOfJavasVeryLimitedTypeInference = true;
       }
     }
 
@@ -153,8 +162,9 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // Procedure that this contract function call is made within is actually called, the correct monomorphization for
     // this contract will be selected since the generic procedure's contract requirements will have been validated.
     if (res.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-      return this.assertedOutputType;
+      return this.validatedOutputType;
     }
+    this.validatedOutputType = res;
     return res;
   }
 
@@ -332,6 +342,54 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
             procedureName_OUT_PARAM.set(
                 String.format("%s_DYNAMIC_DISPATCH_%s", contractName, originalName_OUT_PARAM.get()));
             referencedContractImplName_OUT_PARAM.set(String.format("$%s_DYNAMIC_DISPATCH_HANDLERS", contractName));
+            if (contractProcedureSignatureDefinitionStmt.optionalGenericTypesList.isPresent()) {
+              // Since we're about to allow FunctionCallExpr to take over the remaining type checking needs, we need to
+              // setup a synthetic list of transitively required contracts for this dynamic dispatch call. This wasn't
+              // already applied to the type in the ScopedHeap because I don't want to put a full join's worth of entries
+              // in the heap to hold the correct subsets of transitive required contracts. So here, we'll update
+              // temporarily so that this particular dyn disp call (which may be over a subset of the supported dyn disp
+              // impls) may be validated against all the required contracts for the subsets of concrete type params
+              // passed in as oneofs for this dyn disp call.
+              ArrayListMultimap<String, ImmutableList<Type>>
+                  transitivelyRequiredContractNamesToGenArgsForThisParticularDynDispCall = ArrayListMultimap.create();
+              ImmutableList<ScopedHeap.IdentifierData> requiredContractImplsForDynamicDispatchSupportProcedureTypes =
+                  requiredContractImplsForDynamicDispatchSupport.stream().map(
+                      reqContractImpl ->
+                          scopedHeap.getIdentifierData(
+                              ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                                  contractName,
+                                  ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(reqContractImpl))
+                                      .getConcreteTypeParams(),
+                                  originalName_OUT_PARAM.get()
+                              ))
+                  ).collect(ImmutableList.toImmutableList());
+              for (ScopedHeap.IdentifierData reqContractImpl : requiredContractImplsForDynamicDispatchSupportProcedureTypes) {
+                ArrayListMultimap<String, ImmutableList<Type>> reqContractImplTransitiveReqContracts =
+                    ((Types.ProcedureType) reqContractImpl.type).getAllTransitivelyRequiredContractNamesToGenericArgs();
+                reqContractImplTransitiveReqContracts.forEach(
+                    (reqContractName, typeParams) ->
+                        transitivelyRequiredContractNamesToGenArgsForThisParticularDynDispCall.get(reqContractName)
+                            .add(typeParams));
+              }
+              ScopedHeap.IdentifierData dynDispatchProcedureIdentifierData = scopedHeap.getIdentifierData(
+                  String.format("%s_DYNAMIC_DISPATCH_%s", contractName, originalName_OUT_PARAM.get()));
+              ((Types.ProcedureType) dynDispatchProcedureIdentifierData.type)
+                  .allTransitivelyRequiredContractNamesToGenericArgs
+                  .set(transitivelyRequiredContractNamesToGenArgsForThisParticularDynDispCall);
+              dynDispatchProcedureIdentifierData.interpretedValue =
+                  (BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
+                      (monomorphizationPrepScopedHeap, concreteTypeParams) -> {
+                        for (ScopedHeap.IdentifierData reqContractImpl :
+                            requiredContractImplsForDynamicDispatchSupportProcedureTypes) {
+                          String unused =
+                              ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>) reqContractImpl.interpretedValue)
+                                  .apply(monomorphizationPrepScopedHeap, concreteTypeParams);
+                        }
+                        // For dyn dispatch there's only a single switch function which will dispatch to the
+                        // monomorphizations.
+                        return String.format("%s_DYNAMIC_DISPATCH_%s", contractName, originalName_OUT_PARAM.get());
+                      };
+            }
           } else {
             // Dynamic dispatch was requested but it's not supported for this call.
             throw ClaroTypeException.forContractProcedureDynamicDispatchCallOverUnsupportedContractTypeParams(
@@ -364,13 +422,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
                       .get(contextualAssertedOutputTypes),
                   resolvedContractConcreteTypes_OUT_PARAM.get()
               );
-          if ((true && IntStream.range(0, contractDefinitionStmt.typeParamNames.size())
-              .allMatch(
-                  i -> contractProcedureSignatureDefinitionStmt.requiredContextualOutputTypeAssertionTypeParamNames
-                           .contains(contractDefinitionStmt.typeParamNames.get(i))
-                       || dynDispatchSupportedOverTypeParamIndices.contains(i))
-              )
-              && requiredContractImpls.stream().allMatch(scopedHeap::isIdentifierDeclared)) {
+          if (requiredContractImpls.stream().allMatch(scopedHeap::isIdentifierDeclared)) {
             // Dynamic dispatch should be supported for this call!
             isDynamicDispatch_OUT_PARAM.set(true);
             procedureName_OUT_PARAM.set(
@@ -485,7 +537,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private static ArrayList<String> getAllDynamicDispatchConcreteContractProcedureNames_helper(
       String contractName,
       ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
-      ImmutableList<Type> types, ArrayList<Type> currTypesResolvedVariants,
+      ImmutableList<Type> types,
+      ArrayList<Type> currTypesResolvedVariants,
       int i) {
     ArrayList<String> res = new ArrayList<>();
     if (i >= types.size()) {
@@ -531,11 +584,28 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
               return t.getJavaSourceClaroType();
             }).collect(Collectors.joining(", "))
     );
+    super.optionalConcreteGenericTypeParams.ifPresent(
+        types -> super.optionalExtraArgsCodegen =
+            Optional.of(super.optionalExtraArgsCodegen.map(s -> s + ", ").orElse("")
+                        + types.stream()
+                            .map(t -> t instanceof ConcreteType ?
+                                      ((ConcreteType) t).baseType().nativeJavaSourceImplClazz.get().getSimpleName() +
+                                      ".class" : t.getJavaSourceClaroType())
+                            .collect(Collectors.joining(", "))));
     if (this.name.contains("$VARIANT$")) {
       this.name = String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, this.originalName);
     }
 
     res = res.createMerged(super.generateJavaSourceOutput(scopedHeap));
+
+    if (this.isDynamicDispatch && this.dynamicDispatchCodegenRequiresCastBecauseOfJavasVeryLimitedTypeInference) {
+      res = GeneratedJavaSource.forJavaSourceBody(
+              new StringBuilder("((")
+                  .append(this.validatedOutputType.getJavaSourceType())
+                  .append(") "))
+          .createMerged(res);
+      res.javaSourceBody().append(")");
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset

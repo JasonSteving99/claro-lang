@@ -22,6 +22,7 @@ public class ProviderFunctionCallExpr extends Expr {
   private final String originalName;
   protected boolean hashNameForCodegen;
   private Type assertedOutputTypeForGenericFunctionCallUse;
+  private Optional<ImmutableList<Type>> optionalConcreteGenericTypeParams = Optional.empty();
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -98,6 +99,8 @@ public class ProviderFunctionCallExpr extends Expr {
       AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM =
           new AtomicReference<>((Types.ProcedureType) referencedIdentifierType);
       AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.functionName);
+      AtomicReference<Optional<ImmutableList<Type>>> optionalConcreteGenericTypeParams_OUT_PARAM =
+          new AtomicReference<>(this.optionalConcreteGenericTypeParams);
       try {
         FunctionCallExpr.validateGenericProcedureCall(
             Optional.of(this),
@@ -107,13 +110,15 @@ public class ProviderFunctionCallExpr extends Expr {
             // "Out params".
             calledFunctionReturnType_OUT_PARAM,
             referencedIdentifierType_OUT_PARAM,
-            procedureName_OUT_PARAM
+            procedureName_OUT_PARAM,
+            optionalConcreteGenericTypeParams_OUT_PARAM
         );
       } finally {
         // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
         calledFunctionReturnType = calledFunctionReturnType_OUT_PARAM.get();
         referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();
         this.functionName = procedureName_OUT_PARAM.get();
+        this.optionalConcreteGenericTypeParams = optionalConcreteGenericTypeParams_OUT_PARAM.get();
       }
     }
 

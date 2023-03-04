@@ -33,6 +33,7 @@ public class FunctionCallExpr extends Expr {
   private Type assertedOutputTypeForGenericFunctionCallUse;
   public String originalName;
   public Optional<String> optionalExtraArgsCodegen = Optional.empty();
+  public Optional<ImmutableList<Type>> optionalConcreteGenericTypeParams = Optional.empty();
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -159,6 +160,8 @@ public class FunctionCallExpr extends Expr {
       AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM =
           new AtomicReference<>((Types.ProcedureType) referencedIdentifierType);
       AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.name);
+      AtomicReference<Optional<ImmutableList<Type>>> optionalConcreteGenericTypeParams_OUT_PARAM =
+          new AtomicReference<>(this.optionalConcreteGenericTypeParams);
       try {
         validateGenericProcedureCall(
             Optional.of(this),
@@ -168,13 +171,15 @@ public class FunctionCallExpr extends Expr {
             // "Out params".
             calledFunctionReturnType_OUT_PARAM,
             referencedIdentifierType_OUT_PARAM,
-            procedureName_OUT_PARAM
+            procedureName_OUT_PARAM,
+            optionalConcreteGenericTypeParams_OUT_PARAM
         );
       } finally {
         // Accumulate side effects from the call above regardless of whether it ended up throwing some exception.
         calledFunctionReturnType = calledFunctionReturnType_OUT_PARAM.get();
         referencedIdentifierType = referencedIdentifierType_OUT_PARAM.get();
         this.name = procedureName_OUT_PARAM.get();
+        this.optionalConcreteGenericTypeParams = optionalConcreteGenericTypeParams_OUT_PARAM.get();
       }
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
@@ -266,8 +271,8 @@ public class FunctionCallExpr extends Expr {
       // mechanism w/ language support....
       AtomicReference<Type> calledFunctionReturnType_OUT_PARAM,
       AtomicReference<Types.ProcedureType> referencedIdentifierType_OUT_PARAM,
-      AtomicReference<String> procedureName_OUT_PARAM
-  ) throws ClaroTypeException {
+      AtomicReference<String> procedureName_OUT_PARAM,
+      AtomicReference<Optional<ImmutableList<Type>>> optionalConcreteGenericTypeParams_OUT_PARAM) throws ClaroTypeException {
     // We're calling a generic function which means that we need to validate that the generic function's
     // requirements are upheld.
     HashMap<Type, Type> genericTypeParamTypeHashMap = Maps.newHashMap();
@@ -451,6 +456,12 @@ public class FunctionCallExpr extends Expr {
       procedureName_OUT_PARAM.set(
           ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
                scopedHeap.getIdentifierValue(procedureName_OUT_PARAM.get())).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap)));
+      optionalConcreteGenericTypeParams_OUT_PARAM.set(
+          Optional.of(
+              referencedIdentifierType_OUT_PARAM.get().getGenericProcedureArgNames().get()
+                  .stream()
+                  .map(n -> genericTypeParamTypeHashMap.get(Types.$GenericTypeParam.forTypeParamName(n)))
+                  .collect(ImmutableList.toImmutableList())));
     }
 
     // If this was blocking-generic in addition, then we need to update the referenced identifier type.

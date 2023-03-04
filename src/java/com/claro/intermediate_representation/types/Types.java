@@ -358,7 +358,7 @@ public final class Types {
     // This field is mutable specifically because we need to be able to update this mapping first with all
     // contract impls that are directly required by this procedure, and then by all of its transitively
     // required contract impls. This is done in multiple phases, because we're parsing a DAG in linear order.
-    final AtomicReference<ArrayListMultimap<String, ImmutableList<Type>>>
+    public final AtomicReference<ArrayListMultimap<String, ImmutableList<Type>>>
         allTransitivelyRequiredContractNamesToGenericArgs = new AtomicReference<>();
     // This field indicates whether this procedure is *actually* blocking based on whether a blocking operation is reachable.
     final AtomicReference<Boolean> autoValueIgnored_IsBlocking = new AtomicReference<>(false);

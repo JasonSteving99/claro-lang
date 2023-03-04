@@ -38,6 +38,7 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       alreadyCodegendMonomorphizations = HashBasedTable.create();
   public static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
+
   public GenericFunctionDefinitionStmt( // FUNCTION
                                         String functionName,
                                         ImmutableListMultimap<String, ImmutableList<Type>> requiredContractNamesToGenericArgs,
@@ -253,6 +254,11 @@ public class GenericFunctionDefinitionStmt extends Stmt {
         /*scopeLevel=*/0
     );
 
+    // Publish the fact that this monomorphization will be codegen'd. This is specifically useful for the sake of
+    // codegen'ing Contract Dynamic Dispatch switch functions which need to know which types they should be codegening
+    // for.
+    InternalStaticStateUtil.GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName
+        .put(this.functionName, concreteTypeParams, monomorphization.procedureName);
     return monomorphization.procedureName;
   }
 

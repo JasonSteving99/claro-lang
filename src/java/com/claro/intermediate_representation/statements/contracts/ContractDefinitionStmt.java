@@ -13,6 +13,7 @@ import com.google.common.collect.*;
 import com.google.common.hash.Hashing;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -109,6 +110,9 @@ public class ContractDefinitionStmt extends Stmt {
 
   @SuppressWarnings("unchecked")
   public void registerDynamicDispatchHandlers(ScopedHeap scopedHeap) {
+    if (ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).isEmpty()) {
+      return;
+    }
     ImmutableMultimap.Builder<String, Integer> contractProceduresSupportingDynamicDispatchOverArgs =
         ImmutableMultimap.builder();
     ImmutableMap.Builder<String, ImmutableMultimap<ImmutableMap<String, Type>, Integer>>
@@ -294,9 +298,7 @@ public class ContractDefinitionStmt extends Stmt {
 
     // Make sure that it's even possible to do dynamic dispatch. It depends fundamentally on there being args in order
     // to accept oneofs sometimes.
-    if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedArgTypes.isEmpty()
-        // TODO(steving) SUPPORT DYNAMIC DISPATCH OVER GENERIC CONTRACT PROCEDURES!
-        || this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.isPresent()) {
+    if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedArgTypes.isEmpty()) {
       return res;
     }
 
@@ -313,15 +315,51 @@ public class ContractDefinitionStmt extends Stmt {
         .append(procedureName)
         .append("_vtableBuilder = ImmutableMap.builder();\n");
     res.append("\t$").append(procedureName).append("_vtableBuilder\n");
-    Consumer<Integer> codegenVtableEntry = i1 -> res.append(
-        contractImplementationsByContractName.get(ContractDefinitionStmt.this.contractName).get(i1).values().stream()
-            .map(t -> {
-              if (t instanceof ConcreteType) {
-                return t.getJavaSourceType() + ".class";
-              }
-              return t.getJavaSourceClaroType();
-            })
-            .collect(Collectors.joining(", ", "\t\t.put(ImmutableList.of(", "), " + i1 + ")")));
+    AtomicInteger monomorphizationsNumber = new AtomicInteger(0);
+    Consumer<Integer> codegenVtableEntry = i1 -> {
+      StringBuilder putEntryCodegen =
+          new StringBuilder("\t\t.put(ImmutableList.of(")
+              .append(
+                  contractImplementationsByContractName.get(ContractDefinitionStmt.this.contractName)
+                      .get(i1)
+                      .values()
+                      .stream()
+                      .map(t -> {
+                        if (t instanceof ConcreteType) {
+                          return t.getJavaSourceType() + ".class";
+                        }
+                        return t.getJavaSourceClaroType();
+                      })
+                      .collect(Collectors.joining(", ")));
+      if (this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.isPresent()) {
+        ImmutableList<String> genericTypeParamNames =
+            this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.get();
+        InternalStaticStateUtil.GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName.row(
+                ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                    this.contractName,
+                    ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).get(i1)
+                        .values().asList(),
+                    procedureName
+                ))
+            .keySet().forEach(
+                monomorphizationConcreteTypes -> {
+                  res.append(putEntryCodegen)
+                      .append(
+                          monomorphizationConcreteTypes.values().stream()
+                              .map(concreteType -> {
+                                if (concreteType instanceof ConcreteType) {
+                                  return concreteType.baseType().nativeJavaSourceImplClazz.get().getSimpleName() + ".class";
+                                }
+                                return concreteType.getJavaSourceClaroType();
+                              })
+                              .collect(Collectors.joining("", ", ", "")));
+                  res.append("), ").append(monomorphizationsNumber.getAndIncrement()).append(")\n");
+                }
+            );
+      } else {
+        res.append(putEntryCodegen).append("), ").append(i1).append(")");
+      }
+    };
     for (int i = 0; i < contractImplementationsByContractName.get(this.contractName).size() - 1; i++) {
       codegenVtableEntry.accept(i);
       res.append("\n");
@@ -370,23 +408,13 @@ public class ContractDefinitionStmt extends Stmt {
     ImmutableList<String> currProcedureArgNames =
         this.declaredContractSignaturesByProcedureName.get(procedureName)
             .optionalArgTypeProvidersByNameMap.get().keySet().asList();
-    ImmutableList.Builder<String> argNamesUsedForDynamicDispatch = ImmutableList.builder();
     Consumer<Integer> codegenArg = i1 -> {
+      // This arg references some generic type. It may be referencing either a Contract Type Param (which will end up
+      // being used for contract impl dyn dispatch), AND/OR a true Generic Type Param (which will end up being used for
+      // generic function monomorphization dyn dispatch).
       if (!currProcedureGenArgTypes.get(i1).getGenericContractTypeParamsReferencedByType().isEmpty()) {
-        // This arg references some generic type.
-        if (currProcedureGenArgTypes.get(i1)
-            .getGenericContractTypeParamsReferencedByType()
-            .stream()
-            .anyMatch(
-                g -> supportedDynamicDispatchTypeParamNames.contains(g.getTypeParamName())
-                     || ContractDefinitionStmt.this.typeParamNames.contains(g.getTypeParamName()))) {
-          res.append("\t/*DYN DISPATCH OVER THIS ARG*/Object ")
-              .append(currProcedureArgNames.get(i1));
-          argNamesUsedForDynamicDispatch.add(currProcedureArgNames.get(i1));
-        } else {
-          // TODO(steving) NEED TO HANDLE GENERIC CONTRACT PROCEDURES.
-          throw new IllegalStateException("Internal Compiler Error: CLARO DOESN'T YET SUPPORT DYNAMIC DISPATCH OVER GENERIC CONTRACT PROCEDURES!");
-        }
+        res.append("\t/*DYN DISPATCH OVER THIS ARG*/Object ")
+            .append(currProcedureArgNames.get(i1));
       } else {
         res.append("\t")
             .append(currProcedureGenArgTypes.get(i1).toType().getJavaSourceType())
@@ -400,6 +428,8 @@ public class ContractDefinitionStmt extends Stmt {
     }
     codegenArg.accept(currProcedureGenArgTypes.size() - 1);
 
+    // If Generic Return Type Inference is required over this function call, then we need the call-site to statically
+    // provide the vtable keys for those return-type-only contract type params.
     if (!this.declaredContractSignaturesByProcedureName.get(procedureName)
         .requiredContextualOutputTypeAssertionTypeParamNames.isEmpty()) {
       for (String requiredAssertedOutputType :
@@ -410,6 +440,14 @@ public class ContractDefinitionStmt extends Stmt {
             .append("_vtableKey");
       }
     }
+    // If the Contract Procedure is also Generic, then, in order to know which monomorphization to dispatch to, I'll
+    // need to have the call-site statically provide the monomorphization-vtable keys for the Generic Type Params.
+    this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.ifPresent(
+        genericTypeList -> genericTypeList.forEach(
+            g -> res.append(",\n\t/*STATICALLY INFERRED CONCRETE GENERIC TYPE*/Object $")
+                .append(g)
+                .append("_monomorphizations_vtableKey")
+        ));
 
     ////////////////////////////////////////////////////////////////////////////////
     // Finish codegen args.
@@ -486,36 +524,41 @@ public class ContractDefinitionStmt extends Stmt {
     // Codegen switch over dynamically resolved contract impl type param types.
     ////////////////////////////////////////////////////////////////////////////////
 
-    res.append("\tswitch($").append(procedureName).append("_vtable.get(ImmutableList.of(")
-        .append(IntStream.range(0, this.typeParamNames.size())
-                    .mapToObj(n -> {
-                      if (this.contractProceduresSupportingDynamicDispatchOverArgs.get(procedureName).contains(n)
-                          || this.declaredContractSignaturesByProcedureName.get(procedureName)
-                              .requiredContextualOutputTypeAssertionTypeParamNames
-                              .contains(this.typeParamNames.get(n))
-                          ||
-                          this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
-                              .get(procedureName).values().stream().anyMatch(i -> n == i)) {
-                        return String.format("$%s_vtableKey", this.typeParamNames.get(n));
-                      }
-                      Type onlyConcreteTypeForCurrTypeParam =
-                          ContractDefinitionStmt.contractImplementationsByContractName
-                              .get(this.contractName).get(0).get(this.typeParamNames.get(n));
-                      // This arg isn't supported for dynamic dispatch meaning that there's only a single concrete type
-                      // used for this type param, so just grab the first implementation's entry for this type param.
-                      return onlyConcreteTypeForCurrTypeParam instanceof ConcreteType
-                             ? onlyConcreteTypeForCurrTypeParam.baseType().nativeJavaSourceImplClazz.get()
-                                   .getSimpleName() + ".class"
-                             : onlyConcreteTypeForCurrTypeParam.getJavaSourceClaroType();
-                    })
-                    .collect(Collectors.joining(", ")))
-        .append("))) {\n");
+    res.append("\tswitch($").append(procedureName).append("_vtable.get(ImmutableList.of(");
+    String contractTypeParamKeysCodegen =
+        IntStream.range(0, this.typeParamNames.size())
+            .mapToObj(n -> {
+              if (this.contractProceduresSupportingDynamicDispatchOverArgs.get(procedureName).contains(n)
+                  || this.declaredContractSignaturesByProcedureName.get(procedureName)
+                      .requiredContextualOutputTypeAssertionTypeParamNames
+                      .contains(this.typeParamNames.get(n))
+                  ||
+                  this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
+                      .get(procedureName).values().stream().anyMatch(i -> n == i)) {
+                return String.format("$%s_vtableKey", this.typeParamNames.get(n));
+              }
+              Type onlyConcreteTypeForCurrTypeParam =
+                  ContractDefinitionStmt.contractImplementationsByContractName
+                      .get(this.contractName).get(0).get(this.typeParamNames.get(n));
+              // This arg isn't supported for dynamic dispatch meaning that there's only a single concrete type
+              // used for this type param, so just grab the first implementation's entry for this type param.
+              return onlyConcreteTypeForCurrTypeParam instanceof ConcreteType
+                     ? onlyConcreteTypeForCurrTypeParam.baseType().nativeJavaSourceImplClazz.get()
+                           .getSimpleName() + ".class"
+                     : onlyConcreteTypeForCurrTypeParam.getJavaSourceClaroType();
+            })
+            .collect(Collectors.joining(", "));
+    res.append(contractTypeParamKeysCodegen);
+    this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.ifPresent(
+        genericTypeParamNames -> genericTypeParamNames.stream().forEach(
+            n -> res.append(String.format(", $%s_monomorphizations_vtableKey", n))
+        )
+    );
+    res.append("))) {\n");
+    final AtomicInteger monomorphizationNumber = new AtomicInteger();
     for (int i = 0;
          i < ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).size();
          i++) {
-      res.append("\t\tcase ").append(i).append(": ").append("/*")
-          .append(ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).get(i).toString())
-          .append("*/\n");
       String contractImplCodegenClassName = (String) scopedHeap.getIdentifierValue(
           ContractImplementationStmt.getContractTypeString(
               this.contractName,
@@ -527,32 +570,75 @@ public class ContractDefinitionStmt extends Stmt {
                   .collect(ImmutableList.toImmutableList())
           )
       );
-      res.append("\t\t\t");
-      if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
-        if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
-            .getGenericContractTypeParamsReferencedByType().isEmpty()) {
-          res.append("return ");
-        } else {
-          res.append("return (O) ");
+      if (this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.isPresent()) {
+        int finalI = i;
+        InternalStaticStateUtil.GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName.row(
+                ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                    this.contractName,
+                    ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).get(i)
+                        .values().asList(),
+                    procedureName
+                ))
+            .forEach(
+                (monomorphizationTypes, canonicalizedName) -> {
+                  res.append("\t\tcase ").append(monomorphizationNumber.getAndIncrement()).append(": ");
+                  res.append("/*CONCRETE CONTRACT TYPE PARAMS: ")
+                      .append(ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
+                                  .get(finalI));
+                  res.append(" - CONCRETE GENERIC TYPE PARAMS: ").append(monomorphizationTypes).append("*/\n");
+                  res.append("\t\t\t");
+                  if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
+                    if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
+                        .getGenericContractTypeParamsReferencedByType().isEmpty()) {
+                      res.append("return ");
+                    } else {
+                      res.append("return (O) ");
+                    }
+                  }
+                  res.append(
+                      String.format(
+                          "%s.%s__%s.apply(%s);\n",
+                          contractImplCodegenClassName,
+                          procedureName,
+                          Hashing.sha256().hashUnencodedChars(
+                              canonicalizedName
+                          ),
+                          String.join(", ", currProcedureArgNames)
+                      )
+                  );
+                });
+      } else {
+        res.append("\t\tcase ").append(i).append(": ").append("/*")
+            .append(ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
+                        .get(i).toString())
+            .append("*/\n")
+            .append("\t\t\t");
+        if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
+          if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.get()
+              .getGenericContractTypeParamsReferencedByType().isEmpty()) {
+            res.append("return ");
+          } else {
+            res.append("return (O) ");
+          }
         }
-      }
-      res.append(
-          String.format(
-              "%s.%s__%s.apply(%s);\n",
-              contractImplCodegenClassName,
-              procedureName,
-              Hashing.sha256().hashUnencodedChars(
-                  ContractProcedureImplementationStmt.getCanonicalProcedureName(
-                      this.contractName,
-                      ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
-                          .get(i).values().asList(),
-                      procedureName
-                  )).toString(),
-              String.join(", ", currProcedureArgNames)
-          )
-      );
-      if (!this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
-        res.append("\t\t\treturn;\n");
+        res.append(
+            String.format(
+                "%s.%s__%s.apply(%s);\n",
+                contractImplCodegenClassName,
+                procedureName,
+                Hashing.sha256().hashUnencodedChars(
+                    ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                        this.contractName,
+                        ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
+                            .get(i).values().asList(),
+                        procedureName
+                    )).toString(),
+                String.join(", ", currProcedureArgNames)
+            )
+        );
+        if (!this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedOutputType.isPresent()) {
+          res.append("\t\t\treturn;\n");
+        }
       }
     }
     res.append("\t\tdefault:\n\t\t\tthrow new IllegalStateException(\"IMPOSSIBLE!!!\");");

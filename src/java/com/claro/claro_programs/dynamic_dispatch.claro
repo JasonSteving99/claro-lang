@@ -245,10 +245,11 @@ i = 0;
 while (i < len(spaceObjects)) {
   var j = 0;
   while (j < len(spaceObjects)) {
-    # Multiple Dynamic Dispatch is happening here!
-    var collisionResult = Collision::collideWith(spaceObjects[i], spaceObjects[j]);
-    var prefix: string = "{prettyPrint(spaceObjects[i])} collides with {prettyPrint(spaceObjects[j])}: {collisionResult}";
-    print(prefix);
+    if (j != i) {
+      # Multiple Dynamic Dispatch is happening here!
+      var collisionResult = Collision::collideWith(spaceObjects[i], spaceObjects[j]);
+      print("{prettyPrint(spaceObjects[i])} collides with {prettyPrint(spaceObjects[j])}: {collisionResult}");
+    }
     j++;
   }
   i++;
@@ -333,3 +334,29 @@ Foo::baz(1, strOrInt);
 #		 - Foo<string, int>
 #		 - Foo<int, string>
 #		 - Foo<int, int>"
+
+
+####################################################################################################
+# DEMONSTRATE DOING DYNAMIC DISPATCH OVER A GENERIC CONTRACT PROCEDURE
+####################################################################################################
+
+contract Bar<T> {
+  function doIt<V>(t: T, v: V) -> tuple<T, V>;
+}
+
+implement Bar<int> as IntBar {
+  function doIt<V>(t: int, v: V) -> tuple<int, V> {
+    return (2 * t, v);
+  }
+}
+implement Bar<string> as StringBar {
+  function doIt<V>(t: string, v: V) -> tuple<string, V> {
+    return ("formatted: {t}", v);
+  }
+}
+
+
+print("\n--------------------------------------------------------------------------------");
+print("Here's a dynamic dispatch call over a generic Contract Procedure!");
+print(Bar::doIt(getIntOrStringFromUser(), 1));
+print(Bar::doIt(getIntOrStringFromUser(), ["nice"]));

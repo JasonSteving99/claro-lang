@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.expressions.procedures.functions.Co
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.ConcreteType;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -14,6 +15,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
   private final String contractName;
@@ -136,6 +138,14 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     // maintaining the old names here, because these variables should never be referenced anymore after codegen.
     super.hashNameForCodegen = !this.isDynamicDispatch;
     super.staticDispatchCodegen = this.isDynamicDispatch;
+    super.optionalConcreteGenericTypeParams.ifPresent(
+        types -> super.optionalExtraArgsCodegen =
+            Optional.of(super.optionalExtraArgsCodegen.map(s -> s + ", ").orElse("")
+                        + types.stream()
+                            .map(t -> t instanceof ConcreteType
+                                      ? t.baseType().nativeJavaSourceImplClazz.get().getSimpleName() + ".class"
+                                      : t.getJavaSourceClaroType())
+                            .collect(Collectors.joining(", "))));
     if (this.consumerName.contains("$VARIANT$")) {
       this.consumerName = String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, this.originalName);
     }
