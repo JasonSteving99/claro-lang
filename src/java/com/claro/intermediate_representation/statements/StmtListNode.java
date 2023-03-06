@@ -25,37 +25,43 @@ public class StmtListNode extends Node {
 
   // Called after complete construction of AST-IR, but before evaluating any program values.
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // If the hidden variable tracking ReturnStmts is initialized in the current scope,
-    // then it's indicating that this Stmt is located after a ReturnStmt which is invalid.
-    if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream().anyMatch(i -> i.matches("\\$.*RETURNS"))) {
-      // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
-      //  implementing better error messages with line numbers etc, I get a feeling that
-      //  throwing this manner of error here will make it hard to get line numbers right.
-      throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
-    }
+    // Type checking shouldn't be recursive over StmtListNode as it may cause stack overflow during compilation just
+    // because there are a large number of statements. We don't want to fail during compilation for code that would
+    // succeed at runtime.
+    StmtListNode curr = this;
+    while (curr != null) {
+      // If the hidden variable tracking ReturnStmts is initialized in the current scope,
+      // then it's indicating that this Stmt is located after a ReturnStmt which is invalid.
+      if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream().anyMatch(i -> i.matches("\\$.*RETURNS"))) {
+        // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
+        //  implementing better error messages with line numbers etc, I get a feeling that
+        //  throwing this manner of error here will make it hard to get line numbers right.
+        throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
+      }
 
-    Stmt currStmt = ((Stmt) this.getChildren().get(0));
-    if (currStmt instanceof ProcedureDefinitionStmt) {
-      if (UsingBlockStmt.currentlyUsedBindings.isEmpty()) {
-        // ProcedureDefinitionStmts were already validated during an earlier parsing phase, don't waste time
+      Stmt currStmt = ((Stmt) curr.getChildren().get(0));
+      if (currStmt instanceof ProcedureDefinitionStmt) {
+        if (UsingBlockStmt.currentlyUsedBindings.isEmpty()) {
+          // ProcedureDefinitionStmts were already validated during an earlier parsing phase, don't waste time
+          // validating them again, skip them now.
+        } else {
+          // We need to disallow ProcedureDefinitionStmts from being used within a UsingBlockStmt even though
+          // the grammar will allow it.
+          ProcedureDefinitionStmt procedureDefinitionStmt = (ProcedureDefinitionStmt) currStmt;
+          throw ClaroTypeException.forInvalidProcedureDefinitionWithinUsingBlock(
+              procedureDefinitionStmt.procedureName,
+              procedureDefinitionStmt.procedureTypeProvider.apply(procedureDefinitionStmt).resolveType(scopedHeap)
+          );
+        }
+      } else if (currStmt instanceof ModuleDefinitionStmt) {
+        // ModuleDefinitionStmts were already validated during an earlier parsing phase, don't waste time
         // validating them again, skip them now.
       } else {
-        // We need to disallow ProcedureDefinitionStmts from being used within a UsingBlockStmt even though
-        // the grammar will allow it.
-        ProcedureDefinitionStmt procedureDefinitionStmt = (ProcedureDefinitionStmt) currStmt;
-        throw ClaroTypeException.forInvalidProcedureDefinitionWithinUsingBlock(
-            procedureDefinitionStmt.procedureName,
-            procedureDefinitionStmt.procedureTypeProvider.apply(procedureDefinitionStmt).resolveType(scopedHeap)
-        );
+        currStmt.assertExpectedExprTypes(scopedHeap);
       }
-    } else if (currStmt instanceof ModuleDefinitionStmt) {
-      // ModuleDefinitionStmts were already validated during an earlier parsing phase, don't waste time
-      // validating them again, skip them now.
-    } else {
-      currStmt.assertExpectedExprTypes(scopedHeap);
-    }
-    if (tail != null) {
-      tail.assertExpectedExprTypes(scopedHeap);
+
+      // Move on to the next StmtListNode.
+      curr = curr.tail;
     }
   }
 
@@ -68,8 +74,14 @@ public class StmtListNode extends Node {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res =
         ((Stmt) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName);
-    if (tail != null) {
-      res = res.createMerged(tail.generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName));
+    // Codegen shouldn't be recursive over StmtListNode as it may cause stack overflow during compilation just because
+    // there are a large number of statements. We don't want to fail during compilation for code that would succeed at
+    // runtime.
+    StmtListNode curr = this;
+    while (curr.tail != null) {
+      curr = curr.tail;
+      res = res.createMerged(
+          ((Stmt) curr.getChildren().get(0)).generateJavaSourceOutput(scopedHeap, this.generatedJavaClassName));
     }
     return res;
   }
