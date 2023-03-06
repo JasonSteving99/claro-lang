@@ -10,6 +10,7 @@ public enum BaseType {
   // context is imposed upon it for example in an assignment statement. E.g.2. (1, "one")[random(0, 1)] can't determine
   // the Expr type until runtime.
   UNDECIDED("UNDECIDED"),
+  UNKNOWABLE("<UNKNOWABLE DUE TO PRIOR TYPE VALIDATION ERROR>"),
   INTEGER("int", "Integer", Integer.class),
   FLOAT("float", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),

@@ -117,13 +117,13 @@ public class DeclarationStmt extends Stmt {
           this.identifierValidatedInferredType =
               this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
         }
+
+        scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);
+        scopedHeap.initializeIdentifier(this.IDENTIFIER);
       } catch (ClaroTypeException e) {
         // If there was some type issue, then let's attribute the error to the expression and move on with typechecking.
         ((Expr) this.getChildren().get(0)).logTypeError(e);
       }
-
-      scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);
-      scopedHeap.initializeIdentifier(this.IDENTIFIER);
     }
   }
 

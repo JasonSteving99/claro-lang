@@ -145,16 +145,21 @@ public class IdentifierReferenceTerm extends Term {
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Make sure we check this will actually be a valid reference before we allow it.
-    Preconditions.checkState(
-        scopedHeap.isIdentifierDeclared(this.identifier),
-        "No variable <%s> within the current scope!",
-        this.identifier
-    );
-    Preconditions.checkState(
-        scopedHeap.isIdentifierInitialized(this.identifier),
-        "Variable <%s> may not have been initialized!",
-        this.identifier
-    );
+    try {
+      Preconditions.checkState(
+          scopedHeap.isIdentifierDeclared(this.identifier),
+          "No variable <%s> within the current scope!",
+          this.identifier
+      );
+      Preconditions.checkState(
+          scopedHeap.isIdentifierInitialized(this.identifier),
+          "Variable <%s> may not have been initialized!",
+          this.identifier
+      );
+    } catch (IllegalStateException e) {
+      this.logTypeError(e);
+      return Types.UNKNOWABLE;
+    }
     scopedHeap.markIdentifierUsed(this.identifier);
     Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.identifier);
 
