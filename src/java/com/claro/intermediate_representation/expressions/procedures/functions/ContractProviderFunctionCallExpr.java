@@ -144,6 +144,7 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
           contractDefinitionStmt,
           contractProcedureSignatureDefinitionStmt,
           ImmutableList.of(),
+          /*alreadyAssertedOutputTypes=*/ true,
           Optional.of(this::logTypeError),
           scopedHeap,
           resolvedContractConcreteTypes_OUT_PARAM,

@@ -89,6 +89,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
           contractDefinitionStmt,
           contractProcedureSignatureDefinitionStmt,
           this.argExprs,
+          /*alreadyAssertedOutputTypes=*/ false,
           Optional.empty(),
           scopedHeap,
           resolvedContractConcreteTypes_OUT_PARAM,

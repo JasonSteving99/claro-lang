@@ -33,6 +33,11 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private boolean isDynamicDispatch = false;
   private Optional<ImmutableMap<String, Type>> requiredContextualOutputTypeAssertedTypes = Optional.empty();
   private boolean dynamicDispatchCodegenRequiresCastBecauseOfJavasVeryLimitedTypeInference = false;
+  // This node has a re-entrance problem when used within a monomorphized procedure as the type validation
+  // will happen multiple times over this node for different concrete type sets. This boolean allows the
+  // disambiguating between whether re-entrance is happening, or whether we just took the path through
+  // contextual type assertion where some pre-computation happens early.
+  private boolean typeValidationViaContextualAssertion;
 
   public ContractFunctionCallExpr(
       String contractName,
@@ -115,7 +120,9 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     }
 
     this.validatedOutputType = assertedOutputType;
+    this.typeValidationViaContextualAssertion = true;
     super.assertExpectedExprType(scopedHeap, assertedOutputType);
+    this.typeValidationViaContextualAssertion = false;
 
     // Return type validation to the default state where Generic type params must be strictly checked for equality.
     Expr.validatingContractProcCallWithinGenericProc = false;
@@ -186,6 +193,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           contractDefinitionStmt,
           contractProcedureSignatureDefinitionStmt,
           this.argExprs,
+          /*alreadyAssertedOutputTypes=*/ this.typeValidationViaContextualAssertion,
           Optional.of(this::logTypeError),
           scopedHeap,
           resolvedContractConcreteTypes_OUT_PARAM,
@@ -216,6 +224,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       ContractDefinitionStmt contractDefinitionStmt,
       ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt,
       ImmutableList<Expr> argExprs,
+      boolean alreadyAssertedOutputTypes,
       final Optional<Consumer<Exception>> optionalLogTypeError,
       final ScopedHeap scopedHeap,
       AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM,
@@ -225,7 +234,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       AtomicBoolean isDynamicDispatch_OUT_PARAM
   ) throws ClaroTypeException {
     // Do type inference of the concrete types by checking only the necessary args.
-    if (resolvedContractConcreteTypes_OUT_PARAM.get() == null) {
+    if (!alreadyAssertedOutputTypes || resolvedContractConcreteTypes_OUT_PARAM.get() == null) {
       // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
       HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
       for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgs) {
