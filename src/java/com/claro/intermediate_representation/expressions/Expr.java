@@ -108,7 +108,6 @@ public abstract class Expr extends Node {
 
   public final Type assertSupportedExprType(
       ScopedHeap scopedHeap, ImmutableSet<Type> supportedExprTypes) throws ClaroTypeException {
-    // TODO(steving) Once this is no longer unnecessarily static, replace this logic with a call to this.assertNoUndecidedTypeLeak();
     try {
       Type validatedExprType = this.getValidatedExprType(scopedHeap);
       if (validatedExprType.equals(ConcreteTypes.UNDECIDED)) {

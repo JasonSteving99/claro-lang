@@ -8,7 +8,6 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 public class AssignmentStmt extends Stmt {
 
@@ -33,11 +32,10 @@ public class AssignmentStmt extends Stmt {
       // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
       // by this particular oneof instance.
       Type actualAssignedExprType =
-          ((Expr) this.getChildren().get(0)).assertSupportedExprType(
+          ((Expr) this.getChildren().get(0)).assertSupportedExprOneofTypeVariant(
               scopedHeap,
-              ImmutableSet.<Type>builder().addAll(((Types.OneofType) this.identifierValidatedType).getVariantTypes())
-                  .add(this.identifierValidatedType)
-                  .build()
+              this.identifierValidatedType,
+              ((Types.OneofType) this.identifierValidatedType).getVariantTypes()
           );
 
       // Additionally, in case this identifier is currently being referenced within a scope where its type has been

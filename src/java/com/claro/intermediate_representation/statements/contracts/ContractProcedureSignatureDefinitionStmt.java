@@ -207,8 +207,48 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   }
 
   Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
-    ImmutableList.Builder<Type> concreteArgTypesBuilder = ImmutableList.builder();
     HashMap<Type, Type> typeParamsForInferenceMap = Maps.newHashMap();
+    ImmutableList<Type> concreteArgTypes =
+        getConcreteArgTypesForConcreteContractTypeParams(concreteTypeParams, typeParamsForInferenceMap);
+
+    Optional<Type> optionalConcreteReturnType =
+        getConcreteOutputTypesForConcreteContractTypeParams(typeParamsForInferenceMap);
+
+    Types.ProcedureType resType =
+        getProcedureTypeFromConcreteArgTypesAndOptionalReturnType(concreteArgTypes, optionalConcreteReturnType);
+    return resType;
+  }
+
+  public Types.ProcedureType getProcedureTypeFromConcreteArgTypesAndOptionalReturnType(
+      ImmutableList<Type> concreteArgTypes, Optional<Type> optionalConcreteReturnType) {
+    Types.ProcedureType resType;
+    if (concreteArgTypes.size() > 0) {
+      if (optionalConcreteReturnType.isPresent()) {
+        resType = Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+            concreteArgTypes,
+            optionalConcreteReturnType.get(),
+            this.explicitlyAnnotatedBlocking,
+            this.optionalAnnotatedBlockingGenericOnArgs,
+            this.optionalGenericTypesList
+        );
+      } else {
+        resType = Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+            concreteArgTypes,
+            this.explicitlyAnnotatedBlocking,
+            this.optionalAnnotatedBlockingGenericOnArgs,
+            this.optionalGenericTypesList
+        );
+      }
+    } else {
+      resType = Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+          optionalConcreteReturnType.get(), this.explicitlyAnnotatedBlocking);
+    }
+    return resType;
+  }
+
+  public ImmutableList<Type> getConcreteArgTypesForConcreteContractTypeParams(
+      ImmutableMap<String, Type> concreteTypeParams, HashMap<Type, Type> typeParamsForInferenceMap) {
+    ImmutableList.Builder<Type> concreteArgTypesBuilder = ImmutableList.builder();
     typeParamsForInferenceMap.putAll(
         concreteTypeParams.entrySet().stream().collect(
             ImmutableMap.toImmutableMap(
@@ -241,49 +281,29 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
       }
     }
     ImmutableList<Type> concreteArgTypes = concreteArgTypesBuilder.build();
+    return concreteArgTypes;
+  }
 
-    Optional<Type> optionalConcreteReturnType =
-        this.resolvedOutputType.map(
-            genericSignatureType -> {
-              if (genericSignatureType.getGenericContractTypeParamsReferencedByType().isEmpty()) {
-                return genericSignatureType.toType();
-              }
-              try {
-                return StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-                    typeParamsForInferenceMap,
-                    genericSignatureType.toType(),
-                    genericSignatureType.toType(),
-                    true
-                );
-              } catch (ClaroTypeException e) {
-                throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
-              }
-            }
-        );
-
-    Types.ProcedureType resType;
-    if (concreteArgTypes.size() > 0) {
-      if (optionalConcreteReturnType.isPresent()) {
-        resType = Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
-            concreteArgTypes,
-            optionalConcreteReturnType.get(),
-            this.explicitlyAnnotatedBlocking,
-            this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
-        );
-      } else {
-        resType = Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
-            concreteArgTypes,
-            this.explicitlyAnnotatedBlocking,
-            this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
-        );
-      }
-    } else {
-      resType = Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-          optionalConcreteReturnType.get(), this.explicitlyAnnotatedBlocking);
-    }
-    return resType;
+  public Optional<Type> getConcreteOutputTypesForConcreteContractTypeParams(
+      HashMap<Type, Type> typeParamsForInferenceMap) {
+    return this.resolvedOutputType.map(
+        genericSignatureType ->
+        {
+          if (genericSignatureType.getGenericContractTypeParamsReferencedByType().isEmpty()) {
+            return genericSignatureType.toType();
+          }
+          try {
+            return StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                typeParamsForInferenceMap,
+                genericSignatureType.toType(),
+                genericSignatureType.toType(),
+                true
+            );
+          } catch (ClaroTypeException e) {
+            throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
+          }
+        }
+    );
   }
 
   @Override

@@ -3,10 +3,7 @@ package com.claro.intermediate_representation.statements.contracts;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.statements.Stmt;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.ConcreteType;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
@@ -191,6 +188,13 @@ public class ContractDefinitionStmt extends Stmt {
           }
           if (isDynamicDispatchSupported) {
             // In this case, Dynamic Dispatch can be supported over at least one of the Contract's Type Params.
+            ImmutableList<Object> supportedConcreteArgTypesAndOutputType =
+                getAllSupportedDynamicDispatchConcreteContractProcedureArgTypes(
+                    this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey()),
+                    dynDispatchSupportedOverTypeArgsByRequiredReturnTypeParImpls.build()
+                        .get(genTypeVariantsByRequiredAssertedTypeParImpls.getKey()),
+                    contractTypeParamsAsVariantOneofsBuilder.build().values().asList()
+                );
             scopedHeap.putIdentifierValue(
                 String.format(
                     "%s_$VARIANT$_%s_DYNAMIC_DISPATCH_%s",
@@ -202,7 +206,10 @@ public class ContractDefinitionStmt extends Stmt {
                     currSignatureByName.getKey()
                 ),
                 this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey())
-                    .getExpectedProcedureTypeForConcreteTypeParams(contractTypeParamsAsVariantOneofsBuilder.build())
+                    .getProcedureTypeFromConcreteArgTypesAndOptionalReturnType(
+                        (ImmutableList<Type>) supportedConcreteArgTypesAndOutputType.get(0),
+                        (Optional<Type>) supportedConcreteArgTypesAndOutputType.get(1)
+                    )
             );
           }
           dynDispatchSupportedForAtLeastOneConcreteReturnType |= isDynamicDispatchSupported;
@@ -227,6 +234,8 @@ public class ContractDefinitionStmt extends Stmt {
       } else {
         // This contract procedure doesn't require Generic Return Type Inference. Therefore we can accept any dynamic
         // dispatch call.
+        ImmutableList.Builder<Integer> contractProceduresSupportingDynamicDispatchOverArgsForCurrSignatureBuilder
+            = ImmutableList.builder();
         for (int i = 0; i < this.typeParamNames.size(); i++) {
           String name = this.typeParamNames.get(i);
           ImmutableSet<Type> currTypeParamVariants = ImmutableSet.copyOf(contractGenTypeParamVariants.get(name));
@@ -240,16 +249,29 @@ public class ContractDefinitionStmt extends Stmt {
             contractTypeParamsAsVariantOneofsBuilder.put(
                 name, Types.OneofType.forVariantTypes(currTypeParamVariants.asList()));
             // Make note of the fact that dynamic dispatch is supported specifically over this arg.
-            contractProceduresSupportingDynamicDispatchOverArgs.put(currSignatureByName.getKey(), i);
+            contractProceduresSupportingDynamicDispatchOverArgsForCurrSignatureBuilder.add(i);
           }
         }
+        contractProceduresSupportingDynamicDispatchOverArgs.putAll(
+            currSignatureByName.getKey(),
+            contractProceduresSupportingDynamicDispatchOverArgsForCurrSignatureBuilder.build()
+        );
 
         if (isDynamicDispatchSupported) {
           // In this case, Dynamic Dispatch can be supported over at least one of the Contract's Type Params.
+          ImmutableList<Object> supportedConcreteArgTypesAndOutputType =
+              getAllSupportedDynamicDispatchConcreteContractProcedureArgTypes(
+                  this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey()),
+                  contractProceduresSupportingDynamicDispatchOverArgsForCurrSignatureBuilder.build(),
+                  contractTypeParamsAsVariantOneofsBuilder.build().values().asList()
+              );
           scopedHeap.putIdentifierValue(
               String.format("%s_DYNAMIC_DISPATCH_%s", this.contractName, currSignatureByName.getKey()),
               this.declaredContractSignaturesByProcedureName.get(currSignatureByName.getKey())
-                  .getExpectedProcedureTypeForConcreteTypeParams(contractTypeParamsAsVariantOneofsBuilder.build())
+                  .getProcedureTypeFromConcreteArgTypesAndOptionalReturnType(
+                      (ImmutableList<Type>) supportedConcreteArgTypesAndOutputType.get(0),
+                      (Optional<Type>) supportedConcreteArgTypesAndOutputType.get(1)
+                  )
           );
         }
       }
@@ -258,6 +280,97 @@ public class ContractDefinitionStmt extends Stmt {
         contractProceduresSupportingDynamicDispatchOverArgs.build();
     this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired =
         contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequiredBuilder.build();
+  }
+
+  // This function ensures that we're not accidentally claiming support for dynamic dispatch over [oneof<A,B>] when
+  // dynamic dispatch can only actually be supported over oneof<[A], [B]>.
+  //
+  // Java is hot garbage and has no tuples or multiple returns so this function is actually returning
+  // ([Type], Optional<Type>) representing args and optional return.
+  private ImmutableList<Object> getAllSupportedDynamicDispatchConcreteContractProcedureArgTypes(
+      ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt,
+      ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
+      ImmutableList<Type> types
+  ) {
+    ArrayList<ImmutableList<Object>> supportedProcedureTypeVariants =
+        getAllSupportedDynamicDispatchConcreteContractProcedureTypes(
+            contractProcedureSignatureDefinitionStmt,
+            dynamicDispatchSupportedOverTypeParamIndices,
+            types,
+            new ArrayList<>(),
+            0
+        );
+
+    ImmutableList.Builder<Type> resArgTypesBuilder = ImmutableList.builder();
+    for (int i = 0; i < contractProcedureSignatureDefinitionStmt.resolvedArgTypes.size(); i++) {
+      ImmutableSet.Builder<Type> currArgVariantsBuilder = ImmutableSet.builder();
+      for (ImmutableList<Object> supportedProcedureTypesVariant : supportedProcedureTypeVariants) {
+        currArgVariantsBuilder.add(((ImmutableList<Type>) supportedProcedureTypesVariant.get(0)).get(i));
+      }
+      ImmutableList<Type> currArgVariants = currArgVariantsBuilder.build().asList();
+      if (currArgVariants.size() == 1) {
+        resArgTypesBuilder.add(currArgVariants.get(0));
+      } else {
+        resArgTypesBuilder.add(Types.OneofType.forVariantTypes(currArgVariants));
+      }
+    }
+    Optional<Type> resOutputTypes =
+        contractProcedureSignatureDefinitionStmt.resolvedOutputType.map(
+            ignored -> {
+              ImmutableList<Type> supportedOutputTypeVariants =
+                  supportedProcedureTypeVariants.stream().map(l -> ((Optional<Type>) l.get(1)).get())
+                      .collect(ImmutableSet.toImmutableSet()).asList();
+              if (supportedOutputTypeVariants.size() == 1) {
+                return supportedOutputTypeVariants.get(0);
+              }
+              return Types.OneofType.forVariantTypes(supportedOutputTypeVariants);
+            }
+        );
+
+    return ImmutableList.of(resArgTypesBuilder.build(), resOutputTypes);
+  }
+
+  private ArrayList<ImmutableList<Object>> getAllSupportedDynamicDispatchConcreteContractProcedureTypes(
+      ContractProcedureSignatureDefinitionStmt contractProcedureSignatureDefinitionStmt,
+      ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
+      ImmutableList<Type> types,
+      ArrayList<Type> currTypesResolvedVariants,
+      int i) {
+    ArrayList<ImmutableList<Object>> res = new ArrayList<>();
+    if (i >= types.size()) {
+      HashMap<Type, Type> typeParamsForInferenceMap = Maps.newHashMap();
+      res.add(
+          ImmutableList.of(
+              contractProcedureSignatureDefinitionStmt.getConcreteArgTypesForConcreteContractTypeParams(
+                  IntStream.range(0, i).boxed()
+                      .collect(ImmutableMap.toImmutableMap(this.typeParamNames::get, currTypesResolvedVariants::get)),
+                  typeParamsForInferenceMap
+              ),
+              contractProcedureSignatureDefinitionStmt.getConcreteOutputTypesForConcreteContractTypeParams(typeParamsForInferenceMap)
+          )
+      );
+
+    } else if (dynamicDispatchSupportedOverTypeParamIndices.contains(i)
+               && types.get(i).baseType().equals(BaseType.ONEOF)) {
+      for (Type oneofVariant : ((Types.OneofType) types.get(i)).getVariantTypes()) {
+        currTypesResolvedVariants.add(oneofVariant);
+        res.addAll(
+            getAllSupportedDynamicDispatchConcreteContractProcedureTypes(
+                contractProcedureSignatureDefinitionStmt, dynamicDispatchSupportedOverTypeParamIndices, types, currTypesResolvedVariants,
+                i + 1
+            ));
+        currTypesResolvedVariants.remove(currTypesResolvedVariants.size() - 1);
+      }
+    } else {
+      currTypesResolvedVariants.add(types.get(i));
+      res.addAll(
+          getAllSupportedDynamicDispatchConcreteContractProcedureTypes(
+              contractProcedureSignatureDefinitionStmt, dynamicDispatchSupportedOverTypeParamIndices, types, currTypesResolvedVariants,
+              i + 1
+          ));
+      currTypesResolvedVariants.remove(currTypesResolvedVariants.size() - 1);
+    }
+    return res;
   }
 
   @Override
@@ -296,9 +409,21 @@ public class ContractDefinitionStmt extends Stmt {
   private StringBuilder generateDynamicDispatchHelperForContractProcedure(String procedureName, ScopedHeap scopedHeap) {
     StringBuilder res = new StringBuilder();
 
-    // Make sure that it's even possible to do dynamic dispatch. It depends fundamentally on there being args in order
-    // to accept oneofs sometimes.
-    if (this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedArgTypes.isEmpty()) {
+    // Make sure that it's even possible to do dynamic dispatch.
+    if (
+      // It depends fundamentally on there being args in order to accept oneofs sometimes.
+        this.declaredContractSignaturesByProcedureName.get(procedureName).resolvedArgTypes.isEmpty()
+        // If this is a generic procedure, then we don't bother generating this if there are no monomorphizations to
+        // dispatch to (because there were no calls to this procedure).
+        || (this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.isPresent()
+            && ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).stream().noneMatch(
+            implTypeParams ->
+                InternalStaticStateUtil.GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName.containsRow(
+                    ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                        this.contractName,
+                        implTypeParams.values().asList(),
+                        procedureName
+                    ))))) {
       return res;
     }
 
@@ -484,7 +609,9 @@ public class ContractDefinitionStmt extends Stmt {
             signatureArgType,
             false,
             Optional.of(typeCheckingCodegenForDynamicDispatch),
-            Optional.of(typeCheckingCodegenPath)
+            Optional.of(typeCheckingCodegenPath),
+            Optional.empty(),
+            /*withinNestedCollectionType=*/false
         );
         for (Type contractTypeParamName : Sets.difference(typeCheckingCodegenForDynamicDispatch.keySet(), alreadyCodegendtypes)) {
           String argAtInd = currProcedureArgNames.get(argIndexForConcreteTypeInference);

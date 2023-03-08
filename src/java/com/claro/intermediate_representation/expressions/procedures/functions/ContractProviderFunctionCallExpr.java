@@ -147,6 +147,7 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
           /*alreadyAssertedOutputTypes=*/ true,
           Optional.of(this::logTypeError),
           scopedHeap,
+          Maps.newHashMap(),
           resolvedContractConcreteTypes_OUT_PARAM,
           procedureName_OUT_PARAM,
           originalName_OUT_PARAM,

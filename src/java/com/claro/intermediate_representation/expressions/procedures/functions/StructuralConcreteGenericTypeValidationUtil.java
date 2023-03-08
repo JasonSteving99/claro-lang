@@ -26,7 +26,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
       Type actualArgExprType,
       boolean inferConcreteTypes) throws ClaroTypeException {
     return validateArgExprsAndExtractConcreteGenericTypeParams(
-        genericTypeParamTypeHashMap, functionExpectedArgType, actualArgExprType, inferConcreteTypes, Optional.empty(), Optional.empty());
+        genericTypeParamTypeHashMap, functionExpectedArgType, actualArgExprType, inferConcreteTypes, Optional.empty(), Optional.empty(), Optional.empty(), false);
   }
 
   public static Type validateArgExprsAndExtractConcreteGenericTypeParams(
@@ -37,7 +37,9 @@ public class StructuralConcreteGenericTypeValidationUtil {
       // The below should only ever be used by dynamic dispatch codegen for the sake of deciding the call path that
       // would produce the types we're looking for (according to what's listed in `genericTypeParamTypeHashMap`).
       Optional<HashMap<Type, ImmutableList<ImmutableList<StringBuilder>>>> optionalTypeCheckingCodegenForDynamicDispatch,
-      Optional<Stack<ImmutableList<StringBuilder>>> optionalTypeCheckingCodegenPath
+      Optional<Stack<ImmutableList<StringBuilder>>> optionalTypeCheckingCodegenPath,
+      Optional<HashMap<Type, Boolean>> optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+      boolean withinNestedCollectionTypeNotSupportingDynDispatch
   ) throws ClaroTypeException {
     ClaroTypeException DEFAULT_TYPE_MISMATCH_EXCEPTION =
         new ClaroTypeException("Couldn't construct matching concrete type");
@@ -45,10 +47,19 @@ public class StructuralConcreteGenericTypeValidationUtil {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET);
+    final ImmutableSet<BaseType> nestedCollectionTypes = ImmutableSet.of(BaseType.LIST, BaseType.SET, BaseType.MAP);
+    // In the case that this positional arg is a generic param type, then actually we need to just accept
+    // whatever type is in the passed arg expr.
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-      // In the case that this positional arg is a generic param type, then actually we need to just accept
-      // whatever type is in the passed arg expr.
+      // First, let's make note of whether this is a oneof being found within a nested collection type.
+      if (withinNestedCollectionTypeNotSupportingDynDispatch
+          && optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap.isPresent()
+          && actualArgExprType.baseType().equals(BaseType.ONEOF)) {
+        optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap.get()
+            .put(functionExpectedArgType, true);
+      }
+
       if (genericTypeParamTypeHashMap.containsKey(functionExpectedArgType)) {
         // The type of this particular generic param has already been determined by an earlier arg over the
         // same generic type param, so actually this arg expr MUST have the same type.
@@ -56,7 +67,11 @@ public class StructuralConcreteGenericTypeValidationUtil {
           return genericTypeParamTypeHashMap.get(functionExpectedArgType);
         } else if (actualArgExprType.equals(genericTypeParamTypeHashMap.get(functionExpectedArgType))) {
           optionalTypeCheckingCodegenForDynamicDispatch.ifPresent(
-              // We only actually want the SHORTEST path to getting this type.
+              // We only actually want the FIRST path to getting this type.
+              // TODO(steving) Future optimization opportunity: don't just take the FIRST path, take the SHORTEST.
+              //   Note that the only reason I'm not already doing this now is because the same map is getting passed in
+              //   across multiple args now, so if we just took the shortest based on local logic here, codegen wouldn't
+              //   know which arg it was supposed to be grabbing the type from.
               m -> m.putIfAbsent(actualArgExprType, ImmutableList.copyOf(optionalTypeCheckingCodegenPath.get())));
           return actualArgExprType;
         } else {
@@ -73,9 +88,10 @@ public class StructuralConcreteGenericTypeValidationUtil {
       if (!actualArgExprType.baseType().equals(functionExpectedArgType.baseType())) {
         // If they're not matching in the sense that the actual arg is a oneof type and the expected arg is not, then
         // try doing structural matching against all of the oneof variant types.
-        if (actualArgExprType.baseType().equals(BaseType.ONEOF)) {
-          // However, we shouldn't just always allow oneofs instead of concrete types, because not all of Claro has been
-          // upgraded to actually acknowledge the fact that oneofs can be passed into generic type params yet.
+        if (actualArgExprType.baseType().equals(BaseType.ONEOF) &&
+            !withinNestedCollectionTypeNotSupportingDynDispatch) {
+          // We shouldn't just always allow oneofs instead of concrete types, because not all of Claro has been upgraded
+          // to actually acknowledge the fact that oneofs can be passed into generic type params yet.
           HashMultimap<Type, Type> genericTypeParamAcceptedTypes = HashMultimap.create();
           HashMap<Type, Type> tmpVariantCheckingGenTypeParamMap = Maps.newHashMap(genericTypeParamTypeHashMap);
 
@@ -91,7 +107,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
           for (Type actualOneofVariantType : ((Types.OneofType) actualArgExprType).getVariantTypes()) {
             // Collect any generic type params that we manage to collect from this arg in the tmp map.
             validateArgExprsAndExtractConcreteGenericTypeParams(
-                tmpVariantCheckingGenTypeParamMap, functionExpectedArgType, actualOneofVariantType, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath);
+                tmpVariantCheckingGenTypeParamMap, functionExpectedArgType, actualOneofVariantType, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath, optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap, withinNestedCollectionTypeNotSupportingDynDispatch);
             Sets.difference(tmpVariantCheckingGenTypeParamMap.entrySet(), genericTypeParamTypeHashMap.entrySet())
                 .forEach(g -> genericTypeParamAcceptedTypes.put(g.getKey(), g.getValue()));
             tmpVariantCheckingGenTypeParamMap = Maps.newHashMap(genericTypeParamTypeHashMap);
@@ -134,7 +150,9 @@ public class StructuralConcreteGenericTypeValidationUtil {
                   ((Types.ProcedureType) actualArgExprType).getReturnType(),
                   inferConcreteTypes,
                   optionalTypeCheckingCodegenForDynamicDispatch,
-                  optionalTypeCheckingCodegenPath
+                  optionalTypeCheckingCodegenPath,
+                  optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+                  /*withinNestedCollectionTypeNotSupportingDynDispatch=*/ true
               );
           // Undo the codegen path as we unwind the stack.
           if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
@@ -167,7 +185,15 @@ public class StructuralConcreteGenericTypeValidationUtil {
             }
             validatedArgTypes.add(
                 validateArgExprsAndExtractConcreteGenericTypeParams(
-                    genericTypeParamTypeHashMap, expectedArgTypes.get(i), actualArgTypes.get(i), inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath));
+                    genericTypeParamTypeHashMap,
+                    expectedArgTypes.get(i),
+                    actualArgTypes.get(i),
+                    inferConcreteTypes,
+                    optionalTypeCheckingCodegenForDynamicDispatch,
+                    optionalTypeCheckingCodegenPath,
+                    optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+                    /*withinNestedCollectionTypeNotSupportingDynDispatch=*/ true
+                ));
             // Undo the codegen path as we unwind the stack.
             if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
               optionalTypeCheckingCodegenPath.get().pop();
@@ -191,8 +217,9 @@ public class StructuralConcreteGenericTypeValidationUtil {
           );
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
-        case TUPLE:
         case MAP:
+        case SET:
+        case TUPLE:
           ImmutableList<Type> expectedParameterizedArgTypes =
               functionExpectedArgType.parameterizedTypeArgs().values().asList();
           ImmutableList<Type> actualParameterizedArgTypes = actualArgExprType.parameterizedTypeArgs().values().asList();
@@ -215,7 +242,9 @@ public class StructuralConcreteGenericTypeValidationUtil {
                     actualParameterizedArgTypes.get(i),
                     inferConcreteTypes,
                     optionalTypeCheckingCodegenForDynamicDispatch,
-                    optionalTypeCheckingCodegenPath
+                    optionalTypeCheckingCodegenPath,
+                    optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+                    /*withinNestedCollectionTypeNotSupportingDynDispatch=*/ true
                 ));
             // Undo the codegen path as we unwind the stack.
             if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {

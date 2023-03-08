@@ -32,6 +32,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   private Type validatedOutputType;
   private boolean isDynamicDispatch = false;
   private Optional<ImmutableMap<String, Type>> requiredContextualOutputTypeAssertedTypes = Optional.empty();
+  private HashMap<Type, Boolean> isTypeParamEverUsedWithinNestedCollectionTypeMap = Maps.newHashMap();
   private boolean dynamicDispatchCodegenRequiresCastBecauseOfJavasVeryLimitedTypeInference = false;
   // This node has a re-entrance problem when used within a monomorphized procedure as the type validation
   // will happen multiple times over this node for different concrete type sets. This boolean allows the
@@ -93,7 +94,12 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
               inferredConcreteTypes,
               contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
-              this.argExprs.get(i).getValidatedExprType(scopedHeap)
+              this.argExprs.get(i).getValidatedExprType(scopedHeap),
+              /*inferConcreteTypes=*/ false,
+              /*optionalTypeCheckingCodegenForDynamicDispatch=*/ Optional.empty(),
+              /*optionalTypeCheckingCodegenPath=*/ Optional.empty(),
+              Optional.of(isTypeParamEverUsedWithinNestedCollectionTypeMap),
+              /*withinNestedCollectionType=*/ false
           );
         } catch (ClaroTypeException ignored) {
           // We want cleaner error messages that indicate the type mismatch more clearly.
@@ -196,6 +202,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           /*alreadyAssertedOutputTypes=*/ this.typeValidationViaContextualAssertion,
           Optional.of(this::logTypeError),
           scopedHeap,
+          this.isTypeParamEverUsedWithinNestedCollectionTypeMap,
           resolvedContractConcreteTypes_OUT_PARAM,
           procedureName_OUT_PARAM,
           originalName_OUT_PARAM,
@@ -208,6 +215,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       this.referencedContractImplName = referencedContractImplName_OUT_PARAM.get();
       this.resolvedContractConcreteTypes = resolvedContractConcreteTypes_OUT_PARAM.get();
       this.isDynamicDispatch = isDynamicDispatch_OUT_PARAM.get();
+      // Need to ensure that this is reset for the next run in case this is called within a monomorphization.
+      this.isTypeParamEverUsedWithinNestedCollectionTypeMap.clear();
     }
     // This final step defers validation of the actual types passed as args.
     Type res = super.getValidatedExprType(scopedHeap);
@@ -227,6 +236,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       boolean alreadyAssertedOutputTypes,
       final Optional<Consumer<Exception>> optionalLogTypeError,
       final ScopedHeap scopedHeap,
+      HashMap<Type, Boolean> isTypeParamEverUsedWithinNestedCollectionTypeMap,
       AtomicReference<ImmutableList<Type>> resolvedContractConcreteTypes_OUT_PARAM,
       AtomicReference<String> procedureName_OUT_PARAM,
       AtomicReference<String> originalName_OUT_PARAM,
@@ -238,11 +248,25 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
       HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
       for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgs) {
-        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-            inferredConcreteTypes,
-            contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
-            argExprs.get(i).getValidatedExprType(scopedHeap)
-        );
+        Type actualArgExprType = argExprs.get(i).getValidatedExprType(scopedHeap);
+        try {
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              inferredConcreteTypes,
+              contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType(),
+              actualArgExprType,
+              /*inferConcreteTypes=*/ false,
+              /*optionalTypeCheckingCodegenForDynamicDispatch=*/ Optional.empty(),
+              /*optionalTypeCheckingCodegenPath=*/ Optional.empty(),
+              Optional.of(isTypeParamEverUsedWithinNestedCollectionTypeMap),
+              /*withinNestedCollectionType=*/ false
+          );
+        } catch (ClaroTypeException ignored) {
+          // We want cleaner error messages that indicate the type mismatch more clearly.
+          throw new ClaroTypeException(
+              actualArgExprType,
+              contractProcedureSignatureDefinitionStmt.resolvedArgTypes.get(i).toType()
+          );
+        }
       }
       resolvedContractConcreteTypes_OUT_PARAM.set(
           contractDefinitionStmt.typeParamNames.stream()
@@ -333,16 +357,30 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           ContractImplementationStmt.getContractTypeString(contractName, concreteTypeStrings);
       if (!scopedHeap.isIdentifierDeclared(contractImplTypeString)) {
         // So, we weren't able to find an implementation of the given type params. It's possible that we can find a
-        // valid dispatch target if the call was passed any oneofs whose variants have impls.
+        // valid dispatch target if the call was passed any oneofs whose variants have impls. However, this is only
+        // even possibly valid if some type params treated as oneofs are *NEVER* nested within structured collection
+        // types (as then the oneof means something semantically different than dynamic dispatch).
         if (IntStream.range(0, contractDefinitionStmt.typeParamNames.size()).anyMatch(
             i -> resolvedContractConcreteTypes_OUT_PARAM.get().get(i).baseType().equals(BaseType.ONEOF)
                  && contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgs
-                     .get(originalName_OUT_PARAM.get()).contains(i))) {
+                     .get(originalName_OUT_PARAM.get()).contains(i) &&
+                 // Importantly, don't allow any Dynamic Dispatch attempts if the oneof is nested within any
+                 // collection types, because in that case the semantics of dynamic dispatch aren't maintained,
+                 // and it could lead to a runtime dispatch failure.
+                 !isTypeParamEverUsedWithinNestedCollectionTypeMap.getOrDefault(
+                     Types.$GenericTypeParam.forTypeParamName(contractDefinitionStmt.typeParamNames.get(i)), false)
+        )) {
           List<String> requiredContractImplsForDynamicDispatchSupport =
               getAllDynamicDispatchConcreteContractProcedureNames(
                   contractName,
-                  contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgs.get(
-                      originalName_OUT_PARAM.get()),
+                  // Filter the set of supported dispatch args, based on the actual args having tried to nest a oneof.
+                  contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgs
+                      .get(originalName_OUT_PARAM.get()).stream()
+                      .filter(i -> !isTypeParamEverUsedWithinNestedCollectionTypeMap.getOrDefault(
+                          Types.$GenericTypeParam.forTypeParamName(contractDefinitionStmt.typeParamNames.get(i)),
+                          false
+                      ))
+                      .collect(ImmutableList.toImmutableList()),
                   resolvedContractConcreteTypes_OUT_PARAM.get()
               );
           if (requiredContractImplsForDynamicDispatchSupport.stream().allMatch(scopedHeap::isIdentifierDeclared)) {
@@ -410,7 +448,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
             );
           }
         } else if (IntStream.range(0, contractDefinitionStmt.typeParamNames.size())
-            .anyMatch(i -> resolvedContractConcreteTypes_OUT_PARAM.get().get(i).baseType().equals(BaseType.ONEOF))) {
+            .anyMatch(
+                i -> resolvedContractConcreteTypes_OUT_PARAM.get().get(i).baseType().equals(BaseType.ONEOF) &&
+                     // Importantly, don't allow any Dynamic Dispatch attempts if the oneof is nested within any
+                     // collection types, because in that case the semantics of dynamic dispatch aren't maintained,
+                     // and it could lead to a runtime dispatch failure.
+                     !isTypeParamEverUsedWithinNestedCollectionTypeMap.getOrDefault(
+                         Types.$GenericTypeParam.forTypeParamName(contractDefinitionStmt.typeParamNames.get(i)), false)
+            )) {
           ImmutableMap<String, Type> contextualAssertedOutputTypes =
               contractProcedureSignatureDefinitionStmt
                   .requiredContextualOutputTypeAssertionTypeParamNames.stream()
@@ -419,16 +464,18 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
                       t -> resolvedContractConcreteTypes_OUT_PARAM.get()
                           .get(contractDefinitionStmt.typeParamNames.indexOf(t))
                   ));
-          ImmutableCollection<Integer> dynDispatchSupportedOverTypeParamIndices =
-              contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
-                  .get(originalName_OUT_PARAM.get())
-                  .get(contextualAssertedOutputTypes);
           List<String> requiredContractImpls =
               getAllDynamicDispatchConcreteContractProcedureNames(
                   contractName,
                   contractDefinitionStmt.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
                       .get(originalName_OUT_PARAM.get())
-                      .get(contextualAssertedOutputTypes),
+                      .get(contextualAssertedOutputTypes).stream()
+                      // Filter the set of supported dispatch args, based on the actual args having tried to nest a oneof.
+                      .filter(i -> !isTypeParamEverUsedWithinNestedCollectionTypeMap.getOrDefault(
+                          Types.$GenericTypeParam.forTypeParamName(contractDefinitionStmt.typeParamNames.get(i)),
+                          false
+                      ))
+                      .collect(ImmutableList.toImmutableList()),
                   resolvedContractConcreteTypes_OUT_PARAM.get()
               );
           if (requiredContractImpls.stream().allMatch(scopedHeap::isIdentifierDeclared)) {
@@ -453,8 +500,15 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
                     // I know that these are actually not all implemented, but the point is to indicate that these would
                     // be required IF you wanted to actually have this call supported.
                     IntStream.range(0, contractDefinitionStmt.typeParamNames.size())
-                        .filter(i -> !contractProcedureSignatureDefinitionStmt.requiredContextualOutputTypeAssertionTypeParamNames.contains(contractDefinitionStmt.typeParamNames.get(i)))
+                        .filter(i -> !contractProcedureSignatureDefinitionStmt
+                            .requiredContextualOutputTypeAssertionTypeParamNames
+                            .contains(contractDefinitionStmt.typeParamNames.get(i)))
                         .boxed()
+                        // Filter the set of supported dispatch args, based on the actual args having tried to nest a oneof.
+                        .filter(i -> !isTypeParamEverUsedWithinNestedCollectionTypeMap.getOrDefault(
+                            Types.$GenericTypeParam.forTypeParamName(contractDefinitionStmt.typeParamNames.get(i)),
+                            false
+                        ))
                         .collect(ImmutableList.toImmutableList()),
                     resolvedContractConcreteTypes_OUT_PARAM.get()
                 );

@@ -11,6 +11,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -92,6 +93,7 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
           /*alreadyAssertedOutputTypes=*/ false,
           Optional.empty(),
           scopedHeap,
+          /*isTypeParamEverUsedWithinNestedCollectionTypeMap=*/ Maps.newHashMap(),
           resolvedContractConcreteTypes_OUT_PARAM,
           procedureName_OUT_PARAM,
           originalName_OUT_PARAM,

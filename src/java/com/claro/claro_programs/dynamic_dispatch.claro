@@ -107,6 +107,11 @@ print("\n-----------------------------------------------------------------------
 var maybeNestedIntList: oneof<[int], [[int]]> = maybeWrapList([1,2,3]);
 var nonNestedList: [int] = TypeParamNested::foo(maybeNestedIntList);
 print(nonNestedList);
+# Uncomment the below if you'd like to see Claro be clever enough to realize that passing in a [oneof<A,B>]
+# is not at all semantically equivalent to oneof<[A],[B]> and is therefore not a valid Dynamic Dispatch
+# candidate. The following will be statically rejected.
+#var intOrList: oneof<int, [int]> = 1;
+#print(([int]) TypeParamNested::foo([intOrList]));
 
 
 ########################################################################################################

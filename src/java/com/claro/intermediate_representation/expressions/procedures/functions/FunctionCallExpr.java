@@ -126,7 +126,16 @@ public class FunctionCallExpr extends Expr {
             argExprs.get(i).assertExpectedBaseType(scopedHeap, BaseType.$GENERIC_TYPE_PARAM);
           } else {
             // This arg is not being treated as generic, so assert against the static defined type.
-            argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+            if (definedArgTypes.get(i).baseType().equals(BaseType.ONEOF)) {
+              // Since the arg type itself is a oneof, then we actually really need to accept any variant type.
+              this.argExprs.get(i).assertSupportedExprOneofTypeVariant(
+                  scopedHeap,
+                  definedArgTypes.get(i),
+                  ((Types.OneofType) definedArgTypes.get(i)).getVariantTypes()
+              );
+            } else {
+              argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+            }
           }
         }
       }
@@ -184,7 +193,16 @@ public class FunctionCallExpr extends Expr {
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
       for (int i = 0; i < this.argExprs.size(); i++) {
-        this.argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+        if (definedArgTypes.get(i).baseType().equals(BaseType.ONEOF)) {
+          // Since the arg type itself is a oneof, then we actually really need to accept any variant type.
+          this.argExprs.get(i).assertSupportedExprOneofTypeVariant(
+              scopedHeap,
+              definedArgTypes.get(i),
+              ((Types.OneofType) definedArgTypes.get(i)).getVariantTypes()
+          );
+        } else {
+          this.argExprs.get(i).assertExpectedExprType(scopedHeap, definedArgTypes.get(i));
+        }
       }
     }
 
@@ -380,7 +398,16 @@ public class FunctionCallExpr extends Expr {
                     scopedHeap, argExprs.get(i), (Types.ProcedureType) inferredRequiredConcreteType);
             foundBlockingFuncArg |= ((Types.ProcedureType) concreteType).getAnnotatedBlocking();
           } else {
-            argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
+            if (inferredRequiredConcreteType.baseType().equals(BaseType.ONEOF)) {
+              // Since the arg type itself is a oneof, then we actually really need to accept any variant type.
+              argExprs.get(i).assertSupportedExprOneofTypeVariant(
+                  scopedHeap,
+                  inferredRequiredConcreteType,
+                  ((Types.OneofType) inferredRequiredConcreteType).getVariantTypes()
+              );
+            } else {
+              argExprs.get(i).assertExpectedExprType(scopedHeap, inferredRequiredConcreteType);
+            }
           }
         }
       }
