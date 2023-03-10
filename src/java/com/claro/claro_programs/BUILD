@@ -34,6 +34,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "contracts_implied_types",
+    srcs = [":contracts_implied_types_lib"],
+    java_name = "contracts_implied_types",
+)
+
+claro_library(
+    name = "contracts_implied_types_lib",
+    src = "contracts_implied_types.claro",
+)
+
+claro_binary(
     name = "dynamic_dispatch_compiled_claro_image",
     srcs = [":dynamic_dispatch_compiled_claro"],
     java_name = "dynamic_dispatch",

@@ -268,7 +268,7 @@ terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 terminal LexedValue<String>  OR, AND, NOT;
 terminal LexedValue<String>  IN;
 terminal LexedValue<String>  INSTANCEOF;
-terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW;
+terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW, IMPLICATION_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
@@ -2570,6 +2570,14 @@ contract_definition_stmt ::=
       ImmutableList<String> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
       RESULT = new ContractDefinitionStmt(name.val, genericTypesList, contract_signature_defs_backwards.build().reverse());
+    :}
+  | CONTRACT IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types IMPLICATION_ARROW identifier_list:implied_types R_ANGLE_BRACKET LCURLY contract_signature_defs_list:contract_signature_defs_backwards RCURLY
+    {:
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).val.build().reverse();
+      ImmutableList<String> impliedTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)implied_types.value).val.build().reverse();
+      RESULT = new ContractDefinitionStmt(name.val, genericTypesList, impliedTypesList, contract_signature_defs_backwards.build().reverse());
     :}
   ;
 

@@ -13,7 +13,9 @@ import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ContractImplementationStmt extends Stmt {
   private final String contractName;
@@ -60,15 +62,46 @@ public class ContractImplementationStmt extends Stmt {
     this.concreteTypeStrings = this.concreteImplementationTypeParams.values().stream()
         .map(Type::toString)
         .collect(ImmutableList.toImmutableList());
-    this.canonicalImplementationName = getContractTypeString(this.contractName, concreteTypeStrings);
+    this.canonicalImplementationName = getContractTypeString(this.contractName, this.concreteTypeStrings);
 
     // Now validate that this isn't a duplicate of another existing implementation of this contract.
     if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
       throw new RuntimeException(
           ClaroTypeException.forDuplicateContractImplementation(
-              getContractTypeString(this.implementationName, concreteTypeStrings),
-              getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), concreteTypeStrings)
+              getContractTypeString(this.implementationName, this.concreteTypeStrings),
+              getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), this.concreteTypeStrings)
           ));
+    }
+    // Additionally, if this contract definition has any implied types, then we need to validate that this contract
+    // hasn't already implemented over these unconstrained type params.
+    if (contractDefinitionStmt.impliedTypeParamNames.size() > 0) {
+      int firstImpliedTypeInd =
+          contractDefinitionStmt.typeParamNames.indexOf(contractDefinitionStmt.impliedTypeParamNames.asList().get(0));
+      Optional<ImmutableList<Type>> existingImplForUnconstrainedTypeParams =
+          ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).stream()
+              .filter(implConcreteParams ->
+                          implConcreteParams.values().asList().subList(0, firstImpliedTypeInd)
+                              .equals(this.concreteImplementationTypeParams.values()
+                                          .asList()
+                                          .subList(0, firstImpliedTypeInd)))
+              .map(m -> m.values().asList())
+              .findFirst();
+      if (existingImplForUnconstrainedTypeParams.isPresent()) {
+        throw new RuntimeException(
+            ClaroTypeException.forContractImplementationViolatingImpliedTypesConstraint(
+                this.contractName,
+                this.contractDefinitionStmt.typeParamNames.subList(0, firstImpliedTypeInd),
+                this.contractDefinitionStmt.impliedTypeParamNames,
+                getContractTypeString(this.contractName, this.concreteTypeStrings),
+                getContractTypeString(
+                    this.contractName,
+                    existingImplForUnconstrainedTypeParams.get()
+                        .stream()
+                        .map(Type::toString)
+                        .collect(Collectors.toList())
+                )
+            ));
+      }
     }
 
     scopedHeap.putIdentifierValue(

@@ -21,6 +21,7 @@ public class ContractDefinitionStmt extends Stmt {
 
   private boolean alreadyAssertedTypes = false;
   public final ImmutableList<String> typeParamNames;
+  public final ImmutableSet<String> impliedTypeParamNames;
   public final ImmutableMap<String, ContractProcedureSignatureDefinitionStmt> declaredContractSignaturesByProcedureName;
 
   public static Map<String, ArrayList<ImmutableMap<String, Type>>> contractImplementationsByContractName =
@@ -38,6 +39,24 @@ public class ContractDefinitionStmt extends Stmt {
     super(ImmutableList.of());
     this.contractName = contractName;
     this.typeParamNames = typeParamNames;
+    this.impliedTypeParamNames = ImmutableSet.of();
+    this.declaredContractSignaturesByProcedureName =
+        declaredContractSignatures.stream().collect(
+            ImmutableMap.toImmutableMap(
+                signature -> signature.procedureName,
+                signature -> signature
+            ));
+  }
+
+  public ContractDefinitionStmt(
+      String contractName,
+      ImmutableList<String> typeParamNames,
+      ImmutableList<String> impliedTypeParamNames,
+      ImmutableList<ContractProcedureSignatureDefinitionStmt> declaredContractSignatures) {
+    super(ImmutableList.of());
+    this.contractName = contractName;
+    this.typeParamNames = ImmutableList.<String>builder().addAll(typeParamNames).addAll(impliedTypeParamNames).build();
+    this.impliedTypeParamNames = ImmutableSet.copyOf(impliedTypeParamNames);
     this.declaredContractSignaturesByProcedureName =
         declaredContractSignatures.stream().collect(
             ImmutableMap.toImmutableMap(

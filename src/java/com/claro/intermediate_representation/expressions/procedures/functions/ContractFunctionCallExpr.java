@@ -149,15 +149,18 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     if (contractProcedureSignatureDefinitionStmt.resolvedOutputType.isPresent()) {
       if (this.validatedOutputType == null &&
           contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired) {
-        // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
-        // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
-        // other args, therefore making Contract Impl inference via the arg types alone impossible.
-        throw ClaroTypeException.forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
-            this.contractName,
-            contractDefinitionStmt.typeParamNames,
-            this.name,
-            contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
-        );
+        if (!contractDefinitionStmt.impliedTypeParamNames.containsAll(
+            contractProcedureSignatureDefinitionStmt.requiredContextualOutputTypeAssertionTypeParamNames)) {
+          // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
+          // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
+          // other args, therefore making Contract Impl inference via the arg types alone impossible.
+          throw ClaroTypeException.forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
+              this.contractName,
+              contractDefinitionStmt.typeParamNames,
+              this.name,
+              contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
+          );
+        }
       } else if (!contractProcedureSignatureDefinitionStmt.resolvedOutputType.get()
           .getGenericContractTypeParamsReferencedByType()
           .isEmpty()) {
@@ -245,8 +248,8 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   ) throws ClaroTypeException {
     // Do type inference of the concrete types by checking only the necessary args.
     if (!alreadyAssertedOutputTypes || resolvedContractConcreteTypes_OUT_PARAM.get() == null) {
-      // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
       HashMap<Type, Type> inferredConcreteTypes = Maps.newHashMap();
+      // It's actually possible to fully infer the Contract Type Params based strictly off arg type inference.
       for (Integer i : contractProcedureSignatureDefinitionStmt.inferContractImplTypesFromArgs) {
         Type actualArgExprType = argExprs.get(i).getValidatedExprType(scopedHeap);
         try {
@@ -268,6 +271,32 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           );
         }
       }
+
+      // Handle case where this is actually a situation where the generic return type must be inferred from the contract
+      // definition's implied type constraints.
+      if (contractProcedureSignatureDefinitionStmt.contextualOutputTypeAssertionRequired &&
+          contractDefinitionStmt.impliedTypeParamNames.containsAll(
+              contractProcedureSignatureDefinitionStmt.requiredContextualOutputTypeAssertionTypeParamNames)) {
+        // Need to infer the output type first to preserve the semantic that the contextual types provide better type
+        // checking on the args necessary to get that desired output type.
+        int firstImpliedTypeInd =
+            contractDefinitionStmt.typeParamNames
+                .indexOf(contractDefinitionStmt.impliedTypeParamNames.asList().get(0));
+        ImmutableList<Type> contractConcreteTypeParamsInferredFromArgs =
+            contractDefinitionStmt.typeParamNames.subList(0, firstImpliedTypeInd).stream()
+                .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))
+                .collect(ImmutableList.toImmutableList());
+        ContractDefinitionStmt.contractImplementationsByContractName.get(contractName).stream()
+            .filter(
+                m -> m.values().asList().subList(0, firstImpliedTypeInd)
+                    .equals(contractConcreteTypeParamsInferredFromArgs))
+            .findFirst()
+            .get().entrySet().stream()
+            .filter(e -> contractDefinitionStmt.impliedTypeParamNames.contains(e.getKey()))
+            .forEach(e -> inferredConcreteTypes.put(Types.$GenericTypeParam.forTypeParamName(e.getKey()), e.getValue()));
+      }
+
+      // We've finished inferring all the Concrete Contract Type Params, preserve them in the out param.
       resolvedContractConcreteTypes_OUT_PARAM.set(
           contractDefinitionStmt.typeParamNames.stream()
               .map(n -> inferredConcreteTypes.get(Types.$GenericTypeParam.forTypeParamName(n)))

@@ -153,6 +153,7 @@ WhiteSpace     = [ \t\f]
     "not"              { return symbol(Calc.NOT, 0, 3, "not"); }
     "->"               { return symbol(Calc.ARROW, 0, 2, "->"); }
     "|>"               { return symbol(Calc.PIPE_ARROW, 0, 2, "|>"); }
+    "=>"               { return symbol(Calc.IMPLICATION_ARROW, 0, 2, "=>"); }
     "true"             { return symbol(Calc.TRUE, 0, 4, true); }
     "false"            { return symbol(Calc.FALSE, 0, 5, false); }
     "var"              { return symbol(Calc.VAR, 0, 3, "var"); }

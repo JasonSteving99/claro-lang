@@ -113,6 +113,12 @@ public class ClaroTypeException extends Exception {
       "Invalid Contract Implementation: %s is missing definitions for the following required procedures %s.";
   private static final String CONTRACT_IMPLEMENTATION_WITH_EXTRA_PROCEDURE_DEFS =
       "Invalid Contract Implementation: %s defines the following procedures that are not required by the implemented contract %s.";
+  private static final String CONTRACT_IMPLEMENTATION_VIOLATING_IMPLIED_TYPES_CONSTRAINT =
+      "Invalid Contract Implementation: The Contract you're attempting to implement is defined as %s<%s => %s> which means that there can only be exactly one implementation of %s for the unconstrained type params %s.\n" +
+      "\t\tHowever, the following conflicting implementations were found:\n" +
+      "\t\t\t%s\n" +
+      "\t\tAND\n" +
+      "\t\t\t%s";
   private static final String CONTRACT_PROCEDURE_IMPLEMENTATION_DOES_NOT_MATCH_REQUIRED_SIGNATURE =
       "Invalid Contract Implementation: Found the following definition of %s::%s -\n\t\t%s\n\tbut requires:\n\t\t%s";
   private static final String INVALID_REFERENCE_TO_UNDEFINED_CONTRACT =
@@ -841,6 +847,27 @@ public class ClaroTypeException extends Exception {
                   return String.format("%s\t\t(NOT IMPLEMENTED!)", requiredImpl);
                 })
                 .collect(Collectors.joining("\n\t\t- "))
+        )
+    );
+  }
+
+  public static ClaroTypeException forContractImplementationViolatingImpliedTypesConstraint(
+      String contractName,
+      ImmutableList<String> unconstrainedContractTypeParamNames,
+      ImmutableSet<String> impliedTypeParamNames,
+      String contractTypeString,
+      String existingContractTypeString) {
+    String unconstrainedTypeParams = String.join(", ", unconstrainedContractTypeParamNames);
+    return new ClaroTypeException(
+        String.format(
+            CONTRACT_IMPLEMENTATION_VIOLATING_IMPLIED_TYPES_CONSTRAINT,
+            contractName,
+            unconstrainedTypeParams,
+            String.join(", ", impliedTypeParamNames.asList()),
+            contractName,
+            unconstrainedTypeParams,
+            contractTypeString,
+            existingContractTypeString
         )
     );
   }
