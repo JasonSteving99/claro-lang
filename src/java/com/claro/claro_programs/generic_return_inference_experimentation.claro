@@ -89,7 +89,9 @@ alias Age : tuple<int, boolean>
 alias Birthday : tuple<string, boolean>
 alias PhoneNumber : tuple<tuple<string, boolean>, boolean>
 alias Row : tuple<Name, Age, Birthday, PhoneNumber>
-alias Table : [Row] # ID is just the index.
+# TODO(steving) Once Claro supports copy-free builder semantics via unique_ref<T>, rewrite this alias to define Table
+# TODO(steving)     without the mutable modifier so that mutability can be optional for this type.
+alias Table : mut [Row] # ID is just the index.
 
 function createRow(name: string, age: int, birthday: string, phonenumber: string) -> Row {
   return (name, (age, true), (birthday, true), ((phonenumber, true), true));
@@ -133,6 +135,8 @@ implement ColumnAccess<Row> as AllColumns {
   }
 }
 
+# TODO(steving) Once Claro supports copy-free builder semantics via unique_ref<T>, rewrite these functions to return
+# TODO(steving)     immutable collections instead of mutable ones.
 requires(ColumnAccess<C>)
 function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
   var res: Table = [];
@@ -147,8 +151,8 @@ function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
 }
 
 requires(ColumnAccess<C>)
-function getTableColumn<C>(table: Table) -> [C] {
-  var res: [C] = [];
+function getTableColumn<C>(table: Table) -> mut [C] {
+  var res: mut [C] = [];
   var i: ID = 0;
   while (i < len(table)) {
     append(res, ColumnAccess::get(table, i++));
@@ -156,10 +160,10 @@ function getTableColumn<C>(table: Table) -> [C] {
   return res;
 }
 
-function select<C1, C2>(table: Table) -> [tuple<C1, C2>] {
-  var c1: [C1] = getTableColumn(table);
-  var c2: [C2] = getTableColumn(table);
-  var res: [tuple<C1, C2>] = [];
+function select<C1, C2>(table: Table) -> mut [tuple<C1, C2>] {
+  var c1: mut [C1] = getTableColumn(table);
+  var c2: mut [C2] = getTableColumn(table);
+  var res: mut [tuple<C1, C2>] = [];
   var i = 0;
   while (i < len(table)) {
     append(res, (c1[i], c2[i]));
@@ -214,32 +218,32 @@ while (i < len(table)) {
 print("]");
 
 print("\n\nDump all names in table:");
-var names: [Name] = getTableColumn(table);
+var names: mut [Name] = getTableColumn(table);
 print(names);
 
 print("Dump all ages in table:");
-var ages: [Age] = getTableColumn(table);
+var ages: mut [Age] = getTableColumn(table);
 print(ages);
 
 print("Dump all birthdays in table:");
-var birthdays: [Birthday] = getTableColumn(table);
+var birthdays: mut [Birthday] = getTableColumn(table);
 print(birthdays);
 
 print("Dump all phonenumbers in table:");
-var phonenumbers: [PhoneNumber] = getTableColumn(table);
+var phonenumbers: mut [PhoneNumber] = getTableColumn(table);
 print(phonenumbers);
 
 print("\n\nFilter table for names of people where age > 25");
 table
   |> where(^, (function<Age -> boolean>) a -> a[0] > 25)
-  |> ([Name]) getTableColumn(^)
+  |> (mut [Name]) getTableColumn(^)
   |> print(^);
 
 print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
 table
   |> where(^, And((a: Age) -> boolean { return a[0] > 25; }, (a: Age) -> boolean { return a[0] < 50; }))
   |> where(^, (n: Name) -> boolean { return n != "Laura"; })
-  |> ([tuple<Name, Age>]) select(^)
+  |> (mut [tuple<Name, Age>]) select(^)
   |> print(^);
 
 # This approach is more convoluted, but I'm flexing the generic calls to defer to multiple specializations of each
@@ -249,13 +253,13 @@ print("Another way to do the same thing by chaining calls to And.");
   |> And(^, (a: Age) -> boolean { return a[0] < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
   |> And(^, (n: Name) -> boolean { return n != "Laura"; })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
   |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
-  |> ([tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
+  |> (mut [tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
 
 
 # Just try another syntax, avoiding the pipelining just to see if this is a more readable approach. Also using Or().
 print("Filter table for names of people where either Name is George, or 25 < age < 50 excluding Laura.");
-var res: [tuple<Name, Age>] =
+var res: mut [tuple<Name, Age>] =
   select(      # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
     where(     # Calling: where<function<Row -> boolean>>(...) -> Table
       table,

@@ -54,8 +54,8 @@ print(tupleIntIntToListIntConvertedRes);
 ## DEMONSTRATE A GENERIC FUNCTION THAT JUST TAKES A FIRST CLASS ARG
 ####################################################################
 
-function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> [O] {
-  var outputList: [O] = [];
+function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> mut [O] {
+  var outputList: mut [O] = [];
   var i = 0;
   while (i < len(inputList)) {
     append(outputList, mapFn(inputList[i++]));
@@ -80,8 +80,8 @@ print(mapResult);
 # arg's type without the type being explicitly annotated.
 #var mapResult3 = map([1, 90, -13, 0], x -> x >= 0);
 
-function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
-  var outputList: [T] = [];
+function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> mut [T] {
+  var outputList: mut [T] = [];
   var i = 0;
   while (i < len(inputList)) {
     var curr = inputList[i++];
@@ -94,7 +94,7 @@ function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> [T] {
 
 print("----------------------------------------------------------");
 print("Testing generic function filter<|[int], function<int, boolean>| -> [int]>");
-var filterResult: [int] = filter([1, 90, -13, 0], x ->  x > 0);
+var filterResult: mut [int] = filter([1, 90, -13, 0], x ->  x > 0);
 print(filterResult);
 
 ##########################################################################
@@ -106,8 +106,8 @@ function defer<In, Out>(i: In) -> Out {
   return Conversion::applyConversion(i);
 }
 
-function mapDeferringToContractImpl<I, O>(inputList: [I]) -> [O] {
-  var outputList: [O] = [];
+function mapDeferringToContractImpl<I, O>(inputList: [I]) -> mut [O] {
+  var outputList: mut [O] = [];
   var i = 0;
   while (i != len(inputList)) {
     append(outputList, defer(inputList[i++]));
@@ -117,11 +117,11 @@ function mapDeferringToContractImpl<I, O>(inputList: [I]) -> [O] {
 
 print("----------------------------------------------------------");
 print("Testing generic function mapDeferringToContractImpl<int, string>");
-var mappedStringsRes: [string] = mapDeferringToContractImpl([1,-1,0,10,-99]);
+var mappedStringsRes: mut [string] = mapDeferringToContractImpl([1,-1,0,10,-99]);
 print(mappedStringsRes);
 print("----------------------------------------------------------");
 print("Testing generic function mapDeferringToContractImpl<int, float>");
-var mappedFloatsRes: [float] = mapDeferringToContractImpl([1,-1,0,10,-99]);
+var mappedFloatsRes: mut [float] = mapDeferringToContractImpl([1,-1,0,10,-99]);
 print(mappedFloatsRes);
 
 ##################################################################################
@@ -136,8 +136,8 @@ implement Conversion<int, float> as IntToFloat {
 
 requires(Conversion<From, Intermediate>)
 function mapThroughIntermediate<From, Intermediate, To>(
-    inputList: [From], mapFn: function<Intermediate -> To>) -> [To] {
-  var outputList: [To] = [];
+    inputList: [From], mapFn: function<Intermediate -> To>) -> mut [To] {
+  var outputList: mut [To] = [];
   var i = 0;
   while (i < len(inputList)) {
     append(outputList, mapFn(Conversion::applyConversion(inputList[i++])));
@@ -181,17 +181,17 @@ genericConsumer(["ten"]);
 # This is a deceptively simple procedure. It might be easy to imagine this procedure provided as a "builtin"
 # stdlib feature implemented using compiler intrinsics that the users couldn't write in user space. It's
 # pretty fascinating seeing Claro support users writing this themselves.
-provider list<T>() -> [T] {
+provider list<T>() -> mut [T] {
   return [];
 }
 
 print("----------------------------------------------------------");
 print("Testing generic provider list<T>");
-var intList: [int] = list();
+var intList: mut [int] = list();
 append(intList, 1);
 print(intList);
 type(intList);
-var strList: [string] = list();
+var strList: mut [string] = list();
 append(strList, "one");
 print(strList);
 type(strList);
@@ -207,10 +207,10 @@ blocking provider getListBlocking<T>() -> [T] {
 
 print("----------------------------------------------------------");
 print("Testing generic blocking provider getListBlocking<T>");
-intList = getListBlocking();
-print(intList);
-strList = getListBlocking();
-print(strList);
+var immutableIntList: [int] = getListBlocking();
+print(immutableIntList);
+var immutableStrList: [string] = getListBlocking();
+print(immutableStrList);
 
 ############################################################################################################
 ## TOY EXAMPLE SHOWING HOW A FRAMEWORK MIGHT USE THIS TO PROVIDE FUNCTIONALITY W/O KNOWING ABOUT YOUR TYPES

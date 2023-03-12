@@ -23,7 +23,7 @@ type(doubled);
 ########################################################################################################################
 
 # TODO(steving) Rewrite this example w/ oneof<int, [IntOrList]> when supported.
-alias IntOrList : tuple<boolean, int, [IntOrList]>
+alias IntOrList : tuple<boolean, int, mut [IntOrList]>
 
 print("All of the following values satisfy the type definition for IntOrList:");
 var myIntOrList: IntOrList;
@@ -49,7 +49,7 @@ print(myIntOrList);
 append(myIntOrList[2], (true, 999, []));
 print(myIntOrList);
 
-var innerListOfIntOrList: [IntOrList] = myIntOrList[2][0][2];
+var innerListOfIntOrList: mut [IntOrList] = myIntOrList[2][0][2];
 append(innerListOfIntOrList, (true, 100, []));
 print(myIntOrList);
 
@@ -59,7 +59,7 @@ print(myIntOrList);
 #var myNestedSet: NestedSet = {{}, {}};
 
 
-alias NestedMap : {int: tuple<int, NestedMap>}
+alias NestedMap : mut {int: tuple<int, NestedMap>}
 var myNestedMap: NestedMap = {};
 print(myNestedMap);
 myNestedMap[1] = (1, {});
@@ -68,7 +68,7 @@ myNestedMap[2] = (2, {2: (2, {}), 3: (3, {999: (999, {})}), 4: (4, {})});
 print(myNestedMap);
 var myNestedMap2: NestedMap = myNestedMap[1][1];
 print(myNestedMap2);
-var incompatibleWrapper: {int: tuple<int, NestedMap>} = {10: (10, {10: (10, {9: (9, {})})})};
+var incompatibleWrapper: mut {int: tuple<int, NestedMap>} = {10: (10, {10: (10, {9: (9, {})})})};
 print(incompatibleWrapper);
 var val = 9 in incompatibleWrapper[10][1];
 print(val);
@@ -81,7 +81,7 @@ print(incompatibleWrapper);
 # when compiling down to JavaSource, we're going to have all sorts of generic type inconsistencies between the two.
 # So Claro will forbid this assignment. I'm satisfied with this for now unless some insight comes up later.
 
-alias NestedList : [NestedList]
+alias NestedList : mut [NestedList]
 var myNestedList: NestedList = [];
 print(myNestedList);
 append(myNestedList, []);
@@ -90,7 +90,7 @@ append(myNestedList, [[], [], [[], [[]]]]);
 print(myNestedList);
 myNestedList[1] = [];
 print(myNestedList);
-var myNestedList2: [NestedList] = myNestedList[1];
+var myNestedList2: mut [NestedList] = myNestedList[1];
 print(myNestedList2);
 var containsRecursiveType: {int : tuple<int, [NestedList]>} = {10 : (10, [myNestedList, []])};
 myNestedList2 = containsRecursiveType[10][1][1];
@@ -100,7 +100,7 @@ print("myNestedList2: {myNestedList2}");
 # Type aliases are *not* new type definitions, they are aliases as the name says, therefor they are interchangeable with
 # one another so long as they are structurally equivalent. This is by design.
 alias AltNestedList : [AltNestedList]
-var myAltNestedList: AltNestedList = [];
+var myAltNestedList: mut AltNestedList = [];
 myAltNestedList = myNestedList; # Here, I'm assigning a `NestedList` to a var declared as `AltNestedList`.
 print(myAltNestedList);
 

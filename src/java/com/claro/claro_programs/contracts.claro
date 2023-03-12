@@ -366,8 +366,8 @@ defaultStr = Default::getBlocking();
 print(defaultStr);
 
 requires(Default<A>)
-function defaultList<A>(size: int) -> [A] {
-  var res: [A] = [];
+function defaultList<A>(size: int) -> mut [A] {
+  var res: mut [A] = [];
   var i = 0;
   while (i++ < size) {
     append(res, Default::get());
@@ -377,13 +377,14 @@ function defaultList<A>(size: int) -> [A] {
 
 print("----------------------------------------------------------");
 print("Testing Generic Function defaultList<A> requiring Default<A>");
-var intsList: [int] = defaultList(10);
+var intsList: mut [int] = defaultList(10);
 print(intsList);
-var strsList: [string] = defaultList(2);
+type(intsList);
+var strsList: mut [string] = defaultList(2);
 print(strsList);
 
 requires(Default<V>)
-function getOrDefault<K,V>(map: {K: V}, key: K) -> V {
+function getOrDefault<K,V>(map: mut {K: V}, key: K) -> V {
   if (key in map) {
     return map[key];
   }
@@ -395,7 +396,7 @@ print("----------------------------------------------------------");
 print("Testing Generic Function getOrDefault<K,V> requiring Default<V>");
 print((int) getOrDefault(({string: int}) {}, "foo"));
 
-var myMap: {string: int} = {};
+var myMap: mut {string: int} = {};
 print(myMap);
 print("\"foo\" in myMap: {"foo" in myMap}");
 print(getOrDefault(myMap, "foo"));

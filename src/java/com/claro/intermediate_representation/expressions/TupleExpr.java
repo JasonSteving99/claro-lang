@@ -50,7 +50,7 @@ public class TupleExpr extends Expr {
       for (Expr expr : tupleValues) {
         valueTypesBuilder.add(expr.getValidatedExprType(scopedHeap));
       }
-      this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build());
+      this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build(), /*isMutable=*/false);
     }
     return type;
   }

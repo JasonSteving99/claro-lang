@@ -229,6 +229,9 @@ print(f(false, -1, -1, -1));
 
 print("TOMFOOLERY ENSUES:");
 
+# TODO(steving) GET SUPER HYPED FOR INVALIDATING THIS ENTIRE EXAMPLE ONCE CLARO IS ABLE TO STATICALLY FORBID MUTABLE
+# TODO(steving)     COLLECTIONS FROM BEING USED AS INPUT/OUTPUT OF GRAPH PROCEDURE NODES! ONCE THAT'S IMPLEMENTED, CLARO
+# TODO(steving)     GRAPH PROCEDURES WILL BE STATICALLY GUARANTEED TO PROVIDE DATA RACE FREE CONCURRENCY!
 # Even with the exact same arguments to these functions, the output is non-deterministic due to a data race on the list.
 # Run them multiple times and you'll see one of 3 possible outcomes for each:
 #   Possibility #1: list [1] becomes [1, 2, 999] and prints false
@@ -243,7 +246,7 @@ print("TOMFOOLERY ENSUES:");
 var unsafeAliasingViaNodeProcedureArgsRes <-| unsafeAliasingViaNodeProcedureArgs([], [1]);
 var unsafeALiasingViaDirectNodeAliasingRes <-| unsafeALiasingViaDirectNodeAliasing([1]);
 var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue([1]);
-var l = [1];
+var l: mut [int] = [1];
 var unsafeAliasingAllowedOnGivenArgsRes <-| unsafeAliasingAllowedOnGivenArgs(l, l);
 
 print(unsafeAliasingViaNodeProcedureArgsRes);
@@ -252,7 +255,7 @@ print(unsafeAliasingViaNodeProcedureReturnValueRes);
 print(unsafeAliasingAllowedOnGivenArgsRes);
 
 # This is a very complicated example that demonstrates a data race being introduced by unsafe data "aliasing".
-graph function unsafeAliasingViaNodeProcedureArgs(l: [[int]], l2: [int]) -> future<boolean> {
+graph function unsafeAliasingViaNodeProcedureArgs(l: mut [mut [int]], l2: mut [int]) -> future<boolean> {
   # Unsafe "ALIASING" is happening here. Specifically, `l` is appending an "aliased" reference to the same data that
   # `l2` was already referencing. This would mean that subsequent nodes could be racing to mutate the same underlying
   # data w/o Claro being able to track it. In the future, Claro will forbid this use of mutable data in Graph nodes.
@@ -264,7 +267,7 @@ graph function unsafeAliasingViaNodeProcedureArgs(l: [[int]], l2: [int]) -> futu
 }
 
 # The following graph also introduces unsafe Aliasing albeit via DIRECT NODE ALIASING.
-graph function unsafeALiasingViaDirectNodeAliasing(l: [int]) -> future<boolean> {
+graph function unsafeALiasingViaDirectNodeAliasing(l: mut [int]) -> future<boolean> {
   node unsafeAlias <- l;
   node delayedUnsafeAlias <- delay(30, @unsafeAlias);
   node update1 <- appendAndReturn(@delayedUnsafeAlias, 2);
@@ -273,7 +276,7 @@ graph function unsafeALiasingViaDirectNodeAliasing(l: [int]) -> future<boolean> 
 }
 
 # The following graph also introduces unsafe Aliasing albeit via NODE PROCEDURE RETURN VALUE.
-graph function unsafeAliasingViaNodeProcedureReturnValue(l: [int]) -> future<boolean> {
+graph function unsafeAliasingViaNodeProcedureReturnValue(l: mut [int]) -> future<boolean> {
   node unsafeAlias <- delay(30, l);
   node update1 <- appendAndReturn(@unsafeAlias, 2);
   node update2 <- appendAndReturn(l, 999);
@@ -283,7 +286,7 @@ graph function unsafeAliasingViaNodeProcedureReturnValue(l: [int]) -> future<boo
 # Finally, the following graph also introduces unsafe Aliasing albeit via a very sneaky situation where everything in
 # the graph procedure itself is actually defined totally correctly, introducing no new aliasing, however if you call it
 # with already aliased data, then Claro would be unable to check for data races using a technique local to graph procedures.
-graph function unsafeAliasingAllowedOnGivenArgs(l1: [int], l2: [int]) -> future<boolean> {
+graph function unsafeAliasingAllowedOnGivenArgs(l1: mut [int], l2: mut [int]) -> future<boolean> {
   node update1 <- appendAndReturnDelayed(l1, 2, 20);
   node update2 <- appendAndReturn(l2, 999);
   root observeRaceRes <- printAndReturn(@update1, @update2);
@@ -300,18 +303,18 @@ function delay<T>(iters: int, res: T) -> T {
   return res;
 }
 
-function printAndReturn(l1: [int], l2: [int]) -> boolean {
+function printAndReturn(l1: mut [int], l2: mut [int]) -> boolean {
   print(l1);
   print(l2);
   return l1[1] > l2[2];
 }
 
-function appendAndReturn<T>(l: [T], toAppend: T) -> [T] {
+function appendAndReturn<T>(l: mut [T], toAppend: T) -> mut [T] {
   append(l, toAppend);
   return l;
 }
 
-function appendAndReturnDelayed<T>(l: [T], toAppend: T, iters: int) -> [T] {
+function appendAndReturnDelayed<T>(l: mut [T], toAppend: T, iters: int) -> mut [T] {
   _ = delay(iters, "");
   return appendAndReturn(l, toAppend);
 }

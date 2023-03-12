@@ -2,10 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +30,15 @@ public class AppendElementToListStmt extends Stmt {
       }
       return;
     }
-    // If it's actually a list I need to make sure that the type being added to the list is the correct type.
+    if (!((SupportsMutableVariant<?>) actualListExprType).isMutable()) {
+      // Make sure that this collection *actually* supports mutation.
+      listExpr.logTypeError(
+          ClaroTypeException.forIllegalMutationAttemptOnImmutableValue(
+              actualListExprType, ((SupportsMutableVariant<?>) actualListExprType).toMutableVariant()));
+      // The entire premise of this assignment statement is invalid. However, just in case we need to mark things used,
+      // let's run validation on the subscript expr and RHS...not perfect but helpful.
+    }
+    // If it's actually a mutable list I need to make sure that the type being added to the list is the correct type.
     Type declaredElementType = ((Types.ListType) actualListExprType).getElementType();
     if (declaredElementType.baseType().equals(BaseType.ONEOF)) {
       // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported

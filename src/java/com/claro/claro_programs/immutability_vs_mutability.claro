@@ -1,0 +1,48 @@
+# Every structured type in Claro, including user-defined
+# types, should provide trivial mutable/immutable variants.
+# (Value types like int/string/float/boolean do not apply).
+
+var l: mut [int] = [];
+type(l);
+append(l, 1); # This append is valid b/c `l` is mutable.
+print(l == [1]);
+
+var fixedList: [int] = [1, 2, 3];
+type(fixedList);
+# Uncomment for compilation error, can't mutate `fixedList`.
+#append(fixedList, 4);
+
+var m: mut {int: int} = {1:2, 2:4, 3:6};
+m[1] = 3;
+print(m);
+
+# Note that mutability/immutability is a property of the data
+# and not a property of the variable. All variables may always
+# be updated to reference some other data. That's the entire
+# definition of a variable.
+
+var fixedList2: [int] = [1, 2, 3];
+fixedList2 = [3, 2, 1]; # Totally valid, no mutation happened.
+type(fixedList2);
+print(fixedList2);
+
+# Note that this keyword is semantically "shallow". The keyword
+# marks the outermost structured type as mutable, but to make the
+# interior types also mutable, you'd require another keyword.
+var mutableListOfImmutableLists: mut [[int]] = [[1,1]];
+type(mutableListOfImmutableLists);
+append(mutableListOfImmutableLists, [2,2]); # Legal.
+# Uncomment for compilation error about mutating immutable value.
+#append(mutableListOfImmutableLists[0], 1);
+print(mutableListOfImmutableLists);
+
+var deeplyMutableNestedLists: mut [mut [int]] = [[1,1]];
+type(deeplyMutableNestedLists);
+append(deeplyMutableNestedLists, [2,2]); # Legal.
+append(deeplyMutableNestedLists[0], 1);  # Legal.
+print(deeplyMutableNestedLists);
+
+# It's invalid to mark any non-collection type as mutable, as it's conceptually nonsensical.
+# Uncomment the below for compile-time message informing you of that.
+#var nonsenseMutableInt: mut int = 1;
+#var nonsenseMutableString : mut string = "nonsense";

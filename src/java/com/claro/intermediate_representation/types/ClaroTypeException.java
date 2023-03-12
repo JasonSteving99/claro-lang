@@ -191,6 +191,14 @@ public class ClaroTypeException extends Exception {
       "Illegal instanceof Check: %s is a statically known concrete type! Using instanceof over a statically known concrete type is never necessary.";
   private static final String INVALID_BOOLEAN_EXPR_IMPLYING_A_SINGLE_VALUE_IS_MORE_THAN_ONE_TYPE =
       "Invalid Boolean Expression: This expression implies that the given value `%s` is of *both* of the following types:\n\t\t%s\n\tAND\n\t\t%s\n\t By definition, all Claro values are of exactly *one* type, so this boolean expression is never valid.";
+  private static final String ILLEGAL_MUTABLE_TYPE_ANNOTATION_ON_INHERENTLY_IMMUTABLE_TYPE =
+      "Illegal Type Declaration: Cannot mark %s with the `mut` type modifier, it is inherently immutable.";
+  private static final String ILLEGAL_MUTATION_ATTEMPT_ON_IMMUTABLE_VALUE =
+      "Illegal Mutation of Immutable Value: Mutation of immutable values is forbidden!\n" +
+      "\t\tFound the immutable type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tIn order to mutate this value, the value's type would need to be updated to:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -868,6 +876,26 @@ public class ClaroTypeException extends Exception {
             unconstrainedTypeParams,
             contractTypeString,
             existingContractTypeString
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalMutableTypeAnnotationOnInherentlyImmutableType(
+      Type inherentlyImmutableType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_MUTABLE_TYPE_ANNOTATION_ON_INHERENTLY_IMMUTABLE_TYPE,
+            inherentlyImmutableType
+        )
+    );
+  }
+
+  public static Exception forIllegalMutationAttemptOnImmutableValue(Type listExprType, Type toMutableVariant) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_MUTATION_ATTEMPT_ON_IMMUTABLE_VALUE,
+            listExprType,
+            toMutableVariant
         )
     );
   }

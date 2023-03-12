@@ -69,7 +69,12 @@ public class ListExpr extends Expr {
           initialListValue.assertExpectedExprType(scopedHeap, listValuesType);
         }
       }
-      listType = Types.ListType.forValueType(listValuesType);
+      listType = Types.ListType.forValueType(
+          listValuesType,
+          this.validatedListType instanceof SupportsMutableVariant
+          ? ((SupportsMutableVariant<?>) this.validatedListType).isMutable()
+          : false // Just default to immutable.
+      );
     }
     this.validatedListType = listType;
     return listType;

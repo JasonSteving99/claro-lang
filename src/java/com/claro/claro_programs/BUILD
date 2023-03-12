@@ -111,6 +111,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "immutability_vs_mutability",
+    srcs = [":immutability_vs_mutability_lib"],
+    java_name = "immutability_vs_mutability",
+)
+
+claro_library(
+    name = "immutability_vs_mutability_lib",
+    src = "immutability_vs_mutability.claro",
+)
+
+claro_binary(
     name = "keyword_generics_compiled_claro_image",
     srcs = [":keyword_generics_compiled_claro"],
     java_name = "keyword_generics",

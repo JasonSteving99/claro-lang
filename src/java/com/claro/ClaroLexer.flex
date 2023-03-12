@@ -203,6 +203,7 @@ WhiteSpace     = [ \t\f]
 
     // Modifiers go here.
     "immutable"        { return symbol(Calc.IMMUTABLE, 0, 9, "immutable"); }
+    "mut"              { return symbol(Calc.MUT, 0, 3, "mut"); }
 
     // Module related bindings go here.
     "module"           { return symbol(Calc.MODULE, 0, 6, "module"); }

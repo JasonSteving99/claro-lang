@@ -3,12 +3,8 @@ package com.claro.intermediate_representation.statements;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.CollectionSubscriptExpr;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.expressions.term.IntegerTerm;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +34,7 @@ public class ListElementAssignmentStmt extends Stmt {
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // First thing first, we need to actually validate that we're correctly referencing a collection type.
-    Expr listExpr = (IdentifierReferenceTerm) this.getChildren().get(0);
+    Expr listExpr = (Expr) this.getChildren().get(0);
     Type listExprType = listExpr.getValidatedExprType(scopedHeap);
     if (!SUPPORTED_EXPR_BASE_TYPES.contains(listExprType.baseType())) {
       // Make sure that this mismatch is logged on the offending Expr that was supposed to be a collection.
@@ -48,8 +44,17 @@ public class ListElementAssignmentStmt extends Stmt {
 
       // We can't do any more type checking of the rhs because the entire premise of this assignment statement is invalid.
       // However, just in case we need to mark things used, let's run validation on the RHS...not perfect but helpful.
+      ((Expr) this.getChildren().get(1)).getValidatedExprType(scopedHeap);
       ((Expr) this.getChildren().get(2)).getValidatedExprType(scopedHeap);
       return;
+    }
+    if (!((SupportsMutableVariant<?>) listExprType).isMutable()) {
+      // Make sure that this collection *actually* supports mutation.
+      listExpr.logTypeError(
+          ClaroTypeException.forIllegalMutationAttemptOnImmutableValue(
+              listExprType, ((SupportsMutableVariant<?>) listExprType).toMutableVariant()));
+      // The entire premise of this assignment statement is invalid. However, just in case we need to mark things used,
+      // let's run validation on the subscript expr and RHS...not perfect but helpful.
     }
 
     // Type check the index and rhs exprs.

@@ -64,7 +64,12 @@ public class MapExpr extends Expr {
       kvPair.get(1).assertExpectedExprType(scopedHeap, expectedValueType);
     }
 
-    this.validatedMapType = Types.MapType.forKeyValueTypes(expectedKeyType, expectedValueType);
+    this.validatedMapType =
+        Types.MapType.forKeyValueTypes(
+            expectedKeyType,
+            expectedValueType,
+            this.assertedType.map(t -> ((SupportsMutableVariant<?>) t).isMutable()).orElse(false)
+        );
     return validatedMapType;
   }
 

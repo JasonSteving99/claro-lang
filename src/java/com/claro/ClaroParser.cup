@@ -12,6 +12,8 @@ import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.*;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.SupportsMutableVariant;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
 import com.claro.intermediate_representation.types.Type;
@@ -304,7 +306,9 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  RETURN;
+// TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
 terminal LexedValue<String>  IMMUTABLE;
+terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  DOT;
 // TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
 terminal LexedValue<String>  BUILDER, DOTBUILD;
@@ -406,11 +410,8 @@ nonterminal Expr/*BoolExpr*/                   equality;
 nonterminal Expr/*BoolExpr*/                   inequality;
 nonterminal Expr/*BoolExpr*/                   bool_arithmetic;
 nonterminal Expr/*BoolExpr*/                   instanceof_expr;
-// TODO(steving) In order to support the delayed parsing of all user-defined types, just replace this type with
-// TODO(steving) Function<ScopedHeap, TypeProvider> or some other equivalent functional interface and then you'll be good to add
-// TODO(steving) a new compiler phase that filters a StmtList for all of its type definitions (e.g. StructDefinitionStmt)
-// TODO(steving) and parses all of those before moving on to the other stmts in the StmtList.
 nonterminal Symbol/*TypeProvider*/             builtin_type;
+nonterminal Symbol/*TypeProvider*/             base_builtin_type_without_mutability_modifier;
 nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
 nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
 nonterminal Stmt                               debug_stmts;
@@ -620,6 +621,28 @@ alias_stmt ::=
   ;
 
 builtin_type ::=
+    base_builtin_type_without_mutability_modifier:base_type
+    {: RESULT = base_type; :}
+  | MUT:m base_builtin_type_without_mutability_modifier:base_type
+    {:
+       RESULT = constructBuiltinType(
+           m, mleft, mright, base_type, new LexedValue<String>("", () -> "", 0), base_type.left + ((LexedValue) base_type.value).len, base_type.right,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                Type resolvedType = tLexedVal.val.resolveType(scopedHeap);
+                // Literally all I need to do is manually mark the thing mutable if mutability is supported for this type.
+                if (resolvedType instanceof SupportsMutableVariant) {
+                  return ((SupportsMutableVariant) resolvedType).toMutableVariant();
+                } else {
+                  // Java is stupid, I hate the concept of checked exceptions. If you're going to give me exceptions,
+                  // please make them "just work".
+                  throw new RuntimeException(
+                    ClaroTypeException.forIllegalMutableTypeAnnotationOnInherentlyImmutableType(resolvedType));
+                }
+           });
+    :}
+  ;
+
+base_builtin_type_without_mutability_modifier ::=
     INT_TYPE:t
     {:
        RESULT = new Symbol(

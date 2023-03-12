@@ -29,6 +29,14 @@ java_library(
 )
 
 java_library(
+    name = "supports_mutable_variant",
+    srcs = ["SupportsMutableVariant.java"],
+    deps = [
+        ":type",
+    ],
+)
+
+java_library(
     name = "parameterized_type",
     srcs = ["ParameterizedType.java"],
     deps = [
@@ -46,6 +54,7 @@ java_library(
         ":base_type",
         ":concrete_type",
         ":parameterized_type",
+        ":supports_mutable_variant",
         ":type",
         ":type_provider",
         "//src/java/com/claro:claro_parser_exception",

@@ -1,10 +1,7 @@
 package com.claro.intermediate_representation.expressions.procedures.functions;
 
 import com.claro.ClaroParserException;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.google.common.collect.*;
 
 import java.util.HashMap;
@@ -251,12 +248,19 @@ public class StructuralConcreteGenericTypeValidationUtil {
               optionalTypeCheckingCodegenPath.get().pop();
             }
           }
+          // Need to ensure that if we're matching against a collection type that has both mutable and immutable
+          // variants, that the actual arg type matches the expected arg type's mutable modifier.
+          if (functionExpectedArgType instanceof SupportsMutableVariant &&
+              ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable()
+              != ((SupportsMutableVariant<?>) actualArgExprType).isMutable()) {
+            throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+          }
           ImmutableList<Type> validatedParameterizedArgTypes = validatedParameterizedArgTypesBuilder.build();
           switch (functionExpectedArgType.baseType()) {
             case FUTURE:
               return Types.FutureType.wrapping(validatedParameterizedArgTypes.get(0));
             case LIST:
-              return Types.ListType.forValueType(validatedParameterizedArgTypes.get(0));
+              return Types.ListType.forValueType(validatedParameterizedArgTypes.get(0), ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
             case TUPLE:
               return Types.TupleType.forValueTypes(validatedParameterizedArgTypes);
             case MAP:

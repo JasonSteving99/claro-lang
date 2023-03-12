@@ -37,11 +37,17 @@ public final class Types {
   }
 
   @AutoValue
-  public abstract static class ListType extends Type implements Collection {
+  public abstract static class ListType extends Type implements Collection, SupportsMutableVariant<ListType> {
     public static final String PARAMETERIZED_TYPE_KEY = "$values";
 
+    public abstract boolean getIsMutable();
+
     public static ListType forValueType(Type valueType) {
-      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType));
+      return ListType.forValueType(valueType, /*isMutable=*/false);
+    }
+
+    public static ListType forValueType(Type valueType, boolean isMutable) {
+      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType), isMutable);
     }
 
     @Override
@@ -50,61 +56,130 @@ public final class Types {
     }
 
     @Override
+    public String toString() {
+      String baseFormattedType = super.toString();
+      return this.getIsMutable() ? "mut " + baseFormattedType : baseFormattedType;
+    }
+
+    @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.ListType.forValueType(%s)",
-          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).getJavaSourceClaroType()
+          "Types.ListType.forValueType(%s, %s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).getJavaSourceClaroType(),
+          this.getIsMutable()
       );
+    }
+
+    @Override
+    public ListType toMutableVariant() {
+      return new AutoValue_Types_ListType(BaseType.LIST, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
     }
   }
 
   @AutoValue
-  public abstract static class MapType extends Type {
+  public abstract static class MapType extends Type implements SupportsMutableVariant<MapType> {
     public static final String PARAMETERIZED_TYPE_KEYS = "$keys";
     public static final String PARAMETERIZED_TYPE_VALUES = "$values";
 
+    public abstract boolean getIsMutable();
+
     public static MapType forKeyValueTypes(Type keysType, Type valuesType) {
-      return new AutoValue_Types_MapType(BaseType.MAP, ImmutableMap.of(PARAMETERIZED_TYPE_KEYS, keysType, PARAMETERIZED_TYPE_VALUES, valuesType));
+      return MapType.forKeyValueTypes(keysType, valuesType, /*isMutable=*/false);
+    }
+
+    public static MapType forKeyValueTypes(Type keysType, Type valuesType, boolean isMutable) {
+      return new AutoValue_Types_MapType(BaseType.MAP, ImmutableMap.of(PARAMETERIZED_TYPE_KEYS, keysType, PARAMETERIZED_TYPE_VALUES, valuesType), isMutable);
+    }
+
+    @Override
+    public String toString() {
+      String baseFormattedType = super.toString();
+      return this.getIsMutable() ? "mut " + baseFormattedType : baseFormattedType;
     }
 
     @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.MapType.forKeyValueTypes(%s, %s)",
+          "Types.MapType.forKeyValueTypes(%s, %s, %s)",
           this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEYS).getJavaSourceClaroType(),
-          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_VALUES).getJavaSourceClaroType()
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_VALUES).getJavaSourceClaroType(),
+          this.isMutable()
       );
+    }
+
+    @Override
+    public MapType toMutableVariant() {
+      return new AutoValue_Types_MapType(BaseType.MAP, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
     }
   }
 
   @AutoValue
-  public abstract static class SetType extends Type {
+  public abstract static class SetType extends Type implements SupportsMutableVariant<SetType> {
     public static final String PARAMETERIZED_TYPE = "$values";
 
+    public abstract boolean getIsMutable();
+
     public static SetType forValueType(Type valueType) {
-      return new AutoValue_Types_SetType(BaseType.SET, ImmutableMap.of(PARAMETERIZED_TYPE, valueType));
+      return SetType.forValueType(valueType, /*isMutable=*/false);
+    }
+
+    public static SetType forValueType(Type valueType, boolean isMutable) {
+      return new AutoValue_Types_SetType(BaseType.SET, ImmutableMap.of(PARAMETERIZED_TYPE, valueType), isMutable);
+    }
+
+    @Override
+    public String toString() {
+      String baseFormattedType = super.toString();
+      return this.getIsMutable() ? "mut " + baseFormattedType : baseFormattedType;
     }
 
     @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.SetType.forValueType(%s)",
-          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE).getJavaSourceClaroType()
+          "Types.SetType.forValueType(%s, %s)",
+          this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE).getJavaSourceClaroType(),
+          this.isMutable()
       );
+    }
+
+    @Override
+    public SetType toMutableVariant() {
+      return new AutoValue_Types_SetType(BaseType.SET, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
     }
   }
 
   @AutoValue
-  public abstract static class TupleType extends Type implements Collection {
+  public abstract static class TupleType extends Type implements Collection, SupportsMutableVariant<TupleType> {
 
     public abstract ImmutableList<Type> getValueTypes();
 
+    public abstract boolean getIsMutable();
+
     public static TupleType forValueTypes(ImmutableList<Type> valueTypes) {
+      return TupleType.forValueTypes(valueTypes, /*isMutable=*/false);
+    }
+
+    public static TupleType forValueTypes(ImmutableList<Type> valueTypes, boolean isMutable) {
       ImmutableMap.Builder<String, Type> parameterizedTypesMapBuilder = ImmutableMap.builder();
       for (int i = 0; i < valueTypes.size(); i++) {
         parameterizedTypesMapBuilder.put(String.format("$%s", i), valueTypes.get(i));
       }
-      return new AutoValue_Types_TupleType(BaseType.TUPLE, parameterizedTypesMapBuilder.build(), valueTypes);
+      return new AutoValue_Types_TupleType(BaseType.TUPLE, parameterizedTypesMapBuilder.build(), valueTypes, isMutable);
     }
 
     @Override
@@ -116,22 +191,34 @@ public final class Types {
 
     @Override
     public String toString() {
-      return String.format(
+      String baseFormattedType = String.format(
           this.baseType().getClaroCanonicalTypeNameFmtStr(),
           getValueTypes().stream().map(Type::toString).collect(Collectors.joining(", "))
       );
+      return this.isMutable() ? "mut " + baseFormattedType : baseFormattedType;
     }
 
     @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.TupleType.forValueTypes(ImmutableList.of(%s))",
+          "Types.TupleType.forValueTypes(ImmutableList.of(%s), %s)",
           Joiner.on(", ")
               .join(this.getValueTypes()
                         .stream()
                         .map(Type::getJavaSourceClaroType)
-                        .collect(ImmutableList.toImmutableList()))
+                        .collect(ImmutableList.toImmutableList())),
+          this.isMutable()
       );
+    }
+
+    @Override
+    public TupleType toMutableVariant() {
+      return new AutoValue_Types_TupleType(BaseType.TUPLE, this.parameterizedTypeArgs(), this.getValueTypes(), /*isMutable=*/true);
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
     }
   }
 
