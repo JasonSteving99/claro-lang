@@ -12,12 +12,14 @@ import java.util.stream.Collectors;
 public class TupleExpr extends Expr {
 
   private final ImmutableList<Expr> tupleValues;
+  private final boolean isMutable;
   private Types.TupleType assertedType;
   private Types.TupleType type;
 
-  public TupleExpr(ImmutableList<Expr> tupleValues, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public TupleExpr(ImmutableList<Expr> tupleValues, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.tupleValues = tupleValues;
+    this.isMutable = isMutable;
   }
 
   @Override
@@ -44,13 +46,13 @@ public class TupleExpr extends Expr {
           this.tupleValues.get(i).assertExpectedExprType(scopedHeap, this.assertedType.getValueTypes().get(i));
         }
       }
-      this.type = this.assertedType;
+      this.type = Types.TupleType.forValueTypes(this.assertedType.getValueTypes(), this.isMutable);
     } else { // Type wasn't asserted by programmer, we get to infer it.
       ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
       for (Expr expr : tupleValues) {
         valueTypesBuilder.add(expr.getValidatedExprType(scopedHeap));
       }
-      this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build(), /*isMutable=*/false);
+      this.type = Types.TupleType.forValueTypes(valueTypesBuilder.build(), isMutable);
     }
     return type;
   }

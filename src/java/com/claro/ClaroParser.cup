@@ -83,11 +83,16 @@ action code {:
      return new InputExpr(prompt.map(p -> p.val), currentLinesSupplier, rpright, startCol, endCol);
   }
 
-  private Expr constructSetOrTuple(LexedValue<String> lp, int lpleft, int lpright, Expr head, LexedValue<String> c, int cleft, int cright, Symbol tailValues, LexedValue<String> rp, int rpleft, int rpright, BiFunction<ImmutableList<Expr>, Supplier<String>, BiFunction<Integer, Integer, Expr>> constructor) {
+  private Expr constructSetOrTuple(LexedValue<String> mut, int mutleft, int mutright, LexedValue<String> lp, int lpleft, int lpright, Expr head, LexedValue<String> c, int cleft, int cright, Symbol tailValues, LexedValue<String> rp, int rpleft, int rpright, BiFunction<ImmutableList<Expr>, Supplier<String>, BiFunction<Integer, Integer, Expr>> constructor) {
     Supplier<String> currentLinesSupplier =
-       joinExprLines(new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright));
-    int startCol = min(lpleft, head.startCol, cleft, tailValues.left, rpleft);
-    int endCol = max(lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len);
+       mut == null
+       ? joinExprLines(new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright))
+       : joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lp.currentInputLine, lpright), new Line(head.currentLine, head.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) tailValues.value).currentInputLine, tailValues.right), new Line(rp.currentInputLine, rpright));
+    int startCol = min(mutleft, lpleft, head.startCol, cleft, tailValues.left, rpleft);
+    int endCol =
+      mut == null
+      ? max(lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len)
+      : max(mutleft + mut.len, lpleft + lp.len, head.endCol, cleft + c.len, tailValues.left + ((LexedValue) tailValues.value).len, rpleft + rp.len);
 
     ImmutableList.Builder<Expr> values = ImmutableList.builder();
     values.add(head);
@@ -1307,7 +1312,7 @@ list ::=
        int endCol = max(lbleft + lb.len, args.left + ((LexedValue) args.value).len, rbleft + rb.len);
 
        // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
-       RESULT = new ListExpr(((LexedValue<ImmutableList.Builder<Expr>>) args.value).val.build().reverse(), currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = new ListExpr(((LexedValue<ImmutableList.Builder<Expr>>) args.value).val.build().reverse(), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
     :}
   | LBRACKET:lb RBRACKET:rb
     {:
@@ -1316,18 +1321,45 @@ list ::=
        int startCol = min(lbleft, rbleft);
        int endCol = max(lbleft + lb.len, rbleft + rb.len);
 
-       RESULT = new ListExpr(currentLinesSupplier, rbright, startCol, endCol);
+       RESULT = new ListExpr(/*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LBRACKET:lb args_list:args RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lb.currentInputLine, lbright), new Line(((LexedValue) args.value).currentInputLine, args.right), new Line(rb.currentInputLine, rbright));
+       int startCol = min(mutleft, lbleft, args.left, rbleft);
+       int endCol = max(mutleft + mut.len, lbleft + lb.len, args.left + ((LexedValue) args.value).len, rbleft + rb.len);
+
+       // Notice that we reverse the list before handing it to the ListExpr node because it was collected backwards.
+       RESULT = new ListExpr(((LexedValue<ImmutableList.Builder<Expr>>) args.value).val.build().reverse(), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LBRACKET:lb RBRACKET:rb
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lb.currentInputLine, lbright), new Line(rb.currentInputLine, rbright));
+       int startCol = min(mutleft, lbleft, rbleft);
+       int endCol = max(mutleft + mut.len, lbleft + lb.len, rbleft + rb.len);
+
+       RESULT = new ListExpr(/*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
     :}
   ;
 
 map ::=
     LCURLY:lc RCURLY:rc
     {:
-      RESULT = new MapExpr(ImmutableList.of(), joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
+      RESULT = new MapExpr(ImmutableList.of(), /*isMutable=*/false, joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
     :}
   | LCURLY:lc map_initializer_kv_list:initializer RCURLY:rc
     {:
-      RESULT = new MapExpr(initializer.build().reverse(), joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
+      RESULT = new MapExpr(initializer.build().reverse(), /*isMutable=*/false, joinExprLines(new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(lcleft, rcleft), max(lcleft + lc.len, rcleft + rc.len));
+    :}
+  | MUT:mut LCURLY:lc RCURLY:rc
+    {:
+      RESULT = new MapExpr(ImmutableList.of(), /*isMutable=*/true, joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(mutleft, lcleft, rcleft), max(mutleft + mut.len, lcleft + lc.len, rcleft + rc.len));
+    :}
+  | MUT:mut LCURLY:lc map_initializer_kv_list:initializer RCURLY:rc
+    {:
+      RESULT = new MapExpr(initializer.build().reverse(), /*isMutable=*/true, joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lc.currentInputLine, lcright), new Line(rc.currentInputLine, rcright)), rcright, min(mutleft, lcleft, rcleft), max(mutleft + mut.len, lcleft + lc.len, rcleft + rc.len));
     :}
   ;
 
@@ -1346,7 +1378,11 @@ tuple ::=
     // Tuples distinguish themselves from parenthesized expressions by having at least one comma.
     LPAR:lp expr:head COMMA:c args_list:tailValues RPAR:rp
     {:
-       RESULT = (TupleExpr) constructSetOrTuple(lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new TupleExpr(values, lines, rpright, startCol, endCol));
+       RESULT = (TupleExpr) constructSetOrTuple(null, lpleft, lpright, lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new TupleExpr(values, /*isMutable=*/false, lines, rpright, startCol, endCol));
+    :}
+  | MUT:mut LPAR:lp expr:head COMMA:c args_list:tailValues RPAR:rp
+    {:
+       RESULT = (TupleExpr) constructSetOrTuple(mut, mutleft, mutright, lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new TupleExpr(values, /*isMutable=*/true, lines, rpright, startCol, endCol));
     :}
   ;
 
@@ -1354,7 +1390,11 @@ set ::=
     // Sets distinguish themselves from parenthesized expressions by having at least one comma, and tuples by {} instead of ().
     LCURLY:lp expr:head COMMA:c args_list:tailValues RCURLY:rp
     {:
-       RESULT = (SetExpr) constructSetOrTuple(lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new SetExpr(values, lines, rpright, startCol, endCol));
+       RESULT = (SetExpr) constructSetOrTuple(null, lpleft, lpright, lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new SetExpr(values, /*isMutable=*/false, lines, rpright, startCol, endCol));
+    :}
+  | MUT:mut LCURLY:lp expr:head COMMA:c args_list:tailValues RCURLY:rp
+    {:
+       RESULT = (SetExpr) constructSetOrTuple(mut, mutleft, mutright, lp, lpleft, lpright, head, c, cleft, cright, tailValues, rp, rpleft, rpright, (values, lines) -> (startCol, endCol) -> new SetExpr(values, /*isMutable=*/true, lines, rpright, startCol, endCol));
     :}
   ;
 

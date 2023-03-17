@@ -139,7 +139,7 @@ implement ColumnAccess<Row> as AllColumns {
 # TODO(steving)     immutable collections instead of mutable ones.
 requires(ColumnAccess<C>)
 function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
-  var res: Table = [];
+  var res: Table = mut [];
   var i = 0;
   while (i < len(table)) {
     if (pred(ColumnAccess::get(table, i))) {
@@ -152,7 +152,7 @@ function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
 
 requires(ColumnAccess<C>)
 function getTableColumn<C>(table: Table) -> mut [C] {
-  var res: mut [C] = [];
+  var res: mut [C] = mut [];
   var i: ID = 0;
   while (i < len(table)) {
     append(res, ColumnAccess::get(table, i++));
@@ -163,7 +163,7 @@ function getTableColumn<C>(table: Table) -> mut [C] {
 function select<C1, C2>(table: Table) -> mut [tuple<C1, C2>] {
   var c1: mut [C1] = getTableColumn(table);
   var c2: mut [C2] = getTableColumn(table);
-  var res: mut [tuple<C1, C2>] = [];
+  var res: mut [tuple<C1, C2>] = mut [];
   var i = 0;
   while (i < len(table)) {
     append(res, (c1[i], c2[i]));
@@ -188,7 +188,7 @@ function binaryCond<C1, C2>(
     pred1: function<C1 -> boolean>,
     pred2: function<C2 -> boolean>) -> function<Row -> boolean> {
   return row -> {
-    var rowAsTable: Table = [row];
+    var rowAsTable: Table = mut [row];
     return op(pred1(ColumnAccess::get(rowAsTable, 0)), pred2(ColumnAccess::get(rowAsTable, 0)));
   };
 }
@@ -201,7 +201,7 @@ function binaryCond<C1, C2>(
 #print(And((function<tuple<int, int> -> boolean>) x -> x == x, (function<tuple<int, int> -> boolean>) x -> x == x));
 
 var table: Table =
-  [
+  mut [
     createRow("Jason", 28, "MM/DD/YYY", "(XXX)XXX-XXXX"),
     createRow("Lisa", 22, "MM/DD/YYY", "(YYY)YYY-YYYY"),
     createRow("Laura", 27, "MM/DD/YYY", "(XXX)XXX-XXXX"),

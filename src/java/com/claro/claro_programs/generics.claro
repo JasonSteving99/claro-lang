@@ -55,7 +55,7 @@ print(tupleIntIntToListIntConvertedRes);
 ####################################################################
 
 function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> mut [O] {
-  var outputList: mut [O] = [];
+  var outputList: mut [O] = mut [];
   var i = 0;
   while (i < len(inputList)) {
     append(outputList, mapFn(inputList[i++]));
@@ -81,7 +81,7 @@ print(mapResult);
 #var mapResult3 = map([1, 90, -13, 0], x -> x >= 0);
 
 function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> mut [T] {
-  var outputList: mut [T] = [];
+  var outputList: mut [T] = mut [];
   var i = 0;
   while (i < len(inputList)) {
     var curr = inputList[i++];
@@ -107,7 +107,7 @@ function defer<In, Out>(i: In) -> Out {
 }
 
 function mapDeferringToContractImpl<I, O>(inputList: [I]) -> mut [O] {
-  var outputList: mut [O] = [];
+  var outputList: mut [O] = mut [];
   var i = 0;
   while (i != len(inputList)) {
     append(outputList, defer(inputList[i++]));
@@ -137,7 +137,7 @@ implement Conversion<int, float> as IntToFloat {
 requires(Conversion<From, Intermediate>)
 function mapThroughIntermediate<From, Intermediate, To>(
     inputList: [From], mapFn: function<Intermediate -> To>) -> mut [To] {
-  var outputList: mut [To] = [];
+  var outputList: mut [To] = mut [];
   var i = 0;
   while (i < len(inputList)) {
     append(outputList, mapFn(Conversion::applyConversion(inputList[i++])));
@@ -182,7 +182,7 @@ genericConsumer(["ten"]);
 # stdlib feature implemented using compiler intrinsics that the users couldn't write in user space. It's
 # pretty fascinating seeing Claro support users writing this themselves.
 provider list<T>() -> mut [T] {
-  return [];
+  return mut [];
 }
 
 print("----------------------------------------------------------");

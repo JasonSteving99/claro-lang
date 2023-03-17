@@ -12,28 +12,32 @@ import java.util.stream.Collectors;
 
 public class ListExpr extends Expr {
 
+  private final boolean isMutable;
   private Optional<Type> emptyListValueType;
   private final ImmutableList<Expr> initializerArgExprsList;
 
   // This type is only available after the type validation phase.
   private Type validatedListType;
 
-  public ListExpr(ImmutableList<Expr> listInitializerArgsList, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public ListExpr(ImmutableList<Expr> listInitializerArgsList, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.isMutable = isMutable;
     this.emptyListValueType = Optional.empty();
     this.initializerArgExprsList = listInitializerArgsList;
   }
 
   // When the grammar finds an empty list, it'll accept whatever type is asserted upon it by its surrounding context.
-  public ListExpr(Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public ListExpr(boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.isMutable = isMutable;
     this.emptyListValueType = Optional.of(Types.UNDECIDED);
     this.initializerArgExprsList = ImmutableList.of();
   }
 
-  public ListExpr(Type emptyListValueType, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public ListExpr(Type emptyListValueType, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.emptyListValueType = Optional.of(emptyListValueType);
+    this.isMutable = isMutable;
     this.initializerArgExprsList = ImmutableList.of();
   }
 
@@ -49,7 +53,11 @@ public class ListExpr extends Expr {
         throw ClaroTypeException.forUndecidedTypeLeakEmptyListInitialization();
       }
       // The type of this empty list is known simply by the type that it was asserted to be within the statement context.
-      listType = emptyListValueType.get();
+      listType = Types.ListType.forValueType(
+          this.emptyListValueType.get().parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY),
+          // Require the mutability of this value to be determined by the presence of a literal `mut`.
+          this.isMutable
+      );
     } else {
       Type listValuesType = this.validatedListType == null
                             ? this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap)
@@ -69,12 +77,7 @@ public class ListExpr extends Expr {
           initialListValue.assertExpectedExprType(scopedHeap, listValuesType);
         }
       }
-      listType = Types.ListType.forValueType(
-          listValuesType,
-          this.validatedListType instanceof SupportsMutableVariant
-          ? ((SupportsMutableVariant<?>) this.validatedListType).isMutable()
-          : false // Just default to immutable.
-      );
+      listType = Types.ListType.forValueType(listValuesType, this.isMutable);
     }
     this.validatedListType = listType;
     return listType;
@@ -94,9 +97,8 @@ public class ListExpr extends Expr {
     if (initializerArgExprsList.isEmpty()) {
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
       this.emptyListValueType = Optional.of(validatedListType);
-    } else {
-      super.assertExpectedExprType(scopedHeap, validatedListType);
     }
+    super.assertExpectedExprType(scopedHeap, validatedListType);
   }
 
   @Override

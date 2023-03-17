@@ -367,7 +367,7 @@ print(defaultStr);
 
 requires(Default<A>)
 function defaultList<A>(size: int) -> mut [A] {
-  var res: mut [A] = [];
+  var res: mut [A] = mut [];
   var i = 0;
   while (i++ < size) {
     append(res, Default::get());
@@ -396,7 +396,7 @@ print("----------------------------------------------------------");
 print("Testing Generic Function getOrDefault<K,V> requiring Default<V>");
 print((int) getOrDefault(({string: int}) {}, "foo"));
 
-var myMap: mut {string: int} = {};
+var myMap: mut {string: int} = mut {};
 print(myMap);
 print("\"foo\" in myMap: {"foo" in myMap}");
 print(getOrDefault(myMap, "foo"));

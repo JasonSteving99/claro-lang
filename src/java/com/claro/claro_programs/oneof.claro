@@ -40,7 +40,7 @@ type(thirdOneof);
 # DEMONSTRATE USING ONEOF'S IN COLLECTIONS
 ###############################################################################################
 
-var l: mut [oneof<string, int>] = [firstOneof];
+var l: mut [oneof<string, int>] = mut [firstOneof];
 print(l);
 l[0] = 1;
 print(l);
@@ -61,7 +61,7 @@ type(lv);
 append(l, lv);
 print(l);
 
-var l2: mut [oneof<[int], [string]>] = [];
+var l2: mut [oneof<[int], [string]>] = mut [];
 print(l2);
 append(l2, [1,2]);
 append(l2, ["three", "four"]);

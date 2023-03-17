@@ -243,10 +243,10 @@ print("TOMFOOLERY ENSUES:");
 #                   seen it take several hundred thousand iterations to trigger this particular case.)
 # (Note: Delay iters were hardcoded to what demonstrated the non-determinism fairly easily on my machine - you might
 #        have to think it through and play with different delays on your machine.)
-var unsafeAliasingViaNodeProcedureArgsRes <-| unsafeAliasingViaNodeProcedureArgs([], [1]);
-var unsafeALiasingViaDirectNodeAliasingRes <-| unsafeALiasingViaDirectNodeAliasing([1]);
-var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue([1]);
-var l: mut [int] = [1];
+var unsafeAliasingViaNodeProcedureArgsRes <-| unsafeAliasingViaNodeProcedureArgs(mut [], mut [1]);
+var unsafeALiasingViaDirectNodeAliasingRes <-| unsafeALiasingViaDirectNodeAliasing(mut [1]);
+var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue(mut [1]);
+var l = mut [1];
 var unsafeAliasingAllowedOnGivenArgsRes <-| unsafeAliasingAllowedOnGivenArgs(l, l);
 
 print(unsafeAliasingViaNodeProcedureArgsRes);

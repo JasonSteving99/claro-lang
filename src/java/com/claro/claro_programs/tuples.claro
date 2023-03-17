@@ -9,7 +9,7 @@ var t2 = ((2, "later after reassignment"), 0, [1,2]);
 print(t2);
 
 # Mutable tuples can have their elements reassigned, and Claro will check your indices are in-bounds int literals.
-var t3: mut tuple<int, string> = (1,"asdf");
+var t3: mut tuple<int, string> = mut (1, "asdf");
 print(t3);
 t3[0] = 9;
 t3[1] = "asfadsfasdf";

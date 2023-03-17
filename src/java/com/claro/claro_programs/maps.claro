@@ -1,4 +1,4 @@
-var m: mut {string: int} = {"foo": 1, "bar": 2};
+var m: mut {string: int} = mut {"foo": 1, "bar": 2};
 print(m);
 type(m);
 print(m["foo"]);
@@ -16,7 +16,7 @@ print(immutableMap);
 # Uncomment the below line for compile-time error that it's illegal to mutate an immutable collection.
 #immutableMap[1] = "illegal";
 
-var m2: mut {int: string} = {1:"foo", 2:"bar"};
+var m2: mut {int: string} = mut {1:"foo", 2:"bar"};
 print(m2);
 type(m2);
 print(m2[2]);

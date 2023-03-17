@@ -27,30 +27,30 @@ alias IntOrList : tuple<boolean, int, mut [IntOrList]>
 
 print("All of the following values satisfy the type definition for IntOrList:");
 var myIntOrList: IntOrList;
-myIntOrList = (true, 9, []);
+myIntOrList = (true, 9, mut []);
 print(myIntOrList);
 
-myIntOrList = (false, -1, []);
+myIntOrList = (false, -1, mut []);
 print(myIntOrList);
 
 myIntOrList = (false, -1,
-  [
-    (true, 2, []),
+  mut [
+    (true, 2, mut []),
     (false, -1,
-      [
-        (false, -1, []),
-        (true, 99, [])
+      mut [
+        (false, -1, mut []),
+        (true, 99, mut [])
       ]
     )
   ]
 );
 print(myIntOrList);
 
-append(myIntOrList[2], (true, 999, []));
+append(myIntOrList[2], (true, 999, mut []));
 print(myIntOrList);
 
 var innerListOfIntOrList: mut [IntOrList] = myIntOrList[2][0][2];
-append(innerListOfIntOrList, (true, 100, []));
+append(innerListOfIntOrList, (true, 100, mut []));
 print(myIntOrList);
 
 # TODO(steving) Claro doesn't really have support for empty sets at the moment, but they're necessary to ever use an
@@ -60,15 +60,15 @@ print(myIntOrList);
 
 
 alias NestedMap : mut {int: tuple<int, NestedMap>}
-var myNestedMap: NestedMap = {};
+var myNestedMap: NestedMap = mut {};
 print(myNestedMap);
-myNestedMap[1] = (1, {});
+myNestedMap[1] = (1, mut {});
 print(myNestedMap);
-myNestedMap[2] = (2, {2: (2, {}), 3: (3, {999: (999, {})}), 4: (4, {})});
+myNestedMap[2] = (2, mut {2: (2, mut {}), 3: (3, mut {999: (999, mut {})}), 4: (4, mut {})});
 print(myNestedMap);
 var myNestedMap2: NestedMap = myNestedMap[1][1];
 print(myNestedMap2);
-var incompatibleWrapper: mut {int: tuple<int, NestedMap>} = {10: (10, {10: (10, {9: (9, {})})})};
+var incompatibleWrapper: mut {int: tuple<int, NestedMap>} = mut {10: (10, mut {10: (10, mut {9: (9, mut {})})})};
 print(incompatibleWrapper);
 var val = 9 in incompatibleWrapper[10][1];
 print(val);
@@ -82,17 +82,17 @@ print(incompatibleWrapper);
 # So Claro will forbid this assignment. I'm satisfied with this for now unless some insight comes up later.
 
 alias NestedList : mut [NestedList]
-var myNestedList: NestedList = [];
+var myNestedList: NestedList = mut[];
 print(myNestedList);
-append(myNestedList, []);
+append(myNestedList, mut[]);
 print(myNestedList);
-append(myNestedList, [[], [], [[], [[]]]]);
+append(myNestedList, mut [mut[], mut[], mut[mut[], mut[mut[]]]]);
 print(myNestedList);
-myNestedList[1] = [];
+myNestedList[1] = mut [];
 print(myNestedList);
 var myNestedList2: mut [NestedList] = myNestedList[1];
 print(myNestedList2);
-var containsRecursiveType: {int : tuple<int, [NestedList]>} = {10 : (10, [myNestedList, []])};
+var containsRecursiveType: {int : tuple<int, [NestedList]>} = {10 : (10, [myNestedList, mut []])};
 myNestedList2 = containsRecursiveType[10][1][1];
 print("myNestedList2: {myNestedList2}");
 
@@ -100,7 +100,7 @@ print("myNestedList2: {myNestedList2}");
 # Type aliases are *not* new type definitions, they are aliases as the name says, therefor they are interchangeable with
 # one another so long as they are structurally equivalent. This is by design.
 alias AltNestedList : [AltNestedList]
-var myAltNestedList: mut AltNestedList = [];
+var myAltNestedList: mut AltNestedList = mut [];
 myAltNestedList = myNestedList; # Here, I'm assigning a `NestedList` to a var declared as `AltNestedList`.
 print(myAltNestedList);
 

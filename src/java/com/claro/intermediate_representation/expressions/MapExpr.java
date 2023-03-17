@@ -10,12 +10,14 @@ import java.util.function.Supplier;
 
 public class MapExpr extends Expr {
   private final ImmutableList<ImmutableList<Expr>> initializerKeyValPairs;
+  private final boolean isMutable;
   private Optional<Type> assertedType = Optional.empty();
   private Types.MapType validatedMapType;
 
-  public MapExpr(ImmutableList<ImmutableList<Expr>> initializerKeyValPairs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public MapExpr(ImmutableList<ImmutableList<Expr>> initializerKeyValPairs, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.initializerKeyValPairs = initializerKeyValPairs;
+    this.isMutable = isMutable;
   }
 
   @Override
@@ -37,19 +39,26 @@ public class MapExpr extends Expr {
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     // TODO(steving) In the future as I'm polishing the stdlib, I need to have static assertions that keys are always
     //  some immutable data type.
+    Type expectedKeyType;
+    Type expectedValueType;
     if (this.initializerKeyValPairs.isEmpty()) {
       if (!this.assertedType.isPresent()) {
         // There would be no way to infer the type of this empty map, so this isn't allowed. Type assertion needed.
         throw ClaroTypeException.forUndecidedTypeLeakEmptyMapInitialization();
       }
 
-      this.validatedMapType = (Types.MapType) this.assertedType.get();
+      expectedKeyType = this.assertedType.get().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS);
+      expectedValueType = this.assertedType.get().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
+      this.validatedMapType =
+          Types.MapType.forKeyValueTypes(
+              expectedKeyType,
+              expectedValueType,
+              this.isMutable
+          );
       return this.validatedMapType;
     }
 
     // Time to validate the initializer list.
-    Type expectedKeyType;
-    Type expectedValueType;
     if (this.assertedType.isPresent()) {
       expectedKeyType = this.assertedType.get().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS);
       expectedValueType = this.assertedType.get().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
@@ -68,7 +77,7 @@ public class MapExpr extends Expr {
         Types.MapType.forKeyValueTypes(
             expectedKeyType,
             expectedValueType,
-            this.assertedType.map(t -> ((SupportsMutableVariant<?>) t).isMutable()).orElse(false)
+            this.isMutable
         );
     return validatedMapType;
   }

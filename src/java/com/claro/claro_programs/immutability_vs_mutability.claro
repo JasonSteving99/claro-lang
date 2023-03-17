@@ -2,17 +2,17 @@
 # types, should provide trivial mutable/immutable variants.
 # (Value types like int/string/float/boolean do not apply).
 
-var l: mut [int] = [];
+var l: mut [int] = mut [];
 type(l);
 append(l, 1); # This append is valid b/c `l` is mutable.
-print(l == [1]);
+print(l == mut [1]);
 
 var fixedList: [int] = [1, 2, 3];
 type(fixedList);
 # Uncomment for compilation error, can't mutate `fixedList`.
 #append(fixedList, 4);
 
-var m: mut {int: int} = {1:2, 2:4, 3:6};
+var m: mut {int: int} = mut {1:2, 2:4, 3:6};
 m[1] = 3;
 print(m);
 
@@ -29,16 +29,16 @@ print(fixedList2);
 # Note that this keyword is semantically "shallow". The keyword
 # marks the outermost structured type as mutable, but to make the
 # interior types also mutable, you'd require another keyword.
-var mutableListOfImmutableLists: mut [[int]] = [[1,1]];
+var mutableListOfImmutableLists: mut [[int]] = mut [[1,1]];
 type(mutableListOfImmutableLists);
 append(mutableListOfImmutableLists, [2,2]); # Legal.
 # Uncomment for compilation error about mutating immutable value.
 #append(mutableListOfImmutableLists[0], 1);
 print(mutableListOfImmutableLists);
 
-var deeplyMutableNestedLists: mut [mut [int]] = [[1,1]];
+var deeplyMutableNestedLists: mut [mut [int]] = mut [mut [1,1]];
 type(deeplyMutableNestedLists);
-append(deeplyMutableNestedLists, [2,2]); # Legal.
+append(deeplyMutableNestedLists, mut [2,2]); # Legal.
 append(deeplyMutableNestedLists[0], 1);  # Legal.
 print(deeplyMutableNestedLists);
 

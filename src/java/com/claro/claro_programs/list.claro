@@ -34,7 +34,7 @@ while (r < len(l3)) {
 
 # Accumulate the sum of all values in this list just to show list element mutations and reads simultaneously.
 print("Now accumulate sum of all elements in the following list:");
-var toAccumulate: mut [int] = [0,1,2,3,4,5];
+var toAccumulate: mut [int] = mut [0,1,2,3,4,5];
 print(toAccumulate);
 i = 1;
 while (i < len(toAccumulate)) {
@@ -44,7 +44,7 @@ while (i < len(toAccumulate)) {
 print(toAccumulate);
 
 # You can append to a list using the builtin `consumer append<T>([T], T)`.
-var initiallyEmptyList: mut [int] = [];
+var initiallyEmptyList: mut [int] = mut [];
 append(initiallyEmptyList, 3);
 append(initiallyEmptyList, 3);
 append(initiallyEmptyList, 3);

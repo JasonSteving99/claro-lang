@@ -13,11 +13,13 @@ import java.util.stream.Collectors;
 public class SetExpr extends Expr {
 
   private final Optional<ImmutableList<Expr>> initializerValues;
+  private final boolean isMutable;
   public Optional<Type> optionalAssertedType = Optional.empty();
 
-  public SetExpr(ImmutableList<Expr> initializerValues, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+  public SetExpr(ImmutableList<Expr> initializerValues, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.initializerValues = Optional.of(initializerValues);
+    this.isMutable = isMutable;
   }
 
   @Override
@@ -54,7 +56,10 @@ public class SetExpr extends Expr {
           this.optionalAssertedType.get().parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE)
       );
     }
-    return this.optionalAssertedType.get();
+    return Types.SetType.forValueType(
+        this.optionalAssertedType.get().parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE),
+        this.isMutable
+    );
   }
 
   @Override
