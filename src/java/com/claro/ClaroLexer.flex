@@ -196,6 +196,8 @@ WhiteSpace     = [ \t\f]
     "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
     "lambda"           { return symbol(Calc.LAMBDA, 0, 6, "lambda"); }
     "alias"            { return symbol(Calc.ALIAS, 0, 5, "alias"); }
+    "newtype"          { return symbol(Calc.NEWTYPE, 0, 7, "newtype"); }
+    "unwrap"           { return symbol(Calc.UNWRAP, 0, 6, "unwrap"); }
 
     // Builders are builtin at the language level.
     "builder"          { return symbol(Calc.BUILDER, 0, 7, "builder"); }

@@ -1138,6 +1138,36 @@ public final class Types {
     }
   }
 
+  @AutoValue
+  public abstract static class UserDefinedType extends Type {
+
+    private static final String WRAPPED_TYPE_KEY = "$wrapped_type";
+
+    public abstract String getTypeName();
+
+    public abstract Type getWrappedType();
+
+    public static UserDefinedType forTypeNameAndWrappedType(String typeName, Type wrappedType) {
+      // TODO(steving) Return to this once generic type defs are supported.
+      return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(WRAPPED_TYPE_KEY, wrappedType), typeName, wrappedType);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.UserDefinedType.forTypeNameAndWrappedType(\"%s\", %s)",
+          this.getTypeName(),
+          this.getWrappedType().getJavaSourceClaroType()
+      );
+    }
+
+    @Override
+    public String toString() {
+      // TODO(steving) Return to this once generic type defs are supported.
+      return this.getTypeName();
+    }
+  }
+
   // This is really a meta-type which exists primarily to allow some mechanism of holding the name of a generic
   // type param in the scopedheap. This should see very limited use throughout the compiler internals only and
   // none at all by Claro programs.

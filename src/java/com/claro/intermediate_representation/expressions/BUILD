@@ -35,6 +35,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls:builtins_impls",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collection_interface",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+        "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
         "//src/java/com/claro/intermediate_representation/types:type",

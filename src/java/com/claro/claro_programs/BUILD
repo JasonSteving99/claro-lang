@@ -277,6 +277,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "user_defined_types",
+    srcs = [":user_defined_types_lib"],
+    java_name = "user_defined_types",
+)
+
+claro_library(
+    name = "user_defined_types_lib",
+    src = "user_defined_types.claro",
+)
+
+claro_binary(
     name = "while_test_compiled_claro_image",
     srcs = [":while_test_compiled_claro"],
     java_name = "while_test",

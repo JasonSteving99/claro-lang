@@ -110,7 +110,6 @@ public class AliasStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // TODO(steving) Update AliasStmt to actually function as a constant Singleton Value so that Types can be passed as first class objects in Claro.
     // Just so that other statements can still access this type upon re-entering this scope, redefine the type if
     // necessary (this is only the case for an alias defined within a function definition statement).
     if (!scopedHeap.isIdentifierDeclared(this.alias)) {
@@ -126,7 +125,6 @@ public class AliasStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // TODO(steving) Update AliasStmt to actually function as a constant Singleton Value so that Types can be passed as first class objects in Claro.
     // Just so that other statements can still access this type upon re-entering this scope, redefine the type if
     // necessary (this is only the case for an alias defined within a function definition statement).
     if (!scopedHeap.isIdentifierDeclared(this.alias)) {

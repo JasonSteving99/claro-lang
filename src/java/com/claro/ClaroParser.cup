@@ -310,6 +310,7 @@ terminal LexedValue<String>  WHILE;
 terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
+terminal LexedValue<String>  NEWTYPE, UNWRAP;
 terminal LexedValue<String>  RETURN;
 // TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
 terminal LexedValue<String>  IMMUTABLE;
@@ -351,6 +352,8 @@ nonterminal IfStmt                             else_if_stmt;
 nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal AliasStmt                          alias_stmt;
+nonterminal NewTypeDefStmt                     newtype_def_stmt;
+nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
@@ -554,6 +557,8 @@ stmt ::=
     {: RESULT = r; :}
   | alias_stmt:a
     {: RESULT = a; :}
+  | newtype_def_stmt:n
+    {: RESULT = n; :}
   | using_block_stmt:u
     {: RESULT = u; :}
   | pipe_chain_stmt:p
@@ -602,6 +607,16 @@ show_type ::=
     {: RESULT = new ShowTypeStmt(e); :}
   ;
 
+unwrap_expr ::=
+    UNWRAP:u LPAR:l expr:expr RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(u.currentInputLine, uright), new Line(l.currentInputLine, lright), new Line(expr), new Line(r.currentInputLine, rright));
+       int startCol = min(uleft, lleft, expr.startCol, rleft);
+       int endCol = max(uleft + u.len, lleft + l.len, expr.endCol, rleft + r.len);
+       RESULT = new UnwrapUserDefinedTypeExpr(expr, currentLinesSupplier, rright, startCol, endCol);
+    :}
+  ;
+
 identifier_declaration ::=
     VAR IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new DeclarationStmt(identifier.val, e); :}
@@ -622,6 +637,14 @@ alias_stmt ::=
     {:
        LexedValue<TypeProvider> aliasedTypeLexedVal = (LexedValue<TypeProvider>) aliased_type.value;
        RESULT = new AliasStmt(alias.val, aliasedTypeLexedVal.val);
+    :}
+  ;
+
+newtype_def_stmt ::=
+    NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       RESULT = new NewTypeDefStmt(type_name.val, baseTypeLexedVal.val);
     :}
   ;
 
@@ -1198,6 +1221,8 @@ expr ::=
     :}
   | input:i
     {: RESULT = i; :}
+  | unwrap_expr:u
+    {: RESULT = u; :}
   | is_input_ready:i
     {: RESULT = i; :}
   | list:l

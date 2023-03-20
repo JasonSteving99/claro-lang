@@ -6,10 +6,7 @@ import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
@@ -34,6 +31,7 @@ public class FunctionCallExpr extends Expr {
   public String originalName;
   public Optional<String> optionalExtraArgsCodegen = Optional.empty();
   public Optional<ImmutableList<Type>> optionalConcreteGenericTypeParams = Optional.empty();
+  private Optional<Type> representsUserDefinedTypeConstructor = Optional.empty();
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -62,14 +60,31 @@ public class FunctionCallExpr extends Expr {
         this.name
     );
     Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.name);
+    // It's possible that this is a default constructor call for a custom type. If it's being called textually "before"
+    // the definition of the type, then the type may not actually be resolved yet, so resolve it now.
+    if (referencedIdentifierType == null) {
+      referencedIdentifierType = TypeProvider.Util.getTypeByName(this.name, true).resolveType(scopedHeap);
+    }
     Preconditions.checkState(
         // Include CONSUMER_FUNCTION just so that later we can throw a more specific error for that case.
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION)
+        ImmutableSet.of(
+                BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION,
+                // UserDefinedType's are also valid as references to default constructors.
+                BaseType.USER_DEFINED_TYPE
+            )
             .contains(referencedIdentifierType.baseType()),
         "Non-function %s %s cannot be called!",
         referencedIdentifierType,
         this.name
     );
+    if (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
+      // Swap out a synthetic constructor function.
+      this.representsUserDefinedTypeConstructor =
+          Optional.of(((Types.UserDefinedType) referencedIdentifierType).getWrappedType());
+      this.name = this.name + "$constructor";
+      referencedIdentifierType =
+          TypeProvider.Util.getTypeByName(this.name, /*isTypeDefinition=*/false).resolveType(scopedHeap);
+    }
     Preconditions.checkState(
         ((Types.ProcedureType) referencedIdentifierType).hasArgs(),
         "%s %s does not take any args, it cannot be called with arguments!",
@@ -550,28 +565,44 @@ public class FunctionCallExpr extends Expr {
 
     AtomicReference<GeneratedJavaSource> exprsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
-    GeneratedJavaSource functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
-        new StringBuilder(
-            String.format(
-                this.staticDispatchCodegen ? "%s(%s%s)" : "%s.apply(%s%s)",
-                this.name,
-                this.argExprs
-                    .stream()
-                    .map(expr -> {
-                      GeneratedJavaSource currGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
-                      String currJavaSourceBody = currGenJavaSource.javaSourceBody().toString();
-                      // We've already consumed the javaSourceBody, it's safe to clear it.
-                      currGenJavaSource.javaSourceBody().setLength(0);
-                      exprsGenJavaSource.set(exprsGenJavaSource.get().createMerged(currGenJavaSource));
-                      return currJavaSourceBody;
-                    })
-                    .collect(Collectors.joining(", ")),
-                this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
-                ? ", " + this.optionalExtraArgsCodegen.get()
-                : ""
-            )
-        )
-    );
+    String exprsJavaSourceBodyCodegen =
+        this.argExprs
+            .stream()
+            .map(expr -> {
+              GeneratedJavaSource currGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+              String currJavaSourceBody = currGenJavaSource.javaSourceBody().toString();
+              // We've already consumed the javaSourceBody, it's safe to clear it.
+              currGenJavaSource.javaSourceBody().setLength(0);
+              exprsGenJavaSource.set(exprsGenJavaSource.get().createMerged(currGenJavaSource));
+              return currJavaSourceBody;
+            })
+            .collect(Collectors.joining(", "));
+    GeneratedJavaSource functionCallJavaSourceBody;
+    if (this.representsUserDefinedTypeConstructor.isPresent()) {
+      functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  "new $UserDefinedType(\"%s\", %s, %s)",
+                  this.originalName,
+                  this.representsUserDefinedTypeConstructor.get().getJavaSourceClaroType(),
+                  exprsJavaSourceBodyCodegen
+              )
+          )
+      );
+    } else {
+      functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  this.staticDispatchCodegen ? "%s(%s%s)" : "%s.apply(%s%s)",
+                  this.name,
+                  exprsJavaSourceBodyCodegen,
+                  this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                  ? ", " + this.optionalExtraArgsCodegen.get()
+                  : ""
+              )
+          )
+      );
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset

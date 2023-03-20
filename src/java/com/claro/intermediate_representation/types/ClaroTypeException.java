@@ -199,6 +199,14 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\t\tIn order to mutate this value, the value's type would need to be updated to:\n" +
       "\t\t\t%s";
+  private static final String INVALID_UNWRAP_OF_BUILTIN_TYPE =
+      "Invalid Unwrap of Builtin Type: `unwrap()` is only supported over concrete user-defined custom types wrapping another type. The value you attempted to unwrap is a builtin type, meaning you have already reached the \"bottom\", there is nothing to unwrap.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String INVALID_UNWRAP_OF_GENERIC_TYPE =
+      "Illegal Unwrap of Generic Type: `unwrap()` is only supported over concrete user-defined custom types wrapping another type. The value you attempted to unwrap is a Generic type which cannot be unwrapped.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -896,6 +904,24 @@ public class ClaroTypeException extends Exception {
             ILLEGAL_MUTATION_ATTEMPT_ON_IMMUTABLE_VALUE,
             listExprType,
             toMutableVariant
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidUnwrapOfBuiltinType(Type validatedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_UNWRAP_OF_BUILTIN_TYPE,
+            validatedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidUnwrapOfGenericType(Type validatedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_UNWRAP_OF_GENERIC_TYPE,
+            validatedExprType
         )
     );
   }

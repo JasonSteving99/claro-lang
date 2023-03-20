@@ -1,0 +1,78 @@
+
+# Claro allows the definition of user defined types using the `newtype` keyword! This has *no affect on the generated
+# code* it simply allows programmers to indicate that while some types may be *represented* the same at a storage level,
+# at a higher conceptual level, they have *semantically distinct interpretations*. So, Claro will enforce this
+# distinction in order to allow you to ensure that data of distinct types is always handled in a way that is cognizant
+# of the semantics of the custom type.
+
+newtype MyInt : int
+
+var myInt : MyInt = MyInt(1);
+print(myInt);
+type(myInt);
+
+# By design, there is *NO INHERITANCE* of implementation from the wrapped type. To demonstrate, in the below example,
+# even though the type wraps `int`, you cannot do addition with `MyInt` instances (by default, w/o explicitly
+# defining how addition works for your custom type).
+# Uncomment any of the below lines to see compile-time errors complaining about type mismatches.
+#print(myInt + myInt);
+
+# In order to actually get at the wrapped type, Claro provides a builtin `unwrap()` function. Conceptually, think of
+# this function as "decoding" or "reinterpreting" the outer type into the wrapped type.
+var unwrappedInt : int = unwrap(myInt);
+print(unwrappedInt);
+type(unwrappedInt);
+# Now that you've reinterpreted the MyInt as an int, you can use the `+` operator again since it's impl'd for ints.
+print(unwrappedInt + unwrappedInt);
+
+
+# It's a design decision up to the programmer to decide whether this is valuable, but you may also define newtype's
+# based off of another newtype. Again, this establishes an indication that they will share the same underlying concrete
+# representation in memory, and MORE IMPORTANTLY that they share the same foundational semantic constraints imposed by
+# the wrapped type with ADDITIONAL constraints on top. So here, MyOtherInt is also represented as `int` because
+# `MyInt` is represented as an `int`. In some way this could be useful even just in helping you to make sure that two
+# types remain structurally equivalent if that's important to you for some reason. But more importantly you can use this
+# to layer semantic constraints or reinterpretations.
+newtype MyOtherInt : MyInt
+var myOtherInt: MyOtherInt = MyOtherInt(myInt);
+print(myOtherInt);
+type(myOtherInt);
+
+unwrappedInt = unwrap(unwrap(myOtherInt));
+print(unwrappedInt + unwrappedInt);
+
+# New Types are, by design, *NOT* mutually compatible with any (transitive) base types they are defined on. Claro very
+# intentionally *will never* support traditional subtyping relationships as found in other languages. Remember that the
+# *entire point of defining a newtype* is that you claim these things are semantically distinct from one another.
+
+# Uncomment any of the below lines to see compile-time errors complaining about type mismatches.
+#myInt = myOtherInt;
+#myOtherInt = myInt;
+#myInt = 1;
+#myOtherInt = 1;
+
+
+########################################################################################################################
+# As you should expect, you can now do anything with your custom types that you could do with builtin types. Here's a
+# non-trivial example of doing runtime dynamic dispatch over values of your custom types.
+########################################################################################################################
+
+contract Foo<T> {
+  consumer bar(t: T);
+}
+implement Foo<MyInt> as MyIntFoo {
+  consumer bar(t: MyInt) {
+    print("My Int is: {t}");
+  }
+}
+implement Foo<MyOtherInt> as MyOtherIntFoo {
+  consumer bar(t: MyOtherInt) {
+    print("My Other Int is: {t}");
+  }
+}
+
+# Runtime dynamic dispatch here will correctly dispatch to the impl based on which type you choose for `someCustomInt`.
+var someCustomInt: oneof<MyInt, MyOtherInt> = myInt;
+Foo::bar(someCustomInt);
+someCustomInt = myOtherInt;
+Foo::bar(someCustomInt);
