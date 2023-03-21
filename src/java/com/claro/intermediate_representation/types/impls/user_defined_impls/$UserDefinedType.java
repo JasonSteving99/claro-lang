@@ -25,4 +25,23 @@ public class $UserDefinedType<T> extends ClaroUserDefinedTypeImplementation {
   public String toString() {
     return String.format("%s(%s)", this.name, this.wrappedValue.toString());
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof $UserDefinedType)) {
+      return false;
+    }
+    $UserDefinedType<?> otherUserDefinedType = ($UserDefinedType<?>) obj;
+    if (!this.name.equals(otherUserDefinedType.name)) {
+      return false;
+    }
+
+    return this.wrappedType.equals(otherUserDefinedType.wrappedType)
+           && this.wrappedValue.equals(otherUserDefinedType.wrappedValue);
+  }
+
+  @Override
+  public int hashCode() {
+    return 31 + this.name.hashCode() + (31 * this.wrappedType.hashCode()) + (31 * this.wrappedValue.hashCode());
+  }
 }

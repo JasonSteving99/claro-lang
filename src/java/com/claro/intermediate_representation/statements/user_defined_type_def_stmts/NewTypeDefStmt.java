@@ -1,19 +1,24 @@
 package com.claro.intermediate_representation.statements.user_defined_type_def_stmts;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.FunctionDefinitionStmt;
+import com.claro.intermediate_representation.statements.ReturnStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.types.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   private final String typeName;
   private final TypeProvider baseTypeProvider;
   private Type resolvedType;
+  private Type resolvedDefaultConstructorType;
+  private FunctionDefinitionStmt constructorFuncDefStmt;
 
   public NewTypeDefStmt(String typeName, TypeProvider baseTypeProvider) {
     super(ImmutableList.of());
@@ -40,42 +45,50 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                 this.typeName, this.baseTypeProvider.resolveType(scopedHeap1))
     );
     scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
-    scopedHeap.putIdentifierValue(
+  }
+
+  public void registerConstructorTypeProvider(ScopedHeap scopedHeap) {
+    this.constructorFuncDefStmt = new FunctionDefinitionStmt(
         this.typeName + "$constructor",
-        null,
-        (TypeProvider) (scopedHeap1) -> {
-          Types.UserDefinedType resolvedUserDefinedType = (Types.UserDefinedType)
-              TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true).resolveType(scopedHeap1);
-          return Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
-              /*argTypes=*/ImmutableList.of(resolvedUserDefinedType.getWrappedType()),
-              /*returnType=*/resolvedUserDefinedType,
-              /*directUsedInjectedKeys=*/ImmutableSet.of(),
-                           new FunctionDefinitionStmt(
-                               this.typeName + "$constructor",
-                               BaseType.FUNCTION,
-                               ImmutableMap.of("$baseType", TypeProvider.ImmediateTypeProvider.of(resolvedUserDefinedType.getWrappedType())),
-                               TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
-                               new StmtListNode(new Stmt(ImmutableList.of()) {
-                                 @Override
-                                 public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
-                                   // Intentionall No-Op.
-                                 }
+        BaseType.FUNCTION,
+        ImmutableMap.of(
+            "$baseType",
+            (TypeProvider) (scopedHeap1) ->
+                ((Types.UserDefinedType) TypeProvider.Util.getTypeByName(this.typeName, true)
+                    .resolveType(scopedHeap1))
+                    .getWrappedType()
+        ),
+        TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
+        new StmtListNode(
+            new ReturnStmt(
+                new Expr(ImmutableList.of(), () -> "", -1, -1, -1) {
+                  @Override
+                  public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+                    scopedHeap.markIdentifierUsed("$baseType");
+                    return ((Types.UserDefinedType) TypeProvider.Util
+                        .getTypeByName(NewTypeDefStmt.this.typeName, true)
+                        .resolveType(scopedHeap))
+                        .getWrappedType();
+                  }
 
-                                 @Override
-                                 public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-                                   throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
-                                 }
+                  @Override
+                  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+                    throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
+                  }
 
-                                 @Override
-                                 public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-                                   throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
-                                 }
-                               })
-                           ),
-              /*explicitlyAnnotatedBlocking=*/false
-          );
-        }
+                  @Override
+                  public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                    throw new RuntimeException("Internal Compiler Error: This should be unreachable!");
+                  }
+                },
+                new AtomicReference<>(
+                    (TypeProvider) (scopedHeap1) -> ((Types.UserDefinedType) TypeProvider.Util
+                        .getTypeByName(NewTypeDefStmt.this.typeName, true)
+                        .resolveType(scopedHeap1))
+                        .getWrappedType())
+            ))
     );
+    this.constructorFuncDefStmt.registerProcedureTypeProvider(scopedHeap);
   }
 
   @Override
@@ -94,6 +107,10 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
     if (this.resolvedType == null) {
       this.resolvedType = TypeProvider.Util.getTypeByName(this.typeName, true).resolveType(scopedHeap);
     }
+
+    // Do type assertion on this synthetic constructor function so that the type can be
+    this.constructorFuncDefStmt.assertExpectedExprTypes(scopedHeap);
+    this.resolvedDefaultConstructorType = scopedHeap.getValidatedIdentifierType(this.typeName + "$constructor");
   }
 
   @Override
@@ -104,6 +121,9 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       scopedHeap.putIdentifierValue(this.typeName, this.resolvedType);
       scopedHeap.markIdentifierUsed(this.typeName);
       scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
+
+      scopedHeap.putIdentifierValue(this.typeName + "$constructor", this.resolvedDefaultConstructorType);
+      scopedHeap.markIdentifierUsed(this.typeName + "$constructor");
     }
 
     // There's no code to generate for this statement, this is merely a statement giving Claro more
@@ -119,6 +139,10 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       scopedHeap.putIdentifierValue(this.typeName, this.resolvedType);
       scopedHeap.markIdentifierUsed(this.typeName);
       scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
+
+      scopedHeap.putIdentifierValue(this.typeName + "$constructor", this.resolvedType);
+      scopedHeap.markIdentifierUsed(this.typeName + "$constructor");
+      scopedHeap.markIdentifierAsTypeDefinition(this.typeName + "$constructor");
     }
     // There's nothing to do for this statement, this is merely a statement giving Claro more
     // information to work with.

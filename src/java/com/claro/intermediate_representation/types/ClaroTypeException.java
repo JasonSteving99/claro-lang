@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -207,6 +208,16 @@ public class ClaroTypeException extends Exception {
       "Illegal Unwrap of Generic Type: `unwrap()` is only supported over concrete user-defined custom types wrapping another type. The value you attempted to unwrap is a Generic type which cannot be unwrapped.\n" +
       "\t\tFound:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE =
+      "Illegal Initializers Block for Undeclared Type: No custom type named `%s` declared within the current scope!";
+  private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE =
+      "Illegal Initializers Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s\n";
+  private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES =
+      "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
+      "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
+      "%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -922,6 +933,37 @@ public class ClaroTypeException extends Exception {
         String.format(
             INVALID_UNWRAP_OF_GENERIC_TYPE,
             validatedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalInitializersBlockReferencingUndeclaredInitializedType(String initializedTypeName) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE,
+            initializedTypeName
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalInitializersBlockReferencingNonUserDefinedType(String identifier, Type type) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE,
+            identifier,
+            type
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalUseOfUserDefinedTypeDefaultConstructorOutsideOfInitializerProcedures(
+      Type userDefinedType, Collection<String> initializerProcedureTypes) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES,
+            userDefinedType,
+            initializerProcedureTypes.stream()
+                .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
         )
     );
   }

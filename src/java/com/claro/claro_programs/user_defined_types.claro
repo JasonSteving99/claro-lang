@@ -76,3 +76,56 @@ var someCustomInt: oneof<MyInt, MyOtherInt> = myInt;
 Foo::bar(someCustomInt);
 someCustomInt = myOtherInt;
 Foo::bar(someCustomInt);
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT DEFINES A SINGLE "INITIALIZER" FUNCTION
+#
+# By defining an "initializers block" for the type `EvenInt` below, this program is now unable to construct an instance
+# of `EvenInt` w/o going through the initializer function `GetValidatedEvenInt`. This has the powerful implication that
+# no matter what, if you have an instance of `EvenInt`, you know for a fact that the wrapped `int` is even.
+########################################################################################################################
+
+newtype NothingType : boolean
+initializers NothingType {
+  provider Nothing() -> NothingType {
+    return NothingType(false);
+  }
+}
+
+newtype EvenInt : int
+
+initializers EvenInt {
+  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, NothingType> {
+    if (x % 2 == 1) {
+      return Nothing();
+    }
+    return EvenInt(x);
+  }
+}
+
+
+var firstEvenInt : oneof<EvenInt, NothingType> = GetValidatedEvenInt(2);
+if (firstEvenInt instanceof EvenInt) {
+  print("I successfully initialized an EvenInt! {firstEvenInt}");
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an EventInt.
+}
+firstEvenInt = GetValidatedEvenInt(3);
+if (firstEvenInt instanceof NothingType) {
+  print("The odd int 3 was correctly rejected!: {firstEvenInt}");
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is a NothingType.
+}
+
+
+# It is impossible to call `EvenInt`'s constructor directly since the initializers block is defined for that type. Try
+# Uncommenting the lines below w/ the call to `EvenInt(3)` and you'll see this error message:
+#  "user_defined_types.claro:xxx: Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers
+#    block has been defined for the custom type `EvenInt`, so, in order to maintain any semantic constraints that the
+#    initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.
+#   		Instead, to get an instance of this type, consider calling one of the defined initializers:
+#   			- GetValidatedEvenInt
+#   var shouldMakeThisInvalid : EvenInt = EvenInt(3);
+#                                         ^^^^^^^^^^
+#   1 Error"
+
+#var thisWillNotCompile: EvenInt = EvenInt(3);
+#print(thisWillNotCompile);

@@ -310,7 +310,7 @@ terminal LexedValue<String>  WHILE;
 terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
-terminal LexedValue<String>  NEWTYPE, UNWRAP;
+terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS;
 terminal LexedValue<String>  RETURN;
 // TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
 terminal LexedValue<String>  IMMUTABLE;
@@ -353,6 +353,8 @@ nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
+nonterminal ImmutableList.Builder<ProcedureDefinitionStmt>  initializer_proc_defs_list;
+nonterminal InitializersBlockStmt              initializers_block_stmt;
 nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
@@ -553,6 +555,8 @@ stmt ::=
     {: RESULT = gf; :}
   | graph_consumer_definition_stmt:gf
     {: RESULT = gf; :}
+  | initializers_block_stmt:i
+    {: RESULT = i; :}
   | return_stmt:r
     {: RESULT = r; :}
   | alias_stmt:a
@@ -646,6 +650,33 @@ newtype_def_stmt ::=
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        RESULT = new NewTypeDefStmt(type_name.val, baseTypeLexedVal.val);
     :}
+  ;
+
+initializers_block_stmt ::=
+    INITIALIZERS:i IDENTIFIER:initialized_type LCURLY:lc initializer_proc_defs_list:initializer_defs RCURLY:rc
+    {:
+       RESULT = new InitializersBlockStmt(initialized_type.val, initializer_defs.build().reverse());
+    :}
+  ;
+
+  // TODO(steving) Add support for Generic Procedures.
+initializer_proc_defs_list ::=
+    function_definition_stmt:def initializer_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
+  | provider_function_definition_stmt:def initializer_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
+  | graph_function_definition_stmt:def initializer_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
+  | graph_provider_definition_stmt:def initializer_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
+  | function_definition_stmt:def
+    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+  | provider_function_definition_stmt:def
+    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+  | graph_function_definition_stmt:def
+    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+  | graph_provider_definition_stmt:def
+    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
   ;
 
 builtin_type ::=
@@ -1479,6 +1510,10 @@ collection_subscript ::=
   | provider_function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
     {:
        RESULT = constructCollectionSubscriptExpr(f, lb, lbleft, lbright, e, rb, rbleft, rbright);
+    :}
+  | unwrap_expr:u LBRACKET:lb expr:e RBRACKET:rb
+    {:
+       RESULT = constructCollectionSubscriptExpr(u, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   | parenthesized_expr:p LBRACKET:lb expr:e RBRACKET:rb
     {:

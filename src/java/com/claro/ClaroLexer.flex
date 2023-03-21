@@ -198,6 +198,7 @@ WhiteSpace     = [ \t\f]
     "alias"            { return symbol(Calc.ALIAS, 0, 5, "alias"); }
     "newtype"          { return symbol(Calc.NEWTYPE, 0, 7, "newtype"); }
     "unwrap"           { return symbol(Calc.UNWRAP, 0, 6, "unwrap"); }
+    "initializers"     { return symbol(Calc.INITIALIZERS, 0, 12, "initializers"); }
 
     // Builders are builtin at the language level.
     "builder"          { return symbol(Calc.BUILDER, 0, 7, "builder"); }

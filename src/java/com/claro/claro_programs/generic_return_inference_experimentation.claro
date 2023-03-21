@@ -79,22 +79,21 @@ while (i < 7) {
 ################################################################################
 # Here's another example where you can actually query a table by column type.
 # Pardon the hacky setup for column type aliases - realistically you'd want to
-# have some codegen for these types and they should actually be structs. In the
-# current absence of struct support in Claro, this is just a hack to get a bunch
-# of unique types to demonstrate this technique with.
+# have some codegen for these types.
 
-alias ID : int
-alias Name : string
-alias Age : tuple<int, boolean>
-alias Birthday : tuple<string, boolean>
-alias PhoneNumber : tuple<tuple<string, boolean>, boolean>
-alias Row : tuple<Name, Age, Birthday, PhoneNumber>
+alias ID : int # This is always used as an index into the Table, don't bother defining a newtype.
+newtype Name : string
+newtype Age : int
+newtype Birthday : string
+newtype PhoneNumber : string
+newtype Row : tuple<Name, Age, Birthday, PhoneNumber>
 # TODO(steving) Once Claro supports copy-free builder semantics via unique_ref<T>, rewrite this alias to define Table
 # TODO(steving)     without the mutable modifier so that mutability can be optional for this type.
+# TODO(steving) Once Claro supports overriding collection subscript (i.e. `[i]`) refactor Table to be a newtype.
 alias Table : mut [Row] # ID is just the index.
 
 function createRow(name: string, age: int, birthday: string, phonenumber: string) -> Row {
-  return (name, (age, true), (birthday, true), ((phonenumber, true), true));
+  return Row((Name(name), Age(age), Birthday(birthday), PhoneNumber(phonenumber)));
 }
 
 contract ColumnAccess<C> {
@@ -104,28 +103,28 @@ contract ColumnAccess<C> {
 implement ColumnAccess<Name> as NameCol {
   function get(t: Table, id: ID) -> Name {
     var row = t[id];
-    return row[0];
+    return unwrap(row)[0];
   }
 }
 
 implement ColumnAccess<Age> as AgeCol {
   function get(t: Table, id: ID) -> Age {
     var row = t[id];
-    return row[1];
+    return unwrap(row)[1];
   }
 }
 
 implement ColumnAccess<Birthday> as BirthdayCol {
   function get(t: Table, id: ID) -> Birthday {
     var row = t[id];
-    return row[2];
+    return unwrap(row)[2];
   }
 }
 
 implement ColumnAccess<PhoneNumber> as PhoneNumberCol {
   function get(t: Table, id: ID) -> PhoneNumber {
     var row = t[id];
-    return row[3];
+    return unwrap(row)[3];
   }
 }
 
@@ -235,23 +234,23 @@ print(phonenumbers);
 
 print("\n\nFilter table for names of people where age > 25");
 table
-  |> where(^, (function<Age -> boolean>) a -> a[0] > 25)
+  |> where(^, (function<Age -> boolean>) a -> unwrap(a) > 25)
   |> (mut [Name]) getTableColumn(^)
   |> print(^);
 
 print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
 table
-  |> where(^, And((a: Age) -> boolean { return a[0] > 25; }, (a: Age) -> boolean { return a[0] < 50; }))
-  |> where(^, (n: Name) -> boolean { return n != "Laura"; })
+  |> where(^, And((a: Age) -> boolean { return unwrap(a) > 25; }, (a: Age) -> boolean { return unwrap(a) < 50; }))
+  |> where(^, (n: Name) -> boolean { return n != Name("Laura"); })
   |> (mut [tuple<Name, Age>]) select(^)
   |> print(^);
 
 # This approach is more convoluted, but I'm flexing the generic calls to defer to multiple specializations of each
 # generic function to ensure that multiple specializations are supported.
 print("Another way to do the same thing by chaining calls to And.");
-(function<Age -> boolean>) a -> a[0] > 25
-  |> And(^, (a: Age) -> boolean { return a[0] < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
-  |> And(^, (n: Name) -> boolean { return n != "Laura"; })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
+(function<Age -> boolean>) a -> unwrap(a) > 25
+  |> And(^, (a: Age) -> boolean { return unwrap(a) < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
+  |> And(^, (n: Name) -> boolean { return n != Name("Laura"); })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
   |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
   |> (mut [tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
@@ -266,12 +265,12 @@ var res: mut [tuple<Name, Age>] =
       Or(
         And(   # Calling: And<Row, Name>(...) -> function<Row -> boolean>
           And( # Calling: And<Age, Age>(...) -> function<Row -> boolean>
-            (a: Age) -> boolean { return a[0] > 25; },
-            (a: Age) -> boolean { return a[0] < 50; }
+            (a: Age) -> boolean { return unwrap(a) > 25; },
+            (a: Age) -> boolean { return unwrap(a) < 50; }
           ),
-          (n: Name) -> boolean { return n != "Laura"; }
+          (n: Name) -> boolean { return n != Name("Laura"); }
         ),
-        (n: Name) -> boolean { return n == "George"; }
+        (n: Name) -> boolean { return n == Name("George"); }
       )
     )
   );

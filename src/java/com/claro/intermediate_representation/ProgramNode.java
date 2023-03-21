@@ -6,6 +6,8 @@ import com.claro.intermediate_representation.expressions.procedures.functions.St
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.InitializersBlockStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -368,6 +370,12 @@ public class ProgramNode {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
       if (currStmt instanceof ProcedureDefinitionStmt) {
         ((ProcedureDefinitionStmt) currStmt).registerProcedureTypeProvider(scopedHeap);
+      }
+      if (currStmt instanceof NewTypeDefStmt) {
+        ((NewTypeDefStmt) currStmt).registerConstructorTypeProvider(scopedHeap);
+      }
+      if (currStmt instanceof InitializersBlockStmt) {
+        ((InitializersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
       }
       currStmtListNode = currStmtListNode.tail;
     }

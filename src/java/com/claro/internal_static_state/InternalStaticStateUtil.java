@@ -64,4 +64,6 @@ public class InternalStaticStateUtil {
   public static Optional<ArrayListMultimap/*<String, ImmutableList<Types.$GenericTypeParam>>*/>
       LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs = Optional.empty();
   public static boolean IfStmt_withinConditionTypeValidation = false;
+  public static HashMultimap<String, String> InitializersBlockStmt_initializersByInitializedType
+      = HashMultimap.create();
 }

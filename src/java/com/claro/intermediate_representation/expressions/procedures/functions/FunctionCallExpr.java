@@ -78,6 +78,20 @@ public class FunctionCallExpr extends Expr {
         this.name
     );
     if (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
+      if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.containsKey(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+          && !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+               && InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
+                   .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                   .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName))) {
+        // Actually, it turns out this is an illegal reference to the auto-generated default constructor outside of one
+        // of the procedures defined within the `initializers` block.
+        // Technically though the types check, so let's log the error and continue to find more errors.
+        this.logTypeError(
+            ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultConstructorOutsideOfInitializerProcedures(
+                referencedIdentifierType,
+                InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+            ));
+      }
       // Swap out a synthetic constructor function.
       this.representsUserDefinedTypeConstructor =
           Optional.of(((Types.UserDefinedType) referencedIdentifierType).getWrappedType());
