@@ -94,7 +94,9 @@ public class FunctionCallExpr extends Expr {
       }
       // Swap out a synthetic constructor function.
       this.representsUserDefinedTypeConstructor =
-          Optional.of(((Types.UserDefinedType) referencedIdentifierType).getWrappedType());
+          Optional.of(
+              scopedHeap.getValidatedIdentifierType(
+                  ((Types.UserDefinedType) referencedIdentifierType).getTypeName() + "$wrappedType"));
       this.name = this.name + "$constructor";
       referencedIdentifierType =
           TypeProvider.Util.getTypeByName(this.name, /*isTypeDefinition=*/false).resolveType(scopedHeap);

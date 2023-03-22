@@ -23,11 +23,11 @@ public class AppendElementToListStmt extends Stmt {
     Type actualListExprType = this.listExpr.getValidatedExprType(scopedHeap);
     if (!actualListExprType.baseType().equals(BaseType.LIST)) {
       // Make sure that this mismatch is logged on the offending Expr that was supposed to be a List.
-      Type expectedListElementType = this.toAppendExpr.getValidatedExprType(scopedHeap);
-      if (expectedListElementType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
-        // In this case there's not really a good error message to give so just complain about the base type.
-        this.listExpr.logTypeError(new ClaroTypeException(actualListExprType, BaseType.LIST));
-      }
+      // In this case there's not really a good error message to give so just complain about the base type.
+      this.listExpr.logTypeError(new ClaroTypeException(actualListExprType, BaseType.LIST));
+      // We really should be asserting the type, but in order to avoid unused warnings, at least do best effort of
+      // actually doing some type validation. Not perfect but better than nothing.
+      this.toAppendExpr.getValidatedExprType(scopedHeap);
       return;
     }
     if (!((SupportsMutableVariant<?>) actualListExprType).isMutable()) {

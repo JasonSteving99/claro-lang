@@ -322,3 +322,53 @@ print(fastLookupNthCSVValue(fastEncoding, 3)); # antelope
 print("--------------------------------------------------------------------------------");
 print("DecodeToStringsList(fastEncoding) == csvValues -> {DecodeToStringsList(fastEncoding) == csvValues}");
 print("DecodeToCSVStrings(fastEncoding) == csv -> {DecodeToCSVStrings(fastEncoding) == csv}");
+
+
+# Running this a million times really illuminates the difference in lookup performance between the two encodings.
+var ITERS = 1000000;
+if (input("Test Fast or Slow? F/S: ") == "F") {
+  i = 0;
+  while (i++ < ITERS) {
+    _ = fastLookupNthCSVValue(fastEncoding, 3);
+  }
+} else {
+  i = 0;
+  while (i++ < ITERS) {
+    _ = slowLookupNthCSVValue(csv, 3);
+  }
+}
+print("DONE");
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT RECURSIVELY REFERENCES ITSELF
+########################################################################################################################
+
+print("--------------------------------------------------------------------------------");
+newtype IntOrList : oneof<int, mut [IntOrList]>
+
+var myIntOrList: IntOrList = IntOrList(9);
+print(myIntOrList);
+myIntOrList = IntOrList(mut [IntOrList(10)]);
+print(myIntOrList);
+
+type(myIntOrList);
+type(unwrap(myIntOrList));
+var unwrappedMyIntOrList = unwrap(myIntOrList);
+if (unwrappedMyIntOrList instanceof mut [IntOrList]) {
+  append(unwrappedMyIntOrList, IntOrList(99));
+  append(unwrappedMyIntOrList, IntOrList(mut [IntOrList(212), IntOrList(313)]));
+  print("Internal type is: ");
+  type(unwrappedMyIntOrList[1]);
+  print(unwrap(unwrappedMyIntOrList[1]));
+}
+print(myIntOrList);
+
+########################################################################################################################
+# Some recursive types like the following should be rejected at compile-time because they're impossible to instantiate.
+# Uncomment the below lines to get compile time warnings from Claro indicating that these types aren't usable.
+# Note that the above type `IntOrList` is accepted because the recursion is nested within a type containing an implicit
+# "bottom" to the recursion (lists could always be made empty).
+########################################################################################################################
+#newtype IllegalUnboundedRecursiveType : tuple<int, IllegalUnboundedRecursiveType>
+#newtype InfiniteRecursion : InfiniteRecursion
+#newtype PartialUnbounded : tuple<PartialUnbounded, [PartialUnbounded]>

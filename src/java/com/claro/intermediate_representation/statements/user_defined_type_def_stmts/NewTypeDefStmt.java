@@ -11,19 +11,21 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
+  private static final String CURR_TYPE_DEF_NAME = "$CURR_TYPE_DEF_NAME";
   private final String typeName;
-  private final TypeProvider baseTypeProvider;
+  private final TypeProvider wrappedTypeProvider;
   private Type resolvedType;
   private Type resolvedDefaultConstructorType;
   private FunctionDefinitionStmt constructorFuncDefStmt;
 
-  public NewTypeDefStmt(String typeName, TypeProvider baseTypeProvider) {
+  public NewTypeDefStmt(String typeName, TypeProvider wrappedTypeProvider) {
     super(ImmutableList.of());
     this.typeName = typeName;
-    this.baseTypeProvider = baseTypeProvider;
+    this.wrappedTypeProvider = wrappedTypeProvider;
   }
 
   @Override
@@ -34,17 +36,53 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
         String.format("Unexpected redeclaration of %s.", this.typeName)
     );
 
+    // Register the custom type and its corresponding wrapped type *SEPERATELY*! This is the key difference that enables
+    // newtype defs to avoid the infinite recursion hell that alias defs run into.
+    scopedHeap.putIdentifierValue(
+        this.typeName,
+        Types.UserDefinedType.forTypeName(this.typeName),
+        null
+    );
+    scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
     // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
     // TypeProvider that will be used for type-resolution in the later phase. Mimicking the AliasStmt approach.
     scopedHeap.putIdentifierValue(
-        this.typeName,
+        this.typeName + "$wrappedType",
         null,
-        // TODO(steving) Come back and support recursive type defs as well as generic type defs.
-        (TypeProvider) (scopedHeap1) ->
-            Types.UserDefinedType.forTypeNameAndWrappedType(
-                this.typeName, this.baseTypeProvider.resolveType(scopedHeap1))
+        (TypeProvider) (scopedHeap1) -> {
+          // In order to identify and reject impossible recursive type definitions, we need to be able to track whether
+          // or not this particular type definition is recursive, which requires knowing the name of the current type. I
+          // have to track the previous to reset it after, because it's actually possible, based on the TypeProvider
+          // resolution scheme we're following, that one type definition will be interrupted by resolving another type
+          // definition midway through.
+          Optional<String> originalTypeName =
+              scopedHeap1.isIdentifierDeclared(CURR_TYPE_DEF_NAME)
+              ? Optional.of((String) scopedHeap1.getIdentifierValue(CURR_TYPE_DEF_NAME))
+              : Optional.empty();
+          scopedHeap1.putIdentifierValue(
+              CURR_TYPE_DEF_NAME,
+              null,
+              this.typeName
+          );
+
+          // Do actual wrapped type resolution.
+          Type res = this.wrappedTypeProvider.resolveType(scopedHeap1);
+
+          if (scopedHeap1.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+            throw new RuntimeException(ClaroTypeException.forImpossibleRecursiveAliasTypeDefinition(this.typeName));
+          }
+
+          // Reset initial state.
+          if (originalTypeName.isPresent()) {
+            scopedHeap1.updateIdentifierValue(CURR_TYPE_DEF_NAME, originalTypeName.get());
+          } else {
+            scopedHeap1.deleteIdentifierValue(CURR_TYPE_DEF_NAME);
+          }
+
+          return res;
+        }
     );
-    scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
+    scopedHeap.markIdentifierAsTypeDefinition(this.typeName + "$wrappedType");
   }
 
   public void registerConstructorTypeProvider(ScopedHeap scopedHeap) {
@@ -53,10 +91,12 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
         BaseType.FUNCTION,
         ImmutableMap.of(
             "$baseType",
-            (TypeProvider) (scopedHeap1) ->
-                ((Types.UserDefinedType) TypeProvider.Util.getTypeByName(this.typeName, true)
-                    .resolveType(scopedHeap1))
-                    .getWrappedType()
+            (scopedHeap1) -> {
+              Type wrappedType =
+                  TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
+              Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
+              return wrappedType;
+            }
         ),
         TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
         new StmtListNode(
@@ -65,10 +105,8 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                   @Override
                   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
                     scopedHeap.markIdentifierUsed("$baseType");
-                    return ((Types.UserDefinedType) TypeProvider.Util
-                        .getTypeByName(NewTypeDefStmt.this.typeName, true)
-                        .resolveType(scopedHeap))
-                        .getWrappedType();
+                    return TypeProvider.Util.getTypeByName(NewTypeDefStmt.this.typeName + "$wrappedType", true)
+                        .resolveType(scopedHeap);
                   }
 
                   @Override
@@ -82,10 +120,8 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                   }
                 },
                 new AtomicReference<>(
-                    (TypeProvider) (scopedHeap1) -> ((Types.UserDefinedType) TypeProvider.Util
-                        .getTypeByName(NewTypeDefStmt.this.typeName, true)
-                        .resolveType(scopedHeap1))
-                        .getWrappedType())
+                    (scopedHeap1) -> TypeProvider.Util.getTypeByName(
+                        NewTypeDefStmt.this.typeName + "$wrappedType", true).resolveType(scopedHeap1))
             ))
     );
     this.constructorFuncDefStmt.registerProcedureTypeProvider(scopedHeap);

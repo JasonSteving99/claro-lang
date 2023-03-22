@@ -1140,24 +1140,28 @@ public final class Types {
 
   @AutoValue
   public abstract static class UserDefinedType extends Type {
-
-    private static final String WRAPPED_TYPE_KEY = "$wrapped_type";
+    public static final HashMap<String, Type> $resolvedWrappedTypes = Maps.newHashMap();
 
     public abstract String getTypeName();
 
-    public abstract Type getWrappedType();
-
-    public static UserDefinedType forTypeNameAndWrappedType(String typeName, Type wrappedType) {
+    public static UserDefinedType forTypeName(String typeName) {
       // TODO(steving) Return to this once generic type defs are supported.
-      return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(WRAPPED_TYPE_KEY, wrappedType), typeName, wrappedType);
+      return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(), typeName);
     }
 
     @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.UserDefinedType.forTypeNameAndWrappedType(\"%s\", %s)",
-          this.getTypeName(),
-          this.getWrappedType().getJavaSourceClaroType()
+          "Types.UserDefinedType.forTypeName(\"%s\")",
+          this.getTypeName()
+      );
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return String.format(
+          this.baseType().getJavaSourceFmtStr(),
+          UserDefinedType.$resolvedWrappedTypes.get(this.getTypeName()).getJavaSourceType()
       );
     }
 

@@ -18,7 +18,7 @@ public class $UserDefinedType<T> extends ClaroUserDefinedTypeImplementation {
 
   @Override
   public Type getClaroType() {
-    return Types.UserDefinedType.forTypeNameAndWrappedType(this.name, this.wrappedType);
+    return Types.UserDefinedType.forTypeName(this.name);
   }
 
   @Override

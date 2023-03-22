@@ -45,7 +45,8 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
               InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType.get(((Types.UserDefinedType) validatedExprType).getTypeName())
           ));
     }
-    return ((Types.UserDefinedType) validatedExprType).getWrappedType();
+    return scopedHeap.getValidatedIdentifierType(
+        ((Types.UserDefinedType) validatedExprType).getTypeName() + "$wrappedType");
   }
 
   @Override

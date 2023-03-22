@@ -26,8 +26,8 @@ public class ShowTypeStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    String expr_java_source = ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap).toString();
-    return GeneratedJavaSource.forJavaSourceBody(
+    GeneratedJavaSource expr_java_source = ((Expr) this.getChildren().get(0)).generateJavaSourceOutput(scopedHeap);
+    return GeneratedJavaSource.create(
         new StringBuilder(
             String.format(
                 "System.out.println(\"%s\"); // Type of `%s` determined at compile-time,\n",
@@ -37,9 +37,11 @@ public class ShowTypeStmt extends Stmt {
                 // TODO(steving) the type at compile-time or runtime in order to correctly do `type(l[0])` for example.
                 exprType,
                 // Dump the OG java source in a comment purely for clarity purposes.
-                expr_java_source
+                expr_java_source.javaSourceBody()
             )
-        )
+        ),
+        expr_java_source.optionalStaticDefinitions(),
+        expr_java_source.optionalStaticPreambleStmts()
     );
   }
 

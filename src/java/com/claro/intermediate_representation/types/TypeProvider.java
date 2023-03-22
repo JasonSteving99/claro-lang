@@ -75,7 +75,16 @@ public interface TypeProvider {
           // If this Type is getting referenced, it was used.
           scopedHeap.markIdentifierUsed(typeName);
 
-          return scopedHeap.getValidatedIdentifierType(typeName);
+          Type res = scopedHeap.getValidatedIdentifierType(typeName);
+
+          // Analogous to the situation with the alias definitions, we may need to make note that we've found a
+          // recursive self-reference to a user-defined type so that impossible recursive types can be rejected.
+          if (scopedHeap.isIdentifierDeclared("$CURR_TYPE_DEF_NAME")
+              && scopedHeap.getIdentifierValue("$CURR_TYPE_DEF_NAME").equals(typeName)) {
+            scopedHeap.putIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND", null, true);
+          }
+
+          return res;
         }
       };
     }

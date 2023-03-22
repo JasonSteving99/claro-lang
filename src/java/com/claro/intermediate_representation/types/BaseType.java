@@ -266,9 +266,10 @@ public enum BaseType {
   $CONTRACT("contract %s<%s>", (String) null, (String) null),
   $CONTRACT_IMPLEMENTATION("$CONTRACT_IMPLEMENTATION", (String) null, (String) null),
 
-  // This is a synthetic type that exists solely for the sake of artificially creating a terminating sentinal type to
-  // prevent unbounded recursion within a recursively defined type alias.
-  ALIAS_SELF_REFERENCE;
+  // These are synthetic types that exist solely for the sake of artificially creating a terminating sentinal type to
+  // prevent unbounded recursion within a recursively defined type alias or user-defined type.
+  ALIAS_SELF_REFERENCE,
+  USER_DEFINED_TYPE_SELF_REFERENCE;
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;
