@@ -1,11 +1,13 @@
 package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 import java.util.function.Supplier;
@@ -28,6 +30,20 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
         this.expr.logTypeError(ClaroTypeException.forInvalidUnwrapOfBuiltinType(validatedExprType));
       }
       return Types.UNKNOWABLE;
+    }
+    if (InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType.containsKey(((Types.UserDefinedType) validatedExprType).getTypeName())
+        && !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+             && InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType
+                 .get(((Types.UserDefinedType) validatedExprType).getTypeName())
+                 .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName))) {
+      // Actually, it turns out this is an illegal reference to the auto-generated default constructor outside of one
+      // of the procedures defined within the `initializers` block.
+      // Technically though the types check, so let's log the error and continue to find more errors.
+      this.logTypeError(
+          ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
+              validatedExprType,
+              InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType.get(((Types.UserDefinedType) validatedExprType).getTypeName())
+          ));
     }
     return ((Types.UserDefinedType) validatedExprType).getWrappedType();
   }

@@ -66,4 +66,6 @@ public class InternalStaticStateUtil {
   public static boolean IfStmt_withinConditionTypeValidation = false;
   public static HashMultimap<String, String> InitializersBlockStmt_initializersByInitializedType
       = HashMultimap.create();
+  public static HashMultimap<String, String> InitializersBlockStmt_unwrappersByUnwrappedType
+      = HashMultimap.create();
 }

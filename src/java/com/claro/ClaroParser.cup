@@ -310,7 +310,7 @@ terminal LexedValue<String>  WHILE;
 terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
-terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS;
+terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  RETURN;
 // TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
 terminal LexedValue<String>  IMMUTABLE;
@@ -353,8 +353,9 @@ nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
-nonterminal ImmutableList.Builder<ProcedureDefinitionStmt>  initializer_proc_defs_list;
+nonterminal ImmutableList.Builder<ProcedureDefinitionStmt>  initializers_or_unwrappers_proc_defs_list;
 nonterminal InitializersBlockStmt              initializers_block_stmt;
+nonterminal UnwrappersBlockStmt                unwrappers_block_stmt;
 nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
@@ -557,6 +558,8 @@ stmt ::=
     {: RESULT = gf; :}
   | initializers_block_stmt:i
     {: RESULT = i; :}
+  | unwrappers_block_stmt:u
+    {: RESULT = u; :}
   | return_stmt:r
     {: RESULT = r; :}
   | alias_stmt:a
@@ -653,21 +656,28 @@ newtype_def_stmt ::=
   ;
 
 initializers_block_stmt ::=
-    INITIALIZERS:i IDENTIFIER:initialized_type LCURLY:lc initializer_proc_defs_list:initializer_defs RCURLY:rc
+    INITIALIZERS:i IDENTIFIER:initialized_type LCURLY:lc initializers_or_unwrappers_proc_defs_list:initializer_defs RCURLY:rc
     {:
        RESULT = new InitializersBlockStmt(initialized_type.val, initializer_defs.build().reverse());
     :}
   ;
 
+unwrappers_block_stmt ::=
+    UNWRAPPERS:u IDENTIFIER:unwrapped_type LCURLY:lc initializers_or_unwrappers_proc_defs_list:unwrapper_defs RCURLY:rc
+    {:
+       RESULT = new UnwrappersBlockStmt(unwrapped_type.val, unwrapper_defs.build().reverse());
+    :}
+  ;
+
   // TODO(steving) Add support for Generic Procedures.
-initializer_proc_defs_list ::=
-    function_definition_stmt:def initializer_proc_defs_list:tail
+initializers_or_unwrappers_proc_defs_list ::=
+    function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
-  | provider_function_definition_stmt:def initializer_proc_defs_list:tail
+  | provider_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
-  | graph_function_definition_stmt:def initializer_proc_defs_list:tail
+  | graph_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
-  | graph_provider_definition_stmt:def initializer_proc_defs_list:tail
+  | graph_provider_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
   | function_definition_stmt:def
     {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}

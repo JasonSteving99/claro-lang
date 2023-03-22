@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.statements.contracts.ContractDefini
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.InitializersBlockStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UnwrappersBlockStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -376,6 +377,9 @@ public class ProgramNode {
       }
       if (currStmt instanceof InitializersBlockStmt) {
         ((InitializersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
+      }
+      if (currStmt instanceof UnwrappersBlockStmt) {
+        ((UnwrappersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
       }
       currStmtListNode = currStmtListNode.tail;
     }

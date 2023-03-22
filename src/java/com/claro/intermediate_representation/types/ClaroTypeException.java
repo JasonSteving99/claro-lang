@@ -218,6 +218,10 @@ public class ClaroTypeException extends Exception {
       "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
       "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
       "%s";
+  private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_UNWRAPPER_OUTSIDE_OF_UNWRAPPER_PROCEDURES =
+      "Illegal Use of User-Defined Type Unwrapper Outside of Unwrappers Block: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to use the type's default `unwrap()` function directly.\n" +
+      "\t\tInstead, to unwrap an instance of this type, consider calling one of the defined unwrappers:\n" +
+      "%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -963,6 +967,18 @@ public class ClaroTypeException extends Exception {
             ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES,
             userDefinedType,
             initializerProcedureTypes.stream()
+                .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
+        )
+    );
+  }
+
+  public static Exception forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
+      Type userDefinedType, Collection<String> unwrapperProcedureTypes) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_UNWRAPPER_OUTSIDE_OF_UNWRAPPER_PROCEDURES,
+            userDefinedType,
+            unwrapperProcedureTypes.stream()
                 .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
         )
     );

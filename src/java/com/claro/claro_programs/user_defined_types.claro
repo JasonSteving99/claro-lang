@@ -129,3 +129,196 @@ if (firstEvenInt instanceof NothingType) {
 
 #var thisWillNotCompile: EvenInt = EvenInt(3);
 #print(thisWillNotCompile);
+
+
+# One of the extremely powerful capabilities Claro's approach to types gives you is that you can start to nest these
+# constraints arbitrarily.
+
+# TODO(steving) Refactor once I can define this as a type with a generic type param.
+newtype EvenIntGreaterThan10 : EvenInt
+
+initializers EvenIntGreaterThan10 {
+  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, NothingType> {
+    if (unwrap(x) > 10) {
+      return EvenIntGreaterThan10(x);
+    }
+    return Nothing();
+  }
+  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, NothingType> {
+    # TODO(steving) Rewrite this once the oneof error checking early return via `?` is supported.
+    var maybeEvenInt = GetValidatedEvenInt(x);
+    if (maybeEvenInt instanceof EvenInt) {
+      if (x > 10) {
+        return EvenIntGreaterThan10(maybeEvenInt);
+      }
+    }
+    return Nothing();
+  }
+}
+
+var i = 5;
+while (i < 15) {
+  var maybeEvenIntGreaterThan10 = GetValidatedEvenIntGreaterThan10FromInt(i);
+  print("Validated int {i++} is even and greater than 10?: {maybeEvenIntGreaterThan10}");
+}
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT DEFINES AN "INITIALIZER" AND AN "UNWRAPPER" FUNCTION
+#
+# By defining an "initializers block" for the type `FasterLookupEncodedString` below, this type enforces the semantic
+# that every instance of `FasterLookupEncodedString` will be encoded as a string starting with a sequence of numbers
+# separated by commas representing the respective starting indices of all of the strings stored in this encoding:
+#   E.g. "dog,kitten,antelope" encoded as "0,3,9|dogkittenantelope".
+# This is a very contrived example to demonstrate that if you wanted to enforce "decoding" when unwrapping the
+# `FasterLookupEncodedString` you could use an `unwrappers` block to achieve it. So you could "decode"
+# "3,6,8|dogkittenantelope" back into "dog,kitten,antelope" when unwrapping.
+########################################################################################################################
+
+newtype CSVStrings : string
+
+initializers CSVStrings {
+  # TODO(steving) Refactor this to take mut? [string] once Claro supports mut-generics.
+  function CSVStringsFromMutList(l: mut [string]) -> CSVStrings {
+    var csv = l[0];
+    var i = 0;
+    while (++i < len(l)) {
+      csv = "{csv},{l[i]}";
+    }
+    return CSVStrings(csv);
+  }
+}
+
+newtype FasterLookupEncodedString : string
+
+initializers FasterLookupEncodedString {
+  # It would be faster to first convert to this format and then do your lookup if you're expecting to be doing more than
+  # a small number of lookups over a large csv. Don't forget that this is a contrived example, I'm not claiming that
+  # you should do this specific thing in "real life".
+  function FasterLookupEncodedStringFromCSVStrings(csv: CSVStrings) -> FasterLookupEncodedString {
+    var words = "";
+    var encodedStrWordInds = "0";
+    var prevLen = 0;
+    var currLen = 0;
+    var i = 0;
+    while (i < len(unwrap(csv))) {
+      if (unwrap(csv)[i] == ",") {
+        encodedStrWordInds = "{encodedStrWordInds},{currLen + prevLen}";
+        prevLen = prevLen + currLen;
+        currLen = 0;
+      } else {
+        currLen++;
+        words = "{words}{unwrap(csv)[i]}";
+      }
+      i++;
+    }
+    return FasterLookupEncodedString("{encodedStrWordInds}|{words}");
+  }
+}
+
+unwrappers FasterLookupEncodedString {
+  function DecodeToStringsList(encodedCsv: FasterLookupEncodedString) -> mut [string] {
+    var encodedCsvAsString: string = unwrap(encodedCsv);
+    var valueCount = 1;
+    var i = 0;
+    while (encodedCsvAsString[i] != "|") {
+      if (encodedCsvAsString[i++] == ",") {
+        valueCount = valueCount + 1;
+      }
+    }
+    # TODO(steving) Refactor this example once Claro supports either list comprehension or copy-free builder semantics.
+    var values: mut [string] = mut [];
+    i = 0;
+    while (i < valueCount) {
+      append(values, fastLookupNthCSVValue(encodedCsv, i++));
+    }
+    return values;
+  }
+
+  # This really just defers to the auto-generated `unwrap()` function, but is now necessary since decoders are
+  # implemented for this type. It's hard to imagine since all of this code is in a single file, but if this type were
+  # being exported in a Module, you would *NOT* publicly export this function!
+  function ToRawEncodedString(encodedCsv: FasterLookupEncodedString) -> string {
+    return unwrap(encodedCsv);
+  }
+}
+
+# Notice that this doesn't need to be defined as an "unwrapper" function since it doesn't directly depend on `unwrap`.
+function DecodeToCSVStrings(encodedCsv: FasterLookupEncodedString) -> CSVStrings {
+  var values = DecodeToStringsList(encodedCsv);
+  return CSVStringsFromMutList(values);
+}
+
+function slowLookupNthCSVValue(csv: CSVStrings, n: int) -> string {
+  var currValueNum = 0;
+  var i = 0;
+  while (currValueNum != n) {
+    if (unwrap(csv)[i++] == ",") {
+      currValueNum = currValueNum + 1;
+    }
+  }
+  var res = "";
+  while ((i < len(unwrap(csv))) and (unwrap(csv)[i] != ",")) {
+    res = "{res}{unwrap(csv)[i++]}";
+  }
+  return res;
+}
+
+function fastLookupNthCSVValue(encodedCsv: FasterLookupEncodedString, n: int) -> string {
+  var encodedCsvAsString: string = ToRawEncodedString(encodedCsv);
+  var i = 0;
+  var currValueNum = 0;
+  var nthValInd = 0;
+  var nextValInd = 0;
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  while (encodedCsvAsString[i] != "|") {
+    if (encodedCsvAsString[i] == ",") {
+      currValueNum = currValueNum + 1;
+    } else if (currValueNum == n) {
+      nthValInd = nthValInd * 10 + charToIntMap[encodedCsvAsString[i]];
+    } else if (currValueNum == n + 1) {
+      nextValInd = nextValInd * 10 + charToIntMap[encodedCsvAsString[i]];
+    }
+    i++;
+  }
+  i = i + nthValInd + 1;
+  var end: int;
+  if (nextValInd == 0) {
+    end = len(encodedCsvAsString);
+  } else {
+    end = i + (nextValInd - nthValInd);
+  }
+  var res = "";
+  while (i < end) {
+    res = "{res}{encodedCsvAsString[i++]}";
+  }
+  return res;
+}
+
+print("--------------------------------------------------------------------------------");
+var csvValues =
+  mut [
+    "dog",
+    "kitten",
+    # Got some random text from an AI chatbot, how neat.
+    "Lorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficitur",
+    "antelope"
+  ];
+var csv = CSVStringsFromMutList(csvValues);
+print(csv); # CSVStrings(dog,kitten,Lorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficitur,antelope)
+
+print("--------------------------------------------------------------------------------");
+var fastEncoding = FasterLookupEncodedStringFromCSVStrings(csv);
+print(fastEncoding); # FasterLookupEncodedString(0,3,9,1498|dogkittenLorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficiturantelope)
+
+print("--------------------------------------------------------------------------------");
+print(slowLookupNthCSVValue(csv, 0)); # dog
+print(slowLookupNthCSVValue(csv, 1)); # kitten
+print(slowLookupNthCSVValue(csv, 3)); # antelope
+print("--------------------------------------------------------------------------------");
+print(fastLookupNthCSVValue(fastEncoding, 0)); # dog
+print(fastLookupNthCSVValue(fastEncoding, 1)); # kitten
+print(fastLookupNthCSVValue(fastEncoding, 3)); # antelope
+
+print("--------------------------------------------------------------------------------");
+print("DecodeToStringsList(fastEncoding) == csvValues -> {DecodeToStringsList(fastEncoding) == csvValues}");
+print("DecodeToCSVStrings(fastEncoding) == csv -> {DecodeToCSVStrings(fastEncoding) == csv}");

@@ -18,6 +18,7 @@ java_library(
         exclude = [
             "Expr.java",
             "LambdaExpr.java",
+            "UnwrapUserDefinedTypeExpr.java",
         ]
     ),
     deps = [
@@ -61,6 +62,24 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
+        "//src/java/com/claro/internal_static_state",
+    ],
+)
+
+java_library(
+    name = "unwrap_user_defined_type_expr_impl",
+    srcs = ["UnwrapUserDefinedTypeExpr.java"],
+    deps = [
+        "//:guava",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
+        "//src/java/com/claro/intermediate_representation:node",
+        "//src/java/com/claro/intermediate_representation/expressions:expr",
+        "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
+        "//src/java/com/claro/intermediate_representation/types:base_type",
+        "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/intermediate_representation/types",
+        "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls",
         "//src/java/com/claro/internal_static_state",
     ],
 )

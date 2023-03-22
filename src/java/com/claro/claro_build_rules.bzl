@@ -87,6 +87,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/intermediate_representation/expressions:expr",
             "//src/java/com/claro/intermediate_representation/expressions:expr_impls",
             "//src/java/com/claro/intermediate_representation/expressions:lambda_expr_impl",
+            "//src/java/com/claro/intermediate_representation/expressions:unwrap_user_defined_type_expr_impl",
             "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr",
             "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr_impls",
             "//src/java/com/claro/intermediate_representation/expressions/numeric:numeric_expr_impls",
