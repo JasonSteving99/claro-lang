@@ -65,7 +65,7 @@ function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> mut [O] {
 
 print("----------------------------------------------------------");
 print("Testing generic function map<|[int], function<int, boolean>| -> [boolean]>");
-var mapResult = map([1, 90, -13, 0], (function<int -> boolean>) x -> x >= 0);
+var mapResult = map([1, 90, -13, 0], cast(function<int -> boolean>, x -> x >= 0));
 print(mapResult);
 # This syntax is semantically equivalent to the one above. The inline lambda signature types are just cleaner and make
 # it more obvious that there's actually no runtime cast going on here, you're just telling Claro the lambda type.

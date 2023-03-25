@@ -2,13 +2,11 @@ package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
-import com.claro.intermediate_representation.types.BaseType;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.*;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public class CastExpr extends Expr {
@@ -31,13 +29,38 @@ public class CastExpr extends Expr {
     // it by its surrounding context - and there are rare occasions where this must be done using a cast).
     // Alternatively we may need to support dynamic casting where the type of the thing being casted really truly can't
     // be known until runtime.
-    if (castedExpr instanceof CollectionSubscriptExpr
-        && (castedExpr.getChildren().get(0) instanceof TupleExpr
-            || (castedExpr.getChildren().get(0) instanceof IdentifierReferenceTerm
-                && scopedHeap
-                    .getValidatedIdentifierType(
-                        ((IdentifierReferenceTerm) castedExpr.getChildren().get(0)).identifier)
-                    .baseType().equals(BaseType.TUPLE)))) {
+    Optional<Types.TupleType> optionalSubscriptedTupleType = Optional.empty();
+    if (castedExpr instanceof CollectionSubscriptExpr) {
+      if (castedExpr.getChildren().get(0) instanceof TupleExpr) {
+        optionalSubscriptedTupleType =
+            Optional.of((Types.TupleType) ((TupleExpr) castedExpr.getChildren()
+                .get(0)).getValidatedExprType(scopedHeap));
+      } else if (castedExpr.getChildren().get(0) instanceof IdentifierReferenceTerm) {
+        Type castedType = scopedHeap
+            .getValidatedIdentifierType(
+                ((IdentifierReferenceTerm) castedExpr.getChildren().get(0)).identifier);
+        if (castedType.baseType().equals(BaseType.TUPLE)) {
+          optionalSubscriptedTupleType = Optional.of((Types.TupleType) castedType);
+        }
+      } else if (castedExpr.getChildren().get(0) instanceof UnwrapUserDefinedTypeExpr) {
+        Type castedType =
+            ((UnwrapUserDefinedTypeExpr) castedExpr.getChildren().get(0)).getValidatedExprType(scopedHeap);
+        if (castedType.baseType().equals(BaseType.TUPLE)) {
+          optionalSubscriptedTupleType = Optional.of((Types.TupleType) castedType);
+        }
+      }
+    }
+    if (castedExpr instanceof CollectionSubscriptExpr && optionalSubscriptedTupleType.isPresent()) {
+      // We're trusting the programmer by contract at compile-time. At runtime we'll generate code to check if they were
+      // actually right.
+      this.actualAssertedType = this.assertedTypeProvider.resolveType(scopedHeap);
+
+      // We're not just gonna accept any arbitrary cast. Only allow casts that may actually be possible at runtime.
+      if (!optionalSubscriptedTupleType.get().getValueTypes().contains(this.actualAssertedType)) {
+        throw ClaroTypeException.forInvalidCast(this.actualAssertedType, optionalSubscriptedTupleType.get()
+            .getValueTypes());
+      }
+
       this.isDynamicCast = true;
       // For now, during the type validation phase, The only thing that the CastExpr must assert is that the casted expr
       // in fact currently has an UNDECIDED type.
@@ -45,10 +68,6 @@ public class CastExpr extends Expr {
       //  because of some co/contra-variance instead of a compile-time-undecidable type situation.
       this.castedExpr.setAcceptUndecided(true);
       this.castedExpr.assertExpectedBaseType(scopedHeap, BaseType.UNDECIDED);
-
-      // We're trusting the programmer by contract at compile-time. At runtime we'll generate code to check if they were
-      // actually right.
-      this.actualAssertedType = this.assertedTypeProvider.resolveType(scopedHeap);
     } else {
       // Since this is a static cast situation where the type actually should be knowable in context, we'll actually
       // perform static type validation according to the casted type.

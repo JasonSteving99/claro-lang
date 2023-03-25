@@ -222,7 +222,7 @@ implement Collision<Asteroid, Asteroid> as AACollission {
 
 requires(Sized<A>, Sized<B>, Collision<A, B>)
 function collide<A, B>(a: A, b: B) -> string {
-  if ((((int) Sized::getSize(a)) > 100) and (((int) Sized::getSize(b)) > 100)) {
+  if ((cast(int, Sized::getSize(a)) > 100) and (cast(int, Sized::getSize(b)) > 100)) {
     return "Big boom!";
   }
   return Collision::collideWith(a, b);

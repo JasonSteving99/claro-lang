@@ -22,6 +22,7 @@ java_library(
         ]
     ),
     deps = [
+        ":unwrap_user_defined_type_expr_impl",
         "//:guava",
         "//src/java/com/claro/runtime_utilities:runtime_utilities",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
@@ -74,6 +75,7 @@ java_library(
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:structural_concrete_generic_type_validation_util",
         "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",

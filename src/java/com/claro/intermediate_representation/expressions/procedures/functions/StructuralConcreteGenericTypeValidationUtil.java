@@ -44,8 +44,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET);
-    final ImmutableSet<BaseType> nestedCollectionTypes = ImmutableSet.of(BaseType.LIST, BaseType.SET, BaseType.MAP);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.USER_DEFINED_TYPE);
     // In the case that this positional arg is a generic param type, then actually we need to just accept
     // whatever type is in the passed arg expr.
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
@@ -217,6 +216,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
         case MAP:
         case SET:
         case TUPLE:
+        case USER_DEFINED_TYPE:
           ImmutableList<Type> expectedParameterizedArgTypes =
               functionExpectedArgType.parameterizedTypeArgs().values().asList();
           ImmutableList<Type> actualParameterizedArgTypes = actualArgExprType.parameterizedTypeArgs().values().asList();
@@ -261,11 +261,18 @@ public class StructuralConcreteGenericTypeValidationUtil {
               return Types.FutureType.wrapping(validatedParameterizedArgTypes.get(0));
             case LIST:
               return Types.ListType.forValueType(validatedParameterizedArgTypes.get(0), ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
-            case TUPLE:
-              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes);
             case MAP:
               return Types.MapType.forKeyValueTypes(
-                  validatedParameterizedArgTypes.get(0), validatedParameterizedArgTypes.get(1));
+                  validatedParameterizedArgTypes.get(0), validatedParameterizedArgTypes.get(1), ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
+            case SET:
+              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes, ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
+            case TUPLE:
+              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes);
+            case USER_DEFINED_TYPE:
+              Type res =
+                  Types.UserDefinedType.forTypeNameAndParameterizedTypes(((Types.UserDefinedType) functionExpectedArgType).getTypeName(), validatedParameterizedArgTypes);
+              return res;
+
           }
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");
@@ -273,13 +280,47 @@ public class StructuralConcreteGenericTypeValidationUtil {
     } else {
       // Otherwise, this is not a generic type param position, and we need to validate this arg against the
       // actual concrete type in the function signature.
-      if (actualArgExprType.equals(functionExpectedArgType)
-          || (functionExpectedArgType.baseType().equals(BaseType.ONEOF)
-              && (((Types.OneofType) functionExpectedArgType).getVariantTypes().contains(actualArgExprType)
-                  || (actualArgExprType.baseType().equals(BaseType.ONEOF)
-                      && ((Types.OneofType) functionExpectedArgType).getVariantTypes()
-                          .containsAll(((Types.OneofType) actualArgExprType).getVariantTypes()))))) {
+      if (actualArgExprType.equals(functionExpectedArgType)) {
+        // Before returning the validated type, I still need to actually update the `genericTypeParamTypeHashMap` just
+        // to maintain this function's contract on all paths. Since I know the two are equal, I can just add any generic
+        // types straight into the map as itself.
+        if (actualArgExprType.baseType().equals(BaseType.ONEOF)) {
+          ImmutableList.Builder<Type> variantTypesBuilder = ImmutableList.builder();
+          // I need to ensure that any Generic Type Params get converted to their concrete types if possible.
+          for (Type actualOneofTypeVariant : ((Types.OneofType) actualArgExprType).getVariantTypes()) {
+            variantTypesBuilder.add(validateArgExprsAndExtractConcreteGenericTypeParams(
+                genericTypeParamTypeHashMap, actualOneofTypeVariant, actualOneofTypeVariant, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath, optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap, withinNestedCollectionTypeNotSupportingDynDispatch));
+          }
+          return Types.OneofType.forVariantTypes(variantTypesBuilder.build());
+        }
         return actualArgExprType;
+      } else if (
+          functionExpectedArgType.baseType().equals(BaseType.ONEOF)
+          && (((Types.OneofType) functionExpectedArgType).getVariantTypes().contains(actualArgExprType)
+              || (actualArgExprType.baseType().equals(BaseType.ONEOF)
+                  && ((Types.OneofType) functionExpectedArgType).getVariantTypes()
+                      .containsAll(((Types.OneofType) actualArgExprType).getVariantTypes())))) {
+        return actualArgExprType;
+      } else if (
+          functionExpectedArgType.baseType().equals(BaseType.ONEOF)
+          && !actualArgExprType.baseType().equals(BaseType.ONEOF)
+          && ((Types.OneofType) functionExpectedArgType).getVariantTypes().stream()
+                 .filter(t -> t.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))
+                 .collect(ImmutableList.toImmutableList())
+                 .size() == 1) {
+        // Here, we need to try structurally accepting that an expected oneof might match a concrete type as one of the
+        // accepted variants. However, it WOULD HAVE ALREADY MATCHED IN THE PREVIOUS CONDITION if there was a concrete
+        // variant accepting this type, so clearly it could only work if the expected oneof itself accepts a generic
+        // type. So just iterate structural matching over any generic type params. Note that this wouldn't work if there
+        // was more than one generic type in the oneof (because we wouldn't know which generic type param that it
+        // matched) so we'll need to fail this conservatively in that case.
+        Type expectedOneofGenericTypeVariant =
+            ((Types.OneofType) functionExpectedArgType).getVariantTypes().stream()
+                .filter(t -> t.baseType().equals(BaseType.$GENERIC_TYPE_PARAM))
+                .findFirst().get();
+        Type res = validateArgExprsAndExtractConcreteGenericTypeParams(
+            genericTypeParamTypeHashMap, expectedOneofGenericTypeVariant, actualArgExprType, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath, optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap, withinNestedCollectionTypeNotSupportingDynDispatch);
+        return res;
       }
       throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
     }

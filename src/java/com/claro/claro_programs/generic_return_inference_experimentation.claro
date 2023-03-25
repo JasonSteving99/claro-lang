@@ -73,7 +73,7 @@ var i = 0;
 while (i < 7) {
   # Note, in the future when Claro's StdLib starts getting implemented, this format string will implicitly be checking
   # for exactly this Conversion<T, string> impl, and so the cast won't be necessary at that point.
-  print("Curr num: {(string) Conversion::from(i++ - 3)}");
+  print("Curr num: {cast(string, Conversion::from(i++ - 3))}");
 }
 
 ################################################################################
@@ -234,25 +234,25 @@ print(phonenumbers);
 
 print("\n\nFilter table for names of people where age > 25");
 table
-  |> where(^, (function<Age -> boolean>) a -> unwrap(a) > 25)
-  |> (mut [Name]) getTableColumn(^)
+  |> where(^, (a: Age) -> boolean { return unwrap(a) > 25; })
+  |> cast(mut [Name], getTableColumn(^))
   |> print(^);
 
 print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
 table
   |> where(^, And((a: Age) -> boolean { return unwrap(a) > 25; }, (a: Age) -> boolean { return unwrap(a) < 50; }))
   |> where(^, (n: Name) -> boolean { return n != Name("Laura"); })
-  |> (mut [tuple<Name, Age>]) select(^)
+  |> cast(mut [tuple<Name, Age>], select(^))
   |> print(^);
 
 # This approach is more convoluted, but I'm flexing the generic calls to defer to multiple specializations of each
 # generic function to ensure that multiple specializations are supported.
 print("Another way to do the same thing by chaining calls to And.");
-(function<Age -> boolean>) a -> unwrap(a) > 25
+(a: Age) -> boolean { return unwrap(a) > 25; }
   |> And(^, (a: Age) -> boolean { return unwrap(a) < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
   |> And(^, (n: Name) -> boolean { return n != Name("Laura"); })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
   |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
-  |> (mut [tuple<Name, Age>]) select(^)                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
+  |> cast(mut [tuple<Name, Age>], select(^))                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
 
 

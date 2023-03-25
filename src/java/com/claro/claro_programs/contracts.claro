@@ -63,10 +63,10 @@ print(stringRes);
 
 print("--------------------------------------------------------------------------------");
 print("Testing BinaryMathOps<function<int -> int>, int, function<int -> int>>::add");
-var modifiedFuncRes: IntFn = BinaryMathOps::add((IntFn) x -> x, 10);
+var modifiedFuncRes: IntFn = BinaryMathOps::add(cast(IntFn, x -> x), 10);
 print(modifiedFuncRes(90));
 print("Testing BinaryMathOps<function<int -> int>, int, function<int -> int>>::multiply");
-modifiedFuncRes = BinaryMathOps::multiply((IntFn) x -> x, 10);
+modifiedFuncRes = BinaryMathOps::multiply(cast(IntFn, x -> x), 10);
 print(modifiedFuncRes(90));
 
 # This should give you a hint as to how Claro will utilize Contracts as the basis for Generics via
@@ -93,7 +93,7 @@ implement BinaryMathOps<int, int, string> as IntegerAdditionFormattedAsString {
 }
 print("--------------------------------------------------------------------------------");
 print("Testing BinaryMathOps<int, int, string>::add");
-print((string) BinaryMathOps::add(1, 99));
+print(cast(string, BinaryMathOps::add(1, 99)));
 print("...again using inference.");
 var intintstringres: string = BinaryMathOps::add(100, 28);
 print(intintstringres);
@@ -179,7 +179,7 @@ implement Bar<int> as IntBar {
 }
 
 graph function testGraph(i: int) -> future<int> {
-  root res <- (int) Bar::doIt(@imm, (x: int) -> int { return 2 * x; });
+  root res <- cast(int, Bar::doIt(@imm, (x: int) -> int { return 2 * x; }));
 # Uncomment this line to get an error message indicating that you're not allowed to call blocking procedures from here.
 #  root res <- (int) Bar::doIt(@imm, blocker);
   node imm <- i;
@@ -394,7 +394,7 @@ function getOrDefault<K,V>(map: mut {K: V}, key: K) -> V {
 
 print("----------------------------------------------------------");
 print("Testing Generic Function getOrDefault<K,V> requiring Default<V>");
-print((int) getOrDefault(({string: int}) {}, "foo"));
+print(cast(int, getOrDefault(cast(mut {string: int}, mut {}), "foo")));
 
 var myMap: mut {string: int} = mut {};
 print(myMap);

@@ -372,3 +372,67 @@ print(myIntOrList);
 #newtype IllegalUnboundedRecursiveType : tuple<int, IllegalUnboundedRecursiveType>
 #newtype InfiniteRecursion : InfiniteRecursion
 #newtype PartialUnbounded : tuple<PartialUnbounded, [PartialUnbounded]>
+
+
+########################################################################################################################
+# DEMONSTRATE PARAMETERIZED CUSTOM TYPE DEFINITIONS
+########################################################################################################################
+
+newtype Maybe<T> : oneof<T, NothingType>
+#newtype Maybe<T> : [T]
+
+#var m = Maybe([10]);
+#var m = Maybe(Nothing());
+var m : Maybe<int> = Maybe(Nothing());
+print("Maybe<int>: {m}");
+type(m);
+var s = Maybe(["yo"]);
+print("Maybe::<string>: {s}");
+type(s);
+
+
+newtype Node<T> : tuple<T, oneof<Node<T>, NothingType>, oneof<Node<T>, NothingType>>
+
+var myOneof: oneof<Node<int>, NothingType> = Node((2, Nothing(), Nothing()));
+var treeRoot: Node<int> = Node((1, myOneof,  Nothing()));
+
+print("\n\nTYPES!!!");
+print(treeRoot);
+type(treeRoot);
+
+print(unwrap(treeRoot));
+type(unwrap(treeRoot));
+
+print(unwrap(treeRoot)[1]);
+type(unwrap(treeRoot)[1]);
+
+# I'm just leaving this here b/c supporting parameterized types actually ended up leading to a lot of backflips in the
+# parser in order to avoid an ambiguous grammar. So take this as a note that that's happened.
+i = 1;
+var leftNode = cast(oneof<Node<int>, NothingType>, unwrap(treeRoot)[i]);
+if (leftNode instanceof Node<int>) {
+  type(leftNode);
+  print(unwrap(leftNode)[0]);
+}
+
+
+implement Foo<Node<int>> as INode {
+  consumer bar(t: Node<int>) {
+    print("Got INT NODE: {t}");
+  }
+}
+implement Foo<Node<string>> as SNode {
+  consumer bar(t: Node<string>) {
+    print("Got STRING NODE: {t}");
+  }
+}
+
+var stringNode = Node(("My Tree!", Nothing(), Nothing()));
+
+Foo::bar(treeRoot);
+Foo::bar(stringNode);
+
+var someNode: oneof<Node<string>, Node<int>> = stringNode;
+Foo::bar(someNode);
+someNode = treeRoot;
+Foo::bar(someNode);

@@ -2,23 +2,26 @@ package com.claro.intermediate_representation.types.impls.user_defined_impls;
 
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.google.common.collect.ImmutableList;
 
 public class $UserDefinedType<T> extends ClaroUserDefinedTypeImplementation {
 
   private final String name;
+  private final ImmutableList<Type> parameterizedTypes;
   private final Type wrappedType;
   public final T wrappedValue;
 
 
-  public $UserDefinedType(String name, Type wrappedType, T wrappedValue) {
+  public $UserDefinedType(String name, ImmutableList<Type> parameterizedTypes, Type wrappedType, T wrappedValue) {
     this.name = name;
+    this.parameterizedTypes = parameterizedTypes;
     this.wrappedType = wrappedType;
     this.wrappedValue = wrappedValue;
   }
 
   @Override
   public Type getClaroType() {
-    return Types.UserDefinedType.forTypeName(this.name);
+    return Types.UserDefinedType.forTypeNameAndParameterizedTypes(this.name, this.parameterizedTypes);
   }
 
   @Override
@@ -32,7 +35,8 @@ public class $UserDefinedType<T> extends ClaroUserDefinedTypeImplementation {
       return false;
     }
     $UserDefinedType<?> otherUserDefinedType = ($UserDefinedType<?>) obj;
-    if (!this.name.equals(otherUserDefinedType.name)) {
+    if (!(this.name.equals(otherUserDefinedType.name)
+          && this.parameterizedTypes.equals(otherUserDefinedType.parameterizedTypes))) {
       return false;
     }
 
@@ -42,6 +46,9 @@ public class $UserDefinedType<T> extends ClaroUserDefinedTypeImplementation {
 
   @Override
   public int hashCode() {
-    return 31 + this.name.hashCode() + (31 * this.wrappedType.hashCode()) + (31 * this.wrappedValue.hashCode());
+    return 31 + this.name.hashCode()
+           + (31 * this.parameterizedTypes.hashCode())
+           + (31 * this.wrappedType.hashCode())
+           + (31 * this.wrappedValue.hashCode());
   }
 }

@@ -321,6 +321,7 @@ terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
+terminal LexedValue<String>  CAST;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -652,6 +653,11 @@ newtype_def_stmt ::=
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        RESULT = new NewTypeDefStmt(type_name.val, baseTypeLexedVal.val);
+    :}
+  | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       RESULT = new NewTypeDefStmt(type_name.val, baseTypeLexedVal.val, ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).val.build().reverse());
     :}
   ;
 
@@ -1037,6 +1043,27 @@ base_builtin_type_without_mutability_modifier ::=
             type_name.len)
        );
     :}
+  | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(type_name.currentInputLine, type_nameright), new Line(la.currentInputLine, laright), new Line(concreteTypeParamsLexedVal.currentInputLine, concrete_type_params.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(type_nameleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(type_nameleft + type_name.len, laleft + la.len, concrete_type_params.left + concreteTypeParamsLexedVal.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              type_name.val,
+              concreteTypeParamsLexedVal.val.stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
+            ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 builtin_types_list ::=
@@ -1307,7 +1334,12 @@ expr ::=
     {: RESULT = t; :}
   | set:s
     {: RESULT = s; :}
-  | LPAR:lp builtin_type:asserted_type RPAR:rp expr:casted_expr
+    // This is some unfortunate syntax for casting, but this actually was necessary to avoid having casting create an
+    // ambiguous grammar deciding whether `(i < len(l))` was a malformed cast (e.g. for some parameterized custom type
+    // like `(MyType<foo>)`) or if it was actually a "less-than" operator within a parenthesized expression. From some
+    // perspective this is an issue with JCUP being set to use too low of a lookahead....but I don't fully understand
+    // the implications of trying to increase that, so it'll stay this way.
+  | CAST:cast LPAR:lp builtin_type:asserted_type COMMA:comma expr:casted_expr RPAR:rp
     {:
        Supplier<String> currentLinesSupplier =
           joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(casted_expr.currentLine, casted_expr.currentLineNumber));
@@ -1324,7 +1356,7 @@ expr ::=
     {:
        RESULT = new Expr(ImmutableList.of(), () -> {throw new RuntimeException("Internal Compiler Error: Should be unreachable.");}, -1, -1, -1) {
           public Type getValidatedExprType(ScopedHeap unused) {
-            return Types.UNDECIDED;
+            return Types.UNKNOWABLE;
           }
           public StringBuilder generateJavaSourceBodyOutput(ScopedHeap unused) {
             return new StringBuilder();

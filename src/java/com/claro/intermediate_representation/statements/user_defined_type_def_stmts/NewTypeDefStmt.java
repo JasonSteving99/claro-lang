@@ -2,13 +2,11 @@ package com.claro.intermediate_representation.statements.user_defined_type_def_s
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.statements.FunctionDefinitionStmt;
-import com.claro.intermediate_representation.statements.ReturnStmt;
-import com.claro.intermediate_representation.statements.Stmt;
-import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.types.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
@@ -18,14 +16,23 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
   private static final String CURR_TYPE_DEF_NAME = "$CURR_TYPE_DEF_NAME";
   private final String typeName;
   private final TypeProvider wrappedTypeProvider;
+  private final ImmutableList<String> parameterizedTypeNames;
   private Type resolvedType;
   private Type resolvedDefaultConstructorType;
-  private FunctionDefinitionStmt constructorFuncDefStmt;
+  private Stmt constructorFuncDefStmt;
 
   public NewTypeDefStmt(String typeName, TypeProvider wrappedTypeProvider) {
     super(ImmutableList.of());
     this.typeName = typeName;
     this.wrappedTypeProvider = wrappedTypeProvider;
+    this.parameterizedTypeNames = ImmutableList.of();
+  }
+
+  public NewTypeDefStmt(String typeName, TypeProvider wrappedTypeProvider, ImmutableList<String> parameterizedTypeNames) {
+    super(ImmutableList.of());
+    this.typeName = typeName;
+    this.wrappedTypeProvider = wrappedTypeProvider;
+    this.parameterizedTypeNames = parameterizedTypeNames;
   }
 
   @Override
@@ -40,10 +47,19 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
     // newtype defs to avoid the infinite recursion hell that alias defs run into.
     scopedHeap.putIdentifierValue(
         this.typeName,
-        Types.UserDefinedType.forTypeName(this.typeName),
+        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+            this.typeName,
+            this.parameterizedTypeNames.stream()
+                .map(Types.$GenericTypeParam::forTypeParamName).collect(ImmutableList.toImmutableList())
+        ),
         null
     );
     scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
+    // Just so that the codegen later on has access, let's immediately register the type param names.
+    if (!this.parameterizedTypeNames.isEmpty()) {
+      Types.UserDefinedType.$typeParamNames.put(this.typeName, this.parameterizedTypeNames);
+    }
+
     // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
     // TypeProvider that will be used for type-resolution in the later phase. Mimicking the AliasStmt approach.
     scopedHeap.putIdentifierValue(
@@ -65,8 +81,24 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
               this.typeName
           );
 
+          // In case this type has parameterized types then they'll need to be defined here. Parameterized type names
+          // can be literally anything so create a new temporary scope.
+          if (!this.parameterizedTypeNames.isEmpty()) {
+            scopedHeap1.enterNewScope();
+            this.parameterizedTypeNames.forEach(
+                n -> {
+                  scopedHeap1.putIdentifierValueAllowingHiding(n, Types.$GenericTypeParam.forTypeParamName(n), null);
+                  scopedHeap1.markIdentifierAsTypeDefinition(n);
+                });
+          }
+
           // Do actual wrapped type resolution.
           Type res = this.wrappedTypeProvider.resolveType(scopedHeap1);
+
+          // Cleanup after parameterized types.
+          if (!this.parameterizedTypeNames.isEmpty()) {
+            scopedHeap1.exitCurrScope();
+          }
 
           if (scopedHeap1.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
             throw new RuntimeException(ClaroTypeException.forImpossibleRecursiveAliasTypeDefinition(this.typeName));
@@ -86,19 +118,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
   }
 
   public void registerConstructorTypeProvider(ScopedHeap scopedHeap) {
-    this.constructorFuncDefStmt = new FunctionDefinitionStmt(
-        this.typeName + "$constructor",
-        BaseType.FUNCTION,
-        ImmutableMap.of(
-            "$baseType",
-            (scopedHeap1) -> {
-              Type wrappedType =
-                  TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
-              Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
-              return wrappedType;
-            }
-        ),
-        TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
+    StmtListNode syntheticConstructorProcStmtList =
         new StmtListNode(
             new ReturnStmt(
                 new Expr(ImmutableList.of(), () -> "", -1, -1, -1) {
@@ -122,9 +142,52 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                 new AtomicReference<>(
                     (scopedHeap1) -> TypeProvider.Util.getTypeByName(
                         NewTypeDefStmt.this.typeName + "$wrappedType", true).resolveType(scopedHeap1))
-            ))
-    );
-    this.constructorFuncDefStmt.registerProcedureTypeProvider(scopedHeap);
+            ));
+
+    if (this.parameterizedTypeNames.isEmpty()) {
+      this.constructorFuncDefStmt = new FunctionDefinitionStmt(
+          this.typeName + "$constructor",
+          BaseType.FUNCTION,
+          ImmutableMap.of(
+              "$baseType",
+              (scopedHeap1) -> {
+                Type wrappedType =
+                    TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
+                Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
+                return wrappedType;
+              }
+          ),
+          TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
+          syntheticConstructorProcStmtList
+      );
+      ((FunctionDefinitionStmt) this.constructorFuncDefStmt).registerProcedureTypeProvider(scopedHeap);
+    } else {
+      this.constructorFuncDefStmt = new GenericFunctionDefinitionStmt(
+          this.typeName + "$constructor",
+          ImmutableListMultimap.of(),
+          this.parameterizedTypeNames,
+          ImmutableMap.of(
+              "$baseType",
+              (scopedHeap1) -> {
+                Type wrappedType =
+                    TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
+                Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
+                return wrappedType;
+              }
+          ),
+          /*optionalInjectedKeysTypes=*/Optional.empty(),
+          TypeProvider.Util.getTypeByName(this.typeName, /*isTypeDefinition=*/true),
+          syntheticConstructorProcStmtList,
+          /*explicitlyAnnotatedBlocking=*/false,
+          /*optionalGenericBlockingOnArgs=*/Optional.empty()
+      );
+      try {
+        ((GenericFunctionDefinitionStmt) this.constructorFuncDefStmt).registerGenericProcedureTypeProvider(scopedHeap);
+      } catch (
+          ClaroTypeException e) { // I hate Java's checked Exceptions... they lead you to make horrible design decisions.
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   @Override

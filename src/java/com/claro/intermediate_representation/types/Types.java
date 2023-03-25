@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 // TODO(steving) This class needs refactoring into a standalone package.
 public final class Types {
@@ -1141,34 +1142,82 @@ public final class Types {
   @AutoValue
   public abstract static class UserDefinedType extends Type {
     public static final HashMap<String, Type> $resolvedWrappedTypes = Maps.newHashMap();
+    public static final HashMap<String, ImmutableList<String>> $typeParamNames = Maps.newHashMap();
 
     public abstract String getTypeName();
 
     public static UserDefinedType forTypeName(String typeName) {
-      // TODO(steving) Return to this once generic type defs are supported.
       return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(), typeName);
+    }
+
+    public static UserDefinedType forTypeNameAndParameterizedTypes(
+        String typeName, ImmutableList<Type> parameterizedTypes) {
+      return new AutoValue_Types_UserDefinedType(
+          BaseType.USER_DEFINED_TYPE,
+          IntStream.range(0, parameterizedTypes.size()).boxed()
+              .collect(ImmutableMap.<Integer, String, Type>toImmutableMap(Object::toString, parameterizedTypes::get)),
+          typeName
+      );
     }
 
     @Override
     public String getJavaSourceClaroType() {
+      if (this.parameterizedTypeArgs().isEmpty()) {
+        return String.format(
+            "Types.UserDefinedType.forTypeName(\"%s\")",
+            this.getTypeName()
+        );
+      }
       return String.format(
-          "Types.UserDefinedType.forTypeName(\"%s\")",
-          this.getTypeName()
+          "Types.UserDefinedType.forTypeNameAndParameterizedTypes(\"%s\", ImmutableList.of(%s))",
+          this.getTypeName(),
+          this.parameterizedTypeArgs()
+              .values()
+              .stream()
+              .map(Type::getJavaSourceClaroType)
+              .collect(Collectors.joining(", "))
       );
     }
 
     @Override
     public String getJavaSourceType() {
-      return String.format(
+      // Setup $GenericTypeParam to defer codegen to the concrete types for this instance if this one is parameterized.
+      Optional<Map<Type, Type>> originalGenTypeCodegenMappings
+          = $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen;
+      if (!this.parameterizedTypeArgs().isEmpty()) {
+        ImmutableList<String> typeParamNames = UserDefinedType.$typeParamNames.get(this.getTypeName());
+        $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
+            Optional.of(
+                IntStream.range(0, this.parameterizedTypeArgs().size()).boxed()
+                    .collect(ImmutableMap.toImmutableMap(
+                        i -> $GenericTypeParam.forTypeParamName(typeParamNames.get(i)),
+                        i -> this.parameterizedTypeArgs().get(i.toString())
+                    )));
+      }
+
+      // Actual codegen.
+      String res = String.format(
           this.baseType().getJavaSourceFmtStr(),
           UserDefinedType.$resolvedWrappedTypes.get(this.getTypeName()).getJavaSourceType()
       );
+
+      // Reset state.
+      if (!this.parameterizedTypeArgs().isEmpty()) {
+        $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = originalGenTypeCodegenMappings;
+      }
+      return res;
     }
 
     @Override
     public String toString() {
-      // TODO(steving) Return to this once generic type defs are supported.
-      return this.getTypeName();
+      if (this.parameterizedTypeArgs().isEmpty()) {
+        return this.getTypeName();
+      }
+      return String.format(
+          "%s<%s>",
+          this.getTypeName(),
+          this.parameterizedTypeArgs().values().stream().map(Type::toString).collect(Collectors.joining(", "))
+      );
     }
   }
 
@@ -1178,6 +1227,7 @@ public final class Types {
   @AutoValue
   public abstract static class $GenericTypeParam extends Type {
     public static Optional<Map<Type, Type>> concreteTypeMappingsForBetterErrorMessages = Optional.empty();
+    public static Optional<Map<Type, Type>> concreteTypeMappingsForParameterizedTypeCodegen = Optional.empty();
 
     public abstract String getTypeParamName();
 
@@ -1187,7 +1237,23 @@ public final class Types {
 
     @Override
     public String getJavaSourceClaroType() {
+      // In the case that we're doing codegen for a parameterized type, we can conveniently redirect to the concrete
+      // types' codegen so that we don't need to do structural pattern matching just for codegen.
+      if ($GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.isPresent()) {
+        return concreteTypeMappingsForParameterizedTypeCodegen.get().get(this).getJavaSourceClaroType();
+      }
       throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      // In the case that we're doing codegen for a parameterized type, we can conveniently redirect to the concrete
+      // types' codegen so that we don't need to do structural pattern matching just for codegen.
+      if ($GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.isPresent()) {
+        return concreteTypeMappingsForParameterizedTypeCodegen.get().get(this).getJavaSourceType();
+      }
+      // Effectively this should trigger a runtime exception.
+      return super.getJavaSourceType();
     }
 
     @Override

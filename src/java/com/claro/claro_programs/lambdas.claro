@@ -5,7 +5,7 @@ print(firstLambda("Claro supports lambdas!"));
 
 # You may alternatively cast the type of the lambda expression (which is used as a static type hint and does
 # not result in a runtime type cast).
-var secondLambda = (function<string -> string>) x -> x;
+var secondLambda = cast(function<string -> string>, x -> x);
 print(secondLambda("And they're really easy to work with!"));
 
 

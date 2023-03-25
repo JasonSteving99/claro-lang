@@ -216,6 +216,8 @@ WhiteSpace     = [ \t\f]
     "as"               { return symbol(Calc.AS, 0, 2, "as"); }
     "using"            { return symbol(Calc.USING, 0, 5, "using"); }
 
+    "cast"             { return symbol(Calc.CAST, 0, 4, "cast"); }
+
     // Graph related things go here.
     "future"           { return symbol(Calc.FUTURE, 0, 6, "future"); }
     "graph"            { return symbol(Calc.GRAPH, 0, 5, "graph"); }

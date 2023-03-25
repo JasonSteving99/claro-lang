@@ -1,8 +1,6 @@
 package com.claro.runtime_utilities;
 
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.ConcreteType;
-import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -74,6 +72,16 @@ public class ClaroRuntimeUtilities {
       if (evaluatedCastedExprValue instanceof ClaroTypeImplementation) {
         Type actualClaroType = ((ClaroTypeImplementation) evaluatedCastedExprValue).getClaroType();
         if (!actualClaroType.equals(assertedType)) {
+          if (assertedType.baseType().equals(BaseType.ONEOF)) {
+            if (actualClaroType.baseType().equals(BaseType.ONEOF)) {
+              if (((Types.OneofType) assertedType).getVariantTypes()
+                  .containsAll(((Types.OneofType) actualClaroType).getVariantTypes())) {
+                return evaluatedCastedExprValue;
+              }
+            } else if (((Types.OneofType) assertedType).getVariantTypes().contains(actualClaroType)) {
+              return evaluatedCastedExprValue;
+            }
+          }
           throw ClaroTypeException.forInvalidCast(actualClaroType, assertedType);
         }
       } else if (assertedType instanceof ConcreteType) {

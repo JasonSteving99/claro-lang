@@ -42,7 +42,7 @@ var t4 = ("LEFT", "RIGHT", -999);
 # Uncomment for compile-time error requiring the explicit cast.
 #var castRes = t4[randomChoice(0, 2)];
 print("\n\nIf you pick 'R' on the upcoming question you'll trigger a runtime exception!");
-var castRes = (string) t4[randomChoice(0, 2)];
+var castRes = cast(string, t4[randomChoice(0, 2)]);
 print(castRes);
 type(castRes);
 # However, note that you can very conveniently work with tuple subscripts using literals.

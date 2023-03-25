@@ -268,8 +268,7 @@ public enum BaseType {
 
   // These are synthetic types that exist solely for the sake of artificially creating a terminating sentinal type to
   // prevent unbounded recursion within a recursively defined type alias or user-defined type.
-  ALIAS_SELF_REFERENCE,
-  USER_DEFINED_TYPE_SELF_REFERENCE;
+  ALIAS_SELF_REFERENCE;
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;

@@ -221,6 +221,13 @@ public class FunctionCallExpr extends Expr {
         this.name = procedureName_OUT_PARAM.get();
         this.optionalConcreteGenericTypeParams = optionalConcreteGenericTypeParams_OUT_PARAM.get();
       }
+
+      // Since this might be a generic type's default constructor, we may need to swap out the generic type for the
+      // concrete type of the actual arg that was passed into the constructor. I can just do this unconditionally here
+      // since we wouldn't've even gotten here if type checking failed.
+      if (this.representsUserDefinedTypeConstructor.isPresent()) {
+        this.representsUserDefinedTypeConstructor = Optional.of(this.argExprs.get(0).getValidatedExprType(scopedHeap));
+      }
     } else {
       // Validate that all of the given parameter Exprs are of the correct type.
       for (int i = 0; i < this.argExprs.size(); i++) {
@@ -355,10 +362,36 @@ public class FunctionCallExpr extends Expr {
     for (int i = 0; i < argExprs.size(); i++) {
       int existingTypeErrorsFoundCount = Expr.typeErrorsFound.size();
       Type argType = referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i);
+      HashMap<Type, Type> mapOfGenTypeRefsInCurrArg = Maps.newHashMap();
+      Type argInferredTypeWithNoTypeParamRefs =
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              mapOfGenTypeRefsInCurrArg, argType, argType);
       try {
-        Type validatedType =
-            StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-                genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
+        // This is less efficient, but let's try to improve ergonomics of generic function calls by *ASSERTING* types
+        // on args where either it makes no reference to a generic type param, or *ALL* referenced generic type params
+        // were already explicitly provided by the contextual type assertion.
+        Type validatedType;
+        boolean representsConstructor = procedureName_OUT_PARAM.get().contains("$constructor");
+        if (representsConstructor && mapOfGenTypeRefsInCurrArg.isEmpty()) {
+          // It turns out there were actually no references to the generic type params whatsoever, so we can go straight
+          // to type assertion on this arg.
+          argExprs.get(i).assertExpectedExprType(scopedHeap, argInferredTypeWithNoTypeParamRefs);
+          validatedType = argInferredTypeWithNoTypeParamRefs;
+        } else if (representsConstructor &&
+                   genericTypeParamTypeHashMap.keySet().containsAll(mapOfGenTypeRefsInCurrArg.keySet())) {
+          // We now know that in fact, we could do direct type assertion on this arg once we fill in the concrete arg
+          // based on the concrete types we inferred from the contextual return type assertion.
+          Type argTypeInferredFromConcreteTypeParamsInContextualReturnTypeAssertion =
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  genericTypeParamTypeHashMap, argType, argType, /*inferConcreteTypes=*/true);
+          argExprs.get(i).assertExpectedExprType(
+              scopedHeap, argTypeInferredFromConcreteTypeParamsInContextualReturnTypeAssertion);
+          validatedType = argTypeInferredFromConcreteTypeParamsInContextualReturnTypeAssertion;
+        } else {
+          validatedType =
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  genericTypeParamTypeHashMap, argType, argExprs.get(i).getValidatedExprType(scopedHeap));
+        }
         if (validatedType instanceof Types.ProcedureType) {
           // Since the above structural type checking doesn't actually validate the complete signature, check that
           // explicitly here to pick up any blocking annotation(s).
@@ -396,8 +429,8 @@ public class FunctionCallExpr extends Expr {
                 // accidentally as though they are concrete types - this would invalidate the type checks on
                 // subsequent args.
                 (HashMap<Type, Type>) genericTypeParamTypeHashMap.clone(),
-                referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i),
-                referencedIdentifierType_OUT_PARAM.get().getArgTypes().get(i),
+                argType,
+                argType,
                 /*inferConcreteTypes=*/ true
             );
 
@@ -511,9 +544,13 @@ public class FunctionCallExpr extends Expr {
       // I want to mark this concrete signature for Monomorphization codegen! Note - this is subtle, but the
       // single monomorphization will be reused by both the blocking and non-blocking variants if the generic
       // procedure happened to also be blocking-generic as this subtle difference has no impact on the gen'd code..
-      procedureName_OUT_PARAM.set(
-          ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
-               scopedHeap.getIdentifierValue(procedureName_OUT_PARAM.get())).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap)));
+      if (!procedureName_OUT_PARAM.get().contains("$constructor")) {
+        // Ignore all Generic Type default Constructors, b/c these are synthetic functions that don't actually
+        // produce any necessary codegen.
+        procedureName_OUT_PARAM.set(
+            ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
+                 scopedHeap.getIdentifierValue(procedureName_OUT_PARAM.get())).apply(scopedHeap, ImmutableMap.copyOf(genericTypeParamTypeHashMap)));
+      }
       optionalConcreteGenericTypeParams_OUT_PARAM.set(
           Optional.of(
               referencedIdentifierType_OUT_PARAM.get().getGenericProcedureArgNames().get()
@@ -598,8 +635,11 @@ public class FunctionCallExpr extends Expr {
       functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
           new StringBuilder(
               String.format(
-                  "new $UserDefinedType(\"%s\", %s, %s)",
+                  "new $UserDefinedType(\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
                   this.originalName,
+                  this.optionalConcreteGenericTypeParams.orElse(ImmutableList.of()).stream()
+                      .map(Type::getJavaSourceClaroType)
+                      .collect(Collectors.joining(", ", "ImmutableList.of(", ")")),
                   this.representsUserDefinedTypeConstructor.get().getJavaSourceClaroType(),
                   exprsJavaSourceBodyCodegen
               )

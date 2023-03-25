@@ -52,7 +52,13 @@ public class ClaroTypeException extends Exception {
       // WARNING: CHECKING AGAINST THIS IN FunctionCallExpr.java! DO NOT CHANGE THIS STRING WITHOUT CHECKING THERE FIRST.
       "Ambiguous Lambda Expression Type: Type hint required. When a lambda Expr's type is not constrained by its context, the type must be statically declared via either a type annotation, or a cast.";
   private static final String INVALID_CAST_ERROR_MESSAGE_FMT_STR =
-      "Invalid cast: Found <%s> which cannot be converted to <%s>.";
+      "Invalid Cast: Found <%s> which cannot be converted to <%s>.";
+  private static final String IMPOSSIBLE_CAST_ERROR_MESSAGE_FMT_STR =
+      "Invalid Cast: Attempting to cast the Tuple subscript to a type that isn't present in the tuple. This cast would definitely fail at runtime.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s\n" +
+      "\t\tExpected one of the following:\n" +
+      "%s";
   private static final String INVALID_MEMBER_REFERENCE = "Invalid Member Reference: %s has no such member %s.";
   private static final String UNSET_REQUIRED_STRUCT_MEMBER =
       "Builder Missing Required Struct Member: While building %s, required field%s %s need%s to be set before calling build().";
@@ -313,6 +319,19 @@ public class ClaroTypeException extends Exception {
             INVALID_CAST_ERROR_MESSAGE_FMT_STR,
             actualType,
             assertedType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidCast(Type assertedType, ImmutableList<Type> possibleTypes) {
+    return new ClaroTypeException(
+        String.format(
+            IMPOSSIBLE_CAST_ERROR_MESSAGE_FMT_STR,
+            assertedType,
+            ImmutableSet.copyOf(possibleTypes)
+                .stream()
+                .map(Type::toString)
+                .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
         )
     );
   }
