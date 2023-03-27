@@ -341,11 +341,37 @@ public class FunctionCallExpr extends Expr {
       try {
         // Make note of the asserted arg types in the generic->concrete type map so that the upcoming arg checking
         // takes these asserted types into account.
-        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-            genericTypeParamTypeHashMap,
-            expectedGenericReturnType,
-            assertedOutputTypeForGenericFunctionCallUse.get()
-        );
+        if (assertedOutputTypeForGenericFunctionCallUse.get().baseType().equals(BaseType.ONEOF)
+            && !expectedGenericReturnType.baseType().equals(BaseType.ONEOF)) {
+          // In this case, we'll need to individually check the asserted variants for any that match. Here we're
+          // consciously accepting that some variants obviously *will* fail, so we'll simply catch all errors, and
+          // rethrow to get to the error handling below if there was no success case.
+          int foundVariantThatMatches = 0;
+          for (Type assertedVariantType : ((Types.OneofType) assertedOutputTypeForGenericFunctionCallUse.get()).getVariantTypes()) {
+            try {
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  genericTypeParamTypeHashMap,
+                  expectedGenericReturnType,
+                  assertedVariantType
+              );
+              ++foundVariantThatMatches;
+            } catch (ClaroTypeException ignored) {
+              // Do nothing, just try other variants.
+            }
+          }
+          if (foundVariantThatMatches != 1) { // If we match more than 1 it's a big problem.
+            // Hey, to be fair, maybe goto-stmts would be useful sometimes....cuz hey, I'm more than capable of writing
+            // spaghetti code even w/o the help of goto. Just jumping down to the error handling logic.
+            throw new ClaroTypeException("Internal Compiler Error! Found " + foundVariantThatMatches +
+                                         " matches, expected 1! (You shouldn't be seeing this, this should be IGNORED).");
+          }
+        } else {
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              genericTypeParamTypeHashMap,
+              expectedGenericReturnType,
+              assertedOutputTypeForGenericFunctionCallUse.get()
+          );
+        }
       } catch (ClaroTypeException ignored) {
         // In this case, we know that we can let the type error be thrown by the Expr.assertExpectedExprType.
         Types.$GenericTypeParam.concreteTypeMappingsForBetterErrorMessages =

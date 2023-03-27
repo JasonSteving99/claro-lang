@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
 
 public class UnwrapUserDefinedTypeExpr extends Expr {
   private final Expr expr;
+  private Type validatedUnwrappedType;
 
   public UnwrapUserDefinedTypeExpr(Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -65,23 +66,32 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
                   ));
       Type genericWrappedType = scopedHeap.getValidatedIdentifierType(
           ((Types.UserDefinedType) validatedExprType).getTypeName() + "$wrappedType");
-      return StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-          genericTypeParamMap,
-          genericWrappedType,
-          genericWrappedType,
-          /*inferConcreteTypes=*/true
-      );
+      this.validatedUnwrappedType =
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              genericTypeParamMap,
+              genericWrappedType,
+              genericWrappedType,
+              /*inferConcreteTypes=*/true
+          );
+      return this.validatedUnwrappedType;
     }
 
-    return scopedHeap.getValidatedIdentifierType(
+    this.validatedUnwrappedType = scopedHeap.getValidatedIdentifierType(
         ((Types.UserDefinedType) validatedExprType).getTypeName() + "$wrappedType");
+    return this.validatedUnwrappedType;
   }
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res = expr.generateJavaSourceOutput(scopedHeap);
-    res.javaSourceBody().append(".wrappedValue");
-    return res;
+    res.javaSourceBody().append(".wrappedValue)");
+    return GeneratedJavaSource.forJavaSourceBody(
+            // Unfortunately need to cast the wrapped value because in certain circumstances, even though the
+            // $UserDefinedType runtime repr is parameterized, codegen interplays poorly w/ Java's limited type inference.
+            new StringBuilder("((")
+                .append(this.validatedUnwrappedType.getJavaSourceType())
+                .append(") "))
+        .createMerged(res);
   }
 
   @Override

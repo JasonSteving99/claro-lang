@@ -124,6 +124,14 @@ public class StructuralConcreteGenericTypeValidationUtil {
           // Otherwise, it's a straight-up unrecoverable type mismatch, bail now.
           throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
         }
+      } else if (
+          functionExpectedArgType.parameterizedTypeArgs() != null
+          && !(functionExpectedArgType.baseType().equals(actualArgExprType.baseType())
+               && functionExpectedArgType.parameterizedTypeArgs().size()
+                  == actualArgExprType.parameterizedTypeArgs().size())) {
+        // If base types are same but we definitely have different parameterized type arg sizes, we can't have a match.
+        // It's a straight-up unrecoverable type mismatch, bail now.
+        throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
       }
 
       // Now recurse into the structure to check internal types.
@@ -265,14 +273,11 @@ public class StructuralConcreteGenericTypeValidationUtil {
               return Types.MapType.forKeyValueTypes(
                   validatedParameterizedArgTypes.get(0), validatedParameterizedArgTypes.get(1), ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
             case SET:
-              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes, ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
+              return Types.SetType.forValueType(validatedParameterizedArgTypes.get(0), ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
             case TUPLE:
-              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes);
+              return Types.TupleType.forValueTypes(validatedParameterizedArgTypes, ((SupportsMutableVariant<?>) functionExpectedArgType).isMutable());
             case USER_DEFINED_TYPE:
-              Type res =
-                  Types.UserDefinedType.forTypeNameAndParameterizedTypes(((Types.UserDefinedType) functionExpectedArgType).getTypeName(), validatedParameterizedArgTypes);
-              return res;
-
+              return Types.UserDefinedType.forTypeNameAndParameterizedTypes(((Types.UserDefinedType) functionExpectedArgType).getTypeName(), validatedParameterizedArgTypes);
           }
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");

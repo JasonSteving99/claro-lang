@@ -391,10 +391,10 @@ print("Maybe::<string>: {s}");
 type(s);
 
 
-newtype Node<T> : tuple<T, oneof<Node<T>, NothingType>, oneof<Node<T>, NothingType>>
+newtype Node<T> : mut tuple<T, oneof<Node<T>, NothingType>, oneof<Node<T>, NothingType>>
 
-var myOneof: oneof<Node<int>, NothingType> = Node((2, Nothing(), Nothing()));
-var treeRoot: Node<int> = Node((1, myOneof,  Nothing()));
+var myOneof: oneof<Node<int>, NothingType> = Node(mut (2, Nothing(), Nothing()));
+var treeRoot: Node<int> = Node(mut (1, myOneof,  Nothing()));
 
 print("\n\nTYPES!!!");
 print(treeRoot);
@@ -427,7 +427,7 @@ implement Foo<Node<string>> as SNode {
   }
 }
 
-var stringNode = Node(("My Tree!", Nothing(), Nothing()));
+var stringNode = Node(mut ("My Tree!", Nothing(), Nothing()));
 
 Foo::bar(treeRoot);
 Foo::bar(stringNode);
@@ -436,3 +436,54 @@ var someNode: oneof<Node<string>, Node<int>> = stringNode;
 Foo::bar(someNode);
 someNode = treeRoot;
 Foo::bar(someNode);
+
+newtype NonEmptyList<T> : [T]
+initializers NonEmptyList {
+  # TODO(steving) Support generic initializer functions.
+#  function GetValidatedNonEmptyList<T>(l: [T]) -> NonEmptyList<T> {
+#   TODO(steving) Support this
+  function GetValidatedNonEmptyIntList(l: [int]) -> Maybe<NonEmptyList<int>> {
+#  function GetValidatedNonEmptyIntList(l: [int]) -> oneof<NonEmptyList<int>, NothingType> {
+    if (len(l) == 0) {
+      return Maybe(Nothing());
+    }
+
+    return Maybe(NonEmptyList(l));
+  }
+}
+print(GetValidatedNonEmptyIntList([1,2]));
+print(GetValidatedNonEmptyIntList([]));
+
+consumer prettyishPrintTree<T>(currRoot: Node<T>) {
+  var fringe: mut [oneof<Node<T>, NothingType>] = mut [currRoot];
+  var i = 0;
+  while (len(fringe) - i > 0) {
+    var currNode = fringe[i];
+    if (currNode instanceof Node<T>) {
+      var unwrappedCurrNode = unwrap(currNode);
+      print(unwrappedCurrNode[0]);
+      # Add left and right children to fringe.
+      append(fringe, unwrappedCurrNode[1]);
+      append(fringe, unwrappedCurrNode[2]);
+    } else {
+      print("Nothing");
+    }
+    i++;
+  }
+}
+
+print("PRETTY-ISH PRINT! {treeRoot}");
+prettyishPrintTree(treeRoot);
+var getNewNode = (x: int) -> Node<int> { return Node(mut (x, Nothing(), Nothing())); };
+print(getNewNode(3));
+
+unwrap(treeRoot)[2] = getNewNode(3);
+leftNode = unwrap(treeRoot)[1];
+if (leftNode instanceof Node<int>) {
+  unwrap(leftNode)[2] = getNewNode(4);
+}
+print("PRETTY-ISH PRINT! {treeRoot}");
+prettyishPrintTree(treeRoot);
+
+newtype Node2<T> : tuple<T, Maybe<Node2<T>>>
+

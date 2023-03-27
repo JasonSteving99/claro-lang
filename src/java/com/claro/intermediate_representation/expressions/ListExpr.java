@@ -17,6 +17,7 @@ public class ListExpr extends Expr {
   private final ImmutableList<Expr> initializerArgExprsList;
 
   // This type is only available after the type validation phase.
+  private Type assertedListType;
   private Type validatedListType;
 
   public ListExpr(ImmutableList<Expr> listInitializerArgsList, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -59,9 +60,9 @@ public class ListExpr extends Expr {
           this.isMutable
       );
     } else {
-      Type listValuesType = this.validatedListType == null
+      Type listValuesType = this.assertedListType == null
                             ? this.initializerArgExprsList.get(0).getValidatedExprType(scopedHeap)
-                            : this.validatedListType.parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY);
+                            : this.assertedListType.parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY);
       if (listValuesType.baseType().equals(BaseType.ONEOF)) {
         // Need to assert that all values are one of the expected variant types.
         for (Expr initialListValue : this.initializerArgExprsList) {
@@ -93,12 +94,12 @@ public class ListExpr extends Expr {
       logTypeError(new ClaroTypeException(BaseType.LIST, expectedExprType));
       return;
     }
-    this.validatedListType = expectedExprType;
+    this.assertedListType = expectedExprType;
     if (initializerArgExprsList.isEmpty()) {
       // For empty lists, the type assertion is actually used as the injection of context of this list's assumed type.
-      this.emptyListValueType = Optional.of(validatedListType);
+      this.emptyListValueType = Optional.of(this.assertedListType);
     }
-    super.assertExpectedExprType(scopedHeap, validatedListType);
+    super.assertExpectedExprType(scopedHeap, this.assertedListType);
   }
 
   @Override

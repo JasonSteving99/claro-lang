@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 public class IdentifierReferenceTerm extends Term {
 
   public final String identifier;
-  private Optional<String> alternateCodegenString = Optional.empty();
+  private Optional<Supplier<String>> alternateCodegenString = Optional.empty();
   private boolean contextualTypeAsserted = false;
 
   public IdentifierReferenceTerm(String identifier, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -88,7 +88,7 @@ public class IdentifierReferenceTerm extends Term {
       // still unique.
       this.alternateCodegenString =
           Optional.of(
-              String.format(
+              () -> String.format(
                   "%s__%s",
                   this.identifier,
                   Hashing.sha256().hashUnencodedChars(syntheticFunctionCallForTypeValidation.name).toString()
@@ -167,8 +167,9 @@ public class IdentifierReferenceTerm extends Term {
       String narrowedTypeSyntheticIdentifier = String.format("$NARROWED_%s", this.identifier);
       if (scopedHeap.isIdentifierDeclared(narrowedTypeSyntheticIdentifier)) {
         referencedIdentifierType = scopedHeap.getValidatedIdentifierType(narrowedTypeSyntheticIdentifier);
+        Type finalReferencedIdentifierType = referencedIdentifierType;
         this.alternateCodegenString =
-            Optional.of(String.format("((%s) %s)", referencedIdentifierType.getJavaSourceType(), this.identifier));
+            Optional.of(() -> String.format("((%s) %s)", finalReferencedIdentifierType.getJavaSourceType(), this.identifier));
       }
     }
 
@@ -196,7 +197,7 @@ public class IdentifierReferenceTerm extends Term {
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     scopedHeap.markIdentifierUsed(this.identifier);
-    return new StringBuilder(this.alternateCodegenString.orElse(this.identifier));
+    return new StringBuilder(this.alternateCodegenString.orElse(() -> this.identifier).get());
   }
 
   @Override
