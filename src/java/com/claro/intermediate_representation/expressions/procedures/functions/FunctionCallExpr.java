@@ -79,10 +79,25 @@ public class FunctionCallExpr extends Expr {
     );
     if (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
       if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.containsKey(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
-          && !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
-               && InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                   .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
-                   .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName))) {
+          &&
+          !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+            && (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
+                    .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                    .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName)
+                ||
+                (((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
+                     .procedureName.contains("$$MONOMORPHIZATION")
+                 && InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
+                     .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                     .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
+                                   .procedureName
+                                   // Monomorphization names are formatted like "$$MONOMORPHIZATION::<TypeParam>___FooFunc";
+                                   .substring(
+                                       ((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
+                                           .procedureName.indexOf(">___") + 4)))
+            )
+          )
+      ) {
         // Actually, it turns out this is an illegal reference to the auto-generated default constructor outside of one
         // of the procedures defined within the `initializers` block.
         // Technically though the types check, so let's log the error and continue to find more errors.

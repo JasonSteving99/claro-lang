@@ -437,23 +437,6 @@ Foo::bar(someNode);
 someNode = treeRoot;
 Foo::bar(someNode);
 
-newtype NonEmptyList<T> : [T]
-initializers NonEmptyList {
-  # TODO(steving) Support generic initializer functions.
-#  function GetValidatedNonEmptyList<T>(l: [T]) -> NonEmptyList<T> {
-#   TODO(steving) Support this
-  function GetValidatedNonEmptyIntList(l: [int]) -> Maybe<NonEmptyList<int>> {
-#  function GetValidatedNonEmptyIntList(l: [int]) -> oneof<NonEmptyList<int>, NothingType> {
-    if (len(l) == 0) {
-      return Maybe(Nothing());
-    }
-
-    return Maybe(NonEmptyList(l));
-  }
-}
-print(GetValidatedNonEmptyIntList([1,2]));
-print(GetValidatedNonEmptyIntList([]));
-
 consumer prettyishPrintTree<T>(currRoot: Node<T>) {
   var fringe: mut [oneof<Node<T>, NothingType>] = mut [currRoot];
   var i = 0;
@@ -485,5 +468,21 @@ if (leftNode instanceof Node<int>) {
 print("PRETTY-ISH PRINT! {treeRoot}");
 prettyishPrintTree(treeRoot);
 
-newtype Node2<T> : tuple<T, Maybe<Node2<T>>>
 
+newtype NonEmptyList<T> : [T]
+initializers NonEmptyList {
+  function GetValidatedNonEmptyList<T>(l: [T]) -> Maybe<NonEmptyList<T>> {
+    if (len(l) == 0) {
+      return Maybe(Nothing());
+    }
+
+    return Maybe(NonEmptyList(l));
+  }
+}
+
+var maybeNonEmptyIntList = GetValidatedNonEmptyList([1,2]);
+print(maybeNonEmptyIntList);
+type(maybeNonEmptyIntList);
+var maybeNonEmptyStrList = GetValidatedNonEmptyList(cast([string], []));
+print(maybeNonEmptyStrList);
+type(maybeNonEmptyStrList);

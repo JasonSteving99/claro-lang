@@ -354,7 +354,7 @@ nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
-nonterminal ImmutableList.Builder<ProcedureDefinitionStmt>  initializers_or_unwrappers_proc_defs_list;
+nonterminal ImmutableList.Builder<Stmt>        initializers_or_unwrappers_proc_defs_list;
 nonterminal InitializersBlockStmt              initializers_block_stmt;
 nonterminal UnwrappersBlockStmt                unwrappers_block_stmt;
 nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
@@ -675,7 +675,7 @@ unwrappers_block_stmt ::=
     :}
   ;
 
-  // TODO(steving) Add support for Generic Procedures.
+  // TODO(steving) Add support for Generic Graph Procedures when available.
 initializers_or_unwrappers_proc_defs_list ::=
     function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
@@ -685,14 +685,22 @@ initializers_or_unwrappers_proc_defs_list ::=
     {: RESULT = tail.add(def); :}
   | graph_provider_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
+  | generic_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
+  | generic_provider_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
   | function_definition_stmt:def
-    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | provider_function_definition_stmt:def
-    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | graph_function_definition_stmt:def
-    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | graph_provider_definition_stmt:def
-    {: RESULT = ImmutableList.<ProcedureDefinitionStmt>builder().add(def); :}
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
+  | generic_function_definition_stmt:def
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
+  | generic_provider_function_definition_stmt:def
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   ;
 
 builtin_type ::=

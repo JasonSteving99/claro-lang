@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation.statements.user_defined_type_def_stmts;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.types.BaseType;
@@ -12,19 +13,31 @@ import com.google.common.collect.ImmutableList;
 
 public class InitializersBlockStmt extends Stmt {
   private final String initializedTypeName;
-  private final ImmutableList<ProcedureDefinitionStmt> initializerProcedureDefs;
+  private final ImmutableList<Stmt> initializerProcedureDefs;
 
-  public InitializersBlockStmt(String initializedTypeName, ImmutableList<ProcedureDefinitionStmt> initializerProcedureDefs) {
+  public InitializersBlockStmt(String initializedTypeName, ImmutableList<Stmt> initializerProcedureDefs) {
     super(ImmutableList.of());
     this.initializedTypeName = initializedTypeName;
     this.initializerProcedureDefs = initializerProcedureDefs;
   }
 
   public void registerProcedureTypeProviders(ScopedHeap scopedHeap) {
-    for (ProcedureDefinitionStmt proc : this.initializerProcedureDefs) {
-      proc.registerProcedureTypeProvider(scopedHeap);
+    for (Stmt proc : this.initializerProcedureDefs) {
+      String procedureName;
+      if (proc instanceof ProcedureDefinitionStmt) {
+        ((ProcedureDefinitionStmt) proc).registerProcedureTypeProvider(scopedHeap);
+        procedureName = ((ProcedureDefinitionStmt) proc).procedureName;
+      } else {
+        try {
+          ((GenericFunctionDefinitionStmt) proc).registerGenericProcedureTypeProvider(scopedHeap);
+        } catch (ClaroTypeException e) {
+          // Java's checked vs unchecked exceptions lead to bad design footguns, fight me.
+          throw new RuntimeException(e);
+        }
+        procedureName = ((GenericFunctionDefinitionStmt) proc).functionName;
+      }
       InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-          .put(this.initializedTypeName, proc.procedureName);
+          .put(this.initializedTypeName, procedureName);
     }
   }
 
@@ -43,7 +56,7 @@ public class InitializersBlockStmt extends Stmt {
     // Do type validation of all the initializer procedures. Note, that these procedures will be uniquely allowed to
     // make use of the auto-generated default constructor for the initialized type. This is by design, as this allows
     // the initializer procedures to essentially impose semantics on the type.
-    for (ProcedureDefinitionStmt proc : initializerProcedureDefs) {
+    for (Stmt proc : initializerProcedureDefs) {
       // TODO(steving) Come back in the future and make it possible to progress past this if it throws an exception so
       //  that all the procedures can be validated still.
       proc.assertExpectedExprTypes(scopedHeap);
@@ -53,7 +66,7 @@ public class InitializersBlockStmt extends Stmt {
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
-    for (ProcedureDefinitionStmt proc : initializerProcedureDefs) {
+    for (Stmt proc : initializerProcedureDefs) {
       res = res.createMerged(proc.generateJavaSourceOutput(scopedHeap));
     }
     return res;
@@ -61,7 +74,7 @@ public class InitializersBlockStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    for (ProcedureDefinitionStmt proc : initializerProcedureDefs) {
+    for (Stmt proc : initializerProcedureDefs) {
       proc.generateInterpretedOutput(scopedHeap);
     }
 
