@@ -1,19 +1,28 @@
 package com.claro.stdlib;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
 
 public class StdLibUtil {
 
-  public static void registerIdentifiers(ScopedHeap scopedHeap) {
+  public static ImmutableList<Stmt> registerIdentifiers(ScopedHeap scopedHeap) {
     for (Table.Cell<String, Type, Types.ProcedureType.ProcedureWrapper> stdLibProcedure
         : StdLibRegistry.stdLibProcedureTypes.cellSet()) {
       registerStdLibProcedure(
           scopedHeap, stdLibProcedure.getRowKey(), stdLibProcedure.getColumnKey(), stdLibProcedure.getValue());
     }
+
+    // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
+    return ImmutableList.of(
+        new NewTypeDefStmt("Error", TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T"))
+    );
   }
 
   private static void registerStdLibProcedure(

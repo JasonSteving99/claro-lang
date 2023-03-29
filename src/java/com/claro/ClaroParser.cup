@@ -311,7 +311,7 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
-terminal LexedValue<String>  RETURN;
+terminal LexedValue<String>  RETURN, QUESTION_MARK;
 // TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
 terminal LexedValue<String>  IMMUTABLE;
 terminal LexedValue<String>  MUT;
@@ -412,6 +412,7 @@ nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
 nonterminal Symbol/*<ImmutableMap.Builder<String, Expr>>*/ builder_setter_call;
 nonterminal Symbol/*ImmutableMap.Builder<String, Expr>*/ builder_setter_chain;
 nonterminal ReturnStmt                         return_stmt;
+nonterminal AutomaticErrorPropagationExpr      automatic_error_propagation_expr;
 nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
 nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
@@ -450,6 +451,7 @@ precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
 precedence left WHILE;
+precedence left QUESTION_MARK;
 
 // This is where the grammar starts.
 program ::=
@@ -1356,6 +1358,8 @@ expr ::=
 
        RESULT = new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, casted_expr, currentLinesSupplier, casted_expr.currentLineNumber, startCol, endCol);
     :}
+  | automatic_error_propagation_expr:a
+    {: RESULT = a; :}
   | error:e
     // TODO(steving) This is super helpful, do the same thing for stmts.
     // There's been some syntax error in an expression somewhere.. meaning that this expression is getting thrown away
@@ -2505,6 +2509,26 @@ return_stmt ::=
         returnTypeHolder = new AtomicReference<>(); // Start it off empty.
       }
       RESULT = new ReturnStmt(e, returnTypeHolder);
+    :}
+  ;
+
+automatic_error_propagation_expr ::=
+    expr:e QUESTION_MARK:q
+    {:
+      // Automatic Error Propagation is effectively just syntactic sugar for a conditional return, so must handle return
+      // stmt setup the same as all other vanilla return stmts.
+      // All ReturnStmts belonging to the same procedure expect the same return type. Use this container to
+      // act as a placeholder for the procedure to inject that context once the parsing bubbles back up.
+      if (returnTypeHolder == null) {
+        returnTypeHolder = new AtomicReference<>(); // Start it off empty.
+      }
+
+      Supplier<String> currentLine =
+        joinExprLines(new Line(e.currentLine, e.currentLineNumber), new Line(q.currentInputLine, qright));
+      int startCol = min(e.startCol, qleft);
+      int endCol = max(e.endCol, qleft + q.len);
+
+      RESULT = new AutomaticErrorPropagationExpr(e, returnTypeHolder, currentLine, qright, startCol, endCol);
     :}
   ;
 

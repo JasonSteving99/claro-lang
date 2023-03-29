@@ -113,4 +113,12 @@ public class ClaroRuntimeUtilities {
     return (obj instanceof ClaroTypeImplementation)
            && ((ClaroTypeImplementation) obj).getClaroType().equals(checkedType);
   }
+
+  public static boolean isErrorType(Type t) {
+    // This seems like a very contrived check, but `Error<T>` is part of the stdlib, so there's no way for users to
+    // shadow it or create their own type meeting these conditions, so here we'll be good.
+    return t.baseType().equals(BaseType.USER_DEFINED_TYPE)
+           && ((Types.UserDefinedType) t).getTypeName().equals("Error")
+           && t.parameterizedTypeArgs().size() == 1;
+  }
 }

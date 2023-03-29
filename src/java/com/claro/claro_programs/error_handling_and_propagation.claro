@@ -1,0 +1,32 @@
+var myFirstError = Error(-99);
+print(myFirstError);
+type(myFirstError);
+
+function failIfNegative(x: int) -> oneof<int, Error<int>> {
+  if (x < 0) {
+    return Error(x);
+  }
+  return x;
+}
+
+function testAutomaticErrorPropagation(x: int) -> oneof<int, Error<int>> {
+  var validatedInt = failIfNegative(x)?;
+  print("Validated that {validatedInt} is not negative!");
+  return validatedInt;
+}
+
+consumer logIfError<Good, Bad>(x: oneof<Good, Error<Bad>>) {
+  if (x instanceof Error<Bad>) {
+    print("Logging this propagated error: {x}");
+  }
+}
+
+print("--------------------------------------------------------------------------------");
+print(failIfNegative(10));
+print(failIfNegative(-10));
+
+print("--------------------------------------------------------------------------------");
+var maybeError = testAutomaticErrorPropagation(10);
+logIfError(maybeError);
+maybeError = testAutomaticErrorPropagation(-10);
+logIfError(maybeError);

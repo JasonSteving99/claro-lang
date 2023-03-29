@@ -219,7 +219,7 @@ public class ClaroTypeException extends Exception {
   private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE =
       "Illegal Initializers Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
       "\t\tFound:\n" +
-      "\t\t\t%s\n";
+      "\t\t\t%s";
   private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES =
       "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
       "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
@@ -228,6 +228,18 @@ public class ClaroTypeException extends Exception {
       "Illegal Use of User-Defined Type Unwrapper Outside of Unwrappers Block: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to use the type's default `unwrap()` function directly.\n" +
       "\t\tInstead, to unwrap an instance of this type, consider calling one of the defined unwrappers:\n" +
       "%s";
+  private static final String ILLEGAL_AUTOMATIC_ERROR_PROPAGATION =
+      "Illegal Use of Automatic Error Propagation: Automatic Error Propagation only applies to oneofs containing at least one `Error<T>` variant and one non-`Error<T>` variant.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_AUTOMATIC_ERROR_PROPAGATION_OUTSIDE_OF_PROCEDURE_BODY =
+      "Illegal Use of Automatic Error Propagation: Automatic Error Propagation is not allowed outside of the body procedure of a procedure that supports returning the possible error type(s) (i.e. in the top-level scope, or in a Consumer function) as this operation is just syntactic sugar for conditionally doing an early return from a procedure to propagate an error.";
+  private static final String ILLEGAL_AUTOMATIC_ERROR_PROPAGATION_FOR_UNSUPPORTED_RETURN_TYPE =
+      "Illegal Use of Automatic Error Propagation: Automatic Error Propagation not supported here due to the error type variant(s) not being valid return types.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s\n" +
+      "\t\tExpected return type:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -999,6 +1011,29 @@ public class ClaroTypeException extends Exception {
             userDefinedType,
             unwrapperProcedureTypes.stream()
                 .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalAutomaticErrorPropagation(Type validatedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_AUTOMATIC_ERROR_PROPAGATION,
+            validatedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalAutomaticErrorPropagationOutsideOfProcedureBody() {
+    return new ClaroTypeException(ILLEGAL_AUTOMATIC_ERROR_PROPAGATION_OUTSIDE_OF_PROCEDURE_BODY);
+  }
+
+  public static ClaroTypeException forIllegalAutomaticErrorPropagationForUnsupportedReturnType(Type validatedOneofType, Type activeProcedureReturnType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_AUTOMATIC_ERROR_PROPAGATION_FOR_UNSUPPORTED_RETURN_TYPE,
+            validatedOneofType,
+            activeProcedureReturnType
         )
     );
   }

@@ -95,24 +95,24 @@ initializers NothingType {
 newtype EvenInt : int
 
 initializers EvenInt {
-  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, NothingType> {
+  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, Error<int>> {
     if (x % 2 == 1) {
-      return Nothing();
+      return Error(x);
     }
     return EvenInt(x);
   }
 }
 
 
-var firstEvenInt : oneof<EvenInt, NothingType> = GetValidatedEvenInt(2);
+var firstEvenInt : oneof<EvenInt, Error<int>> = GetValidatedEvenInt(2);
 if (firstEvenInt instanceof EvenInt) {
   print("I successfully initialized an EvenInt! {firstEvenInt}");
   type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an EventInt.
 }
 firstEvenInt = GetValidatedEvenInt(3);
-if (firstEvenInt instanceof NothingType) {
+if (firstEvenInt instanceof Error<int>) {
   print("The odd int 3 was correctly rejected!: {firstEvenInt}");
-  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is a NothingType.
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an Error<int>.
 }
 
 
@@ -138,21 +138,18 @@ if (firstEvenInt instanceof NothingType) {
 newtype EvenIntGreaterThan10 : EvenInt
 
 initializers EvenIntGreaterThan10 {
-  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, NothingType> {
+  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, Error<EvenInt>> {
     if (unwrap(x) > 10) {
       return EvenIntGreaterThan10(x);
     }
-    return Nothing();
+    return Error(x);
   }
-  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, NothingType> {
-    # TODO(steving) Rewrite this once the oneof error checking early return via `?` is supported.
-    var maybeEvenInt = GetValidatedEvenInt(x);
-    if (maybeEvenInt instanceof EvenInt) {
-      if (x > 10) {
-        return EvenIntGreaterThan10(maybeEvenInt);
-      }
+  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, Error<int>, Error<EvenInt>> {
+    var evenInt = GetValidatedEvenInt(x)?;
+    if (x > 10) {
+      return EvenIntGreaterThan10(evenInt);
     }
-    return Nothing();
+    return Error(evenInt);
   }
 }
 
@@ -475,7 +472,6 @@ initializers NonEmptyList {
     if (len(l) == 0) {
       return Maybe(Nothing());
     }
-
     return Maybe(NonEmptyList(l));
   }
 }

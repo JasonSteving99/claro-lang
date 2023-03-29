@@ -56,6 +56,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "error_handling_and_propagation",
+    srcs = [":error_handling_and_propagation_lib"],
+    java_name = "error_handling_and_propagation",
+)
+
+claro_library(
+    name = "error_handling_and_propagation_lib",
+    src = "error_handling_and_propagation.claro",
+)
+
+claro_binary(
     name = "generics_compiled_claro_image",
     srcs = [":generics_compiled_claro"],
     java_name = "generics",

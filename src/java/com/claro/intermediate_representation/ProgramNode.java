@@ -16,15 +16,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import java.util.Stack;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class ProgramNode {
   private final String packageString, generatedClassName;
-  private final StmtListNode stmtListNode;
+  private StmtListNode stmtListNode;
   public static final Stack<Runnable> miscErrorsFound = new Stack<>();
 
-  private Consumer<ScopedHeap> setupStdLibConsumerFn = s -> {
-  }; // By default don't support any StdLib.
+  private Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn = s -> ImmutableList.of();
+      // By default, don't support any StdLib.
 
   // TODO(steving) package and generatedClassName should probably be injected some cleaner way since this is a Target::JAVA_SOURCE-only artifact.
   public ProgramNode(
@@ -51,17 +51,17 @@ public class ProgramNode {
       Target target,
       // Injecting this here literally just to keep Bazel from needing a circular dep on ProgramNode via Exec method.
       // TODO(steving) Fix this garbage.
-      Consumer<ScopedHeap> setupStdLibConsumerFn) throws IllegalArgumentException {
+      Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn) throws IllegalArgumentException {
     ScopedHeap scopedHeap = new ScopedHeap();
     scopedHeap.enterNewScope();
-    return generateTargetOutput(target, scopedHeap, setupStdLibConsumerFn);
+    return generateTargetOutput(target, scopedHeap, setupStdLibFn);
   }
 
   public StringBuilder generateTargetOutput(
       Target target,
       ScopedHeap scopedHeap,
-      Consumer<ScopedHeap> setupStdLibConsumerFn) throws IllegalArgumentException {
-    this.setupStdLibConsumerFn = setupStdLibConsumerFn;
+      Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn) throws IllegalArgumentException {
+    this.setupStdLibFn = setupStdLibFn;
     StringBuilder generatedOutput;
     switch (target) {
       case JAVA_SOURCE:
@@ -84,8 +84,8 @@ public class ProgramNode {
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // Setup the StdLib in the current Scope.
-    this.setupStdLibConsumerFn.accept(scopedHeap);
+    // Setup the StdLib in the current Scope and append any setup Stmts to prefix the given program.
+    setupStdLib(scopedHeap);
 
     // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
     // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
@@ -181,8 +181,8 @@ public class ProgramNode {
   }
 
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // Setup the StdLib in the current Scope.
-    this.setupStdLibConsumerFn.accept(scopedHeap);
+    // Setup the StdLib in the current Scope and append any setup Stmts to prefix the given program.
+    setupStdLib(scopedHeap);
 
     // TYPE DISCOVERY PHASE:
     performTypeDiscoveryPhase(stmtListNode, scopedHeap);
@@ -241,6 +241,21 @@ public class ProgramNode {
 
     // There's no output in the interpreting mode.
     return null;
+  }
+
+  private void setupStdLib(ScopedHeap scopedHeap) {
+    ImmutableList<Stmt> stdlibSetupPrefixStmts = this.setupStdLibFn.apply(scopedHeap);
+    if (!stdlibSetupPrefixStmts.isEmpty()) {
+      StmtListNode programStmtListNode = this.stmtListNode;
+      this.stmtListNode = new StmtListNode(stdlibSetupPrefixStmts.get(0));
+      StmtListNode prevPrefixStmtListNode = this.stmtListNode;
+      for (Stmt currPrefixStmt : stdlibSetupPrefixStmts.subList(1, stdlibSetupPrefixStmts.size())) {
+        prevPrefixStmtListNode.tail = new StmtListNode(currPrefixStmt);
+        prevPrefixStmtListNode = prevPrefixStmtListNode.tail;
+      }
+      // Reattach the user-given program after the stdlib prefix stmts.
+      prevPrefixStmtListNode.tail = programStmtListNode;
+    }
   }
 
   private void performTypeDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {

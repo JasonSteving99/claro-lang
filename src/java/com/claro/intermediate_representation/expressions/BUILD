@@ -33,6 +33,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
         "//src/java/com/claro/intermediate_representation/expressions/procedures/methods",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+        "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls:builtins_impls",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collection_interface",

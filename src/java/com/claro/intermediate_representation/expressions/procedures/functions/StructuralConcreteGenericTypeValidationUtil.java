@@ -326,6 +326,25 @@ public class StructuralConcreteGenericTypeValidationUtil {
         Type res = validateArgExprsAndExtractConcreteGenericTypeParams(
             genericTypeParamTypeHashMap, expectedOneofGenericTypeVariant, actualArgExprType, inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath, optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap, withinNestedCollectionTypeNotSupportingDynDispatch);
         return res;
+      } else if (
+          functionExpectedArgType.baseType().equals(BaseType.ONEOF)
+          && actualArgExprType.baseType().equals(BaseType.ONEOF)
+          && ((Types.OneofType) functionExpectedArgType).getVariantTypes().size()
+             == ((Types.OneofType) actualArgExprType).getVariantTypes().size()) {
+        // The last thing I'll try is supporting inference between oneofs with multiple generic type params in the
+        // *LIMITED CASE* that all of the type variants are in the same order.
+        // TODO(steving) Likely, in the future I may want to extend this to somehow try all ordering combinations of
+        //   variants to see if I can get to a full match, but for now that's not supported.
+        ImmutableList.Builder<Type> variantTypesBuilder = ImmutableList.builder();
+        for (int i = 0; i < ((Types.OneofType) functionExpectedArgType).getVariantTypes().size(); i++) {
+          variantTypesBuilder.add(validateArgExprsAndExtractConcreteGenericTypeParams(
+              genericTypeParamTypeHashMap, ((Types.OneofType) functionExpectedArgType).getVariantTypes()
+                  .asList()
+                  .get(i), ((Types.OneofType) actualArgExprType).getVariantTypes()
+                  .asList()
+                  .get(i), inferConcreteTypes, optionalTypeCheckingCodegenForDynamicDispatch, optionalTypeCheckingCodegenPath, optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap, withinNestedCollectionTypeNotSupportingDynDispatch));
+        }
+        return Types.OneofType.forVariantTypes(variantTypesBuilder.build());
       }
       throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
     }
