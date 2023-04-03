@@ -22,6 +22,7 @@ java_library(
     deps = [
         "//:guava",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls:builtins_impls",
+        "//src/java/com/claro/intermediate_representation/types",
         "//src/java/com/claro/intermediate_representation/types:type",
     ],
 )

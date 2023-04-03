@@ -339,14 +339,7 @@ public class ScopedHeap {
     HashSet<String> unusedSymbolSet = new HashSet<>();
     for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedSymbolTable.entrySet()) {
       if (!identifierEntry.getValue().used) {
-        if (identifierEntry.getValue().type.baseType().equals(BaseType.STRUCT) ||
-            identifierEntry.getValue().type.baseType().equals(BaseType.IMMUTABLE_STRUCT)) {
-          // TODO(steving) It looks like Bazel doesn't cache std-err. Need to start using a proper logging library
-          // TODO(steving) instead of this hack.
-          System.err.format("Warning! <%s> is defined but never used!\n", identifierEntry.getValue().type);
-        } else {
-          unusedSymbolSet.add(identifierEntry.getKey());
-        }
+        unusedSymbolSet.add(identifierEntry.getKey());
       }
     }
     if (!unusedSymbolSet.isEmpty()) {

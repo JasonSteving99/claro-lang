@@ -254,146 +254,52 @@ public final class Types {
     }
   }
 
-  public abstract static class StructType extends Type {
-
-    public abstract String getName();
-
-    public abstract ImmutableMap<String, Type> getFieldTypes();
-
-    private static TypeProvider forFieldTypeProvidersMap(
-        ImmutableMap<String, TypeProvider> fieldTypeProvidersMap, String structName, boolean immutable) {
-      return (scopedHeap) -> {
-        ImmutableMap<String, Type> fieldTypesMap =
-            TypeProvider.Util.resolveTypeProviderMap(scopedHeap, fieldTypeProvidersMap);
-        Types.StructType resultStructType =
-            immutable ?
-            Types.StructType.ImmutableStructType.forFieldTypes(structName, fieldTypesMap) :
-            Types.StructType.MutableStructType.forFieldTypes(structName, fieldTypesMap);
-        scopedHeap.putIdentifierValue(structName, resultStructType, null);
-        return resultStructType;
-      };
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          this.baseType().getClaroCanonicalTypeNameFmtStr(),
-          getName(),
-          getFieldTypes().entrySet().stream()
-              .map(stringTypeEntry -> String.format("%s: %s", stringTypeEntry.getKey(), stringTypeEntry.getValue()))
-              .collect(Collectors.joining(", "))
-      );
-    }
-
-    @Override
-    public String getJavaSourceType() {
-      return String.format(this.baseType().getJavaSourceFmtStr(), this.getName());
-    }
-
-    @AutoValue
-    public abstract static class ImmutableStructType extends StructType {
-      public static ImmutableStructType forFieldTypes(String name, ImmutableMap<String, Type> fieldTypes) {
-        return new AutoValue_Types_StructType_ImmutableStructType(
-            BaseType.IMMUTABLE_STRUCT, ImmutableMap.of(), name, fieldTypes);
-      }
-
-      @Override
-      public String getJavaSourceClaroType() {
-        return String.format(
-            "Types.StructType.ImmutableStructType.forFieldTypes(\"%s\", ImmutableMap.<String, Type>builder()%s.build())",
-            this.getName(),
-            this.getFieldTypes()
-                .entrySet()
-                .stream()
-                .map(entry -> String.format(".put(\"%s\", %s)", entry.getKey(), entry.getValue()
-                    .getJavaSourceClaroType()))
-                .collect(Collectors.joining())
-        );
-      }
-
-      public static TypeProvider forFieldTypeProvidersMap(String structName, ImmutableMap<String, TypeProvider> fieldTypeProvidersMap) {
-        return StructType.forFieldTypeProvidersMap(fieldTypeProvidersMap, structName, /*immutable=*/true);
-      }
-      // TODO(steving) Put some manner of constructor code directly inside this type definition.
-    }
-
-    @AutoValue
-    public abstract static class MutableStructType extends StructType {
-      public static StructType forFieldTypes(String name, ImmutableMap<String, Type> fieldTypes) {
-        return new AutoValue_Types_StructType_MutableStructType(BaseType.STRUCT, ImmutableMap.of(), name, fieldTypes);
-      }
-
-      @Override
-      public String getJavaSourceClaroType() {
-        return String.format(
-            "Types.StructType.MutableStructType.forFieldTypes(\"%s\", ImmutableMap.<String, Type>builder()%s.build())",
-            this.getName(),
-            this.getFieldTypes()
-                .entrySet()
-                .stream()
-                .map(entry -> String.format(".put(\"%s\", %s)", entry.getKey(), entry.getValue()
-                    .getJavaSourceClaroType()))
-                .collect(Collectors.joining())
-        );
-      }
-
-      public static TypeProvider forFieldTypeProvidersMap(String structName, ImmutableMap<String, TypeProvider> fieldTypeProvidersMap) {
-        return StructType.forFieldTypeProvidersMap(fieldTypeProvidersMap, structName, /*immutable=*/false);
-      }
-      // TODO(steving) Put some manner of constructor code directly inside this type definition.
-    }
-
-  }
-
   @AutoValue
-  public abstract static class BuilderType extends Type {
-    private static final ImmutableSet<BaseType> SUPPORTED_BUILT_TYPES =
-        ImmutableSet.of(BaseType.STRUCT, BaseType.IMMUTABLE_STRUCT);
+  public abstract static class StructType extends Type implements SupportsMutableVariant<StructType> {
+    // Instead of using the parameterizedTypesMap I unfortunately have to explicitly list them separately as parallel
+    // lists literally just so that the equals() and hashcode() impls correctly distinguish btwn field orderings which
+    // ImmutableMap doesn't.
+    public abstract ImmutableList<String> getFieldNames();
 
-    public abstract StructType getBuiltType();
+    public abstract ImmutableList<Type> getFieldTypes();
 
-    public static BuilderType forStructType(StructType structType) {
-      return new AutoValue_Types_BuilderType(BaseType.BUILDER, ImmutableMap.of(), structType);
-    }
+    abstract boolean getIsMutable();
 
-    /**
-     * This function exists for late binding of user-defined types in the symbol table. This is necessary since we don't
-     * have all type information until we parse the entire file and create symbol table entries for all
-     * user-defined types.
-     *
-     * @param structTypeName The name of the (potentially user-defined) type to look for in the symbol table.
-     * @return a function that provides the actual resolved BuilderType once the symbol table has all types.
-     */
-    public static TypeProvider forStructTypeName(String structTypeName) {
-      return (scopedHeap) -> {
-        Type resolvedTypeFromName = TypeProvider.Util.getTypeByName(
-            structTypeName, /*isTypeDefinition=*/true).resolveType(scopedHeap);
-        if (!SUPPORTED_BUILT_TYPES.contains(resolvedTypeFromName.baseType())) {
-          throw new RuntimeException(new ClaroTypeException(resolvedTypeFromName, SUPPORTED_BUILT_TYPES));
-        }
-        return BuilderType.forStructType((StructType) resolvedTypeFromName);
-      };
+    public static StructType forFieldTypes(ImmutableList<String> fieldNames, ImmutableList<Type> fieldTypes, boolean isMutable) {
+      return new AutoValue_Types_StructType(BaseType.STRUCT, ImmutableMap.of(), fieldNames, fieldTypes, isMutable);
     }
 
     @Override
     public String toString() {
-      return String.format(
-          this.baseType().getClaroCanonicalTypeNameFmtStr(),
-          this.getBuiltType().getName()
-      );
-    }
-
-    @Override
-    public String getJavaSourceType() {
-      return String.format(this.baseType().getJavaSourceFmtStr(), this.getBuiltType().getJavaSourceType());
+      String baseFormattedTypeStr =
+          String.format(
+              this.baseType().getClaroCanonicalTypeNameFmtStr(),
+              IntStream.range(0, this.getFieldNames().size()).boxed()
+                  .map(i ->
+                           String.format("%s: %s", this.getFieldNames().get(i), this.getFieldTypes().get(i)))
+                  .collect(Collectors.joining(", "))
+          );
+      return this.getIsMutable() ? "mut " + baseFormattedTypeStr : baseFormattedTypeStr;
     }
 
     @Override
     public String getJavaSourceClaroType() {
       return String.format(
-          "Types.BuilderType.forStructType(%s)",
-          this.getBuiltType().getJavaSourceClaroType()
+          "Types.StructType.forFieldTypes(ImmutableList.of(%s), ImmutableList.of(%s), %s)",
+          this.getFieldNames().stream().map(n -> String.format("\"%s\"", n)).collect(Collectors.joining(", ")),
+          this.getFieldTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(", ")),
+          this.getIsMutable()
       );
+    }
+
+    @Override
+    public StructType toMutableVariant() {
+      return StructType.forFieldTypes(this.getFieldNames(), this.getFieldTypes(), /*isMutable=*/true);
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
     }
   }
 

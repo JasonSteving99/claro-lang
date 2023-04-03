@@ -202,12 +202,7 @@ WhiteSpace     = [ \t\f]
     "initializers"     { return symbol(Calc.INITIALIZERS, 0, 12, "initializers"); }
     "unwrappers"       { return symbol(Calc.UNWRAPPERS, 0, 10, "unwrappers"); }
 
-    // Builders are builtin at the language level.
-    "builder"          { return symbol(Calc.BUILDER, 0, 7, "builder"); }
-    ".build()"         { return symbol(Calc.DOTBUILD, 0, 8, ".build()"); }
-
     // Modifiers go here.
-    "immutable"        { return symbol(Calc.IMMUTABLE, 0, 9, "immutable"); }
     "mut"              { return symbol(Calc.MUT, 0, 3, "mut"); }
 
     // Module related bindings go here.

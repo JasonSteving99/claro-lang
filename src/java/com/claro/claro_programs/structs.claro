@@ -1,51 +1,70 @@
-####################################################################################################
-# !!!!!! WARNING - CLARO STRUCTS ARE NOT YET FULLY SUPPORTED - MASSIVE OVERHAUL COMING SOON !!!!!!
-####################################################################################################
+########################################################################################################################
+# DEMONSTRATE CLARO'S APPROACH TO STRUCTS!
+#
+# Claro treats Structs quite differently than other languages. Whereas in other languages, Structs are considered "user-
+# defined types", that is actually not the case in Claro. Here, Structs are a builtin type just like Tuple, or Map for
+# example. In fact, it's probably valid to consider Claro structs to be semantically equivalent to Tuples except that
+# the fields are named. Otherwise, just like a Tuple, you may have as many fields as you like and each field may have
+# whatever type you'd like, and the order of the fields is semantically meaningful. This approach to Structs allows for
+# some extremely expressive and ergonomic code.
+########################################################################################################################
 
-print("We're gonna build a struct!");
+var firstStruct: struct{first: int, last: int} = {first = 1, last = 2};
+print(firstStruct);
+type(firstStruct);
+print(firstStruct.first);
+print(firstStruct.last);
 
-struct FirstStruct {
-  field1: int,
-  field2: string
+newtype MyStruct : struct{firstName: string, lastName: string}
+var myStruct = MyStruct({firstName = "Jason", lastName = "Steving"});
+print(myStruct);
+print("unwrap(myStruct).firstName = {unwrap(myStruct).firstName}");
+print("unwrap(myStruct).lastName = {unwrap(myStruct).lastName}");
+
+
+# TODO(steving) Make `NothingType` and `nothing` builtins.
+newtype NothingType : boolean
+initializers NothingType {
+  provider Nothing() -> NothingType { return NothingType(false); }
 }
 
-var firstStructBuilder = FirstStruct.builder().field1(99).field2("ninety-nine");
-type(firstStructBuilder);
-print(firstStructBuilder);
-
-immutable struct FirstImmutableStruct {
-  i: int,
-  s: string
+newtype TreeNode<T> : struct {
+  val: T,
+  left: oneof<TreeNode<T>, NothingType>,
+  right: oneof<TreeNode<T>, NothingType>
 }
 
-var firstImmutableStructBuilder = FirstImmutableStruct.builder().i(-999).s("negative nine-hundred-ninety-nine");
-type(firstImmutableStructBuilder);
-print(firstImmutableStructBuilder);
-
-var firstBuiltImmutableStruct = FirstImmutableStruct.builder().i(27).s("age").build();
-type(firstBuiltImmutableStruct);
-print(firstBuiltImmutableStruct);
-
-# Anonymous struct definition. This will actually only be accepted in places where type declarations are found.
-# E.g. function Foo(i: int) -> {output_i: int, output_s: string} { ... }
-{field1: int, field2: string}
+var treeRoot: TreeNode<int> = TreeNode({val = 10, left = Nothing(), right = Nothing()});
+print(treeRoot);
+type(treeRoot);
 
 
-# Structs can reference each other.
-# And the definitions can come in ANY ORDER IN THE FILE thanks to multi-phase parsing!!!
-struct Bar{
-  foo: Foo
+########################################################################################################################
+# DEMONSTRATE USING STRUCTS AS PROCEDURE OUTPUT TYPE.
+#
+# One significant beauty of Claro's approach to structs as a builtin type is in the simplicity of using structs as
+# a function output type. In other languages, like Java, it's very painful to do this as you'd need to first define a
+# new class outside of this function definition, and answer all sorts of design questions associated w/ that. Here, you
+# just define inline that you'll be returning a struct with some typed fields and you move on to what you were trying to
+# do in the first place.
+########################################################################################################################
+function asStruct<A,B>(a: A, b: B) -> struct{res1: A, res2: B} {
+  return {res1 = a, res2 = b};
 }
-struct Foo{
-  i: int,
-  s: string
-}
-var b: Bar = Bar.builder().foo(Foo.builder().i(9).s("nine").build()).build();
-print(b);
 
+print("--------------------------------------------------------------------------------");
+print(asStruct(1, "one"));
+print(asStruct("two", 2));
+print(asStruct(1, "one").res1);
+print(asStruct(1, "one").res2);
 
-# Functions can be parameterized by, and return StructTypes.
-function getBar(f: Foo) -> Bar {
-  return Bar.builder().foo(f).build();
-}
-print(getBar(Foo.builder().i(-9).s("negative-nine").build()));
+########################################################################################################################
+# DEMONSTRATE RE-ASSIGNING TO MUTBLE STRUCT FIELDS
+########################################################################################################################
+
+var mutStruct = mut {first = 1, second = 2};
+print("--------------------------------------------------------------------------------");
+print("Value of `mutStruct` BEFORE mutation: {mutStruct}");
+mutStruct.first = 9;
+mutStruct.second = 20;
+print("Value of `mutStruct` AFTER mutation:  {mutStruct}");

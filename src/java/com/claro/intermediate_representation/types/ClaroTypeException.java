@@ -240,6 +240,10 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\t\tExpected return type:\n" +
       "\t\t\t%s";
+  private static final String INVALID_STRUCT_FIELD_ACCESS_FOR_NON_EXISTENT_FIELD =
+      "Illegal Struct Field Access: The requested field `%s` doesn't exist!\n" +
+      "\t\tFound Struct:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -944,7 +948,7 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static Exception forIllegalMutationAttemptOnImmutableValue(Type listExprType, Type toMutableVariant) {
+  public static ClaroTypeException forIllegalMutationAttemptOnImmutableValue(Type listExprType, Type toMutableVariant) {
     return new ClaroTypeException(
         String.format(
             ILLEGAL_MUTATION_ATTEMPT_ON_IMMUTABLE_VALUE,
@@ -1034,6 +1038,16 @@ public class ClaroTypeException extends Exception {
             ILLEGAL_AUTOMATIC_ERROR_PROPAGATION_FOR_UNSUPPORTED_RETURN_TYPE,
             validatedOneofType,
             activeProcedureReturnType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidStructFieldAccessForNonExistentField(Type validatedStructType, String fieldName) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_STRUCT_FIELD_ACCESS_FOR_NON_EXISTENT_FIELD,
+            fieldName,
+            validatedStructType
         )
     );
   }

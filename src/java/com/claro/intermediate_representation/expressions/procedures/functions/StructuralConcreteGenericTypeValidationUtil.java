@@ -44,7 +44,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.USER_DEFINED_TYPE);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.STRUCT, BaseType.USER_DEFINED_TYPE);
     // In the case that this positional arg is a generic param type, then actually we need to just accept
     // whatever type is in the passed arg expr.
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
@@ -219,6 +219,47 @@ public class StructuralConcreteGenericTypeValidationUtil {
               actualArgExprProcedureType.getAnnotatedBlockingGenericOverArgs(),
               actualArgExprProcedureType.getGenericProcedureArgNames()
           );
+        case STRUCT:
+          // Unfortunately couldn't model struct via parameterizedTypeArgs() as I needed to respect ordering of fields,
+          // so custom handling for STRUCT is needed.
+          Types.StructType expectedStructType = (Types.StructType) functionExpectedArgType;
+          Types.StructType actualStructType = (Types.StructType) actualArgExprType;
+          if (!expectedStructType.getFieldNames().equals(actualStructType.getFieldNames())) {
+            throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+          }
+          if (((SupportsMutableVariant<?>) expectedStructType).isMutable()
+              != ((SupportsMutableVariant<?>) actualStructType).isMutable()) {
+            throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+          }
+          ImmutableList.Builder<Type> validatedFieldTypesBuilder = ImmutableList.builder();
+          for (int i = 0; i < expectedStructType.getFieldTypes().size(); i++) {
+            // First, we need to make sure that we track the codegen path that we are just about to go down.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().push(
+                  ImmutableList.of(
+                      new StringBuilder("((Types.StructType) "),
+                      // Leave room for the previous type to be nested here.
+                      new StringBuilder(").getFieldTypes().get(").append(i).append(')')
+                  ));
+            }
+            validatedFieldTypesBuilder.add(
+                validateArgExprsAndExtractConcreteGenericTypeParams(
+                    genericTypeParamTypeHashMap,
+                    expectedStructType.getFieldTypes().get(i),
+                    actualStructType.getFieldTypes().get(i),
+                    inferConcreteTypes,
+                    optionalTypeCheckingCodegenForDynamicDispatch,
+                    optionalTypeCheckingCodegenPath,
+                    optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+                    /*withinNestedCollectionTypeNotSupportingDynDispatch=*/ true
+                ));
+            // Undo the codegen path as we unwind the stack.
+            if (optionalTypeCheckingCodegenForDynamicDispatch.isPresent()) {
+              optionalTypeCheckingCodegenPath.get().pop();
+            }
+          }
+
+          return Types.StructType.forFieldTypes(actualStructType.getFieldNames(), validatedFieldTypesBuilder.build(), actualStructType.isMutable());
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
         case MAP:

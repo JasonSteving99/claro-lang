@@ -585,7 +585,8 @@ public class FunctionCallExpr extends Expr {
       // I want to mark this concrete signature for Monomorphization codegen! Note - this is subtle, but the
       // single monomorphization will be reused by both the blocking and non-blocking variants if the generic
       // procedure happened to also be blocking-generic as this subtle difference has no impact on the gen'd code..
-      if (!procedureName_OUT_PARAM.get().contains("$constructor")) {
+      if (!procedureName_OUT_PARAM.get().contains("$constructor")
+          && !procedureName_OUT_PARAM.get().contains("$$MONOMORPHIZATION")) {
         // Ignore all Generic Type default Constructors, b/c these are synthetic functions that don't actually
         // produce any necessary codegen.
         procedureName_OUT_PARAM.set(

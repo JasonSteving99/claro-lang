@@ -95,22 +95,22 @@ initializers NothingType {
 newtype EvenInt : int
 
 initializers EvenInt {
-  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, Error<int>> {
+  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, Error<string>> {
     if (x % 2 == 1) {
-      return Error(x);
+      return Error("Given int {x} is odd!");
     }
     return EvenInt(x);
   }
 }
 
 
-var firstEvenInt : oneof<EvenInt, Error<int>> = GetValidatedEvenInt(2);
+var firstEvenInt : oneof<EvenInt, Error<string>> = GetValidatedEvenInt(2);
 if (firstEvenInt instanceof EvenInt) {
   print("I successfully initialized an EvenInt! {firstEvenInt}");
   type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an EventInt.
 }
 firstEvenInt = GetValidatedEvenInt(3);
-if (firstEvenInt instanceof Error<int>) {
+if (firstEvenInt instanceof Error<string>) {
   print("The odd int 3 was correctly rejected!: {firstEvenInt}");
   type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an Error<int>.
 }
@@ -138,18 +138,18 @@ if (firstEvenInt instanceof Error<int>) {
 newtype EvenIntGreaterThan10 : EvenInt
 
 initializers EvenIntGreaterThan10 {
-  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, Error<EvenInt>> {
+  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, Error<string>> {
     if (unwrap(x) > 10) {
       return EvenIntGreaterThan10(x);
     }
-    return Error(x);
+    return Error("The given int {x} is even but not greater than 10!");
   }
-  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, Error<int>, Error<EvenInt>> {
+  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, Error<int>, Error<string>> {
     var evenInt = GetValidatedEvenInt(x)?;
     if (x > 10) {
       return EvenIntGreaterThan10(evenInt);
     }
-    return Error(evenInt);
+    return Error("The given int {x} is even but not greater than 10!");
   }
 }
 

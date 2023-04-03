@@ -7,7 +7,6 @@ import com.claro.intermediate_representation.expressions.*;
 import com.claro.intermediate_representation.expressions.bool.*;
 import com.claro.intermediate_representation.expressions.numeric.*;
 import com.claro.intermediate_representation.expressions.procedures.functions.*;
-import com.claro.intermediate_representation.expressions.procedures.methods.*;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.*;
@@ -312,12 +311,8 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  RETURN, QUESTION_MARK;
-// TODO(steving) Claro's going to default everything to immutable, so drop this `immutable` keyword.
-terminal LexedValue<String>  IMMUTABLE;
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  DOT;
-// TODO(steving) Need to complete undo this hack for DOTBUILD and BUILDER.
-terminal LexedValue<String>  BUILDER, DOTBUILD;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
@@ -344,6 +339,10 @@ nonterminal MapExpr                            map;
 nonterminal ImmutableList.Builder/*<ImmutableList<Expr>>*/ map_initializer_kv_list;
 nonterminal TupleExpr                          tuple;
 nonterminal SetExpr                            set;
+nonterminal StructExpr                         struct;
+nonterminal Symbol/*ImmutableMap.Builder<String, Expr>*/ struct_field_initializers_list;
+nonterminal StructFieldAccessExpr              struct_field_access_expr;
+nonterminal StructFieldAssignmentStmt          struct_field_assignment_stmt;
 nonterminal CollectionSubscriptExpr            collection_subscript;
 nonterminal Symbol/*ImmutableList.Builder<Expr>*/  args_list;
 nonterminal IfStmt                             if_else_chain_stmt;
@@ -369,7 +368,6 @@ nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal AppendElementToListStmt            list_append_stmt;
-nonterminal StructDefinitionStmt               struct_definition_stmt;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
@@ -403,14 +401,9 @@ nonterminal PipeChainStmt                      pipe_chain_stmt;
 // This is just because Java is hot garbage and doesn't have tuples. The first entry will be a sink stmt.
 // The second entry will be an ImmutableList.Builder<Expr>. The Expr will be required to contain some
 // backreference to the value piped from the previous expr.
-// TODO(steving) Implement PipeChainBackreferenceTerm for `^`. This will be sort of like an IdentifierReferenceTerm
 //  except that it will also need to be able to either make itself a codegen inlining of the prior expr, or it will
 //  need to reference a generated identifier for an intermediate temporary.
 nonterminal ImmutableList<Object>              pipe_chain;
-nonterminal BuilderMethodCallExpr              builder_method_call_expr;
-nonterminal BuilderFullBuildMethodCallExpr     builder_full_build;
-nonterminal Symbol/*<ImmutableMap.Builder<String, Expr>>*/ builder_setter_call;
-nonterminal Symbol/*ImmutableMap.Builder<String, Expr>*/ builder_setter_chain;
 nonterminal ReturnStmt                         return_stmt;
 nonterminal AutomaticErrorPropagationExpr      automatic_error_propagation_expr;
 nonterminal FunctionCallExpr                   function_call_expr;
@@ -452,6 +445,7 @@ precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
 precedence left WHILE;
 precedence left QUESTION_MARK;
+precedence left DOT;
 
 // This is where the grammar starts.
 program ::=
@@ -535,6 +529,8 @@ stmt ::=
     {: RESULT = i; :}
   | identifier_decrement_stmt:i
     {: RESULT = i; :}
+  | struct_field_assignment_stmt:s
+    {: RESULT = s; :}
   | list_element_assignment:l
     {: RESULT = l; :}
   | list_append_stmt:la
@@ -543,8 +539,6 @@ stmt ::=
     {: RESULT = i; :}
   | while_stmt:w
     {: RESULT = w; :}
-  | struct_definition_stmt:s
-    {: RESULT = s; :}
   | function_definition_stmt:f
     {: RESULT = f; :}
   | consumer_function_definition_stmt:f
@@ -1074,6 +1068,37 @@ base_builtin_type_without_mutability_modifier ::=
             endCol - startCol)
        );
     :}
+  | STRUCT_TYPE:s LCURLY:la function_args_types_list:fields RCURLY:ra
+    // Structs are defined like `struct{field1: int, ..., fieldN: string}`. This is intended to resemble a sequence of
+    // variable declarations, which will align with the initialization syntax `{field1 = 1, ..., fieldN = "foo"}` which
+    // in turn is intended to resemble a sequence of variable initializations. I appreciate the metaphore of a struct as
+    // a bundle of variables.
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) fields.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(s.currentInputLine, sright), new Line(la.currentInputLine, laright), new Line(((LexedValue) fields.value).currentInputLine, fields.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(sleft, laleft, fields.left, raleft);
+       int endCol = max(sleft + s.len, laleft + la.len, fields.left + ((LexedValue) fields.value).len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) ->
+              Types.StructType.forFieldTypes(
+                fieldTypesMap.keySet().asList(),
+                fieldTypesMap.values().stream()
+                  .map(tp -> tp.resolveType(scopedHeap))
+                  .collect(ImmutableList.toImmutableList()),
+                /*isMutable=*/false
+              ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 builtin_types_list ::=
@@ -1336,13 +1361,13 @@ expr ::=
     {: RESULT = tlf; :}
   | provider_function_call_expr:pf
     {: RESULT = pf; :}
-  | builder_method_call_expr:b
-    {: RESULT = b; :}
-  | builder_full_build:b
-    {: RESULT = b; :}
   | tuple:t
     {: RESULT = t; :}
   | set:s
+    {: RESULT = s; :}
+  | struct:s
+    {: RESULT = s; :}
+  | struct_field_access_expr:s
     {: RESULT = s; :}
     // This is some unfortunate syntax for casting, but this actually was necessary to avoid having casting create an
     // ambiguous grammar deciding whether `(i < len(l))` was a malformed cast (e.g. for some parameterized custom type
@@ -1542,6 +1567,89 @@ args_list ::=
     :}
   ;
 
+struct ::=
+    LCURLY:lc struct_field_initializers_list:fields RCURLY:rc
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(lc.currentInputLine, lcright), new Line(((LexedValue) fields.value).currentInputLine, fields.right), new Line(rc.currentInputLine, rcright));
+       int startCol = min(lcleft, fields.left, rcleft);
+       int endCol = max(lcleft + lc.len, fields.left + ((LexedValue) fields.value).len, rcleft + rc.len);
+
+      ImmutableMap<String, Expr> fieldsMap = ((LexedValue<ImmutableMap.Builder<String, Expr>>) fields.value).val.build();
+      RESULT = new StructExpr(fieldsMap.keySet().asList().reverse(), fieldsMap.values().asList().reverse(), /*isMutable=*/false,
+        currentLinesSupplier, rcright, startCol, endCol);
+    :}
+  | MUT:mut LCURLY:lc struct_field_initializers_list:fields RCURLY:rc
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lc.currentInputLine, lcright), new Line(((LexedValue) fields.value).currentInputLine, fields.right), new Line(rc.currentInputLine, rcright));
+       int startCol = min(mutleft, lcleft, fields.left, rcleft);
+       int endCol = max(mutleft + mut.len, lcleft + lc.len, fields.left + ((LexedValue) fields.value).len, rcleft + rc.len);
+
+      ImmutableMap<String, Expr> fieldsMap = ((LexedValue<ImmutableMap.Builder<String, Expr>>) fields.value).val.build();
+      RESULT = new StructExpr(fieldsMap.keySet().asList().reverse(), fieldsMap.values().asList().reverse(), /*isMutable=*/true,
+        currentLinesSupplier, rcright, startCol, endCol);
+    :}
+  ;
+
+// Note that we're again building this up backwards for convenience (remember that all guava collections respect ordering).
+struct_field_initializers_list ::=
+    IDENTIFIER:arg_name ASSIGNMENT:eq expr:e COMMA:comma struct_field_initializers_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(eq.currentInputLine, eqright), new Line(e.currentLine, e.currentLineNumber), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(arg_nameleft, eqleft, e.startCol, commaleft, tail.left);
+       int endCol = max(arg_nameleft + arg_name.len, eqleft + eq.len, e.endCol, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableMap.Builder<String, Expr>>) tail.value).val.put(arg_name.val, e),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:arg_name ASSIGNMENT:eq expr:e
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentInputLine, arg_nameright), new Line(eq.currentInputLine, eqright), new Line(e.currentLine, e.currentLineNumber));
+       int startCol = min(arg_nameleft, eqleft, e.startCol);
+       int endCol = max(arg_nameleft + arg_name.len, eqleft + eq.len, e.endCol);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          e.currentLineNumber, // line number
+          new LexedValue(
+            ImmutableMap.<String, Expr>builder().put(arg_name.val, e),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  ;
+
+struct_field_access_expr ::=
+    expr:e DOT:dot IDENTIFIER:id
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(e.currentLine, e.currentLineNumber), new Line(dot.currentInputLine, dotright), new Line(id.currentInputLine, idright));
+       int startCol = min(e.startCol, dotleft, idleft);
+       int endCol = max(e.endCol, dotleft + dot.len, idleft + id.len);
+
+      RESULT = new StructFieldAccessExpr(e, id.val, currentLinesSupplier, idright, startCol, endCol);
+    :}
+  ;
+
+struct_field_assignment_stmt ::=
+    struct_field_access_expr:field ASSIGNMENT expr:e SEMICOLON
+    {:
+      field.codegenForRead = false;
+      RESULT = new StructFieldAssignmentStmt(field, e);
+    :}
+  ;
+
 collection_subscript ::=
     // Support arbitrarily repeated subscripting. CollectionSubscriptExpr node will check that there's the right levels of
     // nesting available for the given number of subscripts in this specific context.
@@ -1648,41 +1756,6 @@ else_stmt ::=
 while_stmt ::=
     WHILE LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new WhileStmt(e, stmt_list); :}
-  ;
-
-struct_definition_stmt ::=
-    STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
-    {:
-       // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> fieldTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(name.val, fieldTypesMap, /*immutable=*/ false);
-    :}
-  | LCURLY function_args_types_list:backwards_field_types RCURLY
-    {:
-       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> fieldTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ false);
-    :}
-  | IMMUTABLE STRUCT_TYPE IDENTIFIER:name LCURLY function_args_types_list:backwards_field_types RCURLY
-    {:
-       // This is a named struct definition. You can construct multiple instances of this type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> fieldTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(name.val, fieldTypesMap, /*immutable=*/ true);
-    :}
-  | IMMUTABLE LCURLY function_args_types_list:backwards_field_types RCURLY
-    {:
-       // This is an anonymous struct definition. Can construct once, but it'll be a unique type.
-      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_field_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> fieldTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
-       RESULT = new StructDefinitionStmt(fieldTypesMap, /*immutable=*/ true);
-    :}
   ;
 
 function_definition_stmt ::=
@@ -3053,67 +3126,6 @@ consumer_function_call_stmt ::=
     {: RESULT = new ConsumerFunctionCallStmt(consumer_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse()); :}
   | IDENTIFIER:contract_name COLON_COLON IDENTIFIER:consumer_name LPAR:l args_list:args RPAR:r SEMICOLON
     {: RESULT = new ContractConsumerFunctionCallStmt(contract_name.val, consumer_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse()); :}
-  ;
-
-// TODO(steving) Generalize this to use the same approach as method calls.
-// TODO(steving) We have no classes yet - so do this once classes & methods exist.
-builder_full_build ::=
-    builder_method_call_expr:b DOTBUILD:d
-    {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(b), new Line(d.currentInputLine, dright));
-       int startCol = Math.min(b.startCol, dleft);
-       int endCol = Math.max(b.endCol, dleft + d.len);
-       RESULT = new BuilderFullBuildMethodCallExpr(b, currentLinesSupplier, dright, startCol, endCol);
-    :}
-  ;
-
-builder_method_call_expr ::=
-    IDENTIFIER:built_type_name DOT:d BUILDER:b LPAR:l RPAR:r
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(built_type_name.currentInputLine, built_type_nameright), new Line(d.currentInputLine, dright), new Line(b.currentInputLine, bright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
-       int startCol = min(built_type_nameleft, dleft, bleft, lleft, rleft);
-       int endCol = max(built_type_nameleft + built_type_name.len, dleft + d.len, bleft + b.len, lleft + l.len, rleft + r.len);
-       RESULT = new BuilderMethodCallExpr(built_type_name.val, currentLinesSupplier, rright, startCol, endCol);
-    :}
-  | IDENTIFIER:built_type_name DOT:d BUILDER:b LPAR:l RPAR:r builder_setter_chain:set_field_values
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(built_type_name.currentInputLine, built_type_nameright), new Line(d.currentInputLine, dright), new Line(b.currentInputLine, bright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright), new Line(set_field_values));
-       int startCol = min(built_type_nameleft, dleft, bleft, lleft, rleft, set_field_valuesleft);
-       int endCol = max(built_type_nameleft + built_type_name.len, dleft + d.len, bleft + b.len, lleft + l.len, rleft + r.len, set_field_values.left + ((LexedValue)set_field_values.value).len);
-       RESULT = new BuilderMethodCallExpr(built_type_name.val, ((LexedValue<ImmutableMap.Builder<String, Expr>>)set_field_values.value).val.build(), currentLinesSupplier, set_field_valuesright, startCol, endCol);
-    :}
-  ;
-
-builder_setter_call ::=
-    DOT:dot IDENTIFIER:set_field_name LPAR:lpar expr:e RPAR:rpar
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(dot.currentInputLine, dotright), new Line(set_field_name.currentInputLine, set_field_nameright), new Line(lpar.currentInputLine, lparright), new Line(e), new Line(lpar.currentInputLine, lparright));
-       int startCol = min(dotleft, set_field_nameleft, lparleft, e.startCol, rparleft);
-       int endCol = max(dotleft + dot.len, set_field_nameleft + set_field_name.len, lparleft + lpar.len, e.endCol, rparleft + rpar.len);
-       RESULT = new Symbol(
-          -1,
-          startCol,
-          rparright, // rpar's line number
-          new LexedValue(
-            ImmutableMap.<String, Expr>builder().put(set_field_name.val, e),
-            currentLinesSupplier,
-            endCol - startCol)
-       );
-    :}
-  ;
-
-builder_setter_chain ::=
-    builder_setter_call:head builder_setter_chain:tail
-    {:
-       ImmutableMap.Builder<String, Expr> headMapBuilder = ((LexedValue<ImmutableMap.Builder<String, Expr>>)head.value).val;
-       ImmutableMap<String, Expr> tailMap = ((LexedValue<ImmutableMap.Builder<String, Expr>>)tail.value).val.build();
-       RESULT = chainSymbols(headMapBuilder.putAll(tailMap), head, tail);
-    :}
-  | builder_setter_call:setter_call
-    {: RESULT = setter_call; :}
   ;
 
 inequality ::=

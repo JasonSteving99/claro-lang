@@ -27,57 +27,8 @@ public enum BaseType {
   ),
   // Structure of associated values.
   STRUCT(
-      "%s{%s}", // E.g. struct{i: int, s: string}.
-      "%s", // E.g. Foo.
-      // We're defining structs in java source using Lombok's @Data to inherit hashcode and equality checking for free.
-      "" +
-      // TODO(steving) Standardize the toString representation with the interpreted output..
-      "@ToString(includeFieldNames=true)\n" +
-      "@Data\n" +
-      "@EqualsAndHashCode(callSuper=false)\n" +
-      "@Builder(builderClassName = \"Builder\", builderMethodName = \"\")\n" +
-      "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
-      "  public static final Types.StructType claroType = %s;\n" +
-      "%s\n" +
-      "  public static Builder builder() {\n" +
-      "    return new Builder();\n" +
-      "  }\n" +
-      "  public Type getClaroType() {\n" +
-      "    return claroType;\n" +
-      "  }\n" +
-      "  public static class Builder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
-      "    public Type getClaroType() {\n" +
-      "      return Types.BuilderType.forStructType(claroType);\n" +
-      "    }\n" +
-      "  }\n" +
-      "}\n\n"
-  ),
-  // Immutable structure of associated values.
-  IMMUTABLE_STRUCT(
-      "immutable %s{%s}", // E.g. immutable struct{i: int, s: string}.
-      "%s", // E.g. ClaroImmutableStruct.
-      // We're defining structs in java source using Lombok's @Value to inherit immutability and equality checking free.
-      "" +
-      // TODO(steving) Standardize the toString representation with the interpreted output..
-      "@ToString(includeFieldNames=true)\n" +
-      "@Value\n" +
-      "@EqualsAndHashCode(callSuper=false)\n" +
-      "@Builder(builderClassName = \"Builder\", builderMethodName = \"\")\n" +
-      "static class %s extends ClaroUserDefinedTypeImplementation {\n" +
-      "  public static final Types.StructType claroType = %s;\n" +
-      "%s\n" +
-      "  public static Builder builder() {\n" +
-      "    return new Builder();\n" +
-      "  }\n" +
-      "  public Type getClaroType() {\n" +
-      "    return claroType;\n" +
-      "  }\n" +
-      "  public static class Builder implements ClaroUserDefinedTypeImplementationBuilder<%s> {\n" +
-      "    public Type getClaroType() {\n" +
-      "      return Types.BuilderType.forStructType(claroType);\n" +
-      "    }\n" +
-      "  }\n" +
-      "}\n\n"
+      "struct{%s}", // E.g. struct{i: int, s: string}.
+      "ClaroStruct"
   ),
   // TODO(steving) Decide whether Optional<T> should really just be a oneof Type defined something like oneof<T, None> where None is the empty struct None {}.
   OPTIONAL, // A type wrapping one of the other Types in a boolean indicating presence.
