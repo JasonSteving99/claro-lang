@@ -1,45 +1,47 @@
-package com.claro.intermediate_representation.expressions;
+package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
-import com.claro.intermediate_representation.statements.Stmt;
-import com.claro.intermediate_representation.types.*;
+import com.claro.intermediate_representation.Node.GeneratedJavaSource;
+import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
+import com.claro.intermediate_representation.types.BaseType;
+import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
-public class AutomaticErrorPropagationExpr extends Expr {
+public class AutomaticErrorPropagationStmt {
   private static long autoCheckedVariableCount = 0;
   private final long uniqueId;
+  private final Optional<Type> optionalAssertedNonErrorType;
   private final Expr returnExpr;
-  private final AtomicReference<TypeProvider> expectedTypeProvider;
 
 
   private Type validatedExprType;
   private Optional<Type> narrowedToConcreteType = Optional.empty();
   private ImmutableList<Type> possibleErrorTypes;
 
-  public AutomaticErrorPropagationExpr(Expr returnExpr, AtomicReference<TypeProvider> expectedTypeProvider, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
-    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+  public AutomaticErrorPropagationStmt(Optional<Type> optionalAssertedNonErrorType, Expr returnExpr) {
+    this.optionalAssertedNonErrorType = optionalAssertedNonErrorType;
     this.returnExpr = returnExpr;
-    this.expectedTypeProvider = expectedTypeProvider;
 
     // Make sure that every instantiation of this class triggers an increment to this so that we ensure we have unique
     // generated var names at codegen time.
-    this.uniqueId = AutomaticErrorPropagationExpr.autoCheckedVariableCount++;
+    this.uniqueId = AutomaticErrorPropagationStmt.autoCheckedVariableCount++;
   }
 
-  @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Type validatedExprType = this.returnExpr.getValidatedExprType(scopedHeap);
     // Checked type has to be a oneof type to do automatic error propagation (otherwise programmer should just use
     // explicit return).
     if (!validatedExprType.baseType().equals(BaseType.ONEOF)) {
       // Log and move on nicely.
-      this.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagation(validatedExprType));
+      this.returnExpr.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagation(validatedExprType));
       // We haven't actually done any error propagation, so this can just return the original type (for the sake of
       // moving on with type checking) because essentially in this case what I *want* the programmer to do is to simply
       // delete the `?`.
@@ -50,7 +52,7 @@ public class AutomaticErrorPropagationExpr extends Expr {
     // Ok, so we have a oneof, but it must have at least one variant that's an `Error<T>` and one non-error variant.
     if (validatedOneofType.getVariantTypes().stream().noneMatch(ClaroRuntimeUtilities::isErrorType)
         || validatedOneofType.getVariantTypes().stream().allMatch(ClaroRuntimeUtilities::isErrorType)) {
-      this.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagation(validatedOneofType));
+      this.returnExpr.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagation(validatedOneofType));
       return validatedOneofType;
     }
 
@@ -59,7 +61,7 @@ public class AutomaticErrorPropagationExpr extends Expr {
     if (!InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType.isPresent()
         ||
         !((Types.ProcedureType) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureResolvedType.get()).hasReturnValue()) {
-      this.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationOutsideOfProcedureBody());
+      this.returnExpr.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationOutsideOfProcedureBody());
       return validatedOneofType;
     }
     Type activeProcedureReturnType =
@@ -70,7 +72,7 @@ public class AutomaticErrorPropagationExpr extends Expr {
       if (validatedOneofType.getVariantTypes().stream()
           .filter(ClaroRuntimeUtilities::isErrorType)
           .anyMatch(t -> !((Types.OneofType) activeProcedureReturnType).getVariantTypes().contains(t))) {
-        this.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationForUnsupportedReturnType(validatedOneofType, activeProcedureReturnType));
+        this.returnExpr.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationForUnsupportedReturnType(validatedOneofType, activeProcedureReturnType));
         return validatedOneofType;
       }
     } else if (
@@ -81,7 +83,7 @@ public class AutomaticErrorPropagationExpr extends Expr {
             .equals(activeProcedureReturnType)) {
       // If there's only a concrete type accepted, then there must only be a single possible error type, and it must
       // match the return type exactly.
-      this.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationForUnsupportedReturnType(validatedOneofType, activeProcedureReturnType));
+      this.returnExpr.logTypeError(ClaroTypeException.forIllegalAutomaticErrorPropagationForUnsupportedReturnType(validatedOneofType, activeProcedureReturnType));
       return validatedOneofType;
     }
 
@@ -104,16 +106,35 @@ public class AutomaticErrorPropagationExpr extends Expr {
               .findFirst()
               .get()
       );
+      // If type assertion is requested, then check that now.
+      if (this.optionalAssertedNonErrorType.isPresent()
+          && !this.optionalAssertedNonErrorType.get().equals(this.narrowedToConcreteType.get())) {
+        this.returnExpr.logTypeError(
+            new ClaroTypeException(this.narrowedToConcreteType.get(), this.optionalAssertedNonErrorType.get()));
+      }
       return this.narrowedToConcreteType.get();
     }
     // There is more than one non-error variant, so the resulting type is still a oneof.
-    return Types.OneofType.forVariantTypes(
+    Type res = Types.OneofType.forVariantTypes(
         validatedOneofType.getVariantTypes().stream()
             .filter(t -> !ClaroRuntimeUtilities.isErrorType(t))
             .collect(ImmutableList.toImmutableList()));
+
+    if (this.optionalAssertedNonErrorType.isPresent()) {
+      try {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            Maps.newHashMap(),
+            this.optionalAssertedNonErrorType.get(),
+            res
+        );
+      } catch (ClaroTypeException e) {
+        this.returnExpr.logTypeError(e);
+      }
+    }
+
+    return res;
   }
 
-  @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // First, do codegen for the underlying expr, so we can hold onto its static codegen at the end.
     GeneratedJavaSource exprGenJavaSource = this.returnExpr.generateJavaSourceOutput(scopedHeap);
@@ -168,7 +189,6 @@ public class AutomaticErrorPropagationExpr extends Expr {
         .createMerged(exprGenJavaSource);
   }
 
-  @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     throw new RuntimeException("Internal Compiler Error: Automatic Error Propagation via `?` operator is not yet supported in the interpreted backend.");
   }

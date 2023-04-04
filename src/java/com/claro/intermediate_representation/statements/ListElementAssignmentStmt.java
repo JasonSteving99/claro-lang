@@ -9,6 +9,8 @@ import com.claro.intermediate_representation.types.impls.builtins_impls.collecti
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
+
 public class ListElementAssignmentStmt extends Stmt {
 
   private static final ImmutableSet<BaseType> SUPPORTED_EXPR_BASE_TYPES =
@@ -17,6 +19,8 @@ public class ListElementAssignmentStmt extends Stmt {
           BaseType.TUPLE,
           BaseType.MAP
       );
+  private final boolean errorProp;
+  private Optional<AutomaticErrorPropagationStmt> optionalAutomaticErrorPropagationStmt = Optional.empty();
 
   public ListElementAssignmentStmt(CollectionSubscriptExpr collectionSubscriptExpr, Expr e) {
     super(
@@ -29,6 +33,21 @@ public class ListElementAssignmentStmt extends Stmt {
             e
         )
     );
+    this.errorProp = false;
+  }
+
+  public ListElementAssignmentStmt(CollectionSubscriptExpr collectionSubscriptExpr, Expr e, boolean errorProp) {
+    super(
+        ImmutableList.of(
+            /*listExpr=*/
+            collectionSubscriptExpr.getChildren().get(0),
+            /*subscriptExpr=*/
+            collectionSubscriptExpr.getChildren().get(1),
+            /*assignedValueExpr=*/
+            e
+        )
+    );
+    this.errorProp = errorProp;
   }
 
   @Override
@@ -61,10 +80,20 @@ public class ListElementAssignmentStmt extends Stmt {
     if (listExprType.baseType().equals(BaseType.MAP)) {
       ((Expr) this.getChildren().get(1)).assertExpectedExprType(
           scopedHeap, listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS));
-      ((Expr) this.getChildren().get(2)).assertExpectedExprType(
-          scopedHeap,
-          listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)
-      );
+      if (!this.errorProp) {
+        ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+            scopedHeap,
+            listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)
+        );
+      } else {
+        this.optionalAutomaticErrorPropagationStmt =
+            Optional.of(
+                new AutomaticErrorPropagationStmt(
+                    Optional.of(listExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)),
+                    (Expr) this.getChildren().get(2)
+                ));
+        this.optionalAutomaticErrorPropagationStmt.get().getValidatedExprType(scopedHeap);
+      }
     } else if (listExprType.baseType().equals(BaseType.TUPLE)) {
       Expr subscriptExpr = (Expr) this.getChildren().get(1);
       if (!(subscriptExpr instanceof IntegerTerm)) { // Tuples can only be subscripted for re-assignment using a literal.
@@ -77,29 +106,46 @@ public class ListElementAssignmentStmt extends Stmt {
           subscriptExpr.logTypeError(
               ClaroTypeException.forTupleIndexOutOfBounds(listExprType, tupleTypes.size(), subscriptValue));
         } else {
-          ((Expr) this.getChildren().get(2)).assertExpectedExprType(
-              scopedHeap,
-              tupleTypes.get(subscriptValue)
-          );
+          if (!this.errorProp) {
+            ((Expr) this.getChildren().get(2)).assertExpectedExprType(
+                scopedHeap,
+                tupleTypes.get(subscriptValue)
+            );
+          } else {
+            this.optionalAutomaticErrorPropagationStmt =
+                Optional.of(
+                    new AutomaticErrorPropagationStmt(
+                        Optional.of(tupleTypes.get(subscriptValue)),
+                        (Expr) this.getChildren().get(2)
+                    ));
+            this.optionalAutomaticErrorPropagationStmt.get().getValidatedExprType(scopedHeap);
+          }
         }
       }
     } else {
       ((Expr) this.getChildren().get(1)).assertExpectedExprType(scopedHeap, Types.INTEGER);
       Type listElementType = ((Types.Collection) listExprType).getElementType();
-      if (listElementType.baseType().equals(BaseType.ONEOF)) {
-        // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
-        // by this particular oneof instance.
-        ((Expr) this.getChildren().get(2)).assertSupportedExprType(
-            scopedHeap,
-            ImmutableSet.<Type>builder().addAll(((Types.OneofType) listElementType).getVariantTypes())
-                .add(listElementType)
-                .build()
-        );
+      if (!this.errorProp) {
+        if (listElementType.baseType().equals(BaseType.ONEOF)) {
+          // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
+          // by this particular oneof instance.
+          ((Expr) this.getChildren().get(2)).assertSupportedExprType(
+              scopedHeap,
+              ImmutableSet.<Type>builder().addAll(((Types.OneofType) listElementType).getVariantTypes())
+                  .add(listElementType)
+                  .build()
+          );
+        } else {
+          ((Expr) this.getChildren().get(2)).assertExpectedExprType(scopedHeap, listElementType);
+        }
       } else {
-        ((Expr) this.getChildren().get(2)).assertExpectedExprType(
-            scopedHeap,
-            ((Types.Collection) listExprType).getElementType()
-        );
+        this.optionalAutomaticErrorPropagationStmt =
+            Optional.of(
+                new AutomaticErrorPropagationStmt(
+                    Optional.of(listElementType),
+                    (Expr) this.getChildren().get(2)
+                ));
+        this.optionalAutomaticErrorPropagationStmt.get().getValidatedExprType(scopedHeap);
       }
     }
   }
@@ -108,7 +154,12 @@ public class ListElementAssignmentStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource genJavaSource0 = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
     GeneratedJavaSource genJavaSource1 = this.getChildren().get(1).generateJavaSourceOutput(scopedHeap);
-    GeneratedJavaSource genJavaSource2 = this.getChildren().get(2).generateJavaSourceOutput(scopedHeap);
+    GeneratedJavaSource genJavaSource2;
+    if (!this.errorProp) {
+      genJavaSource2 = this.getChildren().get(2).generateJavaSourceOutput(scopedHeap);
+    } else {
+      genJavaSource2 = this.optionalAutomaticErrorPropagationStmt.get().generateJavaSourceOutput(scopedHeap);
+    }
 
     GeneratedJavaSource resGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder(
@@ -132,12 +183,17 @@ public class ListElementAssignmentStmt extends Stmt {
   @SuppressWarnings("unchecked")
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // Put the computed value of this specified List element directly into ArrayList in the heap.
-    ((ClaroList<Object>) this.getChildren().get(0).generateInterpretedOutput(scopedHeap))
-        .set(
-            (int) this.getChildren().get(1).generateInterpretedOutput(scopedHeap),
-            this.getChildren().get(2).generateInterpretedOutput(scopedHeap)
-        );
+    if (!this.errorProp) {
+      // Put the computed value of this specified List element directly into ArrayList in the heap.
+      ((ClaroList<Object>) this.getChildren().get(0).generateInterpretedOutput(scopedHeap))
+          .set(
+              (int) this.getChildren().get(1).generateInterpretedOutput(scopedHeap),
+              this.getChildren().get(2).generateInterpretedOutput(scopedHeap)
+          );
+    } else {
+      // TODO(steving) Will need to support early returns here once I get back to supporting the interpreted backend.
+      throw new RuntimeException("Internal Compiler Error: Automatic Error Propagating collection element assignment stmts are not yet supported in the interpreted backend!");
+    }
     return null;
   }
 }

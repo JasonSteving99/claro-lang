@@ -16,6 +16,8 @@ public class DeclarationStmt extends Stmt {
 
   // Only oneof these should be set.
   private final Optional<TypeProvider> optionalIdentifierDeclaredTypeProvider;
+  private final boolean errorProp;
+  private Optional<AutomaticErrorPropagationStmt> optionalAutomaticErrorPropagationStmt = Optional.empty();
   private Type identifierValidatedInferredType;
 
   // Determines whether this variable declaration should allow variable hiding or not. This is not always desirable,
@@ -31,11 +33,16 @@ public class DeclarationStmt extends Stmt {
   }
 
   public DeclarationStmt(String identifier, Expr e, boolean blocking) {
+    this(identifier, e, blocking, /*errorProp=*/false);
+  }
+
+  public DeclarationStmt(String identifier, Expr e, boolean blocking, boolean errorProp) {
     super(ImmutableList.of(e));
     this.IDENTIFIER = identifier;
     this.optionalIdentifierDeclaredTypeProvider = Optional.empty();
     this.allowVariableHiding = false;
     this.blocking = blocking;
+    this.errorProp = errorProp;
   }
 
   // Allow typed declarations with initialization.
@@ -55,6 +62,17 @@ public class DeclarationStmt extends Stmt {
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
     this.allowVariableHiding = allowVariableHiding;
     this.blocking = blocking;
+    this.errorProp = false;
+  }
+
+  public DeclarationStmt(
+      String identifier, TypeProvider declaredTypeProvider, Expr e, boolean allowVariableHiding, boolean blocking, boolean errorProp) {
+    super(ImmutableList.of(e));
+    this.IDENTIFIER = identifier;
+    this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
+    this.allowVariableHiding = allowVariableHiding;
+    this.blocking = blocking;
+    this.errorProp = errorProp;
   }
 
   // Allow typed declarations without initialization.
@@ -64,6 +82,7 @@ public class DeclarationStmt extends Stmt {
     this.optionalIdentifierDeclaredTypeProvider = Optional.of(declaredTypeProvider);
     this.allowVariableHiding = false;
     this.blocking = false;
+    this.errorProp = false;
   }
 
   @Override
@@ -78,7 +97,14 @@ public class DeclarationStmt extends Stmt {
     if (optionalIdentifierDeclaredTypeProvider.isPresent()) {
       Type declaredType = optionalIdentifierDeclaredTypeProvider.get().resolveType(scopedHeap);
       if (!this.getChildren().isEmpty()) {
-        if (declaredType.baseType().equals(BaseType.ONEOF)) {
+        if (this.errorProp) {
+          // Actually will just defer error propagation handling to AutomaticErrorPropagationStmt.java.
+          this.optionalAutomaticErrorPropagationStmt =
+              Optional.of(
+                  new AutomaticErrorPropagationStmt(Optional.of(declaredType), (Expr) this.getChildren().get(0))
+              );
+          declaredType = this.optionalAutomaticErrorPropagationStmt.get().getValidatedExprType(scopedHeap);
+        } else if (declaredType.baseType().equals(BaseType.ONEOF)) {
           // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
           // by this particular oneof instance.
           ((Expr) this.getChildren().get(0)).assertSupportedExprType(
@@ -97,6 +123,18 @@ public class DeclarationStmt extends Stmt {
       }
       scopedHeap.observeIdentifier(this.IDENTIFIER, declaredType);
     } else {
+      if (this.errorProp) {
+        // Actually will just defer error propagation handling to AutomaticErrorPropagationStmt.java.
+        this.optionalAutomaticErrorPropagationStmt =
+            Optional.of(
+                new AutomaticErrorPropagationStmt(Optional.empty(), (Expr) this.getChildren().get(0))
+            );
+        this.identifierValidatedInferredType =
+            this.optionalAutomaticErrorPropagationStmt.get().getValidatedExprType(scopedHeap);
+        scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);
+        scopedHeap.initializeIdentifier(this.IDENTIFIER);
+        return;
+      }
       try {
         // Infer the identifier's type only the first time it's assigned to.
         this.identifierValidatedInferredType = ((Expr) this.getChildren().get(0)).getValidatedExprType(scopedHeap);
@@ -146,7 +184,13 @@ public class DeclarationStmt extends Stmt {
       // need to worry about other code branches where the identifier may not have been initialized yet.
       scopedHeap.initializeIdentifier(this.IDENTIFIER);
 
-      exprGeneratedJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+      if (this.errorProp) {
+        // Actually defer the codegen to the AutomaticErrorPropagationStmt if we're doing error propagation.
+        exprGeneratedJavaSource =
+            this.optionalAutomaticErrorPropagationStmt.get().generateJavaSourceOutput(scopedHeap);
+      } else {
+        exprGeneratedJavaSource = this.getChildren().get(0).generateJavaSourceOutput(scopedHeap);
+      }
       res.append(
           String.format(
               " = %s%s",
@@ -163,27 +207,36 @@ public class DeclarationStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    Type identifierValidatedType =
-        optionalIdentifierDeclaredTypeProvider.orElse((unused) -> identifierValidatedInferredType)
-            .resolveType(scopedHeap);
+    if (!this.errorProp) {
+      Type identifierValidatedType =
+          optionalIdentifierDeclaredTypeProvider.orElse((unused) -> identifierValidatedInferredType)
+              .resolveType(scopedHeap);
 
-    // Put the declared variable directly in the heap, with its computed value if initialized.
-    if (this.getChildren().isEmpty()) {
-      if (allowVariableHiding) {
-        scopedHeap.putIdentifierValueAllowingHiding(this.IDENTIFIER, identifierValidatedType, null);
+      // Put the declared variable directly in the heap, with its computed value if initialized.
+      if (this.getChildren().isEmpty()) {
+        if (allowVariableHiding) {
+          scopedHeap.putIdentifierValueAllowingHiding(this.IDENTIFIER, identifierValidatedType, null);
+        } else {
+          scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
+        }
       } else {
-        scopedHeap.putIdentifierValue(this.IDENTIFIER, identifierValidatedType);
+        if (allowVariableHiding) {
+          scopedHeap.putIdentifierValueAllowingHiding(
+              this.IDENTIFIER, identifierValidatedType, this.getChildren()
+                  .get(0)
+                  .generateInterpretedOutput(scopedHeap));
+        } else {
+          scopedHeap.putIdentifierValue(
+              this.IDENTIFIER, identifierValidatedType, this.getChildren()
+                  .get(0)
+                  .generateInterpretedOutput(scopedHeap));
+        }
+        scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
+      return null;
     } else {
-      if (allowVariableHiding) {
-        scopedHeap.putIdentifierValueAllowingHiding(
-            this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
-      } else {
-        scopedHeap.putIdentifierValue(
-            this.IDENTIFIER, identifierValidatedType, this.getChildren().get(0).generateInterpretedOutput(scopedHeap));
-      }
-      scopedHeap.initializeIdentifier(this.IDENTIFIER);
+      // TODO(steving) Will need to support early returns here once I get back to supporting the interpreted backend.
+      throw new RuntimeException("Internal Compiler Error: Automatic Error Propagating declaration stmts are not yet supported in the interpreted backend!");
     }
-    return null;
   }
 }

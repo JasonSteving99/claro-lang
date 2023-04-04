@@ -167,7 +167,7 @@ WhiteSpace     = [ \t\f]
     "else"             { return symbol(Calc.ELSE, 0, 4, "else"); }
     "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
     "return"           { return symbol(Calc.RETURN, 0, 6, "return"); }
-    "?"                { return symbol(Calc.QUESTION_MARK, 0, 1, "?"); }
+    "?="               { return symbol(Calc.QUESTION_MARK_ASSIGNMENT, 0, 2, "?="); }
 
     // Builtin functions are currently processed at the grammar level.. maybe there's a better generalized way.
     "log_"             { return symbol(Calc.LOG_PREFIX, 0, 4, "log_"); }

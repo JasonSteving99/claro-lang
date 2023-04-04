@@ -23,6 +23,7 @@ java_library(
         "UsingBlockStmt.java",
         "ModuleDefinitionStmt.java",
         "BindStmt.java",
+        "AutomaticErrorPropagationStmt.java",
     ],
     deps = [
         ":stmt",
@@ -32,11 +33,13 @@ java_library(
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/expressions/term",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:structural_concrete_generic_type_validation_util",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
+        "//src/java/com/claro/runtime_utilities",
         "//src/java/com/claro/internal_static_state:internal_static_state",
         "//src/java/com/claro/runtime_utilities/injector",
         "//src/java/com/claro/runtime_utilities/injector:key",
@@ -60,6 +63,7 @@ java_library(
             "ModuleDefinitionStmt.java",
             "ConsumerFunctionDefinitionStmt.java",
             "BindStmt.java",
+            "AutomaticErrorPropagationStmt.java",
         ]
     ),
     deps = [

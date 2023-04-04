@@ -190,6 +190,9 @@ public abstract class Expr extends Node {
   }
 
   public void logTypeError(Exception e) {
+    if (true) {
+      throw new RuntimeException(e);
+    }
     Expr.typeErrorsFound.push(
         (filename) -> {
           System.err.println(

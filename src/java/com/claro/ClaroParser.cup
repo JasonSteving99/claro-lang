@@ -310,7 +310,7 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
-terminal LexedValue<String>  RETURN, QUESTION_MARK;
+terminal LexedValue<String>  RETURN, QUESTION_MARK_ASSIGNMENT;
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  DOT;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
@@ -405,7 +405,6 @@ nonterminal PipeChainStmt                      pipe_chain_stmt;
 //  need to reference a generated identifier for an intermediate temporary.
 nonterminal ImmutableList<Object>              pipe_chain;
 nonterminal ReturnStmt                         return_stmt;
-nonterminal AutomaticErrorPropagationExpr      automatic_error_propagation_expr;
 nonterminal FunctionCallExpr                   function_call_expr;
 nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
 nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
@@ -444,7 +443,7 @@ precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
 precedence left WHILE;
-precedence left QUESTION_MARK;
+precedence left QUESTION_MARK_ASSIGNMENT;
 precedence left DOT;
 
 // This is where the grammar starts.
@@ -631,9 +630,15 @@ identifier_declaration ::=
 
   // Blocking variants.
   | VAR IDENTIFIER:identifier COLON builtin_type:t BLOCKING_GET expr:e SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e, /*allowVariableHiding=*/false, /*blocking=*/true); :}
+    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e, /*allowVariableHiding=*/false, /*blocking=*/true, /*errorProp=*/false); :}
   | VAR IDENTIFIER:identifier BLOCKING_GET expr:e SEMICOLON
-    {: RESULT = new DeclarationStmt(identifier.val, e, /*blocking=*/true); :}
+    {: RESULT = new DeclarationStmt(identifier.val, e, /*blocking=*/true, /*errorProp=*/false); :}
+
+  // Automatic error propagation variants.
+  | VAR IDENTIFIER:identifier COLON builtin_type:t QUESTION_MARK_ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier.val, ((LexedValue<TypeProvider>) t.value).val, e, /*allowVariableHiding=*/false, /*blocking=*/false, /*errorProp=*/true); :}
+  | VAR IDENTIFIER:identifier QUESTION_MARK_ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new DeclarationStmt(identifier.val, e, /*blocking=*/false, /*errorProp=*/true); :}
   ;
 
 alias_stmt ::=
@@ -1157,34 +1162,10 @@ identifier_assignment ::=
   ;
 
 trashcan_assignment ::=
-    UNDERSCORE ASSIGNMENT identifier:identifier SEMICOLON
-    {: RESULT = new TrashcanAssignmentStmt(identifier); :}
-  | UNDERSCORE ASSIGNMENT function_call_expr:function_call SEMICOLON
-    {: RESULT = new TrashcanAssignmentStmt(function_call); :}
-  | UNDERSCORE ASSIGNMENT provider_function_call_expr:provider_call SEMICOLON
-    {: RESULT = new TrashcanAssignmentStmt(provider_call); :}
-  | UNDERSCORE ASSIGNMENT input:input_call SEMICOLON
-    {: RESULT = new TrashcanAssignmentStmt(input_call); :}
-
-  | // These only exist to allow you to still call procedures with return type generics.
-    UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp function_call_expr:function_call SEMICOLON
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(function_call.currentLine, function_call.currentLineNumber));
-       int startCol = min(lpleft, asserted_type.left, rpleft, function_call.startCol);
-       int endCol = max(lpleft + lp.len, asserted_type.left + ((LexedValue)asserted_type.value).len, rpleft + rp.len, function_call.endCol);
-
-       RESULT = new TrashcanAssignmentStmt(new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, function_call, currentLinesSupplier, function_call.currentLineNumber, startCol, endCol));
-    :}
-  | UNDERSCORE ASSIGNMENT LPAR:lp builtin_type:asserted_type RPAR:rp provider_function_call_expr:provider_call SEMICOLON
-    {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(lp.currentInputLine, lpright), new Line(((LexedValue)asserted_type.value).currentInputLine, asserted_type.right), new Line(rp.currentInputLine, rpright), new Line(provider_call.currentLine, provider_call.currentLineNumber));
-       int startCol = min(lpleft, asserted_type.left, rpleft, provider_call.startCol);
-       int endCol = max(lpleft + lp.len, asserted_type.left + ((LexedValue)asserted_type.value).len, rpleft + rp.len, provider_call.endCol);
-
-       RESULT = new TrashcanAssignmentStmt(new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, provider_call, currentLinesSupplier, provider_call.currentLineNumber, startCol, endCol));
-    :}
+    UNDERSCORE ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(e); :}
+  | UNDERSCORE QUESTION_MARK_ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new TrashcanAssignmentStmt(e, /*errorProp=*/true); :}
   ;
 
 identifier_increment_stmt ::=
@@ -1242,6 +1223,8 @@ identifier_decrement ::=
 list_element_assignment ::=
     collection_subscript:l ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new ListElementAssignmentStmt(l, e); :}
+  | collection_subscript:l QUESTION_MARK_ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new ListElementAssignmentStmt(l, e, /*errorProp=*/true); :}
   ;
 
 list_append_stmt ::=
@@ -1383,8 +1366,6 @@ expr ::=
 
        RESULT = new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, casted_expr, currentLinesSupplier, casted_expr.currentLineNumber, startCol, endCol);
     :}
-  | automatic_error_propagation_expr:a
-    {: RESULT = a; :}
   | error:e
     // TODO(steving) This is super helpful, do the same thing for stmts.
     // There's been some syntax error in an expression somewhere.. meaning that this expression is getting thrown away
@@ -2582,26 +2563,6 @@ return_stmt ::=
         returnTypeHolder = new AtomicReference<>(); // Start it off empty.
       }
       RESULT = new ReturnStmt(e, returnTypeHolder);
-    :}
-  ;
-
-automatic_error_propagation_expr ::=
-    expr:e QUESTION_MARK:q
-    {:
-      // Automatic Error Propagation is effectively just syntactic sugar for a conditional return, so must handle return
-      // stmt setup the same as all other vanilla return stmts.
-      // All ReturnStmts belonging to the same procedure expect the same return type. Use this container to
-      // act as a placeholder for the procedure to inject that context once the parsing bubbles back up.
-      if (returnTypeHolder == null) {
-        returnTypeHolder = new AtomicReference<>(); // Start it off empty.
-      }
-
-      Supplier<String> currentLine =
-        joinExprLines(new Line(e.currentLine, e.currentLineNumber), new Line(q.currentInputLine, qright));
-      int startCol = min(e.startCol, qleft);
-      int endCol = max(e.endCol, qleft + q.len);
-
-      RESULT = new AutomaticErrorPropagationExpr(e, returnTypeHolder, currentLine, qright, startCol, endCol);
     :}
   ;
 

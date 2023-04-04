@@ -313,7 +313,7 @@ print("Testing calling contract consumer from within generic procedure def");
 requires(Consumes<T>, BinaryMathOps<T, T, T>)
 consumer genericConsumer<T>(t: T) {
   Consumes::prefixPrint("DEFERRED", t);
-  _ = (T) BinaryMathOps::add(t, t);
+  _ = cast(T, BinaryMathOps::add(t, t));
 }
 genericConsumer(3);
 genericConsumer("three");

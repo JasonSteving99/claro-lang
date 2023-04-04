@@ -10,9 +10,16 @@ function failIfNegative(x: int) -> oneof<int, Error<int>> {
 }
 
 function testAutomaticErrorPropagation(x: int) -> oneof<int, Error<int>> {
-  var validatedInt = failIfNegative(x)?;
+  var validatedInt: int ?= failIfNegative(x);
   print("Validated that {validatedInt} is not negative!");
   return validatedInt;
+}
+
+# The above function could also have used this alt impl, though as a matter of taste, I'd call it uglier.
+function ALTERNATETestAutomaticErrorPropagation(x: int) -> oneof<int, Error<int>> {
+  _ ?= failIfNegative(x);
+  print("Validated that {x} is not negative!");
+  return x;
 }
 
 consumer logIfError<Good, Bad>(x: oneof<Good, Error<Bad>>) {
