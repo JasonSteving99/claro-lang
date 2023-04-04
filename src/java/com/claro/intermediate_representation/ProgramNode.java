@@ -486,6 +486,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.TypeProvider;\n" +
             "import com.claro.intermediate_representation.types.Types;\n" +
             "import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +

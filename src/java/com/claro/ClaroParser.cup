@@ -275,6 +275,7 @@ terminal LexedValue<String>  OR, AND, NOT;
 terminal LexedValue<String>  IN;
 terminal LexedValue<String>  INSTANCEOF;
 terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW, IMPLICATION_ARROW;
+terminal LexedValue<String>  NOTHING;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
@@ -306,7 +307,7 @@ terminal LexedValue<String>  APPEND;
 terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
-terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
+terminal LexedValue<String>  NOTHING_TYPE, INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
@@ -727,7 +728,19 @@ builtin_type ::=
   ;
 
 base_builtin_type_without_mutability_modifier ::=
-    INT_TYPE:t
+    NOTHING_TYPE:n
+    {:
+       RESULT = new Symbol(
+          -1,
+          nleft,
+          nright, // line number
+          new LexedValue(
+            ImmediateTypeProvider.of(Types.NothingType.get()),
+            n.currentInputLine,
+            n.len)
+       );
+    :}
+  | INT_TYPE:t
     {:
        RESULT = new Symbol(
           -1,
@@ -3205,7 +3218,9 @@ identifier ::=
   ;
 
 primitive ::=
-    float:f
+    NOTHING:n
+    {: RESULT = new NothingTerm(n.currentInputLine, nright, nleft, nleft + n.len); :}
+  | float:f
     {: RESULT = f; :}
   | integer:i
     {: RESULT = i; :}

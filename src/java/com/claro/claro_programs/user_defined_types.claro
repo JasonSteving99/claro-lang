@@ -85,13 +85,6 @@ Foo::bar(someCustomInt);
 # no matter what, if you have an instance of `EvenInt`, you know for a fact that the wrapped `int` is even.
 ########################################################################################################################
 
-newtype NothingType : boolean
-initializers NothingType {
-  provider Nothing() -> NothingType {
-    return NothingType(false);
-  }
-}
-
 newtype EvenInt : int
 
 initializers EvenInt {
@@ -376,11 +369,8 @@ print(myIntOrList);
 ########################################################################################################################
 
 newtype Maybe<T> : oneof<T, NothingType>
-#newtype Maybe<T> : [T]
 
-#var m = Maybe([10]);
-#var m = Maybe(Nothing());
-var m : Maybe<int> = Maybe(Nothing());
+var m : Maybe<int> = Maybe(nothing);
 print("Maybe<int>: {m}");
 type(m);
 var s = Maybe(["yo"]);
@@ -390,8 +380,8 @@ type(s);
 
 newtype Node<T> : mut tuple<T, oneof<Node<T>, NothingType>, oneof<Node<T>, NothingType>>
 
-var myOneof: oneof<Node<int>, NothingType> = Node(mut (2, Nothing(), Nothing()));
-var treeRoot: Node<int> = Node(mut (1, myOneof,  Nothing()));
+var myOneof: oneof<Node<int>, NothingType> = Node(mut (2, nothing, nothing));
+var treeRoot: Node<int> = Node(mut (1, myOneof,  nothing));
 
 print("\n\nTYPES!!!");
 print(treeRoot);
@@ -424,7 +414,7 @@ implement Foo<Node<string>> as SNode {
   }
 }
 
-var stringNode = Node(mut ("My Tree!", Nothing(), Nothing()));
+var stringNode = Node(mut ("My Tree!", nothing, nothing));
 
 Foo::bar(treeRoot);
 Foo::bar(stringNode);
@@ -446,7 +436,7 @@ consumer prettyishPrintTree<T>(currRoot: Node<T>) {
       append(fringe, unwrappedCurrNode[1]);
       append(fringe, unwrappedCurrNode[2]);
     } else {
-      print("Nothing");
+      print(currNode);
     }
     i++;
   }
@@ -454,7 +444,7 @@ consumer prettyishPrintTree<T>(currRoot: Node<T>) {
 
 print("PRETTY-ISH PRINT! {treeRoot}");
 prettyishPrintTree(treeRoot);
-var getNewNode = (x: int) -> Node<int> { return Node(mut (x, Nothing(), Nothing())); };
+var getNewNode = (x: int) -> Node<int> { return Node(mut (x, nothing, nothing)); };
 print(getNewNode(3));
 
 unwrap(treeRoot)[2] = getNewNode(3);
@@ -470,7 +460,7 @@ newtype NonEmptyList<T> : [T]
 initializers NonEmptyList {
   function GetValidatedNonEmptyList<T>(l: [T]) -> Maybe<NonEmptyList<T>> {
     if (len(l) == 0) {
-      return Maybe(Nothing());
+      return Maybe(nothing);
     }
     return Maybe(NonEmptyList(l));
   }

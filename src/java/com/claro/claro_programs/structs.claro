@@ -22,19 +22,13 @@ print("unwrap(myStruct).firstName = {unwrap(myStruct).firstName}");
 print("unwrap(myStruct).lastName = {unwrap(myStruct).lastName}");
 
 
-# TODO(steving) Make `NothingType` and `nothing` builtins.
-newtype NothingType : boolean
-initializers NothingType {
-  provider Nothing() -> NothingType { return NothingType(false); }
-}
-
 newtype TreeNode<T> : struct {
   val: T,
   left: oneof<TreeNode<T>, NothingType>,
   right: oneof<TreeNode<T>, NothingType>
 }
 
-var treeRoot: TreeNode<int> = TreeNode({val = 10, left = Nothing(), right = Nothing()});
+var treeRoot: TreeNode<int> = TreeNode({val = 10, left = nothing, right = nothing});
 print(treeRoot);
 type(treeRoot);
 

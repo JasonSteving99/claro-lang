@@ -154,6 +154,7 @@ WhiteSpace     = [ \t\f]
     "->"               { return symbol(Calc.ARROW, 0, 2, "->"); }
     "|>"               { return symbol(Calc.PIPE_ARROW, 0, 2, "|>"); }
     "=>"               { return symbol(Calc.IMPLICATION_ARROW, 0, 2, "=>"); }
+    "nothing"          { return symbol(Calc.NOTHING, 0, 7, "nothing"); }
     "true"             { return symbol(Calc.TRUE, 0, 4, true); }
     "false"            { return symbol(Calc.FALSE, 0, 5, false); }
     "var"              { return symbol(Calc.VAR, 0, 3, "var"); }
@@ -185,6 +186,7 @@ WhiteSpace     = [ \t\f]
     "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
 
     // Builtin Types.
+    "NothingType"      { return symbol(Calc.NOTHING_TYPE, 0, 11, "NothingType"); }
     "int"              { return symbol(Calc.INT_TYPE, 0, 3, "int"); }
     "float"            { return symbol(Calc.FLOAT_TYPE, 0, 5, "float"); }
     "boolean"          { return symbol(Calc.BOOLEAN_TYPE, 0, 7, "boolean"); }

@@ -38,6 +38,23 @@ public final class Types {
   }
 
   @AutoValue
+  public abstract static class NothingType extends Type {
+    public static NothingType get() {
+      return new AutoValue_Types_NothingType(BaseType.NOTHING, ImmutableMap.of());
+    }
+
+    @Override
+    public String toString() {
+      return "NothingType";
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return "Types.NothingType.get()";
+    }
+  }
+
+  @AutoValue
   public abstract static class ListType extends Type implements Collection, SupportsMutableVariant<ListType> {
     public static final String PARAMETERIZED_TYPE_KEY = "$values";
 

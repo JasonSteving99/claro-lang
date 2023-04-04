@@ -15,6 +15,7 @@ public enum BaseType {
   FLOAT("float", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),
+  NOTHING("NothingType", "$ClaroNothing"),
   ARRAY,
   LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.
