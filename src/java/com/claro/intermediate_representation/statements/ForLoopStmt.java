@@ -31,8 +31,10 @@ public class ForLoopStmt extends Stmt {
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // First validate that the itemName isn't attempting to shadow some existing variable.
+    boolean mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = false;
     if (scopedHeap.isIdentifierDeclared(this.itemName.identifier)) {
       this.itemName.logTypeError(ClaroTypeException.forUnexpectedIdentifierRedeclaration(this.itemName.identifier));
+      mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = true;
     }
 
     // TODO(steving) In the future I want to support arbitrary types so long as some `Iterators` contract(s) are impl'd.
@@ -68,7 +70,11 @@ public class ForLoopStmt extends Stmt {
             "Internal Compiler Error! Should've already rejected for-loop over iteratedExpr type: " +
             validatedIteratedExprType);
     }
-    scopedHeap.putIdentifierValue(this.itemName.identifier, this.validatedItemType);
+    if (mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared) {
+      scopedHeap.putIdentifierValueAllowingHiding(this.itemName.identifier, this.validatedItemType, null);
+    } else {
+      scopedHeap.putIdentifierValue(this.itemName.identifier, this.validatedItemType);
+    }
     scopedHeap.initializeIdentifier(this.itemName.identifier);
 
     // Finally validate the body.

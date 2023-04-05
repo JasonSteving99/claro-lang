@@ -155,9 +155,8 @@ var dog: Dog = "Milo";
 
 alias MyAnimals : oneof<Dog, Cat>
 var animalList: [MyAnimals] = [evilCat, happyCat, dog];
-var i = 0;
-while (i < len(animalList)) {
-  print(Animal::makeNoise(animalList[i++]));
+for (animal in animalList) {
+  print(Animal::makeNoise(animal));
 }
 
 ########################################################################################################
@@ -246,7 +245,7 @@ print(collide(s101, s10));
 # VALIDATING THAT THE RUNTIME DISPATCH IS GUARANTEED NOT TO HAVE A RUNTIME TYPE MISMATCH!).
 var spaceObjects: [oneof<Spaceship, Asteroid>] = [a101, s300, a10];
 print("Simulating collisions between {len(spaceObjects)} space objects!");
-i = 0;
+var i = 0;
 while (i < len(spaceObjects)) {
   var j = 0;
   while (j < len(spaceObjects)) {

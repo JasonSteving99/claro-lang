@@ -1173,8 +1173,8 @@ backwards_builtin_types_list ::=
   ;
 
 identifier_assignment ::=
-    IDENTIFIER:identifier ASSIGNMENT expr:e SEMICOLON
-    {: RESULT = new AssignmentStmt(identifier.val, e); :}
+    identifier:identifier ASSIGNMENT expr:e SEMICOLON
+    {: RESULT = new AssignmentStmt(identifier, e); :}
   ;
 
 trashcan_assignment ::=
