@@ -167,6 +167,7 @@ WhiteSpace     = [ \t\f]
     "if"               { return symbol(Calc.IF, 0, 2, "if"); }
     "else"             { return symbol(Calc.ELSE, 0, 4, "else"); }
     "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
+    "for"              { return symbol(Calc.FOR, 0, 3, "for"); }
     "return"           { return symbol(Calc.RETURN, 0, 6, "return"); }
     "?="               { return symbol(Calc.QUESTION_MARK_ASSIGNMENT, 0, 2, "?="); }
 

@@ -305,7 +305,7 @@ terminal LexedValue<String>  TYPE;
 // This grammar also has a builtin append() function for appending an element to a List.
 terminal LexedValue<String>  APPEND;
 terminal LexedValue<String>  IF, ELSE;
-terminal LexedValue<String>  WHILE;
+terminal LexedValue<String>  WHILE, FOR;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal LexedValue<String>  NOTHING_TYPE, INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
@@ -352,6 +352,7 @@ nonterminal IfStmt                             else_if_stmt_chain;
 nonterminal IfStmt                             else_if_stmt;
 nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
+nonterminal ForLoopStmt                        for_loop_stmt;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal ImmutableList.Builder<Stmt>        initializers_or_unwrappers_proc_defs_list;
@@ -443,7 +444,7 @@ precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
-precedence left WHILE;
+precedence left WHILE, FOR;
 precedence left QUESTION_MARK_ASSIGNMENT;
 precedence left DOT;
 
@@ -539,6 +540,8 @@ stmt ::=
     {: RESULT = i; :}
   | while_stmt:w
     {: RESULT = w; :}
+  | for_loop_stmt:f
+    {: RESULT = f; :}
   | function_definition_stmt:f
     {: RESULT = f; :}
   | consumer_function_definition_stmt:f
@@ -1750,6 +1753,11 @@ else_stmt ::=
 while_stmt ::=
     WHILE LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new WhileStmt(e, stmt_list); :}
+  ;
+
+for_loop_stmt ::=
+    FOR LPAR identifier:ident IN expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
+    {: RESULT = new ForLoopStmt(ident, e, stmt_list); :}
   ;
 
 function_definition_stmt ::=

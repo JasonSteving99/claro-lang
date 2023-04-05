@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 
 public class WhileStmt extends Stmt {
 
-  // Constructor for "if" and "else if" statements that do have a condition to check.
   public WhileStmt(Expr expr, StmtListNode stmtListNode) {
     super(ImmutableList.of(expr, stmtListNode));
   }

@@ -100,6 +100,16 @@ claro_library(
 )
 
 claro_binary(
+    name = "for_loops",
+    srcs = [":for_loops_lib"],
+    java_name = "for_loops",
+)
+
+claro_library(
+    name = "for_loops_lib",
+    src = "for_loops.claro",
+)
+claro_binary(
     name = "format_strings_compiled_claro_image",
     srcs = [":format_strings_compiled_claro"],
     java_name = "format_strings",
