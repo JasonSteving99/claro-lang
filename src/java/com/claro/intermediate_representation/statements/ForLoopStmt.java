@@ -66,9 +66,10 @@ public class ForLoopStmt extends Stmt {
             Types.TupleType.forValueTypes(ImmutableList.of(keyType, valueType), /*isMutable=*/false);
         break;
       default:
-        throw new RuntimeException(
-            "Internal Compiler Error! Should've already rejected for-loop over iteratedExpr type: " +
-            validatedIteratedExprType);
+        // There's really no way forward from here. If the iteratedExpr's type is unsupported then we have an invalid loop.
+        // I do still want some level of type-checking the body though, so I'll just choose to set the validatedItemType
+        // to UNKNOWABLE so that we have *something* to work with.
+        this.validatedItemType = Types.UNKNOWABLE;
     }
     if (mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared) {
       scopedHeap.putIdentifierValueAllowingHiding(this.itemName.identifier, this.validatedItemType, null);
@@ -113,31 +114,7 @@ public class ForLoopStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // In order to make sure that the scopes are honored correctly but also that we don't
-    // have to wastefully push and pop the same body scope repeatedly, we'll first check
-    // the while loop's condition before the new scope is pushed and then do the rest of
-    // the iterating inside a do-while after pushing a new scope. This simply allows us to
-    // make sure that the loop condition isn't somehow attempting to depend on variables
-    // declared only in the body, while also eliminating wasteful pushes/pops of scope stack
-    // since on first pass through the body we'll have already checked that all the new vars
-    // are actually initialized before access, therefore we don't need to clear the while body's
-    // scope, since everything will be reinitialized by the code itself.
-    Expr whileCondExpr = (Expr) getChildren().get(0);
-    Object maybeReturnValue = null;
-    if ((boolean) whileCondExpr.generateInterpretedOutput(scopedHeap)) {
-      scopedHeap.enterNewScope();
-      do {
-        maybeReturnValue = getChildren().get(1).generateInterpretedOutput(scopedHeap);
-
-        if (maybeReturnValue != null) {
-          // The last executed Stmt happened to be a ReturnStmt. We therefore need to break out
-          // of this loop so that no more potential side effects happen when they shouldn't.
-          break;
-        }
-      } while ((boolean) whileCondExpr.generateInterpretedOutput(scopedHeap));
-      scopedHeap.exitCurrScope();
-    }
-    // This return value is probably `null` unless the last executed Stmt happened to be a ReturnStmt.
-    return maybeReturnValue;
+    // TODO(steving) Eventually need to impl for-loops when I come back to adding support for the interpreted backend.
+    throw new RuntimeException("Internal Compiler Error! Claro doesn't support for-loops in the interpreted backend just yet!");
   }
 }

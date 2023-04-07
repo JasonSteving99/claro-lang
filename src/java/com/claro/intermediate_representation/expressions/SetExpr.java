@@ -104,9 +104,9 @@ public class SetExpr extends Expr {
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     if (!initializerValues.isPresent()) {
-      return new ClaroSet<Object>(this.optionalAssertedType.get());
+      return new ClaroSet<Object>((Types.SetType) this.optionalAssertedType.get());
     }
-    return new ClaroSet<Object>(this.optionalAssertedType.get())
+    return new ClaroSet<Object>((Types.SetType) this.optionalAssertedType.get())
         .add(
             this.initializerValues.get().stream()
                 .map(expr -> expr.generateInterpretedOutput(scopedHeap))

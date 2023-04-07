@@ -365,11 +365,11 @@ public class emit {
   /*. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .*/
 
   /**
-   * NOTE: I updated this constant from 300 to 250, in order to allow Claro's grammar specification file to workaround
-   *       CUP's limitation of generating do_action_part() method with more code than Java supports. There are no other
-   *       modifications made to this file whatsoever.
+   * NOTE: I updated this constant from 300 to 250 (then 245), in order to allow Claro's grammar specification file to
+   *       workaround CUP's limitation of generating do_action_part() method with more code than Java supports. There
+   *       are no other modifications made to this file whatsoever.
    * */
-  static final int UPPERLIMIT = 250;
+  static final int UPPERLIMIT = 245;
   /** Emit code for the non-public class holding the actual action code.
    * @param out        stream to produce output on.
    * @param start_prod the start production of the grammar.

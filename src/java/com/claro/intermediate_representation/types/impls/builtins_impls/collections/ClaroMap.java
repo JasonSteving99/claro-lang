@@ -4,20 +4,22 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.ClaroBuiltinTypeImplementation;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ClaroMap<K, V> extends HashMap<K, V> implements ClaroBuiltinTypeImplementation, Iterable<ClaroTuple> {
-  private final Type claroType;
+  private final Types.MapType claroType;
 
-  public ClaroMap(Type claroType) {
+  public ClaroMap(Types.MapType claroType) {
     super();
     this.claroType = claroType;
   }
 
-  public ClaroMap(Type claroType, int initialSize) {
+  public ClaroMap(Types.MapType claroType, int initialSize) {
     super(initialSize);
     this.claroType = claroType;
   }
@@ -44,7 +46,7 @@ public class ClaroMap<K, V> extends HashMap<K, V> implements ClaroBuiltinTypeImp
   public String toString() {
     return this.entrySet().stream()
         .map(entry -> String.format("%s: %s", entry.getKey(), entry.getValue()))
-        .collect(Collectors.joining(", ", "{", "}"));
+        .collect(Collectors.joining(", ", this.claroType.isMutable() ? "mut {" : "{", "}"));
   }
 
   @Override
@@ -59,6 +61,10 @@ public class ClaroMap<K, V> extends HashMap<K, V> implements ClaroBuiltinTypeImp
             /*isMutable=*/false
         )
     );
+  }
+
+  public Stream<ClaroTuple> stream() {
+    return Streams.stream(this.iterator());
   }
 
   private class $ClaroMapIterator implements Iterator<ClaroTuple> {

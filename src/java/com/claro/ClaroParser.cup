@@ -11,6 +11,7 @@ import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.*;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.SupportsMutableVariant;
 import com.claro.intermediate_representation.types.TypeProvider;
@@ -305,7 +306,7 @@ terminal LexedValue<String>  TYPE;
 // This grammar also has a builtin append() function for appending an element to a List.
 terminal LexedValue<String>  APPEND;
 terminal LexedValue<String>  IF, ELSE;
-terminal LexedValue<String>  WHILE, FOR;
+terminal LexedValue<String>  WHILE, FOR, WHERE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal LexedValue<String>  NOTHING_TYPE, INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
@@ -353,6 +354,9 @@ nonterminal IfStmt                             else_if_stmt;
 nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal ForLoopStmt                        for_loop_stmt;
+nonterminal ComprehensionExpr                  list_comprehension_expr;
+nonterminal ComprehensionExpr                  set_comprehension_expr;
+nonterminal ComprehensionExpr                  map_comprehension_expr;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal ImmutableList.Builder<Stmt>        initializers_or_unwrappers_proc_defs_list;
@@ -444,7 +448,7 @@ precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
-precedence left WHILE, FOR;
+precedence left WHILE, FOR, WHERE;
 precedence left QUESTION_MARK_ASSIGNMENT;
 precedence left DOT;
 
@@ -1331,6 +1335,12 @@ expr ::=
     {: RESULT = l; :}
   | map:m
     {: RESULT = m; :}
+  | list_comprehension_expr:c
+    {: RESULT = c; :}
+  | set_comprehension_expr:c
+    {: RESULT = c; :}
+  | map_comprehension_expr:c
+    {: RESULT = c; :}
   | collection_subscript:l
     {: RESULT = l; :}
   | LEN:len LPAR:lp expr:e RPAR:rp
@@ -1758,6 +1768,123 @@ while_stmt ::=
 for_loop_stmt ::=
     FOR LPAR identifier:ident IN expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new ForLoopStmt(ident, e, stmt_list); :}
+  ;
+
+list_comprehension_expr ::=
+    LBRACKET:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr RBRACKET:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.LIST, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LBRACKET:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr RBRACKET:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.LIST, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | LBRACKET:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RBRACKET:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.LIST, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LBRACKET:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RBRACKET:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.LIST, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  ;
+
+set_comprehension_expr ::=
+    LCURLY:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.SET, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LCURLY:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.SET, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | LCURLY:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.SET, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LCURLY:lb expr:mapped_item_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_item_expr.currentLine, mapped_item_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_item_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_item_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.SET, mapped_item_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  ;
+
+map_comprehension_expr ::=
+    LCURLY:lb expr:mapped_key_expr COLON:c expr:mapped_value_expr BAR:bar identifier:item_name IN:in expr:collection_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_key_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(c.currentInputLine, cright), new Line(mapped_value_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_key_expr.startCol, cleft, mapped_value_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_key_expr.endCol, cleft + c.len, mapped_value_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.MAP, mapped_key_expr, mapped_value_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LCURLY:lb expr:mapped_key_expr COLON:c expr:mapped_value_expr BAR:bar identifier:item_name IN:in expr:collection_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(mut.currentInputLine, mutright), new Line(lb.currentInputLine, lbright), new Line(mapped_key_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(c.currentInputLine, cright), new Line(mapped_value_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_key_expr.startCol, cleft, mapped_value_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_key_expr.endCol, cleft + c.len, mapped_value_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.MAP, mapped_key_expr, mapped_value_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.empty(), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | LCURLY:lb expr:mapped_key_expr COLON:c expr:mapped_value_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_key_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(c.currentInputLine, cright), new Line(mapped_value_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(lbleft, mapped_key_expr.startCol, cleft, mapped_value_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(lbleft + lb.len, mapped_key_expr.endCol, cleft + c.len, mapped_value_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.MAP, mapped_key_expr, mapped_value_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/false, currentLinesSupplier, rbright, startCol, endCol);
+    :}
+  | MUT:mut LCURLY:lb expr:mapped_key_expr COLON:c expr:mapped_value_expr BAR:bar identifier:item_name IN:in expr:collection_expr WHERE:where expr:filter_expr RCURLY:rb
+    {:
+      Supplier<String> currentLinesSupplier =
+         joinExprLines(new Line(lb.currentInputLine, lbright), new Line(mapped_key_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(c.currentInputLine, cright), new Line(mapped_value_expr.currentLine, mapped_value_expr.currentLineNumber), new Line(bar.currentInputLine, barright), new Line(item_name.currentLine, item_name.currentLineNumber), new Line(collection_expr.currentLine, collection_expr.currentLineNumber), new Line(where.currentInputLine, whereright), new Line(filter_expr.currentLine, filter_expr.currentLineNumber), new Line(rb.currentInputLine, rbright));
+      int startCol = min(mutleft, lbleft, mapped_key_expr.startCol, cleft, mapped_value_expr.startCol, barleft, item_name.startCol, inleft, collection_expr.startCol, whereleft, filter_expr.startCol, rbleft);
+      int endCol = max(mutleft + mut.len, lbleft + lb.len, mapped_key_expr.endCol, cleft + c.len, mapped_value_expr.endCol, barleft + bar.len, item_name.endCol, inleft + in.len, collection_expr.endCol, whereleft + where.len, filter_expr.endCol, rbleft + rb.len);
+
+      RESULT = new ComprehensionExpr(BaseType.MAP, mapped_key_expr, mapped_value_expr, item_name, collection_expr, /*whereClauseExpr=*/Optional.of(filter_expr), /*isMutable=*/true, currentLinesSupplier, rbright, startCol, endCol);
+    :}
   ;
 
 function_definition_stmt ::=

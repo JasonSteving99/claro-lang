@@ -137,7 +137,7 @@ implement ColumnAccess<Row> as AllColumns {
 # TODO(steving) Once Claro supports copy-free builder semantics via unique_ref<T>, rewrite these functions to return
 # TODO(steving)     immutable collections instead of mutable ones.
 requires(ColumnAccess<C>)
-function where<C>(table: Table, pred: function<C -> boolean>) -> Table {
+function Where<C>(table: Table, pred: function<C -> boolean>) -> Table {
   var res: Table = mut [];
   var i = 0;
   while (i < len(table)) {
@@ -234,14 +234,14 @@ print(phonenumbers);
 
 print("\n\nFilter table for names of people where age > 25");
 table
-  |> where(^, (a: Age) -> boolean { return unwrap(a) > 25; })
+  |> Where(^, (a: Age) -> boolean { return unwrap(a) > 25; })
   |> cast(mut [Name], getTableColumn(^))
   |> print(^);
 
 print("\n\nFilter table for names of people where 25 < age < 50 excluding Laura.");
 table
-  |> where(^, And((a: Age) -> boolean { return unwrap(a) > 25; }, (a: Age) -> boolean { return unwrap(a) < 50; }))
-  |> where(^, (n: Name) -> boolean { return n != Name("Laura"); })
+  |> Where(^, And((a: Age) -> boolean { return unwrap(a) > 25; }, (a: Age) -> boolean { return unwrap(a) < 50; }))
+  |> Where(^, (n: Name) -> boolean { return n != Name("Laura"); })
   |> cast(mut [tuple<Name, Age>], select(^))
   |> print(^);
 
@@ -251,7 +251,7 @@ print("Another way to do the same thing by chaining calls to And.");
 (a: Age) -> boolean { return unwrap(a) > 25; }
   |> And(^, (a: Age) -> boolean { return unwrap(a) < 50; }) # Calling: And<Age, Age>(...) -> function<Row -> boolean>
   |> And(^, (n: Name) -> boolean { return n != Name("Laura"); })    # Calling: And<Row, Name>(...) -> function<Row -> boolean>
-  |> where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
+  |> Where(table, ^)                                           # Calling: where<function<Row -> boolean>>(...) -> Table
   |> cast(mut [tuple<Name, Age>], select(^))                            # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
   |> print(^);
 
@@ -260,7 +260,7 @@ print("Another way to do the same thing by chaining calls to And.");
 print("Filter table for names of people where either Name is George, or 25 < age < 50 excluding Laura.");
 var res: mut [tuple<Name, Age>] =
   select(      # Calling: select<Name, Age>(...) -> [tuple<Name, Age>]
-    where(     # Calling: where<function<Row -> boolean>>(...) -> Table
+    Where(     # Calling: where<function<Row -> boolean>>(...) -> Table
       table,
       Or(
         And(   # Calling: And<Row, Name>(...) -> function<Row -> boolean>

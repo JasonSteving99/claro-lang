@@ -23,6 +23,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "collection_comprehensions",
+    srcs = [":collection_comprehensions_lib"],
+    java_name = "collection_comprehensions",
+)
+
+claro_library(
+    name = "collection_comprehensions_lib",
+    src = "collection_comprehensions.claro",
+)
+
+claro_binary(
     name = "contracts_compiled_claro_image",
     srcs = [":contracts_compiled_claro"],
     java_name = "contracts",

@@ -101,6 +101,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
             "//src/java/com/claro/intermediate_representation/statements/contracts",
             "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
+            "//src/java/com/claro/intermediate_representation/types:base_type",
             "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
             "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
             "//src/java/com/claro/intermediate_representation/types:type_provider",

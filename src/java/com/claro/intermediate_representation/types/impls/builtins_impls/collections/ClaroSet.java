@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation.types.impls.builtins_impls.collections;
 
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.ClaroBuiltinTypeImplementation;
 
 import java.util.Collection;
@@ -8,9 +9,9 @@ import java.util.HashSet;
 import java.util.stream.Collectors;
 
 public class ClaroSet<V> extends HashSet<V> implements ClaroBuiltinTypeImplementation {
-  private final Type claroType;
+  private final Types.SetType claroType;
 
-  public ClaroSet(Type claroType) {
+  public ClaroSet(Types.SetType claroType) {
     super();
     this.claroType = claroType;
   }
@@ -33,6 +34,6 @@ public class ClaroSet<V> extends HashSet<V> implements ClaroBuiltinTypeImplement
   public String toString() {
     return this.stream()
         .map(Object::toString)
-        .collect(Collectors.joining(", ", "{", "}"));
+        .collect(Collectors.joining(", ", this.claroType.isMutable() ? "mut {" : "{", "}"));
   }
 }
