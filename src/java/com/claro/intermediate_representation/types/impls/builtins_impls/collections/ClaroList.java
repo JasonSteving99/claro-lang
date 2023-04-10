@@ -1,28 +1,39 @@
 package com.claro.intermediate_representation.types.impls.builtins_impls.collections;
 
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 
 import java.util.ArrayList;
 import java.util.Collections;
 
 public class ClaroList<T> extends ArrayList<T> implements Collection {
-  private final Type claroType;
+  private final Types.ListType claroType;
 
-  public ClaroList(Type claroType) {
+  public ClaroList(Types.ListType claroType) {
     super();
     this.claroType = claroType;
   }
 
-  public ClaroList(Type claroType, int initialSize) {
+  public ClaroList(Types.ListType claroType, int initialSize) {
     super(initialSize);
     this.claroType = claroType;
   }
 
+  public ClaroList(Types.ListType claroType, java.util.Collection<T> from) {
+    super(from);
+    this.claroType = claroType;
+  }
+
   @SafeVarargs // https://docs.oracle.com/javase/specs/jls/se7/html/jls-9.html#jls-9.6.3.7
-  public static <T> ClaroList<T> initializeList(Type claroType, T... args) {
+  public static <T> ClaroList<T> initializeList(Types.ListType claroType, T... args) {
     ClaroList<T> arrayList = new ClaroList<>(claroType, args.length);
     Collections.addAll(arrayList, args);
     return arrayList;
+  }
+
+  @Override
+  public String toString() {
+    return (this.claroType.isMutable() ? "mut " : "") + super.toString();
   }
 
   @SuppressWarnings("unchecked")

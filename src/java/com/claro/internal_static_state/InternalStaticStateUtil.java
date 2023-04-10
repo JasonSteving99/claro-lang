@@ -68,4 +68,20 @@ public class InternalStaticStateUtil {
       = HashMultimap.create();
   public static HashMultimap<String, String> InitializersBlockStmt_unwrappersByUnwrappedType
       = HashMultimap.create();
+
+  // We'll use these nestedComprehension* variables to track the nesting level, and the names of any identifiers that
+  // get referenced from within nested comprehensions (as these will need special handling to avoid non-final var
+  // references from w/in generated Java lambdas which Java forbids).
+  public static int ComprehensionExpr_nestedComprehensionCollectionsCount = -1;
+  public static String ComprehensionExpr_nestedComprehensionMappedItemName;
+  public static HashSet<String> ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
+
+  // This function allows IdentifierReferenceterm to add any referenced vars so that the codegen for the outermost
+  // collection can create a class that collects the referenced variables in order to workaround Java's effectively
+  // final requirement within lambdas (as comprehension codegen produces lambdas for streaming map/filter).
+  public static void addNestedCollectionIdentifierReference(String identifier) {
+    if (!ComprehensionExpr_nestedComprehensionMappedItemName.equals(identifier)) {
+      ComprehensionExpr_nestedComprehensionIdentifierReferences.add(identifier);
+    }
+  }
 }

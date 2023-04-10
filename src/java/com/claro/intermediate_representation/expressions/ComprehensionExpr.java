@@ -7,17 +7,21 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ComprehensionExpr extends Expr {
   private static final ImmutableSet<BaseType> SUPPORTED_COLLECTION_TYPES =
       ImmutableSet.of(BaseType.LIST, BaseType.SET, BaseType.MAP);
-  private static long count = 0;
+  private static long TOTAL_COMPREHENSIONS_COUNT = 0;
 
   private final BaseType comprehensionResultBaseType;
   private final Expr mappedItemExpr;
@@ -32,6 +36,9 @@ public class ComprehensionExpr extends Expr {
   private Type validatedComprehensionResultType;
   private Type validatedItemType;
   private Type assertedExprType;
+  private boolean isOutermostNestedComprehension;
+  private boolean requiresNestedCodegenHandling = false;
+  private HashSet<String> nestedComprehensionIdentifierReferencesForCodegen;
 
   public ComprehensionExpr(BaseType comprehensionResultBaseType, Expr mappedItemExpr, IdentifierReferenceTerm itemName, Expr collectionExpr, Optional<Expr> whereClauseExpr, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -43,7 +50,7 @@ public class ComprehensionExpr extends Expr {
     this.collectionExpr = collectionExpr;
     this.whereClauseExpr = whereClauseExpr;
     this.isMutable = isMutable;
-    this.uniqueId = ComprehensionExpr.count++;
+    this.uniqueId = ComprehensionExpr.TOTAL_COMPREHENSIONS_COUNT++;
   }
 
   public ComprehensionExpr(BaseType comprehensionResultBaseType, Expr mappedItemKeyExpr, Expr mappedItemValExpr, IdentifierReferenceTerm itemName, Expr collectionExpr, Optional<Expr> whereClauseExpr, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -56,7 +63,7 @@ public class ComprehensionExpr extends Expr {
     this.collectionExpr = collectionExpr;
     this.whereClauseExpr = whereClauseExpr;
     this.isMutable = isMutable;
-    this.uniqueId = ComprehensionExpr.count++;
+    this.uniqueId = ComprehensionExpr.TOTAL_COMPREHENSIONS_COUNT++;
   }
 
   @Override
@@ -68,102 +75,128 @@ public class ComprehensionExpr extends Expr {
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    boolean mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = false;
-    if (scopedHeap.isIdentifierDeclared(this.itemName.identifier)) {
-      this.itemName.logTypeError(ClaroTypeException.forUnexpectedIdentifierRedeclaration(this.itemName.identifier));
-      mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = true;
-    }
+    // In order to manage nested comprehensions, track the nesting level each time you enter the type validation here.
+    // Importantly, the outermost comprehension needs to track that it's the outermost comprehension in order to be the
+    // one to reset the count.
+    this.isOutermostNestedComprehension =
+        ++InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount == 0;
+    InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionMappedItemName = this.itemName.identifier;
 
-    // First thing, validate the collection expression.
-    this.validatedCollectionExprType = this.collectionExpr.getValidatedExprType(scopedHeap);
-    if (!ComprehensionExpr.SUPPORTED_COLLECTION_TYPES.contains(this.validatedCollectionExprType.baseType())) {
-      this.collectionExpr.logTypeError(
-          new ClaroTypeException(this.validatedCollectionExprType, ComprehensionExpr.SUPPORTED_COLLECTION_TYPES));
-      // There's really no way forward from here. If the iteratedExpr's type is unsupported then we have an invalid loop.
-      // I do still want some level of type-checking the body though, so I'll just choose to set the validatedItemType
-      // to UNKNOWABLE so that we have *something* to work with.
-      this.validatedItemType = Types.UNKNOWABLE;
-    }
+    // There shouldn't be any unhandled exceptions here, but just in case, it's too important that this definitely
+    // gets reset to accidentally miss resetting, so just handle in a try-finally just in case.
+    try {
+      boolean mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = false;
+      if (scopedHeap.isIdentifierDeclared(this.itemName.identifier)) {
+        this.itemName.logTypeError(ClaroTypeException.forUnexpectedIdentifierRedeclaration(this.itemName.identifier));
+        mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared = true;
+      }
 
-    // We need to place the itemName in the symbol table so that the subsequent Exprs can reference it.
-    switch (this.validatedCollectionExprType.baseType()) {
-      case LIST:
-        this.validatedItemType = ((Types.ListType) this.validatedCollectionExprType).getElementType();
-        break;
-      case SET:
-        this.validatedItemType =
-            this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE);
-        break;
-      case MAP:
-        // When iterating a Map, by default we're going to assume that you want to iterate the "entries" of the map.
-        Type keyType =
-            this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS);
-        Type valueType =
-            this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
-        this.validatedItemType =
-            Types.TupleType.forValueTypes(ImmutableList.of(keyType, valueType), /*isMutable=*/false);
-        break;
-      default:
+      // First thing, validate the collection expression.
+      this.validatedCollectionExprType = this.collectionExpr.getValidatedExprType(scopedHeap);
+      if (!ComprehensionExpr.SUPPORTED_COLLECTION_TYPES.contains(this.validatedCollectionExprType.baseType())) {
+        this.collectionExpr.logTypeError(
+            new ClaroTypeException(this.validatedCollectionExprType, ComprehensionExpr.SUPPORTED_COLLECTION_TYPES));
         // There's really no way forward from here. If the iteratedExpr's type is unsupported then we have an invalid loop.
         // I do still want some level of type-checking the body though, so I'll just choose to set the validatedItemType
         // to UNKNOWABLE so that we have *something* to work with.
         this.validatedItemType = Types.UNKNOWABLE;
-    }
-    if (mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared) {
-      scopedHeap.putIdentifierValueAllowingHiding(this.itemName.identifier, this.validatedItemType, null);
-    } else {
-      scopedHeap.putIdentifierValue(this.itemName.identifier, this.validatedItemType);
-    }
-    scopedHeap.initializeIdentifier(this.itemName.identifier);
+      }
 
-    // If there's a where clause we need to type check it.
-    if (this.whereClauseExpr.isPresent()) {
-      this.whereClauseExpr.get().assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+      // We need to place the itemName in the symbol table so that the subsequent Exprs can reference it.
+      switch (this.validatedCollectionExprType.baseType()) {
+        case LIST:
+          this.validatedItemType = ((Types.ListType) this.validatedCollectionExprType).getElementType();
+          break;
+        case SET:
+          this.validatedItemType =
+              this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE);
+          break;
+        case MAP:
+          // When iterating a Map, by default we're going to assume that you want to iterate the "entries" of the map.
+          Type keyType =
+              this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS);
+          Type valueType =
+              this.validatedCollectionExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES);
+          this.validatedItemType =
+              Types.TupleType.forValueTypes(ImmutableList.of(keyType, valueType), /*isMutable=*/false);
+          break;
+        default:
+          // There's really no way forward from here. If the iteratedExpr's type is unsupported then we have an invalid loop.
+          // I do still want some level of type-checking the body though, so I'll just choose to set the validatedItemType
+          // to UNKNOWABLE so that we have *something* to work with.
+          this.validatedItemType = Types.UNKNOWABLE;
+      }
+      if (mustShadowForTheSakeOfGoodErrorMessagesBecauseItemNameAlreadyDeclared) {
+        scopedHeap.putIdentifierValueAllowingHiding(this.itemName.identifier, this.validatedItemType, null);
+      } else {
+        scopedHeap.putIdentifierValue(this.itemName.identifier, this.validatedItemType);
+      }
+      scopedHeap.initializeIdentifier(this.itemName.identifier);
+
+      // If there's a where clause we need to type check it.
+      if (this.whereClauseExpr.isPresent()) {
+        this.whereClauseExpr.get().assertExpectedExprType(scopedHeap, Types.BOOLEAN);
+      }
+
+      switch (this.comprehensionResultBaseType) {
+        case LIST:
+          this.validatedComprehensionResultType =
+              Types.ListType.forValueType(
+                  getValidatedMappedItemType(scopedHeap, BaseType.LIST, l -> ((Types.ListType) l).getElementType(), this.mappedItemExpr),
+                  this.isMutable
+              );
+          break;
+        case SET:
+          this.validatedComprehensionResultType =
+              Types.SetType.forValueType(
+                  getValidatedMappedItemType(
+                      scopedHeap, BaseType.SET, s -> s.parameterizedTypeArgs()
+                          .get(Types.SetType.PARAMETERIZED_TYPE), this.mappedItemExpr),
+                  this.isMutable
+              );
+          break;
+        case MAP:
+          this.validatedComprehensionResultType =
+              Types.MapType.forKeyValueTypes(
+                  getValidatedMappedItemType(
+                      scopedHeap,
+                      BaseType.MAP,
+                      s -> s.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+                      this.mappedItemKeyExpr
+                  ),
+                  getValidatedMappedItemType(
+                      scopedHeap,
+                      BaseType.MAP,
+                      s -> s.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
+                      this.mappedItemValExpr
+                  ),
+                  this.isMutable
+              );
+          break;
+        default:
+          throw new RuntimeException(
+              "Internal Compiler Error! Impossible Comprehension Result Base Type: " +
+              this.comprehensionResultBaseType);
+      }
+
+      // Now we're done with the synthetic iterm variable.
+      scopedHeap.deleteIdentifierValue(this.itemName.identifier);
+    } finally {
+      // Finally, to handle nested comprehensions, check the nesting level and the set of nested identifier refs to see
+      // if we'll need to do special codegen handling.
+      this.requiresNestedCodegenHandling =
+          InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount > 0
+          && InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.stream()
+              .anyMatch(ident -> !ident.startsWith("$") && scopedHeap.isIdentifierDeclared(ident));
+      if (this.isOutermostNestedComprehension) {
+        InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount = -1;
+        this.nestedComprehensionIdentifierReferencesForCodegen =
+            InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.stream()
+                .filter(ident -> !ident.startsWith("$") && scopedHeap.isIdentifierDeclared(ident))
+                .collect(Collectors.toCollection(HashSet::new));
+        InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
+      }
     }
-
-    switch (this.comprehensionResultBaseType) {
-      case LIST:
-        this.validatedComprehensionResultType =
-            Types.ListType.forValueType(
-                getValidatedMappedItemType(scopedHeap, BaseType.LIST, l -> ((Types.ListType) l).getElementType(), this.mappedItemExpr),
-                this.isMutable
-            );
-        break;
-      case SET:
-        this.validatedComprehensionResultType =
-            Types.SetType.forValueType(
-                getValidatedMappedItemType(
-                    scopedHeap, BaseType.SET, s -> s.parameterizedTypeArgs()
-                        .get(Types.SetType.PARAMETERIZED_TYPE), this.mappedItemExpr),
-                this.isMutable
-            );
-        break;
-      case MAP:
-        this.validatedComprehensionResultType =
-            Types.MapType.forKeyValueTypes(
-                getValidatedMappedItemType(
-                    scopedHeap,
-                    BaseType.MAP,
-                    s -> s.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
-                    this.mappedItemKeyExpr
-                ),
-                getValidatedMappedItemType(
-                    scopedHeap,
-                    BaseType.MAP,
-                    s -> s.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
-                    this.mappedItemValExpr
-                ),
-                this.isMutable
-            );
-        break;
-      default:
-        throw new RuntimeException(
-            "Internal Compiler Error! Impossible Comprehension Result Base Type: " + this.comprehensionResultBaseType);
-    }
-
-    // Now we're done with the synthetic iterm variable.
-    scopedHeap.deleteIdentifierValue(this.itemName.identifier);
-
     return validatedComprehensionResultType;
   }
 
@@ -184,30 +217,16 @@ public class ComprehensionExpr extends Expr {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // Set up a synthetic variable to hold the results of the comprehension as a prefix stmt, but don't initialize it
-    // yet as we don't want to run expressions out of order (same reason why I moved away from the `?` operator and
-    // moved to the `?=` operator instead, except in this case there's a way to preserve ordering by being careful).
-    // Unfortunately, I can't set the size early because I can't evaluate the list early.
-    String syntheticCollectionVarName = String.format("$comprehensionCollection_%s", this.uniqueId);
-    Stmt.addGeneratedJavaSourceStmtBeforeCurrentStmt(
-        String.format(
-            "%s %s = new Claro%s(%s);\n",
-            this.validatedComprehensionResultType.getJavaSourceType(),
-            syntheticCollectionVarName,
-            baseTypeToJavaCodegenName(this.comprehensionResultBaseType),
-            this.validatedComprehensionResultType.getJavaSourceClaroType()
-        ));
+    // Before doing any codegen of internal Exprs, I need to ensure that any potential IdentifierReferenceTerms are able
+    // to defer to the InternalStaticStateUtil to decide whether or not they should codegen to reference var via nested
+    // comprehension state.
+    if (this.isOutermostNestedComprehension && this.requiresNestedCodegenHandling) {
+      InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences =
+          this.nestedComprehensionIdentifierReferencesForCodegen;
+    }
 
-//    // Codegen like the following list-comprehension:
-//    //   var l = [ x * 2 | x in [1,2,3,99,4] where x < 10];
-//
-//    ClaroList<Integer> $comprehensionCollection_0 = new ArrayList<>();
-//    ClaroList<Integer> l = ((Function) ($streamedCollection) -> {$streamedCollection.stream().filter(x -> x < 10).map(x -> x * 2).forEach($comprehensionCollection_0::add); return $comprehensionCollection;}).apply(Arrays.asList(1,2,3,99,4)));
-
-    // First codegen the collection we're mapping over.
-    String syntheticStreamedCollectionVarName = String.format("$streamedCollection_%s", this.uniqueId);
     GeneratedJavaSource res =
-        GeneratedJavaSource.forJavaSourceBody(new StringBuilder(syntheticStreamedCollectionVarName));
+        GeneratedJavaSource.forJavaSourceBody(new StringBuilder(this.collectionExpr.generateJavaSourceBodyOutput(scopedHeap)));
     // Now start streaming.
     res.javaSourceBody().append(".stream()");
     // From now, everything will depend on the itemName var.
@@ -248,51 +267,86 @@ public class ComprehensionExpr extends Expr {
       res = res.createMerged(this.mappedItemValExpr.generateJavaSourceOutput(scopedHeap));
       res.javaSourceBody().append(')');
     }
-    res.javaSourceBody().append(")");
+    res.javaSourceBody().append(").collect(");
     // Finally, just need to add each streamed value to the result collection!
-    res.javaSourceBody().append(".forEach(");
-    if (ImmutableSet.of(BaseType.LIST, BaseType.SET).contains(this.comprehensionResultBaseType)) {
-      // If we're mapping to a set or list we just accept the map expr as is.
-      res.javaSourceBody()
-          .append(syntheticCollectionVarName)
-          .append("::add);");
-    } else {
+    if (this.comprehensionResultBaseType.equals(BaseType.MAP)) {
       // In the case of collecting to a map, I actually need to unpack the Tuple and put the key/val into the map.
       res.javaSourceBody()
-          .append("t -> ")
-          .append(syntheticCollectionVarName)
-          .append(".put(")
-          .append('(')
+          .append("ImmutableMap.toImmutableMap(")
+          .append("t -> (")
           .append(this.validatedComprehensionResultType.parameterizedTypeArgs()
                       .get(Types.MapType.PARAMETERIZED_TYPE_KEYS)
                       .getJavaSourceType())
-          .append(") t.getElement(0), (")
+          .append(") t.getElement(0),")
+          .append("t -> (")
           .append(this.validatedComprehensionResultType.parameterizedTypeArgs()
                       .get(Types.MapType.PARAMETERIZED_TYPE_VALUES)
                       .getJavaSourceType())
-          .append(") t.getElement(1)));");
+          .append(") t.getElement(1))))");
+    } else {
+      res.javaSourceBody().append("Collectors.toList()))");
     }
 
     // Now we're done with the synthetic iterm variable.
     scopedHeap.deleteIdentifierValue(this.itemName.identifier);
 
-    // Before returning, I just need to be careful to actually do all of this within a `Function` so that after adding
-    // to the collection, I can return the collection inline.
-    res =
-        GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder("((Function<")
-                .append(this.validatedCollectionExprType.getJavaSourceType())
-                .append(", ")
-                .append(this.validatedComprehensionResultType.getJavaSourceType())
-                .append(">) (")
-                .append(syntheticStreamedCollectionVarName)
-                .append(") -> {")
-        ).createMerged(res);
-    res.javaSourceBody().append(" return ")
-        .append(syntheticCollectionVarName)
-        .append(";}).apply(");
-    res = res.createMerged(this.collectionExpr.generateJavaSourceOutput(scopedHeap));
-    res.javaSourceBody().append(")");
+    // The entire streamed collection needs to be passed into the corresponding ClaroCollection class.
+    res = GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder("new Claro")
+                .append(ComprehensionExpr.baseTypeToJavaCodegenName(this.comprehensionResultBaseType))
+                .append("(")
+                .append(this.validatedComprehensionResultType.getJavaSourceClaroType())
+                .append(", "))
+        .createMerged(res);
+
+    // Before returning, in the case that there was nesting, I need to be careful to actually do all of this within a
+    // `Function` where we pass in the references to potentially non-final internally referenced variables via a hack
+    // that works around Java's restriction that all variable references captured by lambdas are effectively-final.
+    // We'll do so with a synthetic class that just bundles the state.
+    if (this.isOutermostNestedComprehension && this.requiresNestedCodegenHandling) {
+      Supplier<Stream<String>> getMappedNestedIdentRefs =
+          () ->
+              this.nestedComprehensionIdentifierReferencesForCodegen.stream()
+                  .map(ident -> String.format(
+                      "%s %s",
+                      scopedHeap.getValidatedIdentifierType(ident).getJavaSourceType(),
+                      ident
+                  ));
+      String syntheticNestedComprehensionStateClassName = "$NestedComprehensionState_" + this.uniqueId;
+      Stmt.addGeneratedJavaSourceStmtBeforeCurrentStmt(
+          new StringBuilder("class ")
+              .append(syntheticNestedComprehensionStateClassName)
+              .append(" {\n\tfinal ")
+              .append(getMappedNestedIdentRefs.get().collect(Collectors.joining(";\n\tfinal ", "", ";\n\t")))
+              .append(syntheticNestedComprehensionStateClassName)
+              .append(getMappedNestedIdentRefs.get().collect(Collectors.joining(", ", "(", ") {\n")))
+              .append(
+                  this.nestedComprehensionIdentifierReferencesForCodegen.stream()
+                      .map(ident -> String.format("\t\tthis.%s = %s;\n", ident, ident))
+                      .collect(Collectors.joining()))
+              .append("\t}\n}\n")
+              .toString()
+      );
+      res =
+          GeneratedJavaSource.forJavaSourceBody(
+              new StringBuilder("((Function<")
+                  .append(syntheticNestedComprehensionStateClassName)
+                  .append(", ")
+                  .append(this.validatedComprehensionResultType.getJavaSourceType())
+                  .append(">) ($nestedComprehensionState) -> {")
+                  .append(this.validatedComprehensionResultType.getJavaSourceType())
+                  .append(" $comprehensionResult = ")
+          ).createMerged(res);
+      res.javaSourceBody()
+          .append("; return $comprehensionResult;}).apply(new ")
+          .append(syntheticNestedComprehensionStateClassName)
+          .append("(")
+          .append(String.join(", ", this.nestedComprehensionIdentifierReferencesForCodegen))
+          .append("))");
+
+      // Reset InternalStaticStateUtil.
+      InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
+    }
     return res;
   }
 

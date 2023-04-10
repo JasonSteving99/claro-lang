@@ -132,7 +132,7 @@ public class ListExpr extends Expr {
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
     return ClaroList.initializeList(
-        this.validatedListType,
+        (Types.ListType) this.validatedListType,
         this.initializerArgExprsList.stream()
             .map(expr -> expr.generateInterpretedOutput(scopedHeap))
             .toArray()

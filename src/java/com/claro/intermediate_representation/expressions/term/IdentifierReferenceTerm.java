@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -191,13 +192,27 @@ public class IdentifierReferenceTerm extends Term {
           this.identifier, referencedIdentifierType);
     }
 
+    // Now that everything is validated, check if this ref is inside a nested comprehension expr, and handle it.
+    if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount >= 0) {
+      InternalStaticStateUtil.addNestedCollectionIdentifierReference(this.identifier);
+    }
     return referencedIdentifierType;
   }
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     scopedHeap.markIdentifierUsed(this.identifier);
-    return new StringBuilder(this.alternateCodegenString.orElse(() -> this.identifier).get());
+    return new StringBuilder(
+        this.alternateCodegenString.orElse(
+            () -> {
+              if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
+                // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to
+                // workaround Java's restriction that all lambda captures must be effectively final.
+                return "$nestedComprehensionState." + this.identifier;
+              }
+              return this.identifier;
+            }
+        ).get());
   }
 
   @Override

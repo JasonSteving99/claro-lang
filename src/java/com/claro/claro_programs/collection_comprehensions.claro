@@ -56,7 +56,7 @@ var mutSet: mut {int} = mut {x * 2 | x in streamedCollection where x < 10};
 print(mutSet); # [2, 4, 6, 8, -999]
 
 ########################################################################################################################
-# DEMONSTRATE SET COMPREHENSION!
+# DEMONSTRATE MAP COMPREHENSION!
 ########################################################################################################################
 
 print("----------------------------------------");
@@ -106,12 +106,5 @@ print(setElemsAsStrings);
 # accepted. This is a neat demonstration, but the code is certainly more complex to follow. Use good judgement.
 ########################################################################################################################
 
-# TODO(steving) NEED TO FIX THIS. Java codegen's complaining about use of non-final or effectively final variable
-# TODO(steving)   `streamedCollection` within the codegen lambda. This is a tough thing to fix while still preserving
-# TODO(steving)   the original source code order of operations but it can be done. I would need to track the nesting
-# TODO(steving)   of comprehensions in the AST and then when nesting is found modify codegen to actually pass in the
-# TODO(steving)   streamedCollections in a map keyed by the comprehension's unique id. Fortunately wouldn't be that
-# TODO(steving)   large of a restructuring of the codegen. Users would have to get used to the semantic that the
-# TODO(steving)   streamed collections do *all* get evaluated first before any other expressions in the comprehension.
-#var nestedColl = [[y | y in streamedCollection] | x in streamedCollection];
-#print(nestedColl);
+var nestedColl = [[y | y in streamedCollection] | x in streamedCollection];
+print(nestedColl);

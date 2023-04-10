@@ -8,6 +8,7 @@ import com.google.common.collect.Streams;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -16,6 +17,11 @@ public class ClaroMap<K, V> extends HashMap<K, V> implements ClaroBuiltinTypeImp
 
   public ClaroMap(Types.MapType claroType) {
     super();
+    this.claroType = claroType;
+  }
+
+  public ClaroMap(Types.MapType claroType, Map<K, V> from) {
+    super(from);
     this.claroType = claroType;
   }
 

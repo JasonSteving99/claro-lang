@@ -509,6 +509,7 @@ public class ProgramNode {
             "import java.util.Optional;\n" +
             "import java.util.concurrent.ExecutionException;\n" +
             "import java.util.function.Function;\n" +
+            "import java.util.stream.Collectors;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +
             "import lombok.EqualsAndHashCode;\n" +

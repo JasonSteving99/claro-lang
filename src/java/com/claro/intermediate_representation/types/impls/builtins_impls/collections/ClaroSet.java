@@ -16,6 +16,11 @@ public class ClaroSet<V> extends HashSet<V> implements ClaroBuiltinTypeImplement
     this.claroType = claroType;
   }
 
+  public ClaroSet(Types.SetType claroType, Collection<V> from) {
+    super(from);
+    this.claroType = claroType;
+  }
+
   public int length() {
     return super.size();
   }
