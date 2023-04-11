@@ -39,6 +39,7 @@ public class ComprehensionExpr extends Expr {
   private boolean isOutermostNestedComprehension;
   private boolean requiresNestedCodegenHandling = false;
   private HashSet<String> nestedComprehensionIdentifierReferencesForCodegen;
+  private HashSet<String> outermostNestedComprehensionCollectionExprIdentifierRefs = null;
 
   public ComprehensionExpr(BaseType comprehensionResultBaseType, Expr mappedItemExpr, IdentifierReferenceTerm itemName, Expr collectionExpr, Optional<Expr> whereClauseExpr, boolean isMutable, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -93,6 +94,15 @@ public class ComprehensionExpr extends Expr {
 
       // First thing, validate the collection expression.
       this.validatedCollectionExprType = this.collectionExpr.getValidatedExprType(scopedHeap);
+      if (this.isOutermostNestedComprehension) {
+        // If this is the outermost comprehension, I don't want to automatically require wrapping any collection expr
+        // identifier references in a $NestedComprehensionState class at codegen since technically expressions in that
+        // one place actually don't fall under any of Java's restrictions regarding effectively-final lambda captures.
+        this.outermostNestedComprehensionCollectionExprIdentifierRefs =
+            InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences;
+        InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
+      }
+
       if (!ComprehensionExpr.SUPPORTED_COLLECTION_TYPES.contains(this.validatedCollectionExprType.baseType())) {
         this.collectionExpr.logTypeError(
             new ClaroTypeException(this.validatedCollectionExprType, ComprehensionExpr.SUPPORTED_COLLECTION_TYPES));
@@ -185,8 +195,7 @@ public class ComprehensionExpr extends Expr {
       // Finally, to handle nested comprehensions, check the nesting level and the set of nested identifier refs to see
       // if we'll need to do special codegen handling.
       this.requiresNestedCodegenHandling =
-          InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount > 0
-          && InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.stream()
+          InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.stream()
               .anyMatch(ident -> !ident.startsWith("$") && scopedHeap.isIdentifierDeclared(ident));
       if (this.isOutermostNestedComprehension) {
         InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount = -1;
@@ -221,6 +230,10 @@ public class ComprehensionExpr extends Expr {
     // to defer to the InternalStaticStateUtil to decide whether or not they should codegen to reference var via nested
     // comprehension state.
     if (this.isOutermostNestedComprehension && this.requiresNestedCodegenHandling) {
+      // In this case, since I'm going to be wrapping the entire thing in a lambda, then even the outermost
+      // comprehension's collection expr needs its identifier refs placed into the $NestedComprehensionState.
+      this.nestedComprehensionIdentifierReferencesForCodegen
+          .addAll(this.outermostNestedComprehensionCollectionExprIdentifierRefs);
       InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences =
           this.nestedComprehensionIdentifierReferencesForCodegen;
     }

@@ -106,5 +106,7 @@ print(setElemsAsStrings);
 # accepted. This is a neat demonstration, but the code is certainly more complex to follow. Use good judgement.
 ########################################################################################################################
 
+print("----------------------------------------");
+print("Testing nested list-comprehensions over {streamedCollection}:");
 var nestedColl = [[y | y in streamedCollection] | x in streamedCollection];
 print(nestedColl);
