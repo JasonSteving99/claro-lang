@@ -30,7 +30,8 @@ public class StructFieldAccessExpr extends Expr {
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     Type exprType = this.expr.getValidatedExprType(scopedHeap);
     if (!exprType.baseType().equals(BaseType.STRUCT)) {
-      throw new ClaroTypeException(exprType, BaseType.STRUCT);
+      this.expr.logTypeError(new ClaroTypeException(exprType, BaseType.STRUCT));
+      return Types.UNKNOWABLE;
     }
     this.validatedStructType = (Types.StructType) exprType;
     if (!this.validatedStructType.getFieldNames().contains(this.fieldName)) {

@@ -297,6 +297,8 @@ terminal LexedValue<String>  PRINT;
 terminal LexedValue<String>  NUMERIC_BOOL;
 // This grammar also has a builtin input() function for reading a line from stdin.
 terminal LexedValue<String>  INPUT;
+// This grammar also has a builtin copy() function for efficiently and conveniently copying data.
+terminal LexedValue<String>  COPY;
 // This grammar also has a builtin isInputReady() function for checking whether a line is ready to be read on stdin.
 terminal LexedValue<String>  IS_INPUT_READY;
 // This grammar also has a builtin len() function for getting the length of an Iterable.
@@ -363,6 +365,7 @@ nonterminal ImmutableList.Builder<Stmt>        initializers_or_unwrappers_proc_d
 nonterminal InitializersBlockStmt              initializers_block_stmt;
 nonterminal UnwrappersBlockStmt                unwrappers_block_stmt;
 nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
+nonterminal CopyExpr                           copy_expr;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
@@ -1331,6 +1334,8 @@ expr ::=
     {: RESULT = u; :}
   | is_input_ready:i
     {: RESULT = i; :}
+  | copy_expr:c
+    {: RESULT = c; :}
   | list:l
     {: RESULT = l; :}
   | map:m
@@ -1442,6 +1447,18 @@ is_input_ready ::=
     IS_INPUT_READY LPAR RPAR
     {:
        RESULT = new IsInputReadyExpr();
+    :}
+  ;
+
+copy_expr ::=
+    COPY:copy LPAR:lp expr:e RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(copy.currentInputLine, copyright), new Line(lp.currentInputLine, lpright), new Line(e.currentLine, e.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(copyleft, lpleft, e.startCol, rpleft);
+       int endCol = max(copyleft + copy.len, lpleft + lp.len, e.endCol, rpleft + rp.len);
+
+       RESULT = new CopyExpr(e, currentLinesSupplier, rpright, startCol, endCol);
     :}
   ;
 

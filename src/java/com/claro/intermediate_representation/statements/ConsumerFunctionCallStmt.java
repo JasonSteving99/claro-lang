@@ -249,7 +249,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
                 String.format(
-                    this.staticDispatchCodegen ? "%s(%s%s);" : "%s.apply(%s%s);",
+                    this.staticDispatchCodegen ? "%s(%s%s);\n" : "%s.apply(%s%s);\n",
                     this.consumerName,
                     this.argExprs
                         .stream()

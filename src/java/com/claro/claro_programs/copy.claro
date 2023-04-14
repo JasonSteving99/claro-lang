@@ -1,0 +1,69 @@
+
+consumer dumpCopyTest<T>(toCopy: T) {
+  var copied = copy(toCopy);
+  print("{toCopy} == copy({toCopy}) = {toCopy == copied}");
+}
+
+consumer dumpCopyTestWithMutation<T>(toCopy: T, mutate: consumer<T>) {
+  var copied = copy(toCopy);
+  print("Before mutation:\n\t{toCopy} == copy({toCopy}) = {toCopy == copied}");
+  mutate(toCopy);
+  print("After mutation:\n\t{toCopy} != {copied} = {toCopy != copied}");
+}
+
+print("----------------------------------------");
+print("Test copying inherently immutable types. (These copies are all literally no-ops)");
+
+dumpCopyTest(10);
+dumpCopyTest(1.5);
+dumpCopyTest("ten");
+dumpCopyTest(false);
+
+print("----------------------------------------");
+print("Test copying structured types.");
+
+print("\nLISTS:");
+dumpCopyTest([1,2,3]);
+dumpCopyTestWithMutation(mut [1,2,3], l -> {l[0] = -99;});
+dumpCopyTest([[1,2],[3]]);
+dumpCopyTestWithMutation([mut [1,2], mut [3]], l -> {l[0][0] = -99;});
+
+# TODO(steving) Once set mutations are actually supported, update this to test mutable copies via dumpCopyTestWithMutation().
+print("\nSETS:");
+dumpCopyTest({1,2,3});
+dumpCopyTest(mut {1,2,3});
+dumpCopyTest({{1,2}, {3,4}});
+dumpCopyTest({mut {1,2}, mut {3,4}});
+
+print("\nMAPS:");
+dumpCopyTest({1: "one", 2: "two"});
+dumpCopyTestWithMutation(mut {1: "one", 2: "two"}, m -> {m[1] = "negative ninety-nine";});
+dumpCopyTest({1: {1: "one", 2: "two"}, 2: {3: "three"}});
+dumpCopyTestWithMutation({1: mut {1: "one", 2: "two"}, 2: mut {3: "three"}}, m -> {m[1][1] = "negative ninety-nine";});
+
+print("\nTUPLES:");
+dumpCopyTest((1, 2));
+dumpCopyTestWithMutation(mut (1, 2), t -> {t[1] = -99;});
+dumpCopyTest(((1, 2), (3,4)));
+dumpCopyTestWithMutation(((1, 2), mut (3, 4)), t -> {t[1][1] = -99;});
+
+print("\nSTRUCTS:");
+dumpCopyTest({foo = 1, bar = "two"});
+dumpCopyTestWithMutation(mut {foo = 1, bar = "two"}, s -> {s.foo = -99;});
+dumpCopyTest({foo = {foofoo = 1, foobar = "two"}, bar = {barfoo = 3, barbar = "four"}});
+dumpCopyTestWithMutation({foo = mut {foofoo = 1, foobar = "two"}}, s -> {s.foo.foobar = "negative ninety-nine";});
+
+print("\nBASIC USER DEFINED TYPES:");
+newtype MyIntList : mut [int]
+var myIntList = MyIntList(mut [1,2]);
+dumpCopyTest(myIntList);
+dumpCopyTestWithMutation(myIntList, l -> {unwrap(l)[0] = -99;});
+
+print("\nPARAMETERIZED USER DEFINED TYPES:");
+newtype MyList<T> : mut [T]
+var myList = MyList(mut [1,2]);
+dumpCopyTest(myList);
+dumpCopyTestWithMutation(myList, l -> {unwrap(l)[0] = -99;});
+dumpCopyTest(MyList(mut [MyList(mut [1]), MyList(mut [2])]));
+dumpCopyTestWithMutation(MyList(mut [MyList(mut [1]), MyList(mut [2])]), l -> {unwrap(unwrap(l)[0])[0] = -99;});
+

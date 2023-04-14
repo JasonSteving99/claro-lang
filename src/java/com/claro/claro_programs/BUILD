@@ -56,6 +56,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "copy",
+    srcs = [":copy_lib"],
+    java_name = "copy",
+)
+
+claro_library(
+    name = "copy_lib",
+    src = "copy.claro",
+)
+
+claro_binary(
     name = "dynamic_dispatch_compiled_claro_image",
     srcs = [":dynamic_dispatch_compiled_claro"],
     java_name = "dynamic_dispatch",
