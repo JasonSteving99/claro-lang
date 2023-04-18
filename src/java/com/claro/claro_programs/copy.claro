@@ -67,3 +67,13 @@ dumpCopyTestWithMutation(myList, l -> {unwrap(l)[0] = -99;});
 dumpCopyTest(MyList(mut [MyList(mut [1]), MyList(mut [2])]));
 dumpCopyTestWithMutation(MyList(mut [MyList(mut [1]), MyList(mut [2])]), l -> {unwrap(unwrap(l)[0])[0] = -99;});
 
+print("\nONEOFS:");
+var myOneof: oneof<int, mut [int], [mut [int]], mut {int}> = [mut [9]];
+dumpCopyTestWithMutation(
+  myOneof,
+  l -> {
+    if (l instanceof [mut [int]]) {
+      l[0][0] = -999;
+    }
+  }
+);

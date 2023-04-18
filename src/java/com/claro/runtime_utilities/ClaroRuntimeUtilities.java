@@ -121,4 +121,27 @@ public class ClaroRuntimeUtilities {
            && ((Types.UserDefinedType) t).getTypeName().equals("Error")
            && t.parameterizedTypeArgs().size() == 1;
   }
+
+  public static Type getClaroType(Object value) {
+    if (value instanceof ClaroTypeImplementation) {
+      return ((ClaroTypeImplementation) value).getClaroType();
+    } else {
+      // These are native-Claro builtin primitives that are using underlying native-Java runtime implementations.
+      switch (value.getClass().getSimpleName()) {
+        case "Integer":
+          return Types.INTEGER;
+        case "Double":
+          return Types.FLOAT;
+        case "String":
+          return Types.STRING;
+        case "Boolean":
+          return Types.BOOLEAN;
+        default:
+          // Obnoxiously the interface that I'm using here won't allow me to throw ClaroTypeException without making it a
+          // compile-time checked requirement, so I'm just rethrowing as a runtime exception. We explicitly want to fail out
+          // of the interpreter phase right now for the current Stmt if there was an invalid cast.
+          throw new RuntimeException(new ClaroTypeException("Internal Compiler Error! Claro only supports casts to native-Claro types and doesn't yet support native-Java types."));
+      }
+    }
+  }
 }

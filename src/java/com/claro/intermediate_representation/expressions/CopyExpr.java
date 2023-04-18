@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -35,6 +36,11 @@ public class CopyExpr extends Expr {
   }
 
   private static Optional<GeneratedJavaSource> getCopyJavaSource(GeneratedJavaSource copiedExprJavaSource, Type copiedExprType, long nestingLevel) {
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // !!!WARNING!!!!
+    // IF YOU UPDATE THIS CONDITION, YOU MUST ALSO UPDATE THE CONDITION CODEGEN'D FOR ONEOF HANDLING BELOW!
+    // !!!WARNING!!!!
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (copiedExprType instanceof SupportsMutableVariant ||
         copiedExprType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
       // Here I have some structured type that actually has internal values to be copied. First let's find out if those
@@ -301,7 +307,126 @@ public class CopyExpr extends Expr {
           throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in CopyExpr!");
       }
     } else {
-      // This isn't a structured type that actually supports copying.
+      if (copiedExprType.baseType().equals(BaseType.ONEOF)) {
+        // Oneofs aren't "structured" per se, but the variants within may be, so gen logic to detect which variant type
+        // you actually have so that you can handle it properly.
+
+        String syntheticOneofVar = "$oneofVal_" + (nestingLevel + 1);
+        ImmutableMap<Type, GeneratedJavaSource> variantCopyCodegens =
+            ((Types.OneofType) copiedExprType).getVariantTypes().stream()
+                .collect(
+                    ImmutableMap.toImmutableMap(
+                        variant -> variant,
+                        variant ->
+                            getCopyJavaSource(
+                                GeneratedJavaSource.forJavaSourceBody(
+                                    new StringBuilder("((")
+                                        .append(variant.getJavaSourceType())
+                                        .append(") ")
+                                        .append(syntheticOneofVar)
+                                        .append(")")),
+                                variant,
+                                nestingLevel + 1
+                            )
+                    )).entrySet().stream()
+                // Just make sure that this map *only* contains entries that *actually* require deep copying.
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+
+        // A few different things might happen to try to slightly optimize gen'd code handling oneofs (not trying to be
+        // perfect here, just trying to avoid obviously dumb code). Try not to generate unnecessary checks.
+
+        if (variantCopyCodegens.isEmpty()) {
+          // Here, this means that none of the variants *actually* require deep copying, and we can just signal that the
+          // original value should be re-referenced.
+          return Optional.empty();
+        }
+        String syntheticOneofTypeVar = "$oneofType_" + (nestingLevel + 1);
+        GeneratedJavaSource res =
+            GeneratedJavaSource.forJavaSourceBody(
+                new StringBuilder()
+                    .append("((Function<")
+                    .append(copiedExprType.getJavaSourceType())
+                    .append(", ")
+                    .append(copiedExprType.getJavaSourceType())
+                    .append(">) (")
+                    .append(syntheticOneofVar)
+                    .append(") -> { Type ")
+                    .append(syntheticOneofTypeVar)
+                    .append(" = ClaroRuntimeUtilities.getClaroType(")
+                    .append(syntheticOneofVar)
+                    .append("); "));
+
+        // If all variants required deep-copying, then we wouldn't need to check for the case where we just return the
+        // original reference, so only codegen that check if it's possible to go either way.
+        if (variantCopyCodegens.size() < ((Types.OneofType) copiedExprType).getVariantTypes().size()) {
+          res.javaSourceBody()
+              .append("if (")
+              .append(syntheticOneofTypeVar)
+              .append(" instanceof SupportsMutableVariant || ")
+              .append(syntheticOneofTypeVar)
+              .append(".baseType().equals(BaseType.USER_DEFINED_TYPE)) { ");
+        }
+
+        // Now, to handle the case where deep-copying is necessary, again do some minor optimization to at least drop
+        // a conditional if there's only a single variant requiring deep-copying.
+        if (variantCopyCodegens.size() == 1) {
+          res.javaSourceBody()
+              .append("return ")
+              .append(variantCopyCodegens.values().stream().findFirst().get().javaSourceBody())
+              .append(";");
+        } else {
+          // Unfortunately there are multiple potential variants that would require deep-copying, so we'll need to
+          // codegen some conditionals.
+          // TODO(steving) In the future, it may be possible to optimize this further to avoid all of these if-stmts.
+          //   For example, it might be possible to do a switch over the hashcodes of the variant types...the issue w/
+          //   that specific idea is that the hashcode impl for Claro's Types would have to be extremely stable in order
+          //   to avoid invalidating compatibility btwn code generated by Claro versions before/after hashcode impl
+          //   change. I'll admit I genuinely don't understand the implications of that yet, so I'll avoid the mess as
+          //   I'm not ready to claim I am prepared for the consequences or that the hashcode impls are already perfect.
+          GeneratedJavaSource finalRes = res;
+          List<Map.Entry<Type, GeneratedJavaSource>> variantCopyCodegensList = variantCopyCodegens.entrySet().asList();
+          res.javaSourceBody()
+              .append(
+                  IntStream.range(0, variantCopyCodegens.size() - 1)
+                      .boxed()
+                      .map(
+                          i ->
+                              new StringBuilder()
+                                  .append("if (")
+                                  .append(syntheticOneofTypeVar)
+                                  .append(".equals(")
+                                  .append(variantCopyCodegensList.get(i).getKey().getJavaSourceClaroType())
+                                  .append(")) { return ")
+                                  .append(variantCopyCodegensList.get(i).getValue().javaSourceBody())
+                                  .append("; } ")
+                                  .toString()
+                      )
+                      .collect(Collectors.joining(" else ")))
+              .append(" else { return ")
+              .append(variantCopyCodegensList.get(variantCopyCodegensList.size() - 1).getValue().javaSourceBody())
+              .append("; }");
+        }
+
+        // If all variants required deep-copying, then we wouldn't need to check for the case where we just return the
+        // original reference, so only codegen that check if it's possible to go either way.
+        if (variantCopyCodegens.size() < ((Types.OneofType) copiedExprType).getVariantTypes().size()) {
+          res.javaSourceBody()
+              .append(" } else { return ")
+              .append(syntheticOneofVar)
+              .append("; }");
+        }
+
+        res.javaSourceBody()
+            .append("}).apply(");
+        res = res.createMerged(copiedExprJavaSource);
+        res.javaSourceBody()
+            .append(")");
+
+        return Optional.of(res);
+      }
+
+      // This isn't a structured type that actually "requires" copying, signal to just reference the original value.
       return Optional.empty();
     }
   }
