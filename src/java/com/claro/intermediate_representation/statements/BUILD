@@ -76,8 +76,9 @@ java_library(
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/expressions:expr_impls",
-        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
         "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
+        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:structural_concrete_generic_type_validation_util",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
         "//src/java/com/claro/intermediate_representation/statements/contracts",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
@@ -92,6 +93,7 @@ java_library(
         "//src/java/com/claro/runtime_utilities/injector",
         "//src/java/com/claro/runtime_utilities/injector:key",
         "//src/java/com/claro/runtime_utilities/injector:injected_key",
+        "//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
     ],
 )
 

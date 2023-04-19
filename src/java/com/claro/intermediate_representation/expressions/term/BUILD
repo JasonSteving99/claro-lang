@@ -4,6 +4,7 @@ package(
         "//src/java/com/claro/intermediate_representation:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions:__subpackages__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
+        "//src/java/com/claro/runtime_utilities/injector:__pkg__",
     ]
 )
 

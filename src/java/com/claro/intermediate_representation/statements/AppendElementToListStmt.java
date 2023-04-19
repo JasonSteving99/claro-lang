@@ -34,7 +34,7 @@ public class AppendElementToListStmt extends Stmt {
       // Make sure that this collection *actually* supports mutation.
       listExpr.logTypeError(
           ClaroTypeException.forIllegalMutationAttemptOnImmutableValue(
-              actualListExprType, ((SupportsMutableVariant<?>) actualListExprType).toMutableVariant()));
+              actualListExprType, ((SupportsMutableVariant<?>) actualListExprType).toShallowlyMutableVariant()));
       // The entire premise of this assignment statement is invalid. However, just in case we need to mark things used,
       // let's run validation on the subscript expr and RHS...not perfect but helpful.
     }

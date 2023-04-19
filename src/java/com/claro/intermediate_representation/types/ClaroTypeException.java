@@ -6,10 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ClaroTypeException extends Exception {
@@ -244,6 +241,30 @@ public class ClaroTypeException extends Exception {
       "Illegal Struct Field Access: The requested field `%s` doesn't exist!\n" +
       "\t\tFound Struct:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG =
+      "Illegal Mutable Graph Procedure Arg: As Graph Procedures are multi-threaded by nature, all args must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the mutable type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tTo correct this, consider converting the arg's type to its deeply-immutable variant:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE =
+      "Illegal Mutable Graph Procedure Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the mutable type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tTo correct this, consider converting the injected value's type to its deeply-immutable variant:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE =
+      "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the result of node `%s` to have the mutable type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tTo correct this, consider converting to its deeply-immutable variant:\n" +
+      "\t\t\t%s";
+  private static final String
+      ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
+      "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the result of node `%s` to have the mutable type:\n" +
+      "\t\t\t%s";
+
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1050,5 +1071,46 @@ public class ClaroTypeException extends Exception {
             validatedStructType
         )
     );
+  }
+
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureArg(Type argType, Type immutableVariantArgType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG,
+            argType,
+            immutableVariantArgType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureInjectedValue(Type argType, Type immutableVariantArgType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE,
+            argType,
+            immutableVariantArgType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphNodeResultType(Type actualNodeType, String nodeName, Optional<Type> immutableVariantType) {
+    if (immutableVariantType.isPresent()) {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE,
+              nodeName,
+              actualNodeType,
+              immutableVariantType.get()
+          )
+      );
+    } else {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE,
+              nodeName,
+              actualNodeType
+          )
+      );
+    }
   }
 }

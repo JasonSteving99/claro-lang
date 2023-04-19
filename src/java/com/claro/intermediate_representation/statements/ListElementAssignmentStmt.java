@@ -71,7 +71,7 @@ public class ListElementAssignmentStmt extends Stmt {
       // Make sure that this collection *actually* supports mutation.
       listExpr.logTypeError(
           ClaroTypeException.forIllegalMutationAttemptOnImmutableValue(
-              listExprType, ((SupportsMutableVariant<?>) listExprType).toMutableVariant()));
+              listExprType, ((SupportsMutableVariant<?>) listExprType).toShallowlyMutableVariant()));
       // The entire premise of this assignment statement is invalid. However, just in case we need to mark things used,
       // let's run validation on the subscript expr and RHS...not perfect but helpful.
     }

@@ -24,6 +24,23 @@ java_library(
 )
 
 java_library(
+    name = "injected_key_identifier",
+    srcs = ["InjectedKeyIdentifier.java"],
+    # This is an internal only type, not for consumption by the generated JavaSource output.
+    visibility = [
+        "//src/java/com/claro:__pkg__",
+        "//src/java/com/claro/intermediate_representation/statements:__pkg__",
+    ],
+    deps = [
+        ":injected_key",
+        "//:lombok",
+        "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/intermediate_representation/types:type_provider",
+        "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+    ],
+)
+
+java_library(
     name = "key",
     srcs = ["Key.java"],
     deps = [

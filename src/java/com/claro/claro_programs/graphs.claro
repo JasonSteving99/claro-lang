@@ -113,12 +113,11 @@ consumer doIO(s: string) {
 
 # Fire-and-forget the graph consumer procedure, it will finish at some point in the future.
 var messages = ["execute first consumer graph!", "consumer graph again...", "one last time..."];
-var i = 0;
-while (i < len(messages)) {
+for (message in messages) {
   # There's no ordering guarantee for completion of all of the futures that I'm firing-and-forgetting here
   # since each call is potentially running concurrently in different threads. You'll likely need to run this
   # program many times to have a chance of observing that.
-  graphReturningNothing(messages[i++]);
+  graphReturningNothing(message);
 }
 
 ####################################################################################################
@@ -195,9 +194,10 @@ blocking:deferFn function maybeRecurseBlockingIndirectlyViaFirstClassFunctionDep
 }
 
 function nonblocking(b: boolean, n: int, x: int, y: int) -> int {
+  _ = (n, x, y);
   var res: int = 2;
   if (b) {
-    res = 0 * n + 0 * x + 0 * y + 199;
+    res = 199;
   }
   return res;
 }
@@ -224,97 +224,130 @@ var f: blocking function<|boolean, int, int, int| -> int> = maybeRecurseBlocking
 print(f(false, -1, -1, -1));
 
 ######################################################################################################
-# DEMONSTRATE THREADED DATA RACES: CLARO SHOULD PROGRESS IN THE DIRECTION OF FORBIDDING ALL OF THESE.
+# DEMONSTRATE STATICALLY FORBIDDING ALL MULTITHREADED DATA RACES!
+#
+# The below examples are saved here for posterity, as these were used in previously demonstrating the
+# dangerous patterns that would lead to data races if Claro allowed the use of mutable data w/in graph
+# procedures. Each below example fundamentally operated on the principle that you would alias the
+# mutable list(s) passed into the graphs, accessing them from separate nodes (that were specially
+# arranged to have a high likelihood of ordering switching across reruns) creating an observable data
+# race.
+#
+# The absolute beauty of Claro's Graph Procedures is that Claro is *guaranteed* to statically reject
+# all of these possible data races at compile time! It does this by very straightforwardly forbidding
+# the passing of mutable data between graph nodes. A graph node expression may do *local* data
+# mutation, however, the overall result type of all graph nodes must be *deeply-immutable*. This is a
+# foolproof approach to safely sharing node result data across threads. Yes it depends on a limitation
+# but you will find power in this limitation. Immutability paired with non-blocking guarantee means
+# that by construction you are *guaranteed* to have safe multithreaded code without requiring any sort
+# of special expertise in concurrent programming!
+#
+# Uncomment all of the below if you'd like to see Claro's error messages rejecting the use of mutable
+# data that would lead to the data races below. Here are a couple example messages:
+#
+#   graphs.claro:325: Illegal Mutable Graph Procedure Arg: As Graph Procedures are multi-threaded by nature, all args must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.
+#	  	  Found the mutable type:
+#	  		  mut [int]
+#	  	  To correct this, consider converting the arg's type to its deeply-immutable variant:
+#	  	  	[int]
+#   graph function unsafeAliasingAllowedOnGivenArgs(l1: mut [int], l2: mut [int]) -> future<boolean> {
+#                                                                  ^^
+#
+#   graphs.claro:327: Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.
+#     		Found the mutable type:
+#     			mut [int]
+#     		To correct this, consider converting the result of node `update2` to its deeply-immutable variant:
+#     			[int]
+#       node update2 <- appendAndReturn(l2, 999);
+#                       ^^^^^^^^^^^^^^^^^^^^^^^^
+#
 ######################################################################################################
-
-print("TOMFOOLERY ENSUES:");
-
-# TODO(steving) GET SUPER HYPED FOR INVALIDATING THIS ENTIRE EXAMPLE ONCE CLARO IS ABLE TO STATICALLY FORBID MUTABLE
-# TODO(steving)     COLLECTIONS FROM BEING USED AS INPUT/OUTPUT OF GRAPH PROCEDURE NODES! ONCE THAT'S IMPLEMENTED, CLARO
-# TODO(steving)     GRAPH PROCEDURES WILL BE STATICALLY GUARANTEED TO PROVIDE DATA RACE FREE CONCURRENCY!
-# Even with the exact same arguments to these functions, the output is non-deterministic due to a data race on the list.
-# Run them multiple times and you'll see one of 3 possible outcomes for each:
-#   Possibility #1: list [1] becomes [1, 2, 999] and prints false
-#   Possibility #2: list [1] becomes [1, 999, 2] and prints true
-#   Possibility #3: list [1] is appended to literally simultaneously and the list doesn't "realize" that it's been
-#                   appended to twice and there's data corruption leaving list [1] as [1, 999] or [1, 2] which in this
-#                   case happens to lead to a runtime Panic because the list will be indexed out of bounds. (To observe
-#                   this in practice you may need to throw the below graph function call in a while(true) loop. I've
-#                   seen it take several hundred thousand iterations to trigger this particular case.)
-# (Note: Delay iters were hardcoded to what demonstrated the non-determinism fairly easily on my machine - you might
-#        have to think it through and play with different delays on your machine.)
-var unsafeAliasingViaNodeProcedureArgsRes <-| unsafeAliasingViaNodeProcedureArgs(mut [], mut [1]);
-var unsafeALiasingViaDirectNodeAliasingRes <-| unsafeALiasingViaDirectNodeAliasing(mut [1]);
-var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue(mut [1]);
-var l = mut [1];
-var unsafeAliasingAllowedOnGivenArgsRes <-| unsafeAliasingAllowedOnGivenArgs(l, l);
-
-print(unsafeAliasingViaNodeProcedureArgsRes);
-print(unsafeALiasingViaDirectNodeAliasingRes);
-print(unsafeAliasingViaNodeProcedureReturnValueRes);
-print(unsafeAliasingAllowedOnGivenArgsRes);
-
-# This is a very complicated example that demonstrates a data race being introduced by unsafe data "aliasing".
-graph function unsafeAliasingViaNodeProcedureArgs(l: mut [mut [int]], l2: mut [int]) -> future<boolean> {
-  # Unsafe "ALIASING" is happening here. Specifically, `l` is appending an "aliased" reference to the same data that
-  # `l2` was already referencing. This would mean that subsequent nodes could be racing to mutate the same underlying
-  # data w/o Claro being able to track it. In the future, Claro will forbid this use of mutable data in Graph nodes.
-  node unsafeAlias <- appendAndReturn(l, l2);
-  node delayedUnsafeAliasLen <- delay(30, len(@unsafeAlias));
-  node update1 <- appendAndReturn((@unsafeAlias)[@delayedUnsafeAliasLen - 1], 2);
-  node update2 <- appendAndReturn(l2, 999);
-  root observeRaceRes <- printAndReturn(@update1, @update2);
-}
-
-# The following graph also introduces unsafe Aliasing albeit via DIRECT NODE ALIASING.
-graph function unsafeALiasingViaDirectNodeAliasing(l: mut [int]) -> future<boolean> {
-  node unsafeAlias <- l;
-  node delayedUnsafeAlias <- delay(30, @unsafeAlias);
-  node update1 <- appendAndReturn(@delayedUnsafeAlias, 2);
-  node update2 <- appendAndReturn(l, 999);
-  root observeRaceRes <- printAndReturn(@update1, @update2);
-}
-
-# The following graph also introduces unsafe Aliasing albeit via NODE PROCEDURE RETURN VALUE.
-graph function unsafeAliasingViaNodeProcedureReturnValue(l: mut [int]) -> future<boolean> {
-  node unsafeAlias <- delay(30, l);
-  node update1 <- appendAndReturn(@unsafeAlias, 2);
-  node update2 <- appendAndReturn(l, 999);
-  root observeRaceRes <- printAndReturn(@update1, @update2);
-}
-
-# Finally, the following graph also introduces unsafe Aliasing albeit via a very sneaky situation where everything in
-# the graph procedure itself is actually defined totally correctly, introducing no new aliasing, however if you call it
-# with already aliased data, then Claro would be unable to check for data races using a technique local to graph procedures.
-graph function unsafeAliasingAllowedOnGivenArgs(l1: mut [int], l2: mut [int]) -> future<boolean> {
-  node update1 <- appendAndReturnDelayed(l1, 2, 20);
-  node update2 <- appendAndReturn(l2, 999);
-  root observeRaceRes <- printAndReturn(@update1, @update2);
-}
-
-# TODO: Add builtin support for a sleep timer to make better examples.
-function delay<T>(iters: int, res: T) -> T {
-  var i = 0;
-  var s = "";
-  while (i++ < iters) {
-    print(i);
-    s = "{s} ";
-  }
-  return res;
-}
-
-function printAndReturn(l1: mut [int], l2: mut [int]) -> boolean {
-  print(l1);
-  print(l2);
-  return l1[1] > l2[2];
-}
-
-function appendAndReturn<T>(l: mut [T], toAppend: T) -> mut [T] {
-  append(l, toAppend);
-  return l;
-}
-
-function appendAndReturnDelayed<T>(l: mut [T], toAppend: T, iters: int) -> mut [T] {
-  _ = delay(iters, "");
-  return appendAndReturn(l, toAppend);
-}
+#
+#print("TOMFOOLERY ENSUES:");
+#
+## Even with the exact same arguments to these functions, the output is non-deterministic due to a data race on the list.
+## Run them multiple times and you'll see one of 3 possible outcomes for each:
+##   Possibility #1: list [1] becomes [1, 2, 999] and prints false
+##   Possibility #2: list [1] becomes [1, 999, 2] and prints true
+##   Possibility #3: list [1] is appended to literally simultaneously and the list doesn't "realize" that it's been
+##                   appended to twice and there's data corruption leaving list [1] as [1, 999] or [1, 2] which in this
+##                   case happens to lead to a runtime Panic because the list will be indexed out of bounds. (To observe
+##                   this in practice you may need to throw the below graph function call in a while(true) loop. I've
+##                   seen it take several hundred thousand iterations to trigger this particular case.)
+## (Note: Delay iters were hardcoded to what demonstrated the non-determinism fairly easily on my machine - you might
+##        have to think it through and play with different delays on your machine.)
+#var unsafeAliasingViaNodeProcedureArgsRes <-| unsafeAliasingViaNodeProcedureArgs(mut [], mut [1]);
+#var unsafeALiasingViaDirectNodeAliasingRes <-| unsafeALiasingViaDirectNodeAliasing(mut [1]);
+#var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue(mut [1]);
+#var l = mut [1];
+#var unsafeAliasingAllowedOnGivenArgsRes <-| unsafeAliasingAllowedOnGivenArgs(l, l);
+#
+#print(unsafeAliasingViaNodeProcedureArgsRes);
+#print(unsafeALiasingViaDirectNodeAliasingRes);
+#print(unsafeAliasingViaNodeProcedureReturnValueRes);
+#print(unsafeAliasingAllowedOnGivenArgsRes);
+#
+## This is a very complicated example that demonstrates a data race being introduced by unsafe data "aliasing".
+#graph function unsafeAliasingViaNodeProcedureArgs(l: mut [mut [int]], l2: mut [int]) -> future<boolean> {
+#  # Unsafe "ALIASING" is happening here. Specifically, `l` is appending an "aliased" reference to the same data that
+#  # `l2` was already referencing. This would mean that subsequent nodes could be racing to mutate the same underlying
+#  # data w/o Claro being able to track it. In the future, Claro will forbid this use of mutable data in Graph nodes.
+#  node unsafeAlias <- appendAndReturn(l, l2);
+#  node delayedUnsafeAliasLen <- delay(30, len(@unsafeAlias));
+#  node update1 <- appendAndReturn((@unsafeAlias)[@delayedUnsafeAliasLen - 1], 2);
+#  node update2 <- appendAndReturn(l2, 999);
+#  root observeRaceRes <- printAndReturn(@update1, @update2);
+#}
+#
+## The following graph also introduces unsafe Aliasing albeit via DIRECT NODE ALIASING.
+#graph function unsafeALiasingViaDirectNodeAliasing(l: mut [int]) -> future<boolean> {
+#  node unsafeAlias <- l;
+#  node delayedUnsafeAlias <- delay(30, @unsafeAlias);
+#  node update1 <- appendAndReturn(@delayedUnsafeAlias, 2);
+#  node update2 <- appendAndReturn(l, 999);
+#  root observeRaceRes <- printAndReturn(@update1, @update2);
+#}
+#
+## The following graph also introduces unsafe Aliasing albeit via NODE PROCEDURE RETURN VALUE.
+#graph function unsafeAliasingViaNodeProcedureReturnValue(l: mut [int]) -> future<boolean> {
+#  node unsafeAlias <- delay(30, l);
+#  node update1 <- appendAndReturn(@unsafeAlias, 2);
+#  node update2 <- appendAndReturn(l, 999);
+#  root observeRaceRes <- printAndReturn(@update1, @update2);
+#}
+#
+## Finally, the following graph also introduces unsafe Aliasing albeit via a very sneaky situation where everything in
+## the graph procedure itself is actually defined totally correctly, introducing no new aliasing, however if you call it
+## with already aliased data, then Claro would be unable to check for data races using a technique local to graph procedures.
+#graph function unsafeAliasingAllowedOnGivenArgs(l1: mut [int], l2: mut [int]) -> future<boolean> {
+#  node update1 <- appendAndReturnDelayed(l1, 2, 20);
+#  node update2 <- appendAndReturn(l2, 999);
+#  root observeRaceRes <- printAndReturn(@update1, @update2);
+#}
+#
+## TODO: Add builtin support for a sleep timer to make better examples.
+#function delay<T>(iters: int, res: T) -> T {
+#  var i = 0;
+#  var s = "";
+#  while (i++ < iters) {
+#    print(i);
+#    s = "{s} ";
+#  }
+#  return res;
+#}
+#
+#function printAndReturn(l1: mut [int], l2: mut [int]) -> boolean {
+#  print(l1);
+#  print(l2);
+#  return l1[1] > l2[2];
+#}
+#
+#function appendAndReturn<T>(l: mut [T], toAppend: T) -> mut [T] {
+#  append(l, toAppend);
+#  return l;
+#}
+#
+#function appendAndReturnDelayed<T>(l: mut [T], toAppend: T, iters: int) -> mut [T] {
+#  _ = delay(iters, "");
+#  return appendAndReturn(l, toAppend);
+#}
