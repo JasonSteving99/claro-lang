@@ -19,6 +19,7 @@ import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypePro
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.InjectedKeyIdentifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableListMultimap;
@@ -382,6 +383,7 @@ nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
 nonterminal CastExpr/*wrapping LambdaExpr*/    typed_lambda_function_expr;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
+nonterminal Symbol/*ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>*/ function_args_types_list_identifiers;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ImmutableList<String>              generic_blocking_on;
 nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
@@ -726,7 +728,7 @@ builtin_type ::=
                 Type resolvedType = tLexedVal.val.resolveType(scopedHeap);
                 // Literally all I need to do is manually mark the thing mutable if mutability is supported for this type.
                 if (resolvedType instanceof SupportsMutableVariant) {
-                  return ((SupportsMutableVariant) resolvedType).toMutableVariant();
+                  return ((SupportsMutableVariant) resolvedType).toShallowlyMutableVariant();
                 } else {
                   // Java is stupid, I hate the concept of checked exceptions. If you're going to give me exceptions,
                   // please make them "just work".
@@ -1927,7 +1929,7 @@ function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
     :}
   | BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
@@ -1952,7 +1954,7 @@ function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
     :}
   | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
@@ -1977,7 +1979,7 @@ function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
           ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new FunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
     :}
   ;
@@ -2342,7 +2344,7 @@ consumer_function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/false, Optional.empty());
     :}
   | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
@@ -2369,7 +2371,7 @@ consumer_function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/true, Optional.empty());
     :}
   | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR LCURLY stmt_list:stmt_list RCURLY
@@ -2396,7 +2398,7 @@ consumer_function_definition_stmt ::=
       ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
       ImmutableMap<String, TypeProvider> argTypesMap =
         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new ConsumerFunctionDefinitionStmt(name.val, argTypesMap, Optional.of(injectedKeysList), stmt_list, /*explicitlyAnnotatedBlocking=*/null, Optional.of(generic_blocking_on));
     :}
   ;
@@ -2519,7 +2521,7 @@ provider_function_definition_stmt ::=
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
       returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/false);
     :}
   | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type LCURLY stmt_list:stmt_list RCURLY
@@ -2536,7 +2538,7 @@ provider_function_definition_stmt ::=
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
       returnTypeHolder.set(outputTypeProvider);
       returnTypeHolder = null;
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse().stream().map(i -> i.toInjectedKey()).collect(ImmutableList.toImmutableList());
       RESULT = new ProviderFunctionDefinitionStmt(name.val, Optional.of(injectedKeysList), outputTypeProvider, stmt_list, /*explicitlyAnnotatedBlocking=*/true);
     :}
   ;
@@ -2589,72 +2591,72 @@ generic_provider_function_definition_stmt ::=
   ;
 
 injected_keys_list ::=
-    IDENTIFIER:key_name COLON:colon builtin_type:t COMMA:comma injected_keys_list:tail
+    identifier:key_name COLON:colon builtin_type:t COMMA:comma injected_keys_list:tail
     {:
        Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
-       int startCol = min(key_nameleft, colonleft, t.left, commaleft, tail.left);
-       int endCol = max(key_nameleft + key_name.len, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+          joinExprLines(new Line(key_name.currentLine, key_name.currentLineNumber), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(key_name.startCol, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(key_name.endCol, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
 
        RESULT = new Symbol(
           -1,
           startCol,
           t.right, // line number
           new LexedValue(
-            ((LexedValue<ImmutableList.Builder<InjectedKey>>) tail.value).val
-              .add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
+            ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) tail.value).val
+              .add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
             currentLinesSupplier,
             endCol - startCol)
        );
     :}
-  | IDENTIFIER:key_name COLON:colon builtin_type:t AS IDENTIFIER:alias COMMA:comma injected_keys_list:tail
+  | identifier:key_name COLON:colon builtin_type:t AS IDENTIFIER:alias COMMA:comma injected_keys_list:tail
     {:
        Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
-       int startCol = min(key_nameleft, colonleft, t.left, commaleft, tail.left);
-       int endCol = max(key_nameleft + key_name.len, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+          joinExprLines(new Line(key_name.currentLine, key_name.currentLineNumber), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(key_name.startCol, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(key_name.endCol, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
 
        RESULT = new Symbol(
           -1,
           startCol,
           t.right, // line number
           new LexedValue(
-            ((LexedValue<ImmutableList.Builder<InjectedKey>>) tail.value).val
-              .add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
+            ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) tail.value).val
+              .add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
             currentLinesSupplier,
             endCol - startCol)
        );
     :}
-  | IDENTIFIER:key_name COLON:c builtin_type:t
+  | identifier:key_name COLON:c builtin_type:t
     {:
        Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
-       int startCol = min(key_nameleft, cleft, t.left);
-       int endCol = max(key_nameleft + key_name.len, cleft + c.len, t.left + ((LexedValue) t.value).len);
+          joinExprLines(new Line(key_name.currentLine, key_name.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(key_name.startCol, cleft, t.left);
+       int endCol = max(key_name.endCol, cleft + c.len, t.left + ((LexedValue) t.value).len);
 
        RESULT = new Symbol(
           -1,
           startCol,
           t.right, // line number
           new LexedValue(
-            ImmutableList.<InjectedKey>builder().add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
+            ImmutableList.<InjectedKeyIdentifier>builder().add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).val, Optional.empty())),
             currentLinesSupplier,
             endCol - startCol)
        );
     :}
-  | IDENTIFIER:key_name COLON:c builtin_type:t AS IDENTIFIER:alias
+  | identifier:key_name COLON:c builtin_type:t AS IDENTIFIER:alias
     {:
        Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(key_name.currentInputLine, key_nameright), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
-       int startCol = min(key_nameleft, cleft, t.left);
-       int endCol = max(key_nameleft + key_name.len, cleft + c.len, t.left + ((LexedValue) t.value).len);
+          joinExprLines(new Line(key_name.currentLine, key_name.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(key_name.startCol, cleft, t.left);
+       int endCol = max(key_name.endCol, cleft + c.len, t.left + ((LexedValue) t.value).len);
 
        RESULT = new Symbol(
           -1,
           startCol,
           t.right, // line number
           new LexedValue(
-            ImmutableList.<InjectedKey>builder().add(new InjectedKey(key_name.val, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
+            ImmutableList.<InjectedKeyIdentifier>builder().add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).val, Optional.of(alias.val))),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -2700,6 +2702,47 @@ function_args_types_list ::=
     :}
   ;
 
+// LITERALLY THE ONLY DIFFERENCE BETWEEN THIS AND THE ABOVE `function_args_types_list` production is that this one gives
+// IdentifierReferenceTerms instead of Strings. Useful for logging error messages. Only really applicable to Graphs for
+// now since we don't actually have restrictions on procedure args in general.
+// TODO(steving) Also use this production for blocking generic args so that we can indicate when blocking generics were used incorrectly.
+function_args_types_list_identifiers ::=
+    identifier:arg_name COLON:colon builtin_type:t COMMA:comma function_args_types_list_identifiers:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentLine, arg_name.currentLineNumber), new Line(colon.currentInputLine, colonright), new Line(((LexedValue) t.value).currentInputLine, t.right), new Line(comma.currentInputLine, commaright), new Line(((LexedValue) tail.value).currentInputLine, tail.right));
+       int startCol = min(arg_name.startCol, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(arg_name.endCol, colonleft + colon.len, t.left + ((LexedValue) t.value).len, commaleft + comma.len, tail.left + ((LexedValue) tail.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) tail.value).val.put(arg_name, ((LexedValue<TypeProvider>) t.value).val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | identifier:arg_name COLON:c builtin_type:t
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.currentLine, arg_name.currentLineNumber), new Line(c.currentInputLine, cright), new Line(((LexedValue) t.value).currentInputLine, t.right));
+       int startCol = min(arg_name.startCol, cleft, t.left);
+       int endCol = max(arg_name.endCol, cleft + c.len, t.left + ((LexedValue) t.value).len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          new LexedValue(
+            ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builder().put(arg_name, ((LexedValue<TypeProvider>) t.value).val),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  ;
+
 procedure_args_w_generic_blocking ::=
     IDENTIFIER:arg_name COLON maybe_blocking_procedure_types:maybe_blocking_proc COMMA procedure_args_w_generic_blocking:args_w_generic_blocking
     {:
@@ -2735,13 +2778,13 @@ return_stmt ::=
 // first or last node definition in the graph body. Let's encourage ordering these sanely because it can be hard to
 // trace declarative code without a pattern.
 graph_function_definition_stmt ::=
-    GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
     {:
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
 
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
       // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
       // because there's only going to be a single return from a graph function, and by definition every graph function
@@ -2754,13 +2797,13 @@ graph_function_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+  | GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
     {:
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
 
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
       // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
       // because there's only going to be a single return from a graph function, and by definition every graph function
@@ -2773,19 +2816,19 @@ graph_function_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
     {:
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
 
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
       // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
       // because there's only going to be a single return from a graph function, and by definition every graph function
       // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
       RESULT = new GraphFunctionDefinitionStmt(
           name.val,
           argTypesMap,
@@ -2794,19 +2837,19 @@ graph_function_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR ARROW builtin_type:output_type LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
     {:
       TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).val;
 
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
       // Unlike the various procedure definition stmt productions, there's no need to fiddle with the returnTypeHolder
       // because there's only going to be a single return from a graph function, and by definition every graph function
       // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
        RESULT = new GraphFunctionDefinitionStmt(
           name.val,
           argTypesMap,
@@ -2857,7 +2900,7 @@ graph_provider_definition_stmt ::=
       // because there's only going to be a single return from a graph function, and by definition every graph function
       // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
       RESULT = new GraphProviderDefinitionStmt(
           name.val,
           Optional.of(injectedKeysList),
@@ -2873,7 +2916,7 @@ graph_provider_definition_stmt ::=
       // because there's only going to be a single return from a graph function, and by definition every graph function
       // is syntactically guaranteed to have a root node, so there's no concern that we don't know the return type.
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
        RESULT = new GraphProviderDefinitionStmt(
           name.val,
           Optional.of(injectedKeysList),
@@ -2884,11 +2927,11 @@ graph_provider_definition_stmt ::=
   ;
 
 graph_consumer_definition_stmt ::=
-    GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+    GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
     {:
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
        RESULT = new GraphConsumerDefinitionStmt(
           name.val,
@@ -2896,11 +2939,11 @@ graph_consumer_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+  | GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
     {:
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
        RESULT = new GraphConsumerDefinitionStmt(
           name.val,
@@ -2908,13 +2951,13 @@ graph_consumer_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR LCURLY root_node:root non_root_nodes_list:non_root_nodes RCURLY
     {:
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
       RESULT = new GraphConsumerDefinitionStmt(
           name.val,
           argTypesMap,
@@ -2922,13 +2965,13 @@ graph_consumer_definition_stmt ::=
           root,
           non_root_nodes.build().reverse());
     :}
-  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
+  | USING LPAR injected_keys_list:bw_injected_keys RPAR GRAPH CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list_identifiers:backwards_arg_types RPAR LCURLY non_root_nodes_list:non_root_nodes root_node:root RCURLY
     {:
-      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
-      ImmutableMap<String, TypeProvider> argTypesMap =
-          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<Map.Entry<IdentifierReferenceTerm, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<IdentifierReferenceTerm, TypeProvider>>) backwards_arg_types.value).val.build().entrySet().asList().reverse();
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypesMap =
+          ImmutableMap.<IdentifierReferenceTerm, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
 
-      ImmutableList<InjectedKey> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKey>>) bw_injected_keys.value).val.build().reverse();
+      ImmutableList<InjectedKeyIdentifier> injectedKeysList = ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) bw_injected_keys.value).val.build().reverse();
        RESULT = new GraphConsumerDefinitionStmt(
           name.val,
           argTypesMap,

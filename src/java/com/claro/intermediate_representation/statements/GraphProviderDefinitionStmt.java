@@ -2,7 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.InjectedKeyIdentifier;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,7 +23,7 @@ public class GraphProviderDefinitionStmt extends GraphProcedureDefinitionStmt {
 
   public GraphProviderDefinitionStmt(
       String graphFunctionName,
-      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
+      Optional<ImmutableList<InjectedKeyIdentifier>> optionalInjectedKeysTypes,
       TypeProvider outputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
@@ -41,7 +41,7 @@ public class GraphProviderDefinitionStmt extends GraphProcedureDefinitionStmt {
                                 injectedKeysTypes.stream()
                                     .map(
                                         injectedKey ->
-                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                            new Key(injectedKey.name.getIdentifier(), injectedKey.typeProvider.resolveType(scopedHeap)))
                                     .collect(Collectors.toSet())
                         )
                         .orElse(Sets.newHashSet()),

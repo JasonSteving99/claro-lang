@@ -89,8 +89,17 @@ public final class Types {
     }
 
     @Override
-    public ListType toMutableVariant() {
+    public ListType toShallowlyMutableVariant() {
       return new AutoValue_Types_ListType(BaseType.LIST, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public ListType toDeeplyImmutableVariant() {
+      Type elementType = getElementType();
+      if (elementType instanceof SupportsMutableVariant<?>) {
+        elementType = ((SupportsMutableVariant<?>) elementType).toDeeplyImmutableVariant();
+      }
+      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, elementType), /*isMutable=*/false);
     }
 
     @Override
@@ -131,8 +140,23 @@ public final class Types {
     }
 
     @Override
-    public MapType toMutableVariant() {
+    public MapType toShallowlyMutableVariant() {
       return new AutoValue_Types_MapType(BaseType.MAP, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public MapType toDeeplyImmutableVariant() {
+      return new AutoValue_Types_MapType(
+          BaseType.MAP,
+          this.parameterizedTypeArgs().entrySet().stream()
+              .collect(ImmutableMap.toImmutableMap(
+                  Map.Entry::getKey,
+                  e -> e.getValue() instanceof SupportsMutableVariant<?>
+                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
+                       : e.getValue()
+              )),
+          /*isMutable=*/false
+      );
     }
 
     @Override
@@ -171,8 +195,23 @@ public final class Types {
     }
 
     @Override
-    public SetType toMutableVariant() {
+    public SetType toShallowlyMutableVariant() {
       return new AutoValue_Types_SetType(BaseType.SET, this.parameterizedTypeArgs(), /*isMutable=*/true);
+    }
+
+    @Override
+    public SetType toDeeplyImmutableVariant() {
+      return new AutoValue_Types_SetType(
+          BaseType.SET,
+          this.parameterizedTypeArgs().entrySet().stream()
+              .collect(ImmutableMap.toImmutableMap(
+                  Map.Entry::getKey,
+                  e -> e.getValue() instanceof SupportsMutableVariant<?>
+                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
+                       : e.getValue()
+              )),
+          /*isMutable=*/false
+      );
     }
 
     @Override
@@ -230,8 +269,24 @@ public final class Types {
     }
 
     @Override
-    public TupleType toMutableVariant() {
+    public TupleType toShallowlyMutableVariant() {
       return new AutoValue_Types_TupleType(BaseType.TUPLE, this.parameterizedTypeArgs(), this.getValueTypes(), /*isMutable=*/true);
+    }
+
+    @Override
+    public TupleType toDeeplyImmutableVariant() {
+      return new AutoValue_Types_TupleType(
+          BaseType.TUPLE,
+          this.parameterizedTypeArgs().entrySet().stream()
+              .collect(ImmutableMap.toImmutableMap(
+                  Map.Entry::getKey,
+                  e -> e.getValue() instanceof SupportsMutableVariant<?>
+                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
+                       : e.getValue()
+              )),
+          this.getValueTypes(),
+          /*isMutable=*/false
+      );
     }
 
     @Override
@@ -310,8 +365,21 @@ public final class Types {
     }
 
     @Override
-    public StructType toMutableVariant() {
+    public StructType toShallowlyMutableVariant() {
       return StructType.forFieldTypes(this.getFieldNames(), this.getFieldTypes(), /*isMutable=*/true);
+    }
+
+    @Override
+    public StructType toDeeplyImmutableVariant() {
+      return StructType.forFieldTypes(
+          this.getFieldNames(),
+          this.getFieldTypes().stream()
+              .map(t -> t instanceof SupportsMutableVariant<?>
+                        ? ((SupportsMutableVariant<?>) t).toDeeplyImmutableVariant()
+                        : t)
+              .collect(ImmutableList.toImmutableList()),
+          /*isMutable=*/false
+      );
     }
 
     @Override
@@ -1047,7 +1115,7 @@ public final class Types {
 
   @AutoValue
   public abstract static class FutureType extends Type {
-    private static final String PARAMETERIZED_TYPE_KEY = "$value";
+    public static final String PARAMETERIZED_TYPE_KEY = "$value";
 
     public static FutureType wrapping(Type valueType) {
       return new AutoValue_Types_FutureType(BaseType.FUTURE, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, valueType));

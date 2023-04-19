@@ -2,9 +2,11 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
+import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
-import com.claro.runtime_utilities.injector.InjectedKey;
+import com.claro.runtime_utilities.injector.InjectedKeyIdentifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,22 +25,28 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
 
   private final GraphNodeDefinitionStmt rootNode;
   private final ImmutableList<GraphNodeDefinitionStmt> nonRootNodes;
-  private final ImmutableMap<String, TypeProvider> graphFunctionArgs;
-  private final Optional<ImmutableMap<String, TypeProvider>> graphFunctionOptionalInjectedKeys;
+  private final ImmutableMap<IdentifierReferenceTerm, TypeProvider> graphFunctionArgs;
+  private final Optional<ImmutableMap<IdentifierReferenceTerm, TypeProvider>> graphFunctionOptionalInjectedKeys;
   private boolean alreadyAssertedTypes = false;
 
   public GraphProcedureDefinitionStmt(
       String graphFunctionName,
-      ImmutableMap<String, TypeProvider> argTypes,
-      Optional<ImmutableList<InjectedKey>> optionalInjectedKeysTypes,
+      ImmutableMap<IdentifierReferenceTerm, TypeProvider> argTypes,
+      Optional<ImmutableList<InjectedKeyIdentifier>> optionalInjectedKeysTypes,
       Function<ProcedureDefinitionStmt, TypeProvider> procedureDefinitionStmtToTypeProviderFn,
       Optional<TypeProvider> optionalOutputTypeProvider,
       GraphNodeDefinitionStmt rootNode,
       ImmutableList<GraphNodeDefinitionStmt> nonRootNodes) {
     super(
         graphFunctionName,
-        argTypes,
-        optionalInjectedKeysTypes,
+        argTypes.entrySet().stream()
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    e -> e.getKey().identifier,
+                    Map.Entry::getValue
+                )),
+        optionalInjectedKeysTypes
+            .map(l -> l.stream().map(InjectedKeyIdentifier::toInjectedKey).collect(ImmutableList.toImmutableList())),
         procedureDefinitionStmtToTypeProviderFn,
         // We'll allow the superclass to own all of the type checking logic since that is quite complex for procedure
         // definition stmts and I *really* don't want to duplicate that in more than one place.
@@ -62,7 +70,12 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
             injectedKeysTypes -> injectedKeysTypes.stream()
                 .collect(
                     ImmutableMap.toImmutableMap(
-                        injectedKey -> injectedKey.optionalAlias.orElse(injectedKey.name),
+                        injectedKey -> {
+                          IdentifierReferenceTerm res = injectedKey.name;
+                          return injectedKey.optionalAlias
+                              .map(s -> new IdentifierReferenceTerm(s, res.currentLine, res.currentLineNumber, res.startCol, res.endCol))
+                              .orElse(res);
+                        },
                         injectedKey -> injectedKey.typeProvider
                     )));
   }
@@ -220,6 +233,27 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
         }
       }
 
+      // I'm simply going to do a quick assertion that any args to this procedure are certainly not mutable variants of
+      // any structured types.
+      for (Map.Entry<IdentifierReferenceTerm, TypeProvider> argEntry : this.graphFunctionArgs.entrySet()) {
+        Type argType = argEntry.getValue().resolveType(scopedHeap);
+        if (!StructuralConcreteGenericTypeValidationUtil.isDeeplyImmutable(argType)) {
+          argEntry.getKey().logTypeError(
+              ClaroTypeException.forIllegalUseOfMutableTypeAsGraphProcedureArg(
+                  argType, ((SupportsMutableVariant<?>) argType).toDeeplyImmutableVariant()));
+        }
+      }
+      // Any injected values must also be immutable.
+      for (Map.Entry<IdentifierReferenceTerm, TypeProvider> injectedKeyEntry :
+          this.graphFunctionOptionalInjectedKeys.orElse(ImmutableMap.of()).entrySet()) {
+        Type injectedValueType = injectedKeyEntry.getValue().resolveType(scopedHeap);
+        if (!StructuralConcreteGenericTypeValidationUtil.isDeeplyImmutable(injectedValueType)) {
+          injectedKeyEntry.getKey().logTypeError(
+              ClaroTypeException.forIllegalUseOfMutableTypeAsGraphProcedureInjectedValue(
+                  injectedValueType, ((SupportsMutableVariant<?>) injectedValueType).toDeeplyImmutableVariant()));
+        }
+      }
+
       super.assertExpectedExprTypes(scopedHeap);
 
       if (this.resolvedProcedureType.getIsBlocking().get()) {
@@ -264,9 +298,20 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // Quickly need to setup the static state so that the GraphNodeDefinitionStmts have what they need.
-    InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs = this.graphFunctionArgs;
+    InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionArgs =
+        this.graphFunctionArgs.entrySet().stream()
+            .collect(ImmutableMap.toImmutableMap(
+                e -> e.getKey().getIdentifier(),
+                Map.Entry::getValue
+            ));
     InternalStaticStateUtil.GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys =
-        this.graphFunctionOptionalInjectedKeys;
+        this.graphFunctionOptionalInjectedKeys
+            .map(m ->
+                     m.entrySet().stream()
+                         .collect(ImmutableMap.toImmutableMap(
+                             e -> e.getKey().identifier,
+                             Map.Entry::getValue
+                         )));
 
     GeneratedJavaSource res = super.generateJavaSourceOutput(scopedHeap);
 

@@ -26,7 +26,7 @@ public class StructFieldAssignmentStmt extends Stmt {
     if (!this.fieldAccessExpr.validatedStructType.isMutable()) {
       throw ClaroTypeException.forIllegalMutationAttemptOnImmutableValue(
           this.fieldAccessExpr.validatedStructType,
-          this.fieldAccessExpr.validatedStructType.toMutableVariant()
+          this.fieldAccessExpr.validatedStructType.toShallowlyMutableVariant()
       );
     }
 
