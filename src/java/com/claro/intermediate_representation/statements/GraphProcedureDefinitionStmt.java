@@ -263,6 +263,16 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
         throw ClaroTypeException.forBlockingCallIndirectlyReachableFromGraphFunction(
             this.procedureName, this.resolvedProcedureType, this.resolvedProcedureType.getBlockingProcedureDeps());
       }
+      if (this.resolvedProcedureType.getUsedInjectedKeys().stream().anyMatch(k -> !Types.isDeeplyImmutable(k.type))) {
+        throw ClaroTypeException.forIllegalTransitiveUseOfMutableTypeAsGraphProcedureInjectedValue(
+            this.procedureName,
+            this.resolvedProcedureType.getUsedInjectedKeys().stream().filter(k -> !Types.isDeeplyImmutable(k.type))
+                .collect(ImmutableMap.toImmutableMap(
+                    k -> k.name,
+                    k -> k.type
+                ))
+        );
+      }
     }
   }
 

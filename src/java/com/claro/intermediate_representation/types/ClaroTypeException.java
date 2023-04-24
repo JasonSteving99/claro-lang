@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.types;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -273,6 +274,10 @@ public class ClaroTypeException extends Exception {
       "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
       "\t\tFound the result of node `%s` to have the mutable type:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_TRANSITIVE_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE =
+      "Illegal Mutable Graph Procedure Transitive Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the following mutable types being transitively injected into procedures called by Graph Procedure `%s`:" +
+      "%s";
 
 
   public ClaroTypeException(String message) {
@@ -1139,5 +1144,20 @@ public class ClaroTypeException extends Exception {
           )
       );
     }
+  }
+
+  // TODO(steving) This error definitely needs to be improved on to actually point to the specific call that's
+  //  triggering this issue.
+  public static ClaroTypeException forIllegalTransitiveUseOfMutableTypeAsGraphProcedureInjectedValue(
+      String procedureName, ImmutableMap<String, Type> mutableTransitiveInjectedKeys) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_TRANSITIVE_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE,
+            procedureName,
+            mutableTransitiveInjectedKeys.entrySet().stream()
+                .map(e -> String.format("\n\t\t\t- %s : %s", e.getKey(), e.getValue()))
+                .collect(Collectors.joining())
+        )
+    );
   }
 }

@@ -281,11 +281,18 @@ print(f(false, -1, -1, -1));
 #var unsafeAliasingViaNodeProcedureReturnValueRes <-| unsafeAliasingViaNodeProcedureReturnValue(mut [1]);
 #var l = mut [1];
 #var unsafeAliasingAllowedOnGivenArgsRes <-| unsafeAliasingAllowedOnGivenArgs(l, l);
+#module MutDataModule { bind mutableIntList:mut [int] to mut [1]; }
+#var unsafeAliasingViaTransitivelyInjectedMutableValueRes: boolean;
+#using(MutDataModule) {
+#  var raceRes <-| unsafeAliasingViaTransitivelyInjectedMutableValue();
+#  unsafeAliasingViaTransitivelyInjectedMutableValueRes = raceRes;
+#}
 #
 #print(unsafeAliasingViaNodeProcedureArgsRes);
 #print(unsafeALiasingViaDirectNodeAliasingRes);
 #print(unsafeAliasingViaNodeProcedureReturnValueRes);
 #print(unsafeAliasingAllowedOnGivenArgsRes);
+#print(unsafeAliasingViaTransitivelyInjectedMutableValueRes);
 #
 ## This is a very complicated example that demonstrates a data race being introduced by unsafe data "aliasing".
 #graph function unsafeAliasingViaNodeProcedureArgs(l: mut [mut [int]], l2: mut [int]) -> future<boolean> {
@@ -323,6 +330,24 @@ print(f(false, -1, -1, -1));
 #  node update1 <- appendAndReturnDelayed(l1, 2, 20);
 #  node update2 <- appendAndReturn(l2, 999);
 #  root observeRaceRes <- printAndReturn(@update1, @update2);
+#}
+#
+# This graph is interesting in the sense that the graph itself is completely valid, but the procedures it depends on
+# introduce unsafe aliasing of shared mutable state by injecting the same mutable list.
+#graph provider unsafeAliasingViaTransitivelyInjectedMutableValue() -> future<boolean> {
+#  node update1 <- appendToAndReturnInjectedMutableIntListDelayed(2, 12);
+#  node update2 <- appendToAndReturnInjectedMutableIntList(999);
+#  root observeRaceRes <- printAndReturn(copy(@update1), copy(@update2));
+#}
+#
+#using(mutableIntList:mut [int])
+#function appendToAndReturnInjectedMutableIntList(x: int) -> [int] {
+#  return copy(appendAndReturn(mutableIntList, x));
+#}
+#
+#function appendToAndReturnInjectedMutableIntListDelayed(x: int, iters: int) -> [int] {
+#  _ = delay(iters, "");
+#  return copy(appendToAndReturnInjectedMutableIntList(x));
 #}
 #
 ## TODO: Add builtin support for a sleep timer to make better examples.
