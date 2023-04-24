@@ -2,7 +2,6 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -237,20 +236,24 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
       // any structured types.
       for (Map.Entry<IdentifierReferenceTerm, TypeProvider> argEntry : this.graphFunctionArgs.entrySet()) {
         Type argType = argEntry.getValue().resolveType(scopedHeap);
-        if (!StructuralConcreteGenericTypeValidationUtil.isDeeplyImmutable(argType)) {
+        if (!Types.isDeeplyImmutable(argType)) {
           argEntry.getKey().logTypeError(
               ClaroTypeException.forIllegalUseOfMutableTypeAsGraphProcedureArg(
-                  argType, ((SupportsMutableVariant<?>) argType).toDeeplyImmutableVariant()));
+                  argType,
+                  Types.getDeeplyImmutableVariantTypeRecommendationForError(argType)
+              ));
         }
       }
       // Any injected values must also be immutable.
       for (Map.Entry<IdentifierReferenceTerm, TypeProvider> injectedKeyEntry :
           this.graphFunctionOptionalInjectedKeys.orElse(ImmutableMap.of()).entrySet()) {
         Type injectedValueType = injectedKeyEntry.getValue().resolveType(scopedHeap);
-        if (!StructuralConcreteGenericTypeValidationUtil.isDeeplyImmutable(injectedValueType)) {
+        if (!Types.isDeeplyImmutable(injectedValueType)) {
           injectedKeyEntry.getKey().logTypeError(
               ClaroTypeException.forIllegalUseOfMutableTypeAsGraphProcedureInjectedValue(
-                  injectedValueType, ((SupportsMutableVariant<?>) injectedValueType).toDeeplyImmutableVariant()));
+                  injectedValueType,
+                  Types.getDeeplyImmutableVariantTypeRecommendationForError(injectedValueType)
+              ));
         }
       }
 

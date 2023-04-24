@@ -247,11 +247,20 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\t\tTo correct this, consider converting the arg's type to its deeply-immutable variant:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
+      "Illegal Mutable Graph Procedure Arg: As Graph Procedures are multi-threaded by nature, all args must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the mutable type:\n" +
+      "\t\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE =
       "Illegal Mutable Graph Procedure Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
       "\t\tFound the mutable type:\n" +
       "\t\t\t%s\n" +
       "\t\tTo correct this, consider converting the injected value's type to its deeply-immutable variant:\n" +
+      "\t\t\t%s";
+  private static final String
+      ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
+      "Illegal Mutable Graph Procedure Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
+      "\t\tFound the mutable type:\n" +
       "\t\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE =
       "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
@@ -1073,27 +1082,45 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureArg(Type argType, Type immutableVariantArgType) {
-    return new ClaroTypeException(
-        String.format(
-            ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG,
-            argType,
-            immutableVariantArgType
-        )
-    );
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureArg(Type argType, Optional<? extends Type> immutableVariantArgType) {
+    if (immutableVariantArgType.isPresent()) {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG,
+              argType,
+              immutableVariantArgType
+          )
+      );
+    } else {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE,
+              argType
+          )
+      );
+    }
   }
 
-  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureInjectedValue(Type argType, Type immutableVariantArgType) {
-    return new ClaroTypeException(
-        String.format(
-            ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE,
-            argType,
-            immutableVariantArgType
-        )
-    );
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphProcedureInjectedValue(Type argType, Optional<? extends Type> immutableVariantArgType) {
+    if (immutableVariantArgType.isPresent()) {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE,
+              argType,
+              immutableVariantArgType
+          )
+      );
+    } else {
+      return new ClaroTypeException(
+          String.format(
+              ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE,
+              argType
+          )
+      );
+    }
   }
 
-  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphNodeResultType(Type actualNodeType, String nodeName, Optional<Type> immutableVariantType) {
+  public static ClaroTypeException forIllegalUseOfMutableTypeAsGraphNodeResultType(Type actualNodeType, String nodeName, Optional<? extends Type> immutableVariantType) {
     if (immutableVariantType.isPresent()) {
       return new ClaroTypeException(
           String.format(

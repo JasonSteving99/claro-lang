@@ -94,12 +94,24 @@ public final class Types {
     }
 
     @Override
-    public ListType toDeeplyImmutableVariant() {
-      Type elementType = getElementType();
-      if (elementType instanceof SupportsMutableVariant<?>) {
-        elementType = ((SupportsMutableVariant<?>) elementType).toDeeplyImmutableVariant();
+    public Optional<ListType> toDeeplyImmutableVariant() {
+      Optional<? extends Type> elementType = Optional.of(getElementType());
+      if (elementType.get() instanceof SupportsMutableVariant<?>) {
+        elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+      } else if (elementType.get() instanceof UserDefinedType) {
+        elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+      } else if (elementType.get() instanceof FutureType) {
+        if (!Types.isDeeplyImmutable(
+            elementType.get().parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY))) {
+          // If it's not deeply immutable there's nothing that I can do to automatically make it deeply immutable
+          // w/o the user manually doing a monadic(?) transform in a graph.
+          elementType = Optional.empty();
+        }
       }
-      return new AutoValue_Types_ListType(BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, elementType), /*isMutable=*/false);
+      return elementType.map(
+          type ->
+              new AutoValue_Types_ListType(
+                  BaseType.LIST, ImmutableMap.of(PARAMETERIZED_TYPE_KEY, type), /*isMutable=*/false));
     }
 
     @Override
@@ -120,6 +132,8 @@ public final class Types {
     }
 
     public static MapType forKeyValueTypes(Type keysType, Type valuesType, boolean isMutable) {
+      // TODO(steving) Make it illegal to declare a map wrapping future<...> keys. That's nonsensical in the sense that
+      //   there's "nothing" to hash yet.
       return new AutoValue_Types_MapType(BaseType.MAP, ImmutableMap.of(PARAMETERIZED_TYPE_KEYS, keysType, PARAMETERIZED_TYPE_VALUES, valuesType), isMutable);
     }
 
@@ -145,18 +159,40 @@ public final class Types {
     }
 
     @Override
-    public MapType toDeeplyImmutableVariant() {
-      return new AutoValue_Types_MapType(
-          BaseType.MAP,
-          this.parameterizedTypeArgs().entrySet().stream()
-              .collect(ImmutableMap.toImmutableMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue() instanceof SupportsMutableVariant<?>
-                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
-                       : e.getValue()
-              )),
-          /*isMutable=*/false
-      );
+    public Optional<MapType> toDeeplyImmutableVariant() {
+      // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
+      // instance cannot be converted to something deeply-immutable **automatically** (really I'm just saying I
+      // wouldn't be able to give a good suggestion).
+      ImmutableMap.Builder<String, Type> deeplyImmutableParameterizedTypeVariantsBuilder = ImmutableMap.builder();
+      for (Map.Entry<String, Type> paramTypeEntry : this.parameterizedTypeArgs().entrySet()) {
+        Optional<? extends Type> elementType = Optional.of(paramTypeEntry.getValue());
+        if (elementType.get() instanceof SupportsMutableVariant<?>) {
+          elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof UserDefinedType) {
+          elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+        } else if (
+          // It'll only be possible to use futures in the values of a map, not as the keys of a map.
+            paramTypeEntry.getKey().equals(MapType.PARAMETERIZED_TYPE_VALUES)
+            && elementType.get() instanceof FutureType) {
+          if (!Types.isDeeplyImmutable(
+              elementType.get().parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY))) {
+            // If it's not deeply immutable there's nothing that I can do to automatically make it deeply immutable
+            // w/o the user manually doing a monadic(?) transform in a graph.
+            elementType = Optional.empty();
+          }
+        }
+        if (elementType.isPresent()) {
+          deeplyImmutableParameterizedTypeVariantsBuilder.put(paramTypeEntry.getKey(), elementType.get());
+        } else {
+          return Optional.empty();
+        }
+      }
+      return Optional.of(
+          new AutoValue_Types_MapType(
+              BaseType.MAP,
+              deeplyImmutableParameterizedTypeVariantsBuilder.build(),
+              /*isMutable=*/false
+          ));
     }
 
     @Override
@@ -176,6 +212,8 @@ public final class Types {
     }
 
     public static SetType forValueType(Type valueType, boolean isMutable) {
+      // TODO(steving) Make it illegal to declare a set wrapping future<...>. That's nonsensical in the sense that
+      //   there's "nothing" to hash yet.
       return new AutoValue_Types_SetType(BaseType.SET, ImmutableMap.of(PARAMETERIZED_TYPE, valueType), isMutable);
     }
 
@@ -200,18 +238,30 @@ public final class Types {
     }
 
     @Override
-    public SetType toDeeplyImmutableVariant() {
-      return new AutoValue_Types_SetType(
-          BaseType.SET,
-          this.parameterizedTypeArgs().entrySet().stream()
-              .collect(ImmutableMap.toImmutableMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue() instanceof SupportsMutableVariant<?>
-                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
-                       : e.getValue()
-              )),
-          /*isMutable=*/false
-      );
+    public Optional<SetType> toDeeplyImmutableVariant() {
+      // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
+      // instance cannot be converted to something deeply-immutable **automatically** (really I'm just saying I
+      // wouldn't be able to give a good suggestion).
+      ImmutableMap.Builder<String, Type> deeplyImmutableParameterizedTypeVariantsBuilder = ImmutableMap.builder();
+      for (Map.Entry<String, Type> paramTypeEntry : this.parameterizedTypeArgs().entrySet()) {
+        Optional<? extends Type> elementType = Optional.of(paramTypeEntry.getValue());
+        if (elementType.get() instanceof SupportsMutableVariant<?>) {
+          elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof UserDefinedType) {
+          elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+        }
+        if (elementType.isPresent()) {
+          deeplyImmutableParameterizedTypeVariantsBuilder.put(paramTypeEntry.getKey(), elementType.get());
+        } else {
+          return Optional.empty();
+        }
+      }
+      return Optional.of(
+          new AutoValue_Types_SetType(
+              BaseType.SET,
+              deeplyImmutableParameterizedTypeVariantsBuilder.build(),
+              /*isMutable=*/false
+          ));
     }
 
     @Override
@@ -274,19 +324,41 @@ public final class Types {
     }
 
     @Override
-    public TupleType toDeeplyImmutableVariant() {
-      return new AutoValue_Types_TupleType(
-          BaseType.TUPLE,
-          this.parameterizedTypeArgs().entrySet().stream()
-              .collect(ImmutableMap.toImmutableMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue() instanceof SupportsMutableVariant<?>
-                       ? ((SupportsMutableVariant<?>) e.getValue()).toDeeplyImmutableVariant()
-                       : e.getValue()
-              )),
-          this.getValueTypes(),
-          /*isMutable=*/false
-      );
+    public Optional<TupleType> toDeeplyImmutableVariant() {
+      // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
+      // instance cannot be converted to something deeply-immutable **automatically** (really I'm just saying I
+      // wouldn't be able to give a good suggestion).
+      ImmutableMap.Builder<String, Type> deeplyImmutableParameterizedTypeVariantsBuilder = ImmutableMap.builder();
+      for (Map.Entry<String, Type> paramTypeEntry : this.parameterizedTypeArgs().entrySet()) {
+        Optional<? extends Type> elementType = Optional.of(paramTypeEntry.getValue());
+        if (elementType.get() instanceof SupportsMutableVariant<?>) {
+          elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof UserDefinedType) {
+          elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof FutureType) {
+          if (!Types.isDeeplyImmutable(
+              elementType.get().parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY))) {
+            // If it's not deeply immutable there's nothing that I can do to automatically make it deeply immutable
+            // w/o the user manually doing a monadic(?) transform in a graph.
+            elementType = Optional.empty();
+          }
+        }
+        if (elementType.isPresent()) {
+          deeplyImmutableParameterizedTypeVariantsBuilder.put(paramTypeEntry.getKey(), elementType.get());
+        } else {
+          return Optional.empty();
+        }
+      }
+      return Optional.of(
+          new AutoValue_Types_TupleType(
+              BaseType.TUPLE,
+              deeplyImmutableParameterizedTypeVariantsBuilder.build(),
+              deeplyImmutableParameterizedTypeVariantsBuilder.build()
+                  .values()
+                  .stream()
+                  .collect(ImmutableList.toImmutableList()),
+              /*isMutable=*/false
+          ));
     }
 
     @Override
@@ -370,16 +442,37 @@ public final class Types {
     }
 
     @Override
-    public StructType toDeeplyImmutableVariant() {
-      return StructType.forFieldTypes(
-          this.getFieldNames(),
-          this.getFieldTypes().stream()
-              .map(t -> t instanceof SupportsMutableVariant<?>
-                        ? ((SupportsMutableVariant<?>) t).toDeeplyImmutableVariant()
-                        : t)
-              .collect(ImmutableList.toImmutableList()),
-          /*isMutable=*/false
-      );
+    public Optional<StructType> toDeeplyImmutableVariant() {
+      // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
+      // instance cannot be converted to something deeply-immutable **automatically** (really I'm just saying I
+      // wouldn't be able to give a good suggestion).
+      ImmutableList.Builder<Type> deeplyImmutableParameterizedTypeVariantsBuilder = ImmutableList.builder();
+      for (Map.Entry<String, Type> paramTypeEntry : this.parameterizedTypeArgs().entrySet()) {
+        Optional<? extends Type> elementType = Optional.of(paramTypeEntry.getValue());
+        if (elementType.get() instanceof SupportsMutableVariant<?>) {
+          elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof UserDefinedType) {
+          elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof FutureType) {
+          if (!Types.isDeeplyImmutable(
+              elementType.get().parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY))) {
+            // If it's not deeply immutable there's nothing that I can do to automatically make it deeply immutable
+            // w/o the user manually doing a monadic(?) transform in a graph.
+            elementType = Optional.empty();
+          }
+        }
+        if (elementType.isPresent()) {
+          deeplyImmutableParameterizedTypeVariantsBuilder.add(elementType.get());
+        } else {
+          return Optional.empty();
+        }
+      }
+      return Optional.of(
+          StructType.forFieldTypes(
+              this.getFieldNames(),
+              deeplyImmutableParameterizedTypeVariantsBuilder.build(),
+              /*isMutable=*/false
+          ));
     }
 
     @Override
@@ -1211,24 +1304,43 @@ public final class Types {
       );
     }
 
-    public UserDefinedType toDeeplyImmutableVariant() {
-      return new AutoValue_Types_UserDefinedType(
-          BaseType.USER_DEFINED_TYPE,
-          this.parameterizedTypeArgs().entrySet().stream()
-              .collect(ImmutableMap.toImmutableMap(
-                  Map.Entry::getKey,
-                  e -> {
-                    Type elementType = e.getValue();
-                    if (elementType instanceof SupportsMutableVariant<?>) {
-                      elementType = ((SupportsMutableVariant<?>) elementType).toDeeplyImmutableVariant();
-                    } else if (elementType instanceof UserDefinedType) {
-                      elementType = ((UserDefinedType) elementType).toDeeplyImmutableVariant();
-                    }
-                    return elementType;
-                  }
-              )),
-          this.getTypeName()
-      );
+    // It's not always the case that all arbitrary user-defined types have a natural deeply-immutable variant. In
+    // particular, if the wrapped type itself already contains an explicit `mut` annotation, then it's impossible
+    // to construct any instance of this type that is deeply-immutable.
+    public Optional<UserDefinedType> toDeeplyImmutableVariant() {
+      if (!Types.isDeeplyImmutable(UserDefinedType.$resolvedWrappedTypes.get(getTypeName()))) {
+        return Optional.empty();
+      }
+      // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
+      // instance cannot be converted to something deeply-immutable **automatically** (really I'm just saying I
+      // wouldn't be able to give a good suggestion).
+      ImmutableMap.Builder<String, Type> deeplyImmutableParameterizedTypeVariantsBuilder = ImmutableMap.builder();
+      for (Map.Entry<String, Type> paramTypeEntry : this.parameterizedTypeArgs().entrySet()) {
+        Optional<? extends Type> elementType = Optional.of(paramTypeEntry.getValue());
+        if (elementType.get() instanceof SupportsMutableVariant<?>) {
+          elementType = ((SupportsMutableVariant<?>) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof UserDefinedType) {
+          elementType = ((UserDefinedType) elementType.get()).toDeeplyImmutableVariant();
+        } else if (elementType.get() instanceof FutureType) {
+          if (!Types.isDeeplyImmutable(
+              elementType.get().parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY))) {
+            // If it's not deeply immutable there's nothing that I can do to automatically make it deeply immutable
+            // w/o the user manually doing a monadic(?) transform in a graph.
+            elementType = Optional.empty();
+          }
+        }
+        if (elementType.isPresent()) {
+          deeplyImmutableParameterizedTypeVariantsBuilder.put(paramTypeEntry.getKey(), elementType.get());
+        } else {
+          return Optional.empty();
+        }
+      }
+      return Optional.of(
+          new AutoValue_Types_UserDefinedType(
+              BaseType.USER_DEFINED_TYPE,
+              deeplyImmutableParameterizedTypeVariantsBuilder.build(),
+              this.getTypeName()
+          ));
     }
 
   }
@@ -1339,5 +1451,71 @@ public final class Types {
   // constructors and .equals() and .hashCode() methods.
   // https://github.com/google/auto/blob/master/value/userguide/howto.md#nullable
   @interface Nullable {
+  }
+
+  public static boolean isDeeplyImmutable(Type type) {
+    if (type instanceof SupportsMutableVariant<?>) {
+      // Quickly, if this outer layer is mutable, then we already know the overall type is not *deeply* immutable.
+      if (((SupportsMutableVariant<?>) type).isMutable()) {
+        return false;
+      }
+      // So now, whether the type is deeply-immutable or not strictly depends on the parameterized types.
+      switch (type.baseType()) {
+        case LIST:
+          return isDeeplyImmutable(((ListType) type).getElementType());
+        case SET:
+          return isDeeplyImmutable(type.parameterizedTypeArgs().get(SetType.PARAMETERIZED_TYPE));
+        case MAP:
+          return isDeeplyImmutable(type.parameterizedTypeArgs().get(MapType.PARAMETERIZED_TYPE_KEYS))
+                 && isDeeplyImmutable(type.parameterizedTypeArgs().get(MapType.PARAMETERIZED_TYPE_VALUES));
+        case TUPLE:
+          return type.parameterizedTypeArgs().values().stream()
+              .allMatch(Types::isDeeplyImmutable);
+        case STRUCT:
+          return ((StructType) type).getFieldTypes().stream()
+              .allMatch(Types::isDeeplyImmutable);
+        default:
+          throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in isDeeplyImmutable()!");
+      }
+    } else if (type.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
+      // User defined types are inherently shallow-ly immutable, so whether they're deeply-immutable simply depends on
+      // recursing into the wrapped type. If the wrapped type is deeply-immutable, then it also depends on the
+      // mutability of any parameterized types.
+      return isDeeplyImmutable(
+          UserDefinedType.$resolvedWrappedTypes.get(((UserDefinedType) type).getTypeName()))
+             && type.parameterizedTypeArgs().values().stream().allMatch(Types::isDeeplyImmutable);
+    } else if (type.baseType().equals(BaseType.FUTURE)) {
+      // Futures are inherently shallow-ly immutable, so whether they're deeply-immutable simply depends on recursing
+      // into the wrapped type.
+      return isDeeplyImmutable(type.parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY));
+    } else {
+      return true;
+    }
+  }
+
+  public static Optional<? extends Type> getDeeplyImmutableVariantTypeRecommendationForError(Type type) {
+    switch (type.baseType()) {
+      case LIST:
+      case SET:
+      case MAP:
+      case TUPLE:
+      case STRUCT:
+        return ((SupportsMutableVariant<?>) type).toDeeplyImmutableVariant();
+      case USER_DEFINED_TYPE:
+        return ((UserDefinedType) type).toDeeplyImmutableVariant();
+      case FUTURE:
+        // Future can't itself support a toDeeplyImmutableVariant() method because there's actually no such conversion
+        // that's *actually* valid in Claro semantics. Here we're doing this *only in the context of providing a nice
+        // recommendation to the user once an error has already been identified*.
+        Optional<? extends Type> optionalWrappedDeeplyImmutableVariantType =
+            getDeeplyImmutableVariantTypeRecommendationForError(
+                type.parameterizedTypeArgs().get(FutureType.PARAMETERIZED_TYPE_KEY));
+        if (!optionalWrappedDeeplyImmutableVariantType.isPresent()) {
+          return Optional.empty();
+        }
+        return Optional.of(FutureType.wrapping(optionalWrappedDeeplyImmutableVariantType.get()));
+      default: // Everything else should already be inherently immutable.
+        return Optional.of(type);
+    }
   }
 }

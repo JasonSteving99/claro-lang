@@ -17,6 +17,7 @@ import java.util.stream.IntStream;
 public class CopyExpr extends Expr {
   private final Expr copiedExpr;
   private Type validatedCopiedExprType;
+  private Optional<Type> assertedCopyResultType = Optional.empty();
 
   public CopyExpr(Expr copiedExpr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -24,18 +25,44 @@ public class CopyExpr extends Expr {
   }
 
   @Override
+  public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
+    // Support type coercion of mutability annotation.
+    this.assertedCopyResultType = Optional.of(expectedExprType);
+    this.getValidatedExprType(scopedHeap);
+
+    if (this.validatedCopiedExprType.baseType().equals(BaseType.FUTURE)) {
+      // We actually don't support any mutability coercion for a future as we don't even really support copying futures.
+      // Futures are "special" values which I need to develop a better vocabulary around to explain why they can't be
+      // copied like other values....the main reason is that they're not values....they're the representation of a value
+      // you'll have in the future...
+      super.assertExpectedExprType(scopedHeap, expectedExprType);
+    }
+
+    // If the validated type is structurally equivalent to the asserted type MODULO THE MUTABILITY ANNOTATIONS, then
+    // we'll say that this copy is valid (possibly under some mutability coercion).
+    if (this.validatedCopiedExprType instanceof SupportsMutableVariant<?>) {
+      if (this.assertedCopyResultType.get() instanceof SupportsMutableVariant<?>
+          && ((SupportsMutableVariant<?>) this.validatedCopiedExprType).toDeeplyImmutableVariant()
+              .equals(((SupportsMutableVariant<?>) this.assertedCopyResultType.get()).toDeeplyImmutableVariant())) {
+        // Found a match (perhaps under mutability coercion).
+        return;
+      }
+      this.logTypeError(new ClaroTypeException(this.validatedCopiedExprType, this.assertedCopyResultType.get()));
+    }
+  }
+
+  @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    // TODO(steving) Allow type coercion of mutability annotation by type assertion.
     return this.validatedCopiedExprType = this.copiedExpr.getValidatedExprType(scopedHeap);
   }
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource copiedExprJavaSource = this.copiedExpr.generateJavaSourceOutput(scopedHeap);
-    return getCopyJavaSource(copiedExprJavaSource, validatedCopiedExprType, /*nestingLevel=*/0).orElse(copiedExprJavaSource);
+    return getCopyJavaSource(copiedExprJavaSource, this.validatedCopiedExprType, this.assertedCopyResultType.orElse(this.validatedCopiedExprType), /*nestingLevel=*/0).orElse(copiedExprJavaSource);
   }
 
-  private static Optional<GeneratedJavaSource> getCopyJavaSource(GeneratedJavaSource copiedExprJavaSource, Type copiedExprType, long nestingLevel) {
+  private static Optional<GeneratedJavaSource> getCopyJavaSource(GeneratedJavaSource copiedExprJavaSource, Type copiedExprType, Type coercedType, long nestingLevel) {
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // !!!WARNING!!!!
     // IF YOU UPDATE THIS CONDITION, YOU MUST ALSO UPDATE THE CONDITION CODEGEN'D FOR ONEOF HANDLING BELOW!
@@ -54,11 +81,12 @@ public class CopyExpr extends Expr {
                       new StringBuilder("$elem")
                           .append(nestingLevel + 1)),
                   ((Types.ListType) copiedExprType).getElementType(),
+                  ((Types.ListType) coercedType).getElementType(),
                   nestingLevel + 1
               );
           GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
               new StringBuilder("new ClaroList(")
-                  .append(copiedExprType.getJavaSourceClaroType())
+                  .append(coercedType.getJavaSourceClaroType())
                   .append(", ")
           );
           if (optionalElementCopyCodegen.isPresent()) {
@@ -68,7 +96,7 @@ public class CopyExpr extends Expr {
                 .append(optionalElementCopyCodegen.get().javaSourceBody().toString())
                 .append(").collect(Collectors.toList()))");
           } else {
-            if (!((Types.ListType) copiedExprType).isMutable()) {
+            if (!((Types.ListType) copiedExprType).isMutable() && !((Types.ListType) coercedType).isMutable()) {
               return Optional.empty();
             }
             copiedExprJavaSource.javaSourceBody()
@@ -82,11 +110,12 @@ public class CopyExpr extends Expr {
                   GeneratedJavaSource.forJavaSourceBody(
                       new StringBuilder("$elem").append(nestingLevel + 1)),
                   copiedExprType.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE),
+                  coercedType.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE),
                   nestingLevel + 1
               );
           res = GeneratedJavaSource.forJavaSourceBody(
               new StringBuilder("new ClaroSet(")
-                  .append(copiedExprType.getJavaSourceClaroType())
+                  .append(coercedType.getJavaSourceClaroType())
                   .append(", ")
           );
           if (optionalElementCopyCodegen.isPresent()) {
@@ -96,7 +125,7 @@ public class CopyExpr extends Expr {
                 .append(optionalElementCopyCodegen.get().javaSourceBody().toString())
                 .append(").collect(Collectors.toList()))");
           } else {
-            if (!((Types.SetType) copiedExprType).isMutable()) {
+            if (!((Types.SetType) copiedExprType).isMutable() && !((Types.SetType) coercedType).isMutable()) {
               return Optional.empty();
             }
             copiedExprJavaSource.javaSourceBody()
@@ -116,6 +145,7 @@ public class CopyExpr extends Expr {
               getCopyJavaSource(
                   GeneratedJavaSource.forJavaSourceBody(tupToKey),
                   copiedExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+                  coercedType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
                   nestingLevel + 1
               );
           StringBuilder tupToVal =
@@ -129,15 +159,16 @@ public class CopyExpr extends Expr {
               getCopyJavaSource(
                   GeneratedJavaSource.forJavaSourceBody(tupToVal),
                   copiedExprType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
+                  coercedType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
                   nestingLevel + 1
               );
           res = GeneratedJavaSource.forJavaSourceBody(
               new StringBuilder("new ClaroMap(")
-                  .append(copiedExprType.getJavaSourceClaroType())
+                  .append(coercedType.getJavaSourceClaroType())
                   .append(", ")
           );
           if (!(optionalKeyCopyCodegen.isPresent() || optionalValCopyCodegen.isPresent())) {
-            if (!((Types.MapType) copiedExprType).isMutable()) {
+            if (!((Types.MapType) copiedExprType).isMutable() && !((Types.MapType) coercedType).isMutable()) {
               return Optional.empty();
             }
             copiedExprJavaSource.javaSourceBody()
@@ -176,6 +207,10 @@ public class CopyExpr extends Expr {
                             copiedExprType.baseType().equals(BaseType.TUPLE)
                             ? copiedExprType.parameterizedTypeArgs().get(String.format("$%s", i))
                             : ((Types.StructType) copiedExprType).getFieldTypes().get(i);
+                        Type currCoercedElementType =
+                            coercedType.baseType().equals(BaseType.TUPLE)
+                            ? coercedType.parameterizedTypeArgs().get(String.format("$%s", i))
+                            : ((Types.StructType) coercedType).getFieldTypes().get(i);
                         return getCopyJavaSource(
                             GeneratedJavaSource.forJavaSourceBody(
                                 new StringBuilder("((")
@@ -189,18 +224,20 @@ public class CopyExpr extends Expr {
                                     .append(copiedExprType.baseType().equals(BaseType.TUPLE) ? ")" : "]")
                                     .append(")")),
                             currElementType,
+                            currCoercedElementType,
                             nestingLevel + 1
                         );
                       }).collect(ImmutableList.toImmutableList());
           res = GeneratedJavaSource.forJavaSourceBody(
               new StringBuilder("new Claro")
-                  .append(copiedExprType.baseType().equals(BaseType.TUPLE) ? "Tuple" : "Struct")
+                  .append(coercedType.baseType().equals(BaseType.TUPLE) ? "Tuple" : "Struct")
                   .append("(")
-                  .append(copiedExprType.getJavaSourceClaroType())
+                  .append(coercedType.getJavaSourceClaroType())
                   .append(", ")
           );
           if (optionalElementCopyCodegens.stream().noneMatch(Optional::isPresent)
-              && !((SupportsMutableVariant<?>) copiedExprType).isMutable()) {
+              && !((SupportsMutableVariant<?>) copiedExprType).isMutable() &&
+              !((SupportsMutableVariant<?>) coercedType).isMutable()) {
             return Optional.empty();
           }
           // Here we've found some elements that aren't deeply-immutable, so we need to copy them.
@@ -244,65 +281,83 @@ public class CopyExpr extends Expr {
           // GenericTypeParam's type mapping before codegen here to refer to this UserDefinedType's concrete types.
           Optional<Map<Type, Type>> originalGenTypeCodegenMappings
               = Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen;
-          if (!copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()) {
-            ImmutableList<String> typeParamNames =
-                Types.UserDefinedType.$typeParamNames.get(copiedExprUserDefinedType.getTypeName());
-            Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
-                Optional.of(
-                    IntStream.range(0, copiedExprUserDefinedType.parameterizedTypeArgs().size()).boxed()
-                        .collect(ImmutableMap.toImmutableMap(
-                            i -> Types.$GenericTypeParam.forTypeParamName(typeParamNames.get(i)),
-                            i -> copiedExprUserDefinedType.parameterizedTypeArgs().get(i.toString())
-                        )));
-          }
-
+          Type wrappedType;
+          Type wrappedCoercedType;
           try {
-            Type wrappedType =
-                copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()
-                ? Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName())
-                : StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
-                    Maps.newHashMap(Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.get()),
-                    Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
-                    Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
-                    true
-                );
-            Optional<GeneratedJavaSource> optionalWrappedValCopyCodegen =
-                getCopyJavaSource(
-                    GeneratedJavaSource.forJavaSourceBody(
-                        new StringBuilder(copiedExprJavaSource.javaSourceBody().toString())
-                            .append(".wrappedValue")),
-                    wrappedType,
-                    nestingLevel + 1
-                );
-
-            // It seems a bit odd, but in some way all User Defined Types are inherently immutable. The only way to
-            // "change" one is to unwrap it and then wrap it again, but that rewrap creates a new $UserDefinedType
-            // instance.
-            Optional<GeneratedJavaSource> copyUserDefinedTypeCodegenRes =
-                optionalWrappedValCopyCodegen
-                    .map(
-                        generatedJavaSource -> GeneratedJavaSource.forJavaSourceBody(
-                            new StringBuilder("new $UserDefinedType(\"")
-                                .append(copiedExprUserDefinedType.getTypeName())
-                                .append("\", ")
-                                .append(copiedExprUserDefinedType.parameterizedTypeArgs().values().stream()
-                                            .map(Type::getJavaSourceClaroType)
-                                            .collect(Collectors.joining(", ", "ImmutableList.of(", "), ")))
-                                .append(Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName())
-                                            .getJavaSourceClaroType())
-                                .append(", ")
-                                .append(generatedJavaSource.javaSourceBody())
-                                .append(")")
-                        ));
-
-            // Reset GenericTypeParam state.
             if (!copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()) {
-              Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = originalGenTypeCodegenMappings;
+              ImmutableList<String> typeParamNames =
+                  Types.UserDefinedType.$typeParamNames.get(copiedExprUserDefinedType.getTypeName());
+              Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
+                  Optional.of(
+                      IntStream.range(0, copiedExprUserDefinedType.parameterizedTypeArgs().size()).boxed()
+                          .collect(ImmutableMap.toImmutableMap(
+                              i -> Types.$GenericTypeParam.forTypeParamName(typeParamNames.get(i)),
+                              i -> copiedExprUserDefinedType.parameterizedTypeArgs().get(i.toString())
+                          )));
+              wrappedType =
+                  StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                      Maps.newHashMap(Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.get()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
+                      true
+                  );
+              Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
+                  Optional.of(
+                      IntStream.range(0, coercedType.parameterizedTypeArgs().size()).boxed()
+                          .collect(ImmutableMap.toImmutableMap(
+                              i -> Types.$GenericTypeParam.forTypeParamName(typeParamNames.get(i)),
+                              i -> coercedType.parameterizedTypeArgs().get(i.toString())
+                          )));
+              wrappedCoercedType =
+                  StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                      Maps.newHashMap(Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.get()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName()),
+                      true
+                  );
+            } else {
+              wrappedType = Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName());
+              wrappedCoercedType =
+                  Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName());
             }
-            return copyUserDefinedTypeCodegenRes;
           } catch (ClaroTypeException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Internal Compiler Error! This should be unreachable. Type validation should've already caught this mismatch.", e);
           }
+          Optional<GeneratedJavaSource> optionalWrappedValCopyCodegen =
+              getCopyJavaSource(
+                  GeneratedJavaSource.forJavaSourceBody(
+                      new StringBuilder(copiedExprJavaSource.javaSourceBody().toString())
+                          .append(".wrappedValue")),
+                  wrappedType,
+                  wrappedCoercedType,
+                  nestingLevel + 1
+              );
+
+          // It seems a bit odd, but in some way all User Defined Types are inherently immutable. The only way to
+          // "change" one is to unwrap it and then wrap it again, but that rewrap creates a new $UserDefinedType
+          // instance.
+          Optional<GeneratedJavaSource> copyUserDefinedTypeCodegenRes =
+              optionalWrappedValCopyCodegen
+                  .map(
+                      generatedJavaSource -> GeneratedJavaSource.forJavaSourceBody(
+                          new StringBuilder("new $UserDefinedType(\"")
+                              .append(copiedExprUserDefinedType.getTypeName())
+                              .append("\", ")
+                              .append(copiedExprUserDefinedType.parameterizedTypeArgs().values().stream()
+                                          .map(Type::getJavaSourceClaroType)
+                                          .collect(Collectors.joining(", ", "ImmutableList.of(", "), ")))
+                              .append(Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName())
+                                          .getJavaSourceClaroType())
+                              .append(", ")
+                              .append(generatedJavaSource.javaSourceBody())
+                              .append(")")
+                      ));
+
+          // Reset GenericTypeParam state.
+          if (!copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()) {
+            Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = originalGenTypeCodegenMappings;
+          }
+          return copyUserDefinedTypeCodegenRes;
         default:
           throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in CopyExpr!");
       }
@@ -313,21 +368,25 @@ public class CopyExpr extends Expr {
 
         String syntheticOneofVar = "$oneofVal_" + (nestingLevel + 1);
         ImmutableMap<Type, GeneratedJavaSource> variantCopyCodegens =
-            ((Types.OneofType) copiedExprType).getVariantTypes().stream()
+            IntStream.range(0, ((Types.OneofType) copiedExprType).getVariantTypes().size()).boxed()
                 .collect(
                     ImmutableMap.toImmutableMap(
-                        variant -> variant,
-                        variant ->
-                            getCopyJavaSource(
-                                GeneratedJavaSource.forJavaSourceBody(
-                                    new StringBuilder("((")
-                                        .append(variant.getJavaSourceType())
-                                        .append(") ")
-                                        .append(syntheticOneofVar)
-                                        .append(")")),
-                                variant,
-                                nestingLevel + 1
-                            )
+                        i -> ((Types.OneofType) copiedExprType).getVariantTypes().asList().get(i),
+                        i -> {
+                          Type variant = ((Types.OneofType) copiedExprType).getVariantTypes().asList().get(i);
+                          Type coercedVariant = ((Types.OneofType) coercedType).getVariantTypes().asList().get(i);
+                          return getCopyJavaSource(
+                              GeneratedJavaSource.forJavaSourceBody(
+                                  new StringBuilder("((")
+                                      .append(variant.getJavaSourceType())
+                                      .append(") ")
+                                      .append(syntheticOneofVar)
+                                      .append(")")),
+                              variant,
+                              coercedVariant,
+                              nestingLevel + 1
+                          );
+                        }
                     )).entrySet().stream()
                 // Just make sure that this map *only* contains entries that *actually* require deep copying.
                 .filter(entry -> entry.getValue().isPresent())
@@ -384,7 +443,6 @@ public class CopyExpr extends Expr {
           //   to avoid invalidating compatibility btwn code generated by Claro versions before/after hashcode impl
           //   change. I'll admit I genuinely don't understand the implications of that yet, so I'll avoid the mess as
           //   I'm not ready to claim I am prepared for the consequences or that the hashcode impls are already perfect.
-          GeneratedJavaSource finalRes = res;
           List<Map.Entry<Type, GeneratedJavaSource>> variantCopyCodegensList = variantCopyCodegens.entrySet().asList();
           res.javaSourceBody()
               .append(

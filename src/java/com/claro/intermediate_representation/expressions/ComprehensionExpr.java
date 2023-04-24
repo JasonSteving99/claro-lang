@@ -238,8 +238,7 @@ public class ComprehensionExpr extends Expr {
           this.nestedComprehensionIdentifierReferencesForCodegen;
     }
 
-    GeneratedJavaSource res =
-        GeneratedJavaSource.forJavaSourceBody(new StringBuilder(this.collectionExpr.generateJavaSourceBodyOutput(scopedHeap)));
+    GeneratedJavaSource res = this.collectionExpr.generateJavaSourceOutput(scopedHeap);
     // Now start streaming.
     res.javaSourceBody().append(".stream()");
     // From now, everything will depend on the itemName var.

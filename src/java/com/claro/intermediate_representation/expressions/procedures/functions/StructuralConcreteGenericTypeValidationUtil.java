@@ -391,41 +391,4 @@ public class StructuralConcreteGenericTypeValidationUtil {
     }
   }
 
-  public static boolean isDeeplyImmutable(Type type) {
-    if (type instanceof SupportsMutableVariant<?>) {
-      // Quickly, if this outer layer is mutable, then we already know the overall type is not *deeply* immutable.
-      if (((SupportsMutableVariant<?>) type).isMutable()) {
-        return false;
-      }
-      // So now, whether the type is deeply-immutable or not strictly depends on the parameterized types.
-      switch (type.baseType()) {
-        case LIST:
-          return isDeeplyImmutable(((Types.ListType) type).getElementType());
-        case SET:
-          return isDeeplyImmutable(type.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE));
-        case MAP:
-          return isDeeplyImmutable(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS))
-                 && isDeeplyImmutable(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES));
-        case TUPLE:
-          return type.parameterizedTypeArgs().values().stream()
-              .allMatch(StructuralConcreteGenericTypeValidationUtil::isDeeplyImmutable);
-        case STRUCT:
-          return ((Types.StructType) type).getFieldTypes().stream()
-              .allMatch(StructuralConcreteGenericTypeValidationUtil::isDeeplyImmutable);
-        default:
-          throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in isDeeplyImmutable()!");
-      }
-    } else if (type.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
-      // User defined types are inherently shallow-ly immutable, so whether they're deeply-immutable simply depends on
-      // recursing into the wrapped type.
-      return isDeeplyImmutable(
-          Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) type).getTypeName()));
-    } else if (type.baseType().equals(BaseType.FUTURE)) {
-      // Futures are inherently shallow-ly immutable, so whether they're deeply-immutable simply depends on recursing
-      // into the wrapped type.
-      return isDeeplyImmutable(type.parameterizedTypeArgs().get(Types.FutureType.PARAMETERIZED_TYPE_KEY));
-    } else {
-      return true;
-    }
-  }
 }

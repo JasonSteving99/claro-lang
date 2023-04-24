@@ -3,7 +3,6 @@ package com.claro.intermediate_representation.statements;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.procedures.functions.FunctionCallExpr;
-import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.base.Preconditions;
@@ -144,29 +143,14 @@ public class GraphNodeDefinitionStmt extends Stmt {
     // Very last thing that's extremely important is forbidding the use of mutable data as a graph node output type.
     // This is a rigid restriction, but doing so (in concert w/ forbidding mutable graph inputs) gives a guarantee that
     // the inherently multithreaded computation represented by the graph is **DATA RACE FREE BY CONSTRUCTION**.
-    if (!StructuralConcreteGenericTypeValidationUtil.isDeeplyImmutable(this.actualNodeType)) {
+    if (!Types.isDeeplyImmutable(this.actualNodeType)) {
       this.nodeExpr.logTypeError(
           ClaroTypeException.forIllegalUseOfMutableTypeAsGraphNodeResultType(
-              this.actualNodeType, this.nodeName, getDeeplyImmutableVariantType(this.actualNodeType)));
+              this.actualNodeType,
+              this.nodeName,
+              Types.getDeeplyImmutableVariantTypeRecommendationForError(this.actualNodeType)
+          ));
     }
-  }
-
-  private static Optional<Type> getDeeplyImmutableVariantType(Type type) {
-    Type deeplyImmutableVariantType;
-    if (type instanceof SupportsMutableVariant<?>) {
-      deeplyImmutableVariantType = ((SupportsMutableVariant<?>) type).toDeeplyImmutableVariant();
-    } else if (type instanceof Types.UserDefinedType) {
-      deeplyImmutableVariantType = ((Types.UserDefinedType) type).toDeeplyImmutableVariant();
-    } else { // Assume then it must be a Future<T>.
-      deeplyImmutableVariantType =
-          Types.FutureType.wrapping(
-              getDeeplyImmutableVariantType(type.parameterizedTypeArgs().get(Types.FutureType.PARAMETERIZED_TYPE_KEY))
-                  .get()); // The nested bit can't alone be equal to the whole.
-    }
-    if (deeplyImmutableVariantType.equals(type)) {
-      return Optional.empty();
-    }
-    return Optional.of(deeplyImmutableVariantType);
   }
 
   @Override

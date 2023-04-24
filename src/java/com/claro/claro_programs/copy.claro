@@ -77,3 +77,53 @@ dumpCopyTestWithMutation(
     }
   }
 );
+
+########################################################################################################################
+# DEMONSTRATE MUTABILITY COERCION ON COPY
+#
+# You are able to seamlessly convert to/from mutable/immutable variants when using copy(). This is a unique capability
+# that you're granted out-of-the-box by means of Claro's copy() having language-level support. This is an extremely
+# useful convenience feature that enables easily working within Claro's deep-immutability restrictions for Graph
+# Procedures that would otherwise cause significant inconvenience. It may of course be advisable to rather design your
+# implementation so as to avoid the need for copying at all, but this gives you options.
+########################################################################################################################
+
+print("\nLIST MUTABILITY COERCIONS:");
+var coercedImmutableList: [int] = copy(mut [9]);
+type(coercedImmutableList);
+print(coercedImmutableList);
+var coercedMutableList: mut [int] = copy([9]);
+type(coercedMutableList);
+print(coercedMutableList);
+
+print("\nSET MUTABILITY COERCIONS:");
+var coercedImmutableSet: {int} = copy(mut {x | x in [9]});
+type(coercedImmutableSet);
+print(coercedImmutableSet);
+var coercedMutableSet: mut {int} = copy({x | x in [9]});
+type(coercedMutableSet);
+print(coercedMutableSet);
+
+print("\nMAP MUTABILITY COERCIONS:");
+var coercedImmutableMap: {string: int} = copy(mut {"Key {x}": x | x in [9]});
+type(coercedImmutableMap);
+print(coercedImmutableMap);
+var coercedMutableMap: mut {string: int} = copy({"Key {x}": x | x in [9]});
+type(coercedMutableMap);
+print(coercedMutableMap);
+
+print("\nTUPLE MUTABILITY COERCIONS:");
+var coercedImmutableTuple: tuple<string, int> = copy(mut ("foo", 9));
+type(coercedImmutableTuple);
+print(coercedImmutableTuple);
+var coercedMutableTuple: mut tuple<string, int> = copy(("foo", 9));
+type(coercedMutableTuple);
+print(coercedMutableTuple);
+
+print("\nSTRUCT MUTABILITY COERCIONS:");
+var coercedImmutableStruct: struct{foo: string, bar: int} = copy(mut {foo="foo", bar=9});
+type(coercedImmutableStruct);
+print(coercedImmutableStruct);
+var coercedMutableStruct: mut struct{foo: string, bar: int} = copy({foo="foo", bar=9});
+type(coercedMutableStruct);
+print(coercedMutableStruct);
