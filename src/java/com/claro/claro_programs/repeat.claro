@@ -1,0 +1,12 @@
+# In addition to the standard `while` and `for` looping constructs, you also have access to a `repeat` control flow
+# construct that simplifies a common pattern that's annoying to implement with `while`/`for`. This is absolutely just
+# syntax sugar.
+
+print("Hello, world!");
+repeat(10) {
+  print("Hello, again!");
+}
+
+repeat(-999) {
+  print("The body will never run if the repeat count <= 0.");
+}

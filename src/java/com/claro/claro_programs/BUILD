@@ -276,6 +276,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "repeat",
+    srcs = [":repeat_lib"],
+    java_name = "repeat",
+)
+
+claro_library(
+    name = "repeat_lib",
+    src = "repeat.claro",
+)
+
+claro_binary(
     name = "sets_compiled_claro_image",
     srcs = [":sets_compiled_claro"],
     java_name = "sets",
