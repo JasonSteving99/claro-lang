@@ -332,8 +332,8 @@ print(f(false, -1, -1, -1));
 #  root observeRaceRes <- printAndReturn(@update1, @update2);
 #}
 #
-# This graph is interesting in the sense that the graph itself is completely valid, but the procedures it depends on
-# introduce unsafe aliasing of shared mutable state by injecting the same mutable list.
+## This graph is interesting in the sense that the graph itself is completely valid, but the procedures it depends on
+## introduce unsafe aliasing of shared mutable state by injecting the same mutable list.
 #graph provider unsafeAliasingViaTransitivelyInjectedMutableValue() -> future<boolean> {
 #  node update1 <- appendToAndReturnInjectedMutableIntListDelayed(2, 12);
 #  node update2 <- appendToAndReturnInjectedMutableIntList(999);

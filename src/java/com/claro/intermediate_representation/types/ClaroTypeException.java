@@ -1109,7 +1109,7 @@ public class ClaroTypeException extends Exception {
           String.format(
               ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG,
               argType,
-              immutableVariantArgType
+              immutableVariantArgType.get()
           )
       );
     } else {
@@ -1128,7 +1128,7 @@ public class ClaroTypeException extends Exception {
           String.format(
               ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE,
               argType,
-              immutableVariantArgType
+              immutableVariantArgType.get()
           )
       );
     } else {
