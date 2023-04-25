@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public class DecrementExpr extends Expr {
@@ -14,13 +15,23 @@ public class DecrementExpr extends Expr {
 
   public DecrementExpr(IdentifierReferenceTerm identifierReferenceTerm, boolean preDecrement, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(identifierReferenceTerm), currentLine, currentLineNumber, startCol, endCol);
-    // TODO(steving) Assert that the IdentifierReferenceTerm is of type Integer.
     this.preDecrement = preDecrement;
   }
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+    IdentifierReferenceTerm id = (IdentifierReferenceTerm) this.getChildren().get(0);
+    id.assertExpectedExprType(scopedHeap, Types.INTEGER);
+
+    // Additionally, this is a mutating operation, so that means we need to restrict it within Lambda scopes, so if it
+    // happens that this is a lambda captured variable, then we should reject this increment.
+    Optional<Integer> identifierScopeLevel = scopedHeap.findIdentifierInitializedScopeLevel(id.identifier);
+    if (identifierScopeLevel.isPresent()
+        && scopedHeap.scopeStack.get(identifierScopeLevel.get())
+            .lambdaScopeCapturedVariables.containsKey(id.identifier)) {
+      this.logTypeError(ClaroTypeException.forIllegalMutationOfLambdaCapturedVariable());
+    }
+
     return Types.INTEGER;
   }
 

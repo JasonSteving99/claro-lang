@@ -62,7 +62,7 @@ public class CopyExpr extends Expr {
     return getCopyJavaSource(copiedExprJavaSource, this.validatedCopiedExprType, this.assertedCopyResultType.orElse(this.validatedCopiedExprType), /*nestingLevel=*/0).orElse(copiedExprJavaSource);
   }
 
-  private static Optional<GeneratedJavaSource> getCopyJavaSource(GeneratedJavaSource copiedExprJavaSource, Type copiedExprType, Type coercedType, long nestingLevel) {
+  public static Optional<GeneratedJavaSource> getCopyJavaSource(GeneratedJavaSource copiedExprJavaSource, Type copiedExprType, Type coercedType, long nestingLevel) {
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // !!!WARNING!!!!
     // IF YOU UPDATE THIS CONDITION, YOU MUST ALSO UPDATE THE CONDITION CODEGEN'D FOR ONEOF HANDLING BELOW!

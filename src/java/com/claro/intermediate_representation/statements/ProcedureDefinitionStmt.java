@@ -11,6 +11,7 @@ import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class ProcedureDefinitionStmt extends Stmt {
   // procedure with their used injected keys.
   public Types.ProcedureType resolvedProcedureType;
   private boolean isLambdaType;
-  private ImmutableSet<String> lambdaScopeCapturedVariables = ImmutableSet.of();
+  private ImmutableMap<String, Type> lambdaScopeCapturedVariablesToOriginalType = ImmutableMap.of();
   private boolean alreadyAssertedTypes = false;
 
   // This field is the fringe that will be used from this node when traversing the top-level procedure call graph.
@@ -458,7 +459,8 @@ public class ProcedureDefinitionStmt extends Stmt {
 
       // In case this was a lambda expression that made reference to implicitly captured variables
       // in the outer scope, we need to find and mark them so that we can handle them during interpretation.
-      lambdaScopeCapturedVariables = ImmutableSet.copyOf(scopedHeap.scopeStack.peek().lambdaScopeCapturedVariables);
+      lambdaScopeCapturedVariablesToOriginalType =
+          ImmutableMap.copyOf(scopedHeap.scopeStack.peek().lambdaScopeCapturedVariables);
 
       // Just before we leave the procedure body, let's make sure that we check for required returns.
       if (this.resolvedProcedureType.hasReturnValue()) {
@@ -777,15 +779,28 @@ public class ProcedureDefinitionStmt extends Stmt {
               this.procedureName,
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
                   .append(procedureBodyGeneratedJavaSource.javaSourceBody()),
-              this.lambdaScopeCapturedVariables
-                  .stream()
+              this.lambdaScopeCapturedVariablesToOriginalType.keySet().stream()
                   .collect(
                       ImmutableMap.toImmutableMap(
                           id -> id,
                           id -> {
                             return scopedHeap.getIdentifierData(id).type;
                           }
-                      ))
+                      )),
+              this.lambdaScopeCapturedVariablesToOriginalType.entrySet().stream()
+                  .map(e -> {
+                    try {
+                      return ((Optional<GeneratedJavaSource>) Class.forName("com.claro.intermediate_representation.expressions.CopyExpr")
+                          .getMethod("getCopyJavaSource", GeneratedJavaSource.class, Type.class, Type.class, long.class)
+                          .invoke(null, GeneratedJavaSource.forJavaSourceBody(new StringBuilder("/*Lambda Captured Var to be Deep-Immutable Copied*/").append(e.getKey())), e.getValue(), scopedHeap.getValidatedIdentifierType(e.getKey()), 0))
+                          .map(g -> g.javaSourceBody().toString())
+                          .orElse(e.getKey()); // If this particular type was actually already deeply-immutable do nothing.
+                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException |
+                             ClassNotFoundException ex) {
+                      throw new RuntimeException("Internal Compiler Error! This should be unreachable.", ex);
+                    }
+                  })
+                  .collect(ImmutableList.toImmutableList())
           );
     } else {
       // It's possible that we need to generate helper methods for the class we're generating.
@@ -858,8 +873,7 @@ public class ProcedureDefinitionStmt extends Stmt {
     // in the outer scope at definition time. We don't want lambdas to have access to the outer scope
     // variables themselves, just their definition time *values*.
     ImmutableMap<String, ScopedHeap.IdentifierData> lambdaScopeCapturedVariables =
-        this.lambdaScopeCapturedVariables
-            .stream()
+        this.lambdaScopeCapturedVariablesToOriginalType.keySet().stream()
             .collect(
                 ImmutableMap.toImmutableMap(
                     id -> id,

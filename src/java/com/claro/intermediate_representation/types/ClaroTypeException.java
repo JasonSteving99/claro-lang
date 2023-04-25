@@ -278,6 +278,16 @@ public class ClaroTypeException extends Exception {
       "Illegal Mutable Graph Procedure Transitive Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
       "\t\tFound the following mutable types being transitively injected into procedures called by Graph Procedure `%s`:" +
       "%s";
+  private static final String ILLEGAL_LAMBDA_CAPTURE_OF_TYPE_THAT_CANNOT_BE_AUTO_CONVERTED_TO_DEEPLY_IMMUTABLE_VARIANT =
+      "Illegal Lambda Capture of Mutable Value: All variables captured within a lambda context must be either deeply-immutable or auto-convertible to a deeply-immutable variant." +
+      " This restriction ensures that lambdas do not lead to so-called \"spooky action at a distance\" and is essential to guaranteeing that Graph Procedures are data-race free" +
+      " by construction.\n" +
+      "\t\tFound the following mutable type:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_MUTATION_OF_LAMBDA_CAPTURED_VARIABLE =
+      "Illegal Mutation of Lambda Captured Variable: The value of all variables captured within a lambda context are final and may not be changed." +
+      " This restriction ensures that lambdas do not lead to so-called \"spooky action at a distance\" and is essential to guaranteeing that Graph Procedures are data-race free" +
+      " by construction.";
 
 
   public ClaroTypeException(String message) {
@@ -1159,5 +1169,14 @@ public class ClaroTypeException extends Exception {
                 .collect(Collectors.joining())
         )
     );
+  }
+
+  public static Exception forIllegalLambdaCaptureOfTypeThatCannotBeAutoConvertedToDeeplyImmutableVariant(Type type) {
+    return new ClaroTypeException(
+        String.format(ILLEGAL_LAMBDA_CAPTURE_OF_TYPE_THAT_CANNOT_BE_AUTO_CONVERTED_TO_DEEPLY_IMMUTABLE_VARIANT, type));
+  }
+
+  public static ClaroTypeException forIllegalMutationOfLambdaCapturedVariable() {
+    return new ClaroTypeException(ILLEGAL_MUTATION_OF_LAMBDA_CAPTURED_VARIABLE);
   }
 }

@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public class IncrementExpr extends Expr {
@@ -19,7 +20,17 @@ public class IncrementExpr extends Expr {
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, Types.INTEGER);
+    IdentifierReferenceTerm id = (IdentifierReferenceTerm) this.getChildren().get(0);
+    id.assertExpectedExprType(scopedHeap, Types.INTEGER);
+
+    // Additionally, this is a mutating operation, so that means we need to restrict it within Lambda scopes, so if it
+    // happens that this is a lambda captured variable, then we should reject this increment.
+    Optional<Integer> identifierScopeLevel = scopedHeap.findIdentifierInitializedScopeLevel(id.identifier);
+    if (identifierScopeLevel.isPresent()
+        && scopedHeap.scopeStack.get(identifierScopeLevel.get())
+            .lambdaScopeCapturedVariables.containsKey(id.identifier)) {
+      this.logTypeError(ClaroTypeException.forIllegalMutationOfLambdaCapturedVariable());
+    }
 
     return Types.INTEGER;
   }

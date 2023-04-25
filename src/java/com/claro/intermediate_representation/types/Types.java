@@ -579,7 +579,7 @@ public final class Types {
         String procedureName, StringBuilder body, Optional<StringBuilder> optionalHelperMethods);
 
     public abstract String getJavaNewTypeDefinitionStmtForLambda(
-        String procedureName, StringBuilder body, ImmutableMap<String, Type> capturedVariables);
+        String procedureName, StringBuilder body, ImmutableMap<String, Type> capturedVariables, ImmutableList<String> capturedVariablesDeepImmutableCopyCodegen);
 
     public String getStaticFunctionReferenceDefinitionStmt(String procedureName) {
       return String.format(
@@ -739,7 +739,7 @@ public final class Types {
       }
 
       @Override
-      public String getJavaNewTypeDefinitionStmtForLambda(String functionName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+      public String getJavaNewTypeDefinitionStmtForLambda(String functionName, StringBuilder body, ImmutableMap<String, Type> capturedVariables, ImmutableList<String> capturedVariablesDeepImmutableCopyCodegen) {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
                 .orElse(this.baseType())
@@ -764,7 +764,7 @@ public final class Types {
             functionName,
             functionName,
             functionName,
-            String.join(", ", capturedVariables.keySet())
+            String.join(", ", capturedVariablesDeepImmutableCopyCodegen)
         );
       }
 
@@ -924,7 +924,7 @@ public final class Types {
 
       @Override
       public String getJavaNewTypeDefinitionStmtForLambda(
-          String providerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+          String providerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables, ImmutableList<String> capturedVariablesDeepImmutableCopyCodegen) {
         String returnTypeJavaSource = getReturnType().getJavaSourceType();
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get()
@@ -950,7 +950,7 @@ public final class Types {
             providerName,
             providerName,
             providerName,
-            String.join(", ", capturedVariables.keySet())
+            String.join(", ", capturedVariablesDeepImmutableCopyCodegen)
         );
       }
 
@@ -1127,7 +1127,7 @@ public final class Types {
 
       @Override
       public String getJavaNewTypeDefinitionStmtForLambda(
-          String consumerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables) {
+          String consumerName, StringBuilder body, ImmutableMap<String, Type> capturedVariables, ImmutableList<String> capturedVariablesDeepImmutableCopyCodegen) {
         return String.format(
             this.autoValueIgnoredOptionalOverrideBaseType.get().get().getJavaNewTypeDefinitionStmtFmtStr(),
             consumerName,
@@ -1148,7 +1148,7 @@ public final class Types {
             consumerName,
             consumerName,
             consumerName,
-            String.join(", ", capturedVariables.keySet())
+            String.join(", ", capturedVariablesDeepImmutableCopyCodegen)
         );
       }
 

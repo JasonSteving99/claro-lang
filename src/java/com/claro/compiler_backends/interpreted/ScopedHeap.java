@@ -2,12 +2,15 @@ package com.claro.compiler_backends.interpreted;
 
 import com.claro.ClaroParserException;
 import com.claro.intermediate_representation.types.BaseType;
+import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import lombok.ToString;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -323,13 +326,55 @@ public class ScopedHeap {
   // Need to re-declare a hiding variable copying the value from the outer scope. This method can
   // handle that implicitly here adding a new hiding identifier at the requested scope level.
   private void redeclareCaptureVariable(String identifier, int scopeLevel, IdentifierData identifierData) {
+    Optional<? extends Type> optionalCoercedDeeplyImmutableCapturedType;
+    switch (identifierData.type.baseType()) {
+      case INTEGER:
+      case FLOAT:
+      case STRING:
+      case BOOLEAN:
+      case FUNCTION:
+      case CONSUMER_FUNCTION:
+      case PROVIDER_FUNCTION:
+      case LAMBDA_FUNCTION:
+      case LAMBDA_CONSUMER_FUNCTION:
+      case LAMBDA_PROVIDER_FUNCTION:
+        optionalCoercedDeeplyImmutableCapturedType = Optional.of(identifierData.type);
+        break;
+      case LIST:
+      case SET:
+      case MAP:
+      case TUPLE:
+      case STRUCT:
+      case USER_DEFINED_TYPE:
+        try {
+          optionalCoercedDeeplyImmutableCapturedType =
+              (Optional<? extends Type>)
+                  identifierData.type.getClass()
+                      .getMethod("toDeeplyImmutableVariant").invoke(identifierData.type);
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+          // Claro's build configuration is a hot mess, so I can't reference Types.Foo.toDeeplyImmutableVariant().
+          throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+        }
+        break;
+      default:
+        // Any other type should not be captured by a lambda.
+        optionalCoercedDeeplyImmutableCapturedType = Optional.empty();
+    }
+    // In case the captured type couldn't be auto-converted to a deeply immutable variant, then this capture is actually
+    // statically rejected. This is how Claro maintains its guarantee that any program that compiles is data-race free.
+    if (!optionalCoercedDeeplyImmutableCapturedType.isPresent()) {
+      throw new RuntimeException(
+          ClaroTypeException.forIllegalLambdaCaptureOfTypeThatCannotBeAutoConvertedToDeeplyImmutableVariant(
+              identifierData.type));
+    }
+
     IdentifierData redeclaredCaptureIdentifierData =
-        new IdentifierData(identifierData.type, identifierData.interpretedValue, identifierData.declared);
+        new IdentifierData(optionalCoercedDeeplyImmutableCapturedType.get(), identifierData.interpretedValue, identifierData.declared);
     scopeStack.get(scopeLevel)
         .scopedSymbolTable
         .put(identifier, redeclaredCaptureIdentifierData);
     // I need to mark this newly initialized capture variable.
-    scopeStack.get(scopeLevel).lambdaScopeCapturedVariables.add(identifier);
+    scopeStack.get(scopeLevel).lambdaScopeCapturedVariables.put(identifier, identifierData.type);
     // That implicit copy that we just did, definitely counts as "using" the identifier.
     identifierData.used = true;
     redeclaredCaptureIdentifierData.used = true;
@@ -398,7 +443,7 @@ public class ScopedHeap {
 
     // This set of identifiers is intended to track all identifiers that were dynamically added to this Scope
     // for the sake of "capturing" the current state of a variable, and "hiding" the variable itself.
-    public HashSet<String> lambdaScopeCapturedVariables = new HashSet<>();
+    public HashMap<String, Type> lambdaScopeCapturedVariables = Maps.newHashMap();
 
     // Track whether this represents the top-level of a Function or Lambda Scope (or in the future a Method Scope).
     // There are certain special limitations on what may or may not be accessed from outer scopes in these cases.
@@ -459,6 +504,7 @@ public class ScopedHeap {
       branchDetectionEnabled = false;
       identifiersInitializedInBranchGroup = null;
     }
+
   }
 
   @Override

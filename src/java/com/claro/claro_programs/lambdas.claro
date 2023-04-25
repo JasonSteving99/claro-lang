@@ -8,6 +8,83 @@ print(firstLambda("Claro supports lambdas!"));
 var secondLambda = cast(function<string -> string>, x -> x);
 print(secondLambda("And they're really easy to work with!"));
 
+####################################################################################################
+# DEMONSTRATE LAMBDA CAPTURES AS IMMUTABLE COPIES
+#
+# In order to prevent Lambdas from being something that introduces "spooky action at a distance" to
+# the language, all variables captured by a lambda are actually captured as a copy of the original
+# value, coerced to its deeply-immutable variant type. Else, a compile error is issued in the case
+# that no such automatic conversion is possible (for example its impossible to autoconvert
+# `newtype Foo: mut [int]` to a deeply-immutable variant as it's inherently mutable).
+#
+# This may seem like an extremely overly aggressive stance that overly restricts lambdas, however,
+# this is foundational as something that preserves the powerful property that all Graph Procedures
+# are data-race free by construction.
+####################################################################################################
+
+## UNCOMMENT THE BELOW EXAMPLE TO SEE THE BEHAVIOR THAT IS NOW FORBIDDEN IN CLARO LAMBDAS.
+
+#var l: mut [int] = mut [1];
+#
+#var getAndIncr = lambda () -> int {
+#  var res = l[0];
+#  l[0] = l[0] + 1;
+#  return res;
+#};
+#
+#print(l);             # mut [1]
+#print(getAndIncr());  # 1
+#print(getAndIncr());  # 2
+#print(getAndIncr());  # 3
+#print(l);             # mut [4] "Spooky Action at a Distance" mutating `l` on the lines above when `l` was never directly referenced.
+
+# ONE WAY TO ACHIEVE THE MORE "TRADITIONAL" LAMBDA SEMANTICS OF CAPTURED STATE, WOULD BE THE BELOW WORKAROUND. I find
+# this to be a *BEAUTIFUL* solution literally BECAUSE of the fact that it is so explicit. You should have to be *very*
+# intentional to simulate things that could be potentially problematic. And the incredible thing is that even though you
+# may now simulate this functionality, Claro is STILL able to reject unsafe use of it within Graph Procedures!
+newtype ClosureFn<State, Out> : struct {
+  state: State,
+  fn: function<State -> Out>
+}
+
+contract ClosureProvider<State, Out> {
+  function get(closureFn: ClosureFn<State, Out>) -> Out;
+}
+
+implement ClosureProvider<mut [int], int> as GetAndIncrClosure {
+  function get(closureFn: ClosureFn<mut [int], int>) -> int {
+    var toApply = unwrap(closureFn).fn;
+    return toApply(unwrap(closureFn).state);
+  }
+}
+
+var mutList = mut [1];
+var getAndIncrClosure: ClosureFn<mut [int], int> =
+  ClosureFn({
+    state = mutList,
+    fn = l -> {
+      var res = l[0];
+      l[0] = l[0] + 1;
+      return res;
+    }
+  });
+
+print("----------------------------------------");
+print("Demo manual closure semantics.");
+print(mutList);                                 # mut [1]
+print(ClosureProvider::get(getAndIncrClosure)); # 1
+print(ClosureProvider::get(getAndIncrClosure)); # 2
+print(ClosureProvider::get(getAndIncrClosure)); # 3
+print(mutList);                                 # mut [4] "Spooky Action at a Distance" mutating `mutList` on the lines above when `mutList` was never directly referenced.
+
+
+
+
+########################################################################################################################
+# DEMONSTRATE SOME MORE SOMEWHAT RANDOM USAGES
+########################################################################################################################
+
+print("----------------------------------------");
 
 consumer testPassingLambdasAsArgs(x: int, f: function<int -> int>) {
   print(f(x));
@@ -112,23 +189,6 @@ provider testOuterScopeInFunction() -> provider<int> {
 p = testOuterScopeInFunction();
 print(p());
 print(testOuterScopeVar);
-
-# Captured variables are mutable state across calls to the lambda, so this allows the creation of your
-# own "Generators" (ala Python) without needing to add yet more syntax to the language.
-var xxx = 10;
-var lll: provider<int> = () -> {
-  if (xxx > 0) {
-    --xxx;
-  }
-  return xxx;
-};
-var lllcurr = lll();
-while (lllcurr > 0) {
-  print(lllcurr);
-  lllcurr = lll();
-}
-print("done");
-print(xxx);
 
 
 ####################################################################################################
