@@ -9,6 +9,8 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 public class AssignmentStmt extends Stmt {
 
   private final IdentifierReferenceTerm IDENTIFIER;
@@ -58,6 +60,17 @@ public class AssignmentStmt extends Stmt {
       // If it's not a oneof type then we require an exact match.
       ((Expr) this.getChildren().get(0)).assertExpectedExprType(scopedHeap, this.identifierValidatedType);
     }
+
+    // Additionally, this is a mutating operation from the perspective of a lambda capture, so that means we need to
+    // restrict it within Lambda scopes, so if it happens that this is a lambda captured variable, then we should reject
+    // this assignment.
+    Optional<Integer> identifierScopeLevel = scopedHeap.findIdentifierInitializedScopeLevel(this.IDENTIFIER.identifier);
+    if (identifierScopeLevel.isPresent()
+        && scopedHeap.scopeStack.get(identifierScopeLevel.get())
+            .lambdaScopeCapturedVariables.containsKey(this.IDENTIFIER.identifier)) {
+      this.IDENTIFIER.logTypeError(ClaroTypeException.forIllegalMutationOfLambdaCapturedVariable());
+    }
+
     scopedHeap.initializeIdentifier(this.IDENTIFIER.identifier);
   }
 

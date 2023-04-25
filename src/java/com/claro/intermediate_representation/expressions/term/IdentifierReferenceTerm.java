@@ -196,6 +196,15 @@ public class IdentifierReferenceTerm extends Term {
     if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionCollectionsCount >= 0) {
       InternalStaticStateUtil.addNestedCollectionIdentifierReference(this.identifier);
     }
+
+    // If this identifier happens to be a lambda capture, then its type must be deeply-immutable otherwise the reference
+    // is actually illegal.
+    if (scopedHeap.scopeStack.get(scopedHeap.findIdentifierInitializedScopeLevel(this.identifier).get())
+            .lambdaScopeCapturedVariables.containsKey(this.identifier)
+        && !Types.isDeeplyImmutable(referencedIdentifierType)) {
+      this.logTypeError(ClaroTypeException.forIllegalLambdaCaptureOfMutableType(referencedIdentifierType));
+    }
+
     return referencedIdentifierType;
   }
 

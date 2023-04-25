@@ -288,6 +288,12 @@ public class ClaroTypeException extends Exception {
       "Illegal Mutation of Lambda Captured Variable: The value of all variables captured within a lambda context are final and may not be changed." +
       " This restriction ensures that lambdas do not lead to so-called \"spooky action at a distance\" and is essential to guaranteeing that Graph Procedures are data-race free" +
       " by construction.";
+  private static final String ILLEGAL_LAMBDA_CAPTURE_OF_MUTABLE_TYPE =
+      "Illegal Lambda Capture of Mutable Value: All variables captured within a lambda context must be deeply-immutable." +
+      " This restriction ensures that lambdas do not lead to so-called \"spooky action at a distance\" and is essential to guaranteeing that Graph Procedures are data-race free" +
+      " by construction.\n" +
+      "\t\tFound the following mutable type:\n" +
+      "\t\t\t%s";
 
 
   public ClaroTypeException(String message) {
@@ -1171,12 +1177,13 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static Exception forIllegalLambdaCaptureOfTypeThatCannotBeAutoConvertedToDeeplyImmutableVariant(Type type) {
-    return new ClaroTypeException(
-        String.format(ILLEGAL_LAMBDA_CAPTURE_OF_TYPE_THAT_CANNOT_BE_AUTO_CONVERTED_TO_DEEPLY_IMMUTABLE_VARIANT, type));
-  }
 
   public static ClaroTypeException forIllegalMutationOfLambdaCapturedVariable() {
     return new ClaroTypeException(ILLEGAL_MUTATION_OF_LAMBDA_CAPTURED_VARIABLE);
+  }
+
+  public static ClaroTypeException forIllegalLambdaCaptureOfMutableType(Type referencedIdentifierType) {
+    return new ClaroTypeException(
+        String.format(ILLEGAL_LAMBDA_CAPTURE_OF_MUTABLE_TYPE, referencedIdentifierType));
   }
 }
