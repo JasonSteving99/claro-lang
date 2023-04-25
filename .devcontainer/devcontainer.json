@@ -1,5 +1,5 @@
 {
-	"name": "Bazel (Community)",
+	"name": "Claro - Bazel Codespace",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"args": {
@@ -16,7 +16,7 @@
 			"extensions": [
 				"devondcarew.bazel-code",
 				"BazelBuild.vscode-bazel",
-				"StackBuild.bazel-stack-vscode"
+				"StackBuild.bazel-stack-vscode",
 			]
 		}
 	},
@@ -24,7 +24,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "uname -a",
+	"postCreateCommand": "echo \"alias bazel='bazelisk'\" >> ~/.bashrc && source ~/.bashrc",
 	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
 	// "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
 	// Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
