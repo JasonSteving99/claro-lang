@@ -32,11 +32,12 @@ public class StmtListNode extends Node {
     while (curr != null) {
       // If the hidden variable tracking ReturnStmts is initialized in the current scope,
       // then it's indicating that this Stmt is located after a ReturnStmt which is invalid.
-      if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream().anyMatch(i -> i.matches("\\$.*RETURNS"))) {
+      if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream()
+          .anyMatch(i -> i.matches("\\$(.*RETURNS|BREAK|CONTINUE)"))) {
         // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
         //  implementing better error messages with line numbers etc, I get a feeling that
         //  throwing this manner of error here will make it hard to get line numbers right.
-        throw new ClaroParserException("Unreachable statements following a return stmt are not allowed.");
+        throw new ClaroParserException("Unreachable statements following a return/break stmt are not allowed.");
       }
 
       Stmt currStmt = ((Stmt) curr.getChildren().get(0));

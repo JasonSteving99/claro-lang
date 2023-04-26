@@ -169,6 +169,8 @@ WhiteSpace     = [ \t\f]
     "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
     "for"              { return symbol(Calc.FOR, 0, 3, "for"); }
     "repeat"           { return symbol(Calc.REPEAT, 0, 6, "repeat"); }
+    "break"            { return symbol(Calc.BREAK, 0, 5, "break"); }
+    "continue"         { return symbol(Calc.CONTINUE, 0, 8, "continue"); }
     "where"            { return symbol(Calc.WHERE, 0, 5, "where"); }
     "return"           { return symbol(Calc.RETURN, 0, 6, "return"); }
     "?="               { return symbol(Calc.QUESTION_MARK_ASSIGNMENT, 0, 2, "?="); }

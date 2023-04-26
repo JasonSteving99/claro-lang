@@ -91,6 +91,10 @@ public class LambdaExpr extends Expr {
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
     if (!this.alreadyAssertedTypes) {
+      boolean original_withinLoopingConstructBody =
+          InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody;
+      InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = false;
+
       // Because lambda expressions involve instantiating a new procedure definition and adding it to the scopedheap
       // it's actually important that this only runs once.
       this.alreadyAssertedTypes = true;
@@ -195,6 +199,8 @@ public class LambdaExpr extends Expr {
       this.lambdaReferenceTerm =
           new IdentifierReferenceTerm(this.lambdaName, currentLine, currentLineNumber, startCol, endCol);
       lambdaReferenceTerm.assertExpectedExprType(scopedHeap, expectedExprType);
+
+      InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = original_withinLoopingConstructBody;
     }
 
     // Because lambdas actually will need to be typechecked multiple times in the case of typechecking within multiple

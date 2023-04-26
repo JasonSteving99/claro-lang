@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -78,8 +79,13 @@ public class ForLoopStmt extends Stmt {
     }
     scopedHeap.initializeIdentifier(this.itemName.identifier);
 
+    boolean original_withinLoopingConstructBody = InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody;
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = true;
+
     // Finally validate the body.
     this.stmtListNode.assertExpectedExprTypes(scopedHeap);
+
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = original_withinLoopingConstructBody;
     scopedHeap.exitCurrObservedScope(false);
   }
 

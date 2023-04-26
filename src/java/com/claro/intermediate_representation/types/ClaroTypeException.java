@@ -294,6 +294,8 @@ public class ClaroTypeException extends Exception {
       " by construction.\n" +
       "\t\tFound the following mutable type:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_USE_OF_BREAK_STMT_OUTSIDE_LOOPING_CONSTRUCT =
+      "Illegal Use of `break` Outside Loop Body: The use of the `break` keyword is to exit a looping construct early, so it's invalid to use anywhere else.";
 
 
   public ClaroTypeException(String message) {
@@ -1185,5 +1187,9 @@ public class ClaroTypeException extends Exception {
   public static ClaroTypeException forIllegalLambdaCaptureOfMutableType(Type referencedIdentifierType) {
     return new ClaroTypeException(
         String.format(ILLEGAL_LAMBDA_CAPTURE_OF_MUTABLE_TYPE, referencedIdentifierType));
+  }
+
+  public static ClaroTypeException forIllegalUseOfBreakStmtOutsideLoopingConstruct() {
+    return new ClaroTypeException(ILLEGAL_USE_OF_BREAK_STMT_OUTSIDE_LOOPING_CONSTRUCT);
   }
 }

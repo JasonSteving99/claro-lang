@@ -75,6 +75,7 @@ public class InternalStaticStateUtil {
   public static int ComprehensionExpr_nestedComprehensionCollectionsCount = -1;
   public static String ComprehensionExpr_nestedComprehensionMappedItemName;
   public static HashSet<String> ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
+  public static boolean LoopingConstructs_withinLoopingConstructBody = false;
 
   // This function allows IdentifierReferenceterm to add any referenced vars so that the codegen for the outermost
   // collection can create a class that collects the referenced variables in order to workaround Java's effectively

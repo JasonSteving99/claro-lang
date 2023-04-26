@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 public class RepeatStmt extends Stmt {
@@ -19,7 +20,19 @@ public class RepeatStmt extends Stmt {
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     this.expr.assertExpectedExprType(scopedHeap, Types.INTEGER);
+
+    // Since we don't know whether or not the repeat-loop body will actually execute, we won't be able to trigger branch
+    // inspection on var initialization.
+    scopedHeap.observeNewScope(false);
+
+    boolean original_withinLoopingConstructBody = InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody;
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = true;
+
     this.stmtListNode.assertExpectedExprTypes(scopedHeap);
+
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = original_withinLoopingConstructBody;
+
+    scopedHeap.exitCurrObservedScope(false);
   }
 
   @Override
@@ -35,7 +48,7 @@ public class RepeatStmt extends Stmt {
 
   @Override
   public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
-    // TODO(steving) Eventually need to impl copy when I come back to adding support for the interpreted backend.
+    // TODO(steving) Eventually need to impl repeat when I come back to adding support for the interpreted backend.
     throw new RuntimeException("Internal Compiler Error! Claro doesn't support `repeat(...) {...}` in the interpreted backend just yet!");
   }
 }

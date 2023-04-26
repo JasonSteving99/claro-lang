@@ -309,7 +309,7 @@ terminal LexedValue<String>  TYPE;
 // This grammar also has a builtin append() function for appending an element to a List.
 terminal LexedValue<String>  APPEND;
 terminal LexedValue<String>  IF, ELSE;
-terminal LexedValue<String>  WHILE, FOR, REPEAT, WHERE;
+terminal LexedValue<String>  WHILE, FOR, REPEAT, BREAK, CONTINUE, WHERE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
 terminal LexedValue<String>  NOTHING_TYPE, INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
@@ -358,6 +358,8 @@ nonterminal StmtListNode                       else_stmt;
 nonterminal WhileStmt                          while_stmt;
 nonterminal ForLoopStmt                        for_loop_stmt;
 nonterminal RepeatStmt                         repeat_stmt;
+nonterminal BreakStmt                          break_stmt;
+nonterminal ContinueStmt                       continue_stmt;
 nonterminal ComprehensionExpr                  list_comprehension_expr;
 nonterminal ComprehensionExpr                  set_comprehension_expr;
 nonterminal ComprehensionExpr                  map_comprehension_expr;
@@ -454,7 +456,7 @@ precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
-precedence left WHILE, FOR, REPEAT, WHERE;
+precedence left WHILE, FOR, REPEAT, BREAK, WHERE;
 precedence left QUESTION_MARK_ASSIGNMENT;
 precedence left DOT;
 
@@ -554,6 +556,10 @@ stmt ::=
     {: RESULT = f; :}
   | repeat_stmt:r
     {: RESULT = r; :}
+  | break_stmt:b
+    {: RESULT = b; :}
+  | continue_stmt:c
+    {: RESULT = c; :}
   | function_definition_stmt:f
     {: RESULT = f; :}
   | consumer_function_definition_stmt:f
@@ -1795,6 +1801,16 @@ for_loop_stmt ::=
 repeat_stmt ::=
     REPEAT LPAR expr:e RPAR LCURLY stmt_list:stmt_list RCURLY
     {: RESULT = new RepeatStmt(e, stmt_list); :}
+  ;
+
+break_stmt ::=
+    BREAK:b SEMICOLON
+    {: RESULT = new BreakStmt(b.currentInputLine, bright, bleft, bleft + b.len); :}
+  ;
+
+continue_stmt ::=
+    CONTINUE:c SEMICOLON
+    {: RESULT = new ContinueStmt(c.currentInputLine, cright, cleft, cleft + c.len); :}
   ;
 
 list_comprehension_expr ::=

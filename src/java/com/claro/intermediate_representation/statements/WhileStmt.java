@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 public class WhileStmt extends Stmt {
@@ -23,7 +24,14 @@ public class WhileStmt extends Stmt {
     // Since we don't know whether or not the while-loop body will actually execute, we won't be able to trigger branch
     // inspection on var initialization.
     scopedHeap.observeNewScope(false);
+
+    boolean original_withinLoopingConstructBody = InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody;
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = true;
+
     ((StmtListNode) this.getChildren().get(1)).assertExpectedExprTypes(scopedHeap);
+
+    InternalStaticStateUtil.LoopingConstructs_withinLoopingConstructBody = original_withinLoopingConstructBody;
+
     scopedHeap.exitCurrObservedScope(false);
   }
 

@@ -8,6 +8,10 @@ while (x < 10) {
   print(z);
   if (x >= 5) {
     print("last half");
+    if (x == 8) {
+      print("stopping early to validate `break` keyword.");
+      break;
+    }
   } else {
     print("first half");
   }
@@ -16,7 +20,7 @@ while (x < 10) {
 
 if (x == 0) {
   print("Scoping would be broken if this were the case (but it's not).");
-} else if (x == 10) {
+} else if (x == 8) {
   print("The loop does what I think, and scoping seems to work correctly!");
 }
 
