@@ -24,3 +24,26 @@ the limit at which it splits the generated action handler method, and JCUP would
 no longer generate code exceeding Java's codesize limit. This package simply
 contains some build level hacking to reduce that limit <275. Read the code for
 specifics on the "how".
+
+*_Update - 4/26/23:_*
+
+Ok, so after several months of smooth sailing after the above fix, yesterday I
+ended up running into the same sort of issue once more. This time, rather than
+the generated CUP$ClaroParser$do_action_part00000000() method being too large,
+it was instead the generated `_action_table`/`_reduce_table`/`_production_table`
+nested arrays that ended up being individually so large (as they're just massive
+string concatenations passed into a preprocessing method) that they caused both
+the CUP$ClaroParser class to hit Java's dreaded `code too large` error, but also
+for the string concatenations representing the tables to actually become too
+large for Java's constant pool. I managed to figure out a hack that changes
+CUP's generated code to now split each generated string at 65500 bytes, bundle
+it into a synthetic class called something along the lines of
+`$SYNTHETIC_(ACTION|REDUCE|PRODUCTION)_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR[0-9]+`
+so that no individual class had to be responsible for holding all of the static
+state. There's then some backflips done to dynamically concatenate all of these
+giant strings using StringBuilders just to work around the builtin `+` concat
+operator actually trying to be _too_ helpful and trying to optimize the full
+concatenation into the constant pool only to find it too large still. I actually
+believe that this is a robust fix that should mean I likely won't need to come
+back to hack on CUP anymore for this same type of code too large error, but I
+guess only time will tell.

@@ -659,9 +659,10 @@ public class emit {
     /* do the top of the table */
     out.println();
     out.println("  /** Production table. */");
+    do_table_as_string(out, "$SYNTHETIC_PRODUCTION_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR", prod_table);
     out.println("  protected static final short _production_table[][] = ");
     out.print  ("    unpackFromStrings(");
-    do_table_as_string(out, prod_table);
+    out.print  ("new String[] {$SYNTHETIC_PRODUCTION_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR"+ $do_table_as_string_doneWithSplit +".$syntheticSplitPrefix}");
     out.println(");");
 
     /* do the public accessor method */
@@ -766,9 +767,10 @@ public class emit {
     /* finish off the init of the table */
     out.println();
     out.println("  /** Parse-action table. */");
+    do_table_as_string(out, "$SYNTHETIC_ACTION_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR", action_table);
     out.println("  protected static final short[][] _action_table = ");
     out.print  ("    unpackFromStrings(");
-    do_table_as_string(out, action_table);
+    out.print  ("new String[] {$SYNTHETIC_ACTION_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR"+ $do_table_as_string_doneWithSplit +".$syntheticSplitPrefix}");
     out.println(");");
 
     /* do the public accessor method */
@@ -828,9 +830,10 @@ public class emit {
     /* emit the table. */
     out.println();
     out.println("  /** <code>reduce_goto</code> table. */");
+    do_table_as_string(out, "$SYNTHETIC_REDUCE_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR", reduce_goto_table);
     out.println("  protected static final short[][] _reduce_table = ");
     out.print  ("    unpackFromStrings(");
-    do_table_as_string(out, reduce_goto_table);
+    out.print  ("new String[] {$SYNTHETIC_REDUCE_TABLE_HOLDER_TO_WORKAROUND_CODE_TOO_LARGE_ERROR"+ $do_table_as_string_doneWithSplit +".$syntheticSplitPrefix}");
     out.println(");");
 
     /* do the public accessor method */
@@ -843,31 +846,43 @@ public class emit {
   }
 
   // print a string array encoding the given short[][] array.
-  protected static void do_table_as_string(PrintWriter out, short[][] sa) {
-    out.println("new String[] {");
-    out.print("    \"");
+  protected static void do_table_as_string(PrintWriter out, String syntheticPrefixClassName, short[][] sa) {
+    $do_table_as_string_doneWithSplit = 0;
+    out.println("  private static class "+ syntheticPrefixClassName +"0 {\n");
+    out.println("    protected static final String $syntheticSplitPrefix = ");
+    out.print  ("      new StringBuilder(\"");
     int nchar=0, nbytes=0;
     nbytes+=do_escaped(out, (char)(sa.length>>16));
-    nchar  =do_newline(out, nchar, nbytes);
+    nchar  =do_newline(out, syntheticPrefixClassName, nchar, nbytes);
     nbytes+=do_escaped(out, (char)(sa.length&0xFFFF));
-    nchar  =do_newline(out, nchar, nbytes);
+    nchar  =do_newline(out, syntheticPrefixClassName, nchar, nbytes);
     for (int i=0; i<sa.length; i++) {
       nbytes+=do_escaped(out, (char)(sa[i].length>>16));
-      nchar  =do_newline(out, nchar, nbytes);
+      nchar  =do_newline(out, syntheticPrefixClassName, nchar, nbytes);
       nbytes+=do_escaped(out, (char)(sa[i].length&0xFFFF));
-      nchar  =do_newline(out, nchar, nbytes);
+      nchar  =do_newline(out, syntheticPrefixClassName, nchar, nbytes);
       for (int j=0; j<sa[i].length; j++) {
         // contents of string are (value+2) to allow for common -1, 0 cases
         // (UTF-8 encoding is most efficient for 0<c<0x80)
         nbytes+=do_escaped(out, (char)(2+sa[i][j]));
-        nchar  =do_newline(out, nchar, nbytes);
+        nchar  =do_newline(out, syntheticPrefixClassName, nchar, nbytes);
       }
     }
-    out.print("\" }");
+    out.println("\").toString();\n  }");
   }
   // split string if it is very long; start new line occasionally for neatness
-  protected static int do_newline(PrintWriter out, int nchar, int nbytes) {
-    if (nbytes > 65500)  { out.println("\", "); out.print("    \""); }
+  // BY JASON STEVING: Also use StringBuilder instead of `+` to avoid Java's constant pool size limitation.
+  private static int $do_table_as_string_doneWithSplit = 0;
+  protected static int do_newline(PrintWriter out, String syntheticPrefixClassName, int nchar, int nbytes) {
+    if (nbytes % 65500 == 0) { // This is Java's string constant pool size limit.
+      out.println("\").toString();\n}");
+      out.print  ("  private static class " + syntheticPrefixClassName);
+      out.print  (++$do_table_as_string_doneWithSplit);
+      out.println(" {\n");
+      out.println("    protected static final String $syntheticSplitPrefix = ");
+      out.println("      new StringBuilder(" + syntheticPrefixClassName +($do_table_as_string_doneWithSplit - 1) +".$syntheticSplitPrefix).append(");
+      out.print  ("      \"");
+    }
     else if (nchar > 11) { out.println("\" +"); out.print("    \""); }
     else return nchar+1;
     return 0;
