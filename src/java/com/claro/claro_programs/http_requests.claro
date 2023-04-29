@@ -1,0 +1,139 @@
+HttpService BuggyBuggies {
+  hostGame: "/api/host/{handle}",
+  friendsJoin: "/api/game/{gameId}/join/{handle}",
+  move: "/api/game/{gameId}/player/{secret}/move/{direction}"
+}
+var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
+
+var handle = "claro has native support for http reqs!";
+var gameId = "248554e8-5463-4cb9-9ce0-d17c9f505e27";
+var playerSecret = "564f9b9a-bdc9-4674-9250-1b93d64cbde9";
+
+if (input("Do you want to start a new game? (Y/N): ") == "Y") {
+  handle = input("What's your game handle?: ");
+  var hostGameResponse: oneof<string, Error<string>> <-| hostGame(buggyBuggiesClient, handle);
+  if (hostGameResponse instanceof string) {
+    print("Here's the hostGame response:\n{hostGameResponse}");
+    gameId = input("Claro doesn't have a string stdlib yet, what's the game id?: ");
+    playerSecret = input("Claro doesn't have a string stdlib yet, what's the player secret?: ");
+  } else {
+    print("The hostGame() request failed with the following response:\n{hostGameResponse}");
+    print("Falling back to default handle/gameId/playerSecret.");
+  }
+  _ = input("Hit enter once you're ready to start playing!");
+}
+
+var userInput = input("Which direction do you want to move? (N/E/S/W): ");
+while (userInput in {"N", "E", "S", "W"}) {
+  var moveResponse <-| move(buggyBuggiesClient, gameId, playerSecret, userInput);
+  print("Move Response:\n{moveResponse}");
+  userInput = input("Which direction do you want to move? (N/E/S/W): ");
+}
+print("Good game!");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#alias HostGameResponse : struct {
+#  reason: oneof<string, NothingType>,
+#  result: struct {
+#    example: string,
+#    game_id: string,
+#    secret: string,
+#    watch: string
+#  },
+#  success: boolean
+#}
+#var hostResponse: oneof<string, Error<HttpError>> <-| BuggyBuggies::hostGame(buggyBuggiesClient, {handle = "Jason"});
+#if (hostResponse instanceof string) {
+#  var hostGameResponse: HostGameResponse = fromJson(hostResponse);
+#  BuggyBuggies::friendsJoin(buggyBuggiesClient, {gameId = hostGameResponse.result.game_id, handle = "Jason"});
+#}

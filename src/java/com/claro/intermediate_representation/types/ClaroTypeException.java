@@ -296,7 +296,12 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String ILLEGAL_USE_OF_BREAK_STMT_OUTSIDE_LOOPING_CONSTRUCT =
       "Illegal Use of `break` Outside Loop Body: The use of the `break` keyword is to exit a looping construct early, so it's invalid to use anywhere else.";
-
+  private static final String INVALID_HTTP_ENDPOINT_PATH_VARIABLE =
+      "Invalid Http Endpoint Path Variable: All Http Endpoint definitions must be of the form `<endpointName>: \"/(<page>/|{<pathVariable>}/)*\"` where `<pathVariable>` must be a valid identifier.";
+  private static final String ILLEGAL_HTTP_CLIENT_TYPE_WITH_NON_HTTP_SERVICE_PARAM_TYPE =
+      "Illegal HttpClient Type: HttpClient's parameterized type must be some HttpService type.\n" +
+      "\t\tFound the following type:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1191,5 +1196,18 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forIllegalUseOfBreakStmtOutsideLoopingConstruct() {
     return new ClaroTypeException(ILLEGAL_USE_OF_BREAK_STMT_OUTSIDE_LOOPING_CONSTRUCT);
+  }
+
+  public static ClaroTypeException forInvalidHttpEndpointPathVariable() {
+    return new ClaroTypeException(INVALID_HTTP_ENDPOINT_PATH_VARIABLE);
+  }
+
+  public static ClaroTypeException forIllegalHttpClientTypeWithNonHttpServiceParameterizedType(Type type) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_HTTP_CLIENT_TYPE_WITH_NON_HTTP_SERVICE_PARAM_TYPE,
+            type
+        )
+    );
   }
 }

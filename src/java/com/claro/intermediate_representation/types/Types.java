@@ -1446,6 +1446,59 @@ public final class Types {
     }
   }
 
+  // This type is interesting in the sense that there's actually no way to manually initialize an instance of this type
+  // yourself. The language models this internally, and it is used solely in conjunction with generating an HttpClient.
+  @AutoValue
+  public abstract static class HttpServiceType extends Type {
+    public abstract String getServiceName();
+
+    public static HttpServiceType forServiceName(String name) {
+      return new AutoValue_Types_HttpServiceType(BaseType.HTTP_SERVICE, ImmutableMap.of(), name);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+    }
+
+    @Override
+    public String toString() {
+      return String.format(baseType().getClaroCanonicalTypeNameFmtStr(), getServiceName());
+    }
+  }
+
+  // In some ways this type is blessed abilities that no other type in the language has. In particular, the compiler
+  // will validate that its parameterized type is in fact an HttpService. Other types can only simulate this behavior
+  // via initializers.
+  @AutoValue
+  public abstract static class HttpClientType extends Type {
+    public abstract String getServiceName();
+
+    public static HttpClientType forServiceName(String serviceName) {
+      return new AutoValue_Types_HttpClientType(BaseType.HTTP_CLIENT, ImmutableMap.of(), serviceName);
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.HttpClientType.forServiceName(\"%s\")",
+          getServiceName()
+      );
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      // This is super strange, relative to the implementation of all the other types, but what's happening here is that
+      // retrofit2 is generating its own implementation of the service definition interface for us to use as the client.
+      return getServiceName();
+    }
+
+    @Override
+    public String toString() {
+      return String.format(this.baseType().getClaroCanonicalTypeNameFmtStr(), this.getServiceName());
+    }
+  }
+
 
   // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly
   // constructors and .equals() and .hashCode() methods.

@@ -212,6 +212,14 @@ public enum BaseType {
 
   USER_DEFINED_TYPE("%s", "$UserDefinedType<%s>"),
 
+  // This type is interesting in the sense that there's actually no way to manually initialize an instance of this type
+  // yourself. The language models this internally, and it is used solely in conjunction with generating an HttpClient.
+  HTTP_SERVICE("%s", null),
+  // In some ways this type is blessed abilities that no other type in the language has. In particular, the compiler
+  // will validate that its parameterized type is in fact an HttpService. Other types can only simulate this behavior
+  // via initializers.
+  HTTP_CLIENT("HttpClient<%s>", "%s"),
+
   // Generic Type Param and Contract are Types that are only modeled internally and shouldn't appear in generated output
   // or in any other user observable way.
   $GENERIC_TYPE_PARAM("%s", (String) null, (String) null),

@@ -20,6 +20,14 @@ alias(
     name = "slf4j",
     actual = "@maven//:org_slf4j_slf4j_simple",
 )
+alias(
+    name = "okhttp",
+    actual = "@maven//:com_squareup_okhttp3_okhttp"
+)
+alias(
+    name = "retrofit",
+    actual = "@maven//:com_squareup_retrofit2_retrofit"
+)
 
 exports_files(["CLARO_VERSION.txt"])
 

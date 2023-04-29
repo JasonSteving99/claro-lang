@@ -244,6 +244,11 @@ WhiteSpace     = [ \t\f]
 
     "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
 
+     // HTTP request related symbols here.
+     "HttpService"     { return symbol(Calc.HTTP_SERVICE, 0, 11, "HttpService"); }
+     "HttpClient"      { return symbol(Calc.HTTP_CLIENT, 0, 10, "HttpClient"); }
+     "getHttpClient"   { return symbol(Calc.GET_HTTP_CLIENT, 0, 13, "getHttpClient"); }
+
     \"                 {
                          // There may have already been another string accumulated into this buffer.
                          // In that case we need to clear the buffer to start processing this.

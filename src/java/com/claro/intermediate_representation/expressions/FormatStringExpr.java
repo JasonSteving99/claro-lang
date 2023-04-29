@@ -11,8 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class FormatStringExpr extends Expr {
-  private final ImmutableList<String> fmtStringParts;
-  private final ImmutableList<Expr> fmtExprArgs;
+  public final ImmutableList<String> fmtStringParts;
+  public final ImmutableList<Expr> fmtExprArgs;
 
   public FormatStringExpr(ImmutableList<String> fmtStringParts, ImmutableList<Expr> fmtExprArgs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);

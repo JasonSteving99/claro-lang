@@ -396,6 +396,9 @@ public class ProgramNode {
       if (currStmt instanceof UnwrappersBlockStmt) {
         ((UnwrappersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
       }
+      if (currStmt instanceof HttpServiceDefStmt) {
+        ((HttpServiceDefStmt) currStmt).registerHttpProcedureTypeProviders(scopedHeap);
+      }
       currStmtListNode = currStmtListNode.tail;
     }
   }
@@ -497,6 +500,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "import com.claro.runtime_utilities.http.$HttpUtil;\n" +
             "import com.claro.runtime_utilities.injector.Injector;\n" +
             "import com.claro.runtime_utilities.injector.Key;\n" +
             "import com.claro.stdlib.userinput.UserInput;\n" +
@@ -516,6 +520,9 @@ public class ProgramNode {
             "import lombok.EqualsAndHashCode;\n" +
             "import lombok.ToString;\n" +
             "import lombok.Value;\n" +
+            "import okhttp3.ResponseBody;\n" +
+            "import retrofit2.http.GET;\n" +
+            "import retrofit2.http.Path;\n" +
             "\n\n" +
             "public class %s {\n" +
             "// Static preamble statements first thing.\n" +
@@ -529,6 +536,10 @@ public class ProgramNode {
             "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
             "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
             "      ClaroRuntimeUtilities.$shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
+            "\n\n" +
+            "      // Because Claro has native support for Http Requests sent asynchronously on a threadpool, I\n" +
+            "      // need to also ensure that the OkHttp3 client is shutdown.\n" +
+            "      $HttpUtil.shutdownOkHttpClient();\n" +
             "    }\n" +
             "  }\n\n" +
             "}",

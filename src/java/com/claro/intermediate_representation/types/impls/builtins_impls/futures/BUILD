@@ -5,6 +5,7 @@ package(
         "//src/java/com/claro/compiler_backends/interpreted:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
+        "//src/java/com/claro/runtime_utilities:__subpackages__",
     ]
 )
 

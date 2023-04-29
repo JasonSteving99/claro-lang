@@ -154,6 +154,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "http_requests",
+    srcs = [":http_requests_lib"],
+    java_name = "http_requests",
+)
+
+claro_library(
+    name = "http_requests_lib",
+    src = "http_requests.claro",
+)
+
+claro_binary(
     name = "immutability_vs_mutability",
     srcs = [":immutability_vs_mutability_lib"],
     java_name = "immutability_vs_mutability",

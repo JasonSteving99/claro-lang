@@ -322,6 +322,7 @@ terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
 terminal LexedValue<String>  CAST;
+terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -439,6 +440,9 @@ nonterminal StmtListNode                       bind_stmts_list;
 nonterminal BindStmt                           bind_stmt;
 nonterminal UsingBlockStmt                     using_block_stmt;
 nonterminal Symbol/*ImmutableList.Builder<InjectedKey>*/ injected_keys_list;
+nonterminal HttpServiceDefStmt                 http_service_def_stmt;
+nonterminal ImmutableMap.Builder<IdentifierReferenceTerm, FormatStringExpr> http_endpoints_list;
+nonterminal GetHttpClientExpr                  get_http_client_expr;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -588,6 +592,8 @@ stmt ::=
     {: RESULT = u; :}
   | pipe_chain_stmt:p
     {: RESULT = p; :}
+  | http_service_def_stmt:h
+    {: RESULT = h; :}
   ;
 
 module_definition_stmt ::=
@@ -1138,6 +1144,34 @@ base_builtin_type_without_mutability_modifier ::=
             endCol - startCol)
        );
     :}
+  | HTTP_CLIENT:h L_ANGLE_BRACKET:la builtin_type:http_service R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> httpServiceLex = (LexedValue<TypeProvider>)http_service.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(h.currentInputLine, hright), new Line(la.currentInputLine, laright), new Line(httpServiceLex.currentInputLine, http_serviceright), new Line(ra.currentInputLine, raright));
+       int startCol = min(hleft, laleft, http_serviceleft, raleft);
+       int endCol = max(hleft + h.len, laleft + la.len, http_serviceleft + httpServiceLex.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> {
+              // First things first, I need to actually do some type validation that this type has been correctly
+              // parameterized with an HttpService and not some arbitrary type.
+              Type resolvedHttpServiceType = httpServiceLex.val.resolveType(scopedHeap);
+              if (!resolvedHttpServiceType.baseType().equals(BaseType.HTTP_SERVICE)) {
+                throw new RuntimeException(
+                  ClaroTypeException.forIllegalHttpClientTypeWithNonHttpServiceParameterizedType(resolvedHttpServiceType)
+                );
+              }
+              return Types.HttpClientType.forServiceName(((Types.HttpServiceType) resolvedHttpServiceType).getServiceName());
+            },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 builtin_types_list ::=
@@ -1408,6 +1442,8 @@ expr ::=
 
        RESULT = new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, casted_expr, currentLinesSupplier, casted_expr.currentLineNumber, startCol, endCol);
     :}
+  | get_http_client_expr:g
+    {: RESULT = g; :}
   | error:e
     // TODO(steving) This is super helpful, do the same thing for stmts.
     // There's been some syntax error in an expression somewhere.. meaning that this expression is getting thrown away
@@ -3408,6 +3444,40 @@ fmt_string ::=
             currentLinesSupplier,
             endCol - startCol)
        );
+    :}
+  ;
+
+http_service_def_stmt ::=
+    HTTP_SERVICE identifier:service_name LCURLY http_endpoints_list:endpoints RCURLY
+    {: RESULT = new HttpServiceDefStmt(service_name, endpoints.build()); :}
+  ;
+
+http_endpoints_list ::=
+    identifier:endpoint_name COLON fmt_string:path COMMA http_endpoints_list:tail
+    {:
+       LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
+       ImmutableList<ImmutableList.Builder> fs = fsLexedValue.val;
+       FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.currentInputLine, path.right, path.left, path.left + fsLexedValue.len);
+
+       RESULT = tail.put(endpoint_name, pathFmtStringExpr);
+    :}
+  | identifier:endpoint_name COLON fmt_string:path
+    {:
+       LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
+       ImmutableList<ImmutableList.Builder> fs = fsLexedValue.val;
+       FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.currentInputLine, path.right, path.left, path.left + fsLexedValue.len);
+
+       RESULT = ImmutableMap.<IdentifierReferenceTerm, FormatStringExpr>builder().put(endpoint_name, pathFmtStringExpr);
+    :}
+  ;
+
+get_http_client_expr ::=
+    GET_HTTP_CLIENT:g LPAR:l expr:base_url RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(g.currentInputLine, gright), new Line(l.currentInputLine, lright), new Line(base_url), new Line(r.currentInputLine, rright));
+       int startCol = min(gleft, lleft, base_url.startCol, rleft);
+       int endCol = max(gleft + g.len, lleft + l.len, base_url.endCol, rleft + r.len);
+       RESULT = new GetHttpClientExpr(base_url, currentLinesSupplier, rright, startCol, endCol);
     :}
   ;
 

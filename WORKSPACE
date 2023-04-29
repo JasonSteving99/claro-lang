@@ -46,6 +46,12 @@ maven_install(
             "org.apache.commons:commons-text:jar:1.1",
             "org.projectlombok:lombok:1.18.20",
             "org.slf4j:slf4j-simple:1.7.31",
+            "com.squareup.okhttp3:okhttp:4.11.0",
+            # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.
+            # The maintainers responded to this calling it something they explicitly won't fix since it's just a warning
+            # but I think that for now it makes Claro look bad, so I'm intentionally downgrading in the meantime until
+            # this is resolved. Re: https://github.com/square/retrofit/issues/3341
+            "com.squareup.retrofit2:retrofit:2.7.2",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [
