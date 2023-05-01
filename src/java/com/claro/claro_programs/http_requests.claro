@@ -6,8 +6,8 @@ HttpService BuggyBuggies {
 var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
 var handle = "claro has native support for http reqs!";
-var gameId = "248554e8-5463-4cb9-9ce0-d17c9f505e27";
-var playerSecret = "564f9b9a-bdc9-4674-9250-1b93d64cbde9";
+var gameId = "fbbf7900-57e4-40f7-8b41-fe0a13e2f89c";
+var playerSecret = "ca262cc4-a8f7-4dab-9d5e-ad08c9e4ece5";
 
 if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   handle = input("What's your game handle?: ");
@@ -24,14 +24,59 @@ if (input("Do you want to start a new game? (Y/N): ") == "Y") {
 }
 
 var userInput = input("Which direction do you want to move? (N/E/S/W): ");
-while (userInput in {"N", "E", "S", "W"}) {
-  var moveResponse <-| move(buggyBuggiesClient, gameId, playerSecret, userInput);
-  print("Move Response:\n{moveResponse}");
+while (true) {
+  var parsedMove = parseMove(userInput);
+
+  if (parsedMove instanceof Error<string>) {
+    print(parsedMove);
+  } if (parsedMove instanceof Error<EndGame>) {
+    print("Good game!");
+    break;
+  } else if (parsedMove instanceof string) {
+    _ = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
+  } else if (parsedMove instanceof RepeatMove) {
+    repeat(unwrap(parsedMove).dist) {
+      var response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
+      if (response instanceof Error<string>) {
+        print("Got an error response before completing full set of moves.");
+        break;
+      }
+    }
+  }
+
   userInput = input("Which direction do you want to move? (N/E/S/W): ");
 }
-print("Good game!");
 
+blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, playerSecret: string, dir: string)
+    -> oneof<string, Error<string>> {
+  var moveResponse <-| move(client, gameId, playerSecret, dir);
+  print("Move Response:\n{moveResponse}");
+  return moveResponse;
+}
 
+newtype RepeatMove: struct{
+  dist: int,
+  dir: string
+}
+newtype EndGame: NothingType
+function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>, Error<EndGame>> {
+  var dirs = {"N", "E", "S", "W"};
+  var numbers = {"{x}":x | x in [1,2,3,4,5,6,7,8,9]};
+
+  if (len(moveInput) == 1) {
+    if (moveInput in dirs) {
+      return moveInput;
+    }
+  } else if ((len(moveInput) == 2) and (moveInput[0] in numbers) and (moveInput[1] in dirs)) {
+    return RepeatMove({dist = numbers[moveInput[0]], dir = moveInput[1]});
+  }
+
+  if (len(moveInput) == 0) {
+    return Error(EndGame(nothing));
+  } else {
+    return Error("Unexpected input: {moveInput}");
+  }
+}
 
 
 
