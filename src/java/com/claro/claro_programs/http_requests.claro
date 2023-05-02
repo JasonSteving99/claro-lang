@@ -5,19 +5,50 @@ HttpService BuggyBuggies {
 }
 var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
+alias HostGameResponse : struct {
+  reason: oneof<string, NothingType>,
+  result: struct {
+    example: string,
+    game_id: string,
+    secret: string,
+    watch: string
+  },
+  success: boolean
+}
+alias MoveResponse : struct {
+  reason: oneof<string, NothingType>,
+  result: struct {
+    players: { string : struct { x: int, y: int } },
+    world: { string: string }, # E.g. ("0,6": "wall")
+    you: struct {
+      handle: string,
+      purse: int,
+      boom: boolean,
+      x: int,
+      y: int
+    }
+  },
+  success: boolean
+}
+
 var handle = "claro has native support for http reqs!";
-var gameId = "fbbf7900-57e4-40f7-8b41-fe0a13e2f89c";
-var playerSecret = "ca262cc4-a8f7-4dab-9d5e-ad08c9e4ece5";
+var gameId = "c9ba1a58-b665-4f55-857b-4ac9a5ec0ccc";
+var playerSecret = "79187023-3e0d-4fbc-b0f3-4ed73e1cce5b";
 
 if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   handle = input("What's your game handle?: ");
-  var hostGameResponse: oneof<string, Error<string>> <-| hostGame(buggyBuggiesClient, handle);
-  if (hostGameResponse instanceof string) {
-    print("Here's the hostGame response:\n{hostGameResponse}");
-    gameId = input("Claro doesn't have a string stdlib yet, what's the game id?: ");
-    playerSecret = input("Claro doesn't have a string stdlib yet, what's the player secret?: ");
+  var rawHostGameResponse: oneof<string, Error<string>> <-| hostGame(buggyBuggiesClient, handle);
+  if (rawHostGameResponse instanceof string) {
+    var hostGameParsedJson: ParsedJson<HostGameResponse> = fromJson(rawHostGameResponse);
+    var hostGameResponse = unwrap(hostGameParsedJson).result;
+    if (hostGameResponse instanceof HostGameResponse) {
+      gameId = hostGameResponse.result.game_id;
+      print("Game ID: {gameId}");
+      playerSecret = hostGameResponse.result.secret;
+      print("Secret: {playerSecret}");
+    }
   } else {
-    print("The hostGame() request failed with the following response:\n{hostGameResponse}");
+    print("The hostGame() request failed with the following response:\n{rawHostGameResponse}");
     print("Falling back to default handle/gameId/playerSecret.");
   }
   _ = input("Hit enter once you're ready to start playing!");
@@ -38,7 +69,7 @@ while (true) {
     repeat(unwrap(parsedMove).dist) {
       var response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
       if (response instanceof Error<string>) {
-        print("Got an error response before completing full set of moves.");
+        print("Got an error response before completing full set of moves:\n{response}");
         break;
       }
     }
@@ -48,9 +79,17 @@ while (true) {
 }
 
 blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, playerSecret: string, dir: string)
-    -> oneof<string, Error<string>> {
-  var moveResponse <-| move(client, gameId, playerSecret, dir);
-  print("Move Response:\n{moveResponse}");
+    -> oneof<MoveResponse, Error<string>> {
+  # Make the HTTP req.
+  var rawMoveResponseOrErr <-| move(client, gameId, playerSecret, dir);
+  var rawMoveResponse ?= rawMoveResponseOrErr;
+
+  # Parse from Json.
+  var moveResponseParsedJson: ParsedJson<MoveResponse> = fromJson(rawMoveResponse);
+  var moveResponse = unwrap(moveResponseParsedJson).result;
+  if (moveResponse instanceof MoveResponse) {
+    print("Move Response:\n{moveResponse}");
+  }
   return moveResponse;
 }
 
@@ -77,108 +116,3 @@ function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>
     return Error("Unexpected input: {moveInput}");
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#alias HostGameResponse : struct {
-#  reason: oneof<string, NothingType>,
-#  result: struct {
-#    example: string,
-#    game_id: string,
-#    secret: string,
-#    watch: string
-#  },
-#  success: boolean
-#}
-#var hostResponse: oneof<string, Error<HttpError>> <-| BuggyBuggies::hostGame(buggyBuggiesClient, {handle = "Jason"});
-#if (hostResponse instanceof string) {
-#  var hostGameResponse: HostGameResponse = fromJson(hostResponse);
-#  BuggyBuggies::friendsJoin(buggyBuggiesClient, {gameId = hostGameResponse.result.game_id, handle = "Jason"});
-#}

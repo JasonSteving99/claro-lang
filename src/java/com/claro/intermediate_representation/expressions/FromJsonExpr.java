@@ -36,6 +36,10 @@ public class FromJsonExpr extends Expr {
     if (this.assertedParsedResultType == null) {
       this.logTypeError(ClaroTypeException.forIllegalParseFromJSONWithNoTargetTypeAssertion());
     }
+
+    // Obviously I can only parse from JSON strings.
+    this.parsedExpr.assertExpectedExprType(scopedHeap, Types.STRING);
+
     Type expectedResultType = Types.UserDefinedType.forTypeNameAndParameterizedTypes(
         "ParsedJson",
         ImmutableList.of(Types.$GenericTypeParam.forTypeParamName("T"))
@@ -108,11 +112,12 @@ public class FromJsonExpr extends Expr {
           throw ClaroTypeException.forIllegalParseFromJSONForUnsupportedOneofType(type, this.assertedTargetType);
         }
         return;
+      case MAP:
+        if (type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS).equals(Types.STRING)) {
+          validateJSONParsingIsPossible(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES));
+          return;
+        }
       default:
-        // TODO(steving) Consider supporting BaseType.MAP as well in order to allow for the case where a field is
-        //  entirely optional. This of course would be a tradeoff for the user as they wouldn't be able to have the
-        //  fields typechecked by Claro automatically as the Map value type would have to be a oneof all the field
-        //  types.
         throw ClaroTypeException.forIllegalParseFromJSONForUnsupportedType(this.assertedTargetType);
     }
   }
@@ -353,6 +358,69 @@ public class FromJsonExpr extends Expr {
             .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
             .append(type.getJavaSourceClaroType())
             .append(", $structBuilder")
+            .append(nestingLevel)
+            .append(", $jsonString);\n");
+        if (!alreadyPeekedType) {
+          res.append("} ");
+        }
+        break;
+      case MAP:
+        Types.MapType mapType = (Types.MapType) type;
+        if (!alreadyPeekedType) {
+          res.append("if (")
+              .append(GSON_TOKEN)
+              .append(".BEGIN_OBJECT.equals($peeked")
+              .append(nestingLevel)
+              .append(")) {\n");
+        }
+        res.append("\t$jsonReader.beginObject();\n")
+            // This is a fascinating example of a compiler superpower that the users don't have access to. Here,
+            // regardless of whether the map is being parsed to mutable/immutable, I'm going to modify the
+            // map because I know that I'm the sole owner of this map as I, the compiler, just created it.
+            .append("\tClaroMap $mapBuilder")
+            .append(nestingLevel)
+            .append(" = new ClaroMap(")
+            .append(type.getJavaSourceClaroType())
+            .append(");\n")
+            .append("\tfinal Supplier<$UserDefinedType<ClaroStruct>> $parseElement")
+            .append(nestingLevel)
+            .append(" = () -> {\n")
+            .append("\t\t")
+            .append(getParseJSONJavaSource(
+                mapType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
+                nestingLevel + 1, /*alreadyPeekedType=*/ false
+            ))
+            .append("\t};\n")
+            .append("\twhile ($jsonReader.hasNext()) {\n")
+            .append("\t\tString $key")
+            .append(nestingLevel)
+            .append(" = $jsonReader.nextName();\n")
+            .append("\t\t$UserDefinedType<ClaroStruct> $parsedElem")
+            .append(nestingLevel)
+            .append(" = $parseElement")
+            .append(nestingLevel)
+            .append(".get();\n")
+            .append("\t\tif ($parsedElem")
+            .append(nestingLevel)
+            .append(".wrappedValue.values[0] instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
+            .append("\t\t\treturn $parsedElem")
+            .append(nestingLevel)
+            .append(";\n")
+            .append("\t\t}\n")
+            .append("\t\t$mapBuilder")
+            .append(nestingLevel)
+            .append(".set($key")
+            .append(nestingLevel)
+            .append(", (")
+            .append(mapType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES).getJavaSourceType())
+            .append(") $parsedElem")
+            .append(nestingLevel)
+            .append(".wrappedValue.values[0]);\n")
+            .append("\t}\n")
+            .append("\t$jsonReader.endObject();\n")
+            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
+            .append(type.getJavaSourceClaroType())
+            .append(", $mapBuilder")
             .append(nestingLevel)
             .append(", $jsonString);\n");
         if (!alreadyPeekedType) {

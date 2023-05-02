@@ -85,7 +85,7 @@ Integer        = [0-9]+
 Float          = {Integer}\.{Integer}
 
 // A variable identifier. We'll just do uppercase for vars.
-Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|[0-9])*
+Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|_|[0-9])*
 
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n

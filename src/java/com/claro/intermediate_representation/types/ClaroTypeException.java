@@ -304,7 +304,7 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE =
       "Illegal Attempt To Parse JSON String to Unsupported Target Type: Claro can only generate Automatic JSON parsing code for types structurally matching the following (pseudocode) type definition:\n" +
-      "\t\tnewtype JSON : oneof<NothingType, boolean, int, float, string, [JSON], struct{field1: JSON, ..., fieldN: JSON}>\n" +
+      "\t\tnewtype JSON : oneof<NothingType, boolean, int, float, string, [JSON], struct{field1: JSON, ..., fieldN: JSON}, {string: JSON}>\n" +
       "\tFound the following type:\n" +
       "\t\t%s";
   private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_ONEOF_TYPE =
