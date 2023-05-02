@@ -300,6 +300,8 @@ terminal LexedValue<String>  NUMERIC_BOOL;
 terminal LexedValue<String>  INPUT;
 // This grammar also has a builtin copy() function for efficiently and conveniently copying data.
 terminal LexedValue<String>  COPY;
+// This grammar also has a builtin fromJson() function for efficiently and conveniently parsing JSON.
+terminal LexedValue<String>  FROM_JSON;
 // This grammar also has a builtin isInputReady() function for checking whether a line is ready to be read on stdin.
 terminal LexedValue<String>  IS_INPUT_READY;
 // This grammar also has a builtin len() function for getting the length of an Iterable.
@@ -371,6 +373,7 @@ nonterminal InitializersBlockStmt              initializers_block_stmt;
 nonterminal UnwrappersBlockStmt                unwrappers_block_stmt;
 nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
 nonterminal CopyExpr                           copy_expr;
+nonterminal FromJsonExpr                       from_json_expr;
 nonterminal PrintStmt                          print;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
@@ -1381,6 +1384,8 @@ expr ::=
     {: RESULT = i; :}
   | copy_expr:c
     {: RESULT = c; :}
+  | from_json_expr:f
+    {: RESULT = f; :}
   | list:l
     {: RESULT = l; :}
   | map:m
@@ -1508,6 +1513,19 @@ copy_expr ::=
        RESULT = new CopyExpr(e, currentLinesSupplier, rpright, startCol, endCol);
     :}
   ;
+
+from_json_expr ::=
+    FROM_JSON:from_json LPAR:lp expr:e RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(from_json.currentInputLine, from_jsonright), new Line(lp.currentInputLine, lpright), new Line(e.currentLine, e.currentLineNumber), new Line(rp.currentInputLine, rpright));
+       int startCol = min(from_jsonleft, lpleft, e.startCol, rpleft);
+       int endCol = max(from_jsonleft + from_json.len, lpleft + lp.len, e.endCol, rpleft + rp.len);
+
+       RESULT = new FromJsonExpr(e, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  ;
+
 
 list ::=
     LBRACKET:lb args_list:args RBRACKET:rb

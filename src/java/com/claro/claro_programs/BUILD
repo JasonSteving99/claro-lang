@@ -176,6 +176,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "json_parsing",
+    srcs = [":json_parsing_lib"],
+    java_name = "json_parsing",
+)
+
+claro_library(
+    name = "json_parsing_lib",
+    src = "json_parsing.claro",
+)
+
+claro_binary(
     name = "keyword_generics_compiled_claro_image",
     srcs = [":keyword_generics_compiled_claro"],
     java_name = "keyword_generics",

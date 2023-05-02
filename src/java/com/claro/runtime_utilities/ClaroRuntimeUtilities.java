@@ -2,6 +2,9 @@ package com.claro.runtime_utilities;
 
 import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
+import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
+import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -143,5 +146,71 @@ public class ClaroRuntimeUtilities {
           throw new RuntimeException(new ClaroTypeException("Internal Compiler Error! Claro only supports casts to native-Claro types and doesn't yet support native-Java types."));
       }
     }
+  }
+
+  public static $UserDefinedType<ClaroStruct> $getErrorParsedJson(Type targetType, String jsonPathError, String jsonString) {
+    final Types.StructType parsedJsonStructType =
+        Types.StructType.forFieldTypes(
+            ImmutableList.of("result", "rawJson"),
+            ImmutableList.of(
+                Types.OneofType.forVariantTypes(
+                    ImmutableList.of(
+                        targetType,
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                    )
+                ),
+                Types.STRING
+            ),
+            /*isMutable=*/false
+        );
+
+    return new $UserDefinedType<>(
+        "ParsedJson",
+        ImmutableList.of(targetType),
+        parsedJsonStructType,
+        new ClaroStruct(
+            parsedJsonStructType,
+            new $UserDefinedType<>(
+                "Error",
+                ImmutableList.of(Types.STRING),
+                Types.STRING,
+                String.format(
+                    "Given JSON string did not match the asserted target type definition.\n" +
+                    "\tExpected:\n" +
+                    "\t\t%s\n" +
+                    "\tAt JsonPath:\n" +
+                    "\t\t%s",
+                    targetType,
+                    jsonPathError
+                )
+            ),
+            jsonString
+        )
+    );
+  }
+
+  public static $UserDefinedType<ClaroStruct> $getSuccessParsedJson(
+      Type targetType, Object parsedRes, String jsonString) {
+    final Types.StructType parsedJsonStructType =
+        Types.StructType.forFieldTypes(
+            ImmutableList.of("result", "rawJson"),
+            ImmutableList.of(
+                Types.OneofType.forVariantTypes(
+                    ImmutableList.of(
+                        targetType,
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                    )
+                ),
+                Types.STRING
+            ),
+            /*isMutable=*/false
+        );
+
+    return new $UserDefinedType<>(
+        "ParsedJson",
+        ImmutableList.of(targetType),
+        parsedJsonStructType,
+        new ClaroStruct(parsedJsonStructType, parsedRes, jsonString)
+    );
   }
 }

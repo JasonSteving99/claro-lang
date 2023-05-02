@@ -21,7 +21,26 @@ public class StdLibUtil {
 
     // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
     return ImmutableList.of(
-        new NewTypeDefStmt("Error", TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T"))
+        new NewTypeDefStmt("Error", TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")),
+        new NewTypeDefStmt(
+            "ParsedJson",
+            (TypeProvider) (scopedHeap1) ->
+                Types.StructType.forFieldTypes(
+                    ImmutableList.of("result", "rawJson"),
+                    ImmutableList.of(
+                        Types.OneofType.forVariantTypes(
+                            ImmutableList.of(
+                                TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true)
+                                    .resolveType(scopedHeap1),
+                                Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                            )
+                        ),
+                        Types.STRING
+                    ),
+                    /*isMutable=*/false
+                ),
+            ImmutableList.of("T")
+        )
     );
   }
 

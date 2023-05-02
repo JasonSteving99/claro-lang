@@ -268,6 +268,8 @@ public class ProgramNode {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
       if (currStmt instanceof UserDefinedTypeDefinitionStmt) {
         ((UserDefinedTypeDefinitionStmt) currStmt).registerTypeProvider(scopedHeap);
+      } else if (currStmt instanceof HttpServiceDefStmt) {
+        ((HttpServiceDefStmt) currStmt).registerTypeProvider(scopedHeap);
       }
       currStmtListNode = currStmtListNode.tail;
     }
@@ -509,11 +511,13 @@ public class ProgramNode {
             "import com.google.common.collect.ImmutableMap;\n" +
             "import com.google.common.util.concurrent.Futures;\n" +
             "import com.google.common.util.concurrent.ListenableFuture;\n" +
+            "import java.io.StringReader;\n" +
             "import java.util.ArrayList;\n" +
             "import java.util.List;\n" +
             "import java.util.Optional;\n" +
             "import java.util.concurrent.ExecutionException;\n" +
             "import java.util.function.Function;\n" +
+            "import java.util.function.Supplier;\n" +
             "import java.util.stream.Collectors;\n" +
             "import lombok.Builder;\n" +
             "import lombok.Data;\n" +

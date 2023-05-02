@@ -125,21 +125,23 @@ public class HttpServiceDefStmt extends Stmt {
     }
   }
 
-  @Override
-  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+  public void registerTypeProvider(ScopedHeap scopedHeap) {
     if (scopedHeap.isIdentifierDeclared(this.serviceName.identifier)) {
       this.serviceName.logTypeError(ClaroTypeException.forUnexpectedIdentifierRedeclaration(this.serviceName.identifier));
-    }
-
-    // Assert types on the synthetic endpoint procedures just for the sake of readying them for codegen.
-    for (ProcedureDefinitionStmt p : this.syntheticEndpointProcedures) {
-      p.assertExpectedExprTypes(scopedHeap);
     }
 
     // Now place this in the symbol table so that nothing else can shadow this name.
     scopedHeap.putIdentifierValue(this.serviceName.identifier, Types.HttpServiceType.forServiceName(this.serviceName.identifier));
     scopedHeap.markIdentifierAsTypeDefinition(this.serviceName.identifier);
     scopedHeap.markIdentifierUsed(this.serviceName.identifier);
+  }
+
+  @Override
+  public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // Assert types on the synthetic endpoint procedures just for the sake of readying them for codegen.
+    for (ProcedureDefinitionStmt p : this.syntheticEndpointProcedures) {
+      p.assertExpectedExprTypes(scopedHeap);
+    }
   }
 
   @Override

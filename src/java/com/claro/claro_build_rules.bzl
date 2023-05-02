@@ -12,6 +12,7 @@ def claro_binary(name, srcs, java_name):
         deps = [
             "//:autovalue",
             "//:guava",
+            "//:gson",
             "//:lombok",
             "//:okhttp",
             "//:retrofit",

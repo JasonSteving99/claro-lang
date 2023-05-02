@@ -302,6 +302,25 @@ public class ClaroTypeException extends Exception {
       "Illegal HttpClient Type: HttpClient's parameterized type must be some HttpService type.\n" +
       "\t\tFound the following type:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE =
+      "Illegal Attempt To Parse JSON String to Unsupported Target Type: Claro can only generate Automatic JSON parsing code for types structurally matching the following (pseudocode) type definition:\n" +
+      "\t\tnewtype JSON : oneof<NothingType, boolean, int, float, string, [JSON], struct{field1: JSON, ..., fieldN: JSON}>\n" +
+      "\tFound the following type:\n" +
+      "\t\t%s";
+  private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_ONEOF_TYPE =
+      "Illegal Attempt To Parse JSON String to Target Type Containing Unsupported Oneof: Claro's builtin JSON Parser currently supports only a limited single-token lookahead and does no recursive backtracking" +
+      " so it can only generate Automatic JSON parsing code for oneof types with <= 1 list and <= 1 struct each in its variants set, and as long as both int and float do not appear together:\n" +
+      "\tFor the give target type:\n" +
+      "\t\t%s" +
+      "\tFound the following unsupported oneof type definition:\n" +
+      "\t\t%s";
+  private static final String ILLEGAL_PARSE_FROM_JSON_WITH_NO_TARGET_TYPE_ASSERTION =
+      "Illegal Attempt to Parse JSON String w/ No Target Type Contextually Asserted: Claro's Automatic JSON parsing codegen requires a contextually asserted target type in order to determine what JSON " +
+      "to expect and to determine what Claro types to parse the JSON into.\n" +
+      "\tInstead of something like:\n" +
+      "\t\tvar parsed = fromJson(\"...\");\n" +
+      "\tProvide some target type instead:\n" +
+      "\t\tvar parsed: TargetType = fromJson(\"...\");";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1209,5 +1228,24 @@ public class ClaroTypeException extends Exception {
             type
         )
     );
+  }
+
+  public static ClaroTypeException forIllegalParseFromJSONForUnsupportedType(Type assertedParsedResultType) {
+    return new ClaroTypeException(
+        String.format(ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE, assertedParsedResultType));
+  }
+
+  public static ClaroTypeException forIllegalParseFromJSONForUnsupportedOneofType(Type type, Type assertedParsedResultType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_ONEOF_TYPE,
+            assertedParsedResultType,
+            type
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalParseFromJSONWithNoTargetTypeAssertion() {
+    return new ClaroTypeException(ILLEGAL_PARSE_FROM_JSON_WITH_NO_TARGET_TYPE_ASSERTION);
   }
 }

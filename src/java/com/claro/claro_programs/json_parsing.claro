@@ -1,0 +1,33 @@
+
+print("--------------------------------------------------------------------------------");
+var testJson = "\{\"field1\": [1, 2], \"field2\": \"test\", \"field3\":[\"hey\", 10, null]}";
+print("Here's the original JSON:\n\t{testJson}\n");
+
+alias TargetType : struct{
+  field1: [int],
+  field2: string,
+  field3: [oneof<NothingType, int, string>]
+}
+var parsedJson: ParsedJson<TargetType> = fromJson(testJson);
+
+var parsedResult = unwrap(parsedJson).result;
+if (parsedResult instanceof TargetType) {
+  print("Parsing was successful!\n\t{parsedJson}");
+  print("field1: {parsedResult.field1}");
+  print("field2: {parsedResult.field2}");
+  print("field3: {parsedResult.field3}");
+} else if (parsedResult instanceof Error<string>) {
+  print("FAILED TO PARSE!\n{unwrap(parsedResult)}");
+}
+
+print("--------------------------------------------------------------------------------");
+
+# Now demonstrate what happens when you attempt to parse json that doesn't match the target format.
+testJson = "\{\"field1\": [1, 2], \"field2\": -999, \"field3\":[\"hey\", 10, null]}";
+print("Here's the INVALID JSON:\n\t{testJson}\n");
+
+parsedJson = fromJson(testJson);
+parsedResult = unwrap(parsedJson).result;
+if (parsedResult instanceof Error<string>) {
+  print("FAILED TO PARSE!\n{unwrap(parsedResult)}");
+}

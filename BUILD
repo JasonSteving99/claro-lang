@@ -28,6 +28,10 @@ alias(
     name = "retrofit",
     actual = "@maven//:com_squareup_retrofit2_retrofit"
 )
+alias(
+    name = "gson",
+    actual = "@maven//:com_google_code_gson_gson"
+)
 
 exports_files(["CLARO_VERSION.txt"])
 

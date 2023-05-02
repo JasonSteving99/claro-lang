@@ -52,6 +52,7 @@ maven_install(
             # but I think that for now it makes Claro look bad, so I'm intentionally downgrading in the meantime until
             # this is resolved. Re: https://github.com/square/retrofit/issues/3341
             "com.squareup.retrofit2:retrofit:2.7.2",
+            "com.google.code.gson:gson:2.10.1",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [
