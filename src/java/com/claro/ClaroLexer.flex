@@ -184,10 +184,12 @@ WhiteSpace     = [ \t\f]
     "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
     "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
     "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }
+    "remove"           { return symbol(Calc.REMOVE, 0, 6, "remove"); }
     "in"               { return symbol(Calc.IN, 0, 2, "in"); }
     "instanceof"       { return symbol(Calc.INSTANCEOF, 0, 10, "instanceof"); }
     "copy"             { return symbol(Calc.COPY, 0, 4, "copy"); }
     "fromJson"         { return symbol(Calc.FROM_JSON, 0, 8, "fromJson"); }
+    "sleep"            { return symbol(Calc.SLEEP, 0, 5, "sleep"); }
 
     // DEBUGGING keywords that should be removed when we want a real release...
     "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }

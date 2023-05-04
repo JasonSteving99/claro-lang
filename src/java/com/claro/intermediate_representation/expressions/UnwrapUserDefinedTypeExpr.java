@@ -36,19 +36,26 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
       }
       return Types.UNKNOWABLE;
     }
+
     Types.UserDefinedType validatedUserDefinedType = (Types.UserDefinedType) validatedExprType;
-    if (InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType.containsKey(validatedUserDefinedType.getTypeName())
-        && !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
-             && InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType
-                 .get(validatedUserDefinedType.getTypeName())
-                 .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName))) {
+
+    // Interestingly, this node is different than most other nodes in that it should only validate the legality of
+    // whether this procedure can use this unwrapper *once* since in the case it's being used within a Generic Procedure
+    // Def, the monomorphized procedure names won't be registered as legal "unwrappers".
+    if (InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.containsKey(validatedUserDefinedType.getTypeName())
+        && (!InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+            ||
+            (!((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName.contains("$$MONOMORPHIZATION")
+             && !InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
+                .get(validatedUserDefinedType.getTypeName())
+                .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName)))) {
       // Actually, it turns out this is an illegal reference to the auto-generated default constructor outside of one
       // of the procedures defined within the `initializers` block.
       // Technically though the types check, so let's log the error and continue to find more errors.
       this.logTypeError(
           ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
               validatedExprType,
-              InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType.get(validatedUserDefinedType.getTypeName())
+              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.get(validatedUserDefinedType.getTypeName())
           ));
     }
 

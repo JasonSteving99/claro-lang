@@ -66,7 +66,7 @@ public class InternalStaticStateUtil {
   public static boolean IfStmt_withinConditionTypeValidation = false;
   public static HashMultimap<String, String> InitializersBlockStmt_initializersByInitializedType
       = HashMultimap.create();
-  public static HashMultimap<String, String> InitializersBlockStmt_unwrappersByUnwrappedType
+  public static HashMultimap<String, String> UnwrappersBlockStmt_unwrappersByUnwrappedType
       = HashMultimap.create();
 
   // We'll use these nestedComprehension* variables to track the nesting level, and the names of any identifiers that

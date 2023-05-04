@@ -44,7 +44,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.STRUCT, BaseType.USER_DEFINED_TYPE);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.STRUCT, BaseType.USER_DEFINED_TYPE);
     // In the case that this positional arg is a generic param type, then actually we need to just accept
     // whatever type is in the passed arg expr.
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {

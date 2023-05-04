@@ -5,7 +5,7 @@ HttpService BuggyBuggies {
 }
 var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
-alias HostGameResponse : struct {
+alias HostJoinGameResponse : struct {
   reason: oneof<string, NothingType>,
   result: struct {
     example: string,
@@ -31,30 +31,43 @@ alias MoveResponse : struct {
   success: boolean
 }
 
-var handle = "claro has native support for http reqs!";
-var gameId = "c9ba1a58-b665-4f55-857b-4ac9a5ec0ccc";
-var playerSecret = "79187023-3e0d-4fbc-b0f3-4ed73e1cce5b";
+var handle = "Jason";
+var gameId = "7a2b24f7-ae45-4e09-a9e6-d99893ccba85";
+var playerSecret = "6419912c-c8f6-44d4-a4fc-d522bc4c9503";
 
 if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   handle = input("What's your game handle?: ");
   var rawHostGameResponse: oneof<string, Error<string>> <-| hostGame(buggyBuggiesClient, handle);
   if (rawHostGameResponse instanceof string) {
-    var hostGameParsedJson: ParsedJson<HostGameResponse> = fromJson(rawHostGameResponse);
+    var hostGameParsedJson: ParsedJson<HostJoinGameResponse> = fromJson(rawHostGameResponse);
     var hostGameResponse = unwrap(hostGameParsedJson).result;
-    if (hostGameResponse instanceof HostGameResponse) {
+    if (hostGameResponse instanceof HostJoinGameResponse) {
       gameId = hostGameResponse.result.game_id;
       print("Game ID: {gameId}");
       playerSecret = hostGameResponse.result.secret;
       print("Secret: {playerSecret}");
+      print("Spectate: {hostGameResponse.result.watch}");
     }
   } else {
     print("The hostGame() request failed with the following response:\n{rawHostGameResponse}");
     print("Falling back to default handle/gameId/playerSecret.");
   }
   _ = input("Hit enter once you're ready to start playing!");
+} else if (input("Do you want to add a new player to the existing game? (Y/N)") == "Y") {
+  handle = input("What's your game handle?: ");
+  var response: oneof<string, Error<string>> <-| friendsJoin(buggyBuggiesClient, gameId, handle);
+  if (response instanceof string) {
+    var joinParsedJson: ParsedJson<HostJoinGameResponse> = fromJson(response);
+    var joinResponse = unwrap(joinParsedJson).result;
+    if (joinResponse instanceof HostJoinGameResponse) {
+      playerSecret = joinResponse.result.secret;
+      print("Secret: {playerSecret}");
+    }
+  }
 }
 
 var userInput = input("Which direction do you want to move? (N/E/S/W): ");
+var bestMoves: oneof<[string], NothingType> = nothing;
 while (true) {
   var parsedMove = parseMove(userInput);
 
@@ -64,22 +77,55 @@ while (true) {
     print("Good game!");
     break;
   } else if (parsedMove instanceof string) {
-    _ = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
+    var response = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
+    if (response instanceof [string]) {
+      bestMoves = response;
+    }
   } else if (parsedMove instanceof RepeatMove) {
-    repeat(unwrap(parsedMove).dist) {
-      var response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
+    var response: oneof<[string], Error<string>>;
+    repeat(unwrap(parsedMove).dist - 1) {
+      response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
       if (response instanceof Error<string>) {
-        print("Got an error response before completing full set of moves:\n{response}");
+        print(response);
         break;
       }
+    }
+    response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
+    if (response instanceof [string]) {
+      bestMoves = response;
     }
   }
 
   userInput = input("Which direction do you want to move? (N/E/S/W): ");
 }
 
+if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing automatically?: (Y/N)") == "Y")) {
+  while (true) {
+    # Blindly execute all but the final move to our target coin.
+    var i = 0;
+    while (i < len(bestMoves) - 1) {
+      print("Automatic move to: {bestMoves[i]}");
+      sleep(300);
+      _ = move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
+    }
+    # For the last move, execute the move and update the best moves accordingly
+    print("Automatic move to: {bestMoves[i]}");
+    var response = handleMove(buggyBuggiesClient, gameId, playerSecret, bestMoves[i]);
+    if (response instanceof [string]) {
+      bestMoves = response;
+    } else {
+      print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
+      break;
+    }
+  }
+}
+
+# TODO(steving) TESTING!!! This exists to workaround the scoping type resolution bug filed at:
+# TODO(steving)  https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C6
+provider dummyResolve() -> oneof<NothingType, MoveResponse> { return nothing; }
+
 blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, playerSecret: string, dir: string)
-    -> oneof<MoveResponse, Error<string>> {
+    -> oneof<[string], Error<string>> {
   # Make the HTTP req.
   var rawMoveResponseOrErr <-| move(client, gameId, playerSecret, dir);
   var rawMoveResponse ?= rawMoveResponseOrErr;
@@ -88,9 +134,15 @@ blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, p
   var moveResponseParsedJson: ParsedJson<MoveResponse> = fromJson(rawMoveResponse);
   var moveResponse = unwrap(moveResponseParsedJson).result;
   if (moveResponse instanceof MoveResponse) {
-    print("Move Response:\n{moveResponse}");
+    var parsedWorld = parseWorldMap(moveResponse.result.world);
+    var computedBestPath = dijkstra(parsedWorld, Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}));
+    print("You are at:\n{moveResponse.result.you}");
+    var computedMoves = movesFromBestPath(computedBestPath);
+    print("These are the best moves:\n{computedMoves}");
+    return computedMoves;
+  } else {
+    return Error("Got an error response before completing full set of moves:\n{moveResponse}\n{moveResponseParsedJson}");
   }
-  return moveResponse;
 }
 
 newtype RepeatMove: struct{
@@ -116,3 +168,275 @@ function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>
     return Error("Unexpected input: {moveInput}");
   }
 }
+
+function movesFromBestPath(bestPath: BestPath) -> [string] {
+  var moves: mut [string] = mut [];
+  var getDelta: function<int -> tuple<int, int>> =
+    i -> {
+      var dx = unwrap(bestPath[i]).x - unwrap(bestPath[i + 1]).x;
+      var dy = unwrap(bestPath[i]).y - unwrap(bestPath[i + 1]).y;
+      return (dx, dy);
+    };
+
+  var i = len(bestPath) - 2;
+  while (i >= 0) {
+    var delta = getDelta(i--);
+    # TODO(steving) Exhaustive match would be so nice.
+    if (delta == (1, 0)) {
+      append(moves, "E");
+    } else if (delta == (-1, 0)) {
+      append(moves, "W");
+    } else if (delta == (0, 1)) {
+      append(moves, "S");
+    } else {
+      append(moves, "N");
+    }
+  }
+  return copy(moves);
+}
+
+function parseWorldMap(world: {string: string}) -> {Position: string} {
+  var parsePos: function<string -> Position> = rawPos -> {
+    var xstring = rawPos[0];
+    var i = 1;
+    while (rawPos[i] != ",") {
+      xstring = "{xstring}{rawPos[i++]}";
+    }
+    var ystring = rawPos[i + 1];
+    i = i + 2;
+    while (i < len(rawPos)) {
+      ystring = "{ystring}{rawPos[i++]}";
+    }
+    # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
+    var x: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(xstring))).result;
+    var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
+    if ((x instanceof int) and (y instanceof int)) {
+      return Position({x = x, y = y});
+    }
+    return Position({x = -1, y = -1});
+  };
+  return {parsePos(e[0]) : e[1] | e in world};
+}
+
+
+
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# BEGIN Dijkstra.claro
+####################################################################################################
+
+alias DistanceVia : struct {dist: int, via: oneof<Position, NothingType>}
+alias BestPath : [Position]
+
+# TODO(steving) TESTING!!! This exists to workaround the scoping type resolution bug filed at:
+# TODO(steving)  https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C6
+provider dummyResolve1() -> oneof<NothingType, DistanceVia> {return nothing;}
+provider dummyResolve2() -> oneof<NothingType, BestPath> {return nothing;}
+
+function dijkstra(world: {Position: string}, start: Position) -> BestPath {
+  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  defaultDictPut(distances, start, {dist = 0, via = start});
+  var pq = getHeap();
+  insert(pq, {dist = 0, pos = start});
+  var visited: mut {Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
+
+  while (not heapIsEmpty(pq)) {
+    var currPos = extract_min(pq);
+    if (currPos instanceof Position) {
+      if (currPos in visited) {
+        continue;
+      }
+      visited[currPos] = true;
+      for (weightedNeighbor in getWeightedNeighbors(world, currPos)) {
+        var neighbor = weightedNeighbor.neighbor;
+        var weight = weightedNeighbor.weight;
+        if ((defaultDictGet(distances, currPos).dist + weight) < defaultDictGet(distances, neighbor).dist) {
+          defaultDictPut(distances, neighbor, {dist = defaultDictGet(distances, currPos).dist + weight, via = currPos});
+          insert(pq, {dist = defaultDictGet(distances, neighbor).dist, pos = neighbor});
+        }
+      }
+    }
+  }
+
+  return rebuildBestPath(world, asMap(distances));
+}
+
+function rebuildBestPath(world: {Position: string}, distances: {Position: DistanceVia}) -> BestPath {
+  var route: mut [Position] = mut [];
+  var currPos = findCoinWithLowestScore(world, distances);
+  while (true) {
+    append(route, currPos);
+    var via = distances[currPos].via;
+    if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
+      break;
+    } else if (via instanceof Position) {
+      # I know for a fact it's a Position, but this is the only way to convince Claro of that.
+      currPos = via;
+    }
+  }
+  return copy(route);
+}
+
+function findCoinWithLowestScore(world: {Position: string}, distances: {Position: DistanceVia}) -> Position {
+  var currBest: tuple<Position, DistanceVia> = (Position({x = -1, y = -1}), {dist = 999999, via = Position({x = -1, y = -1})}); # TODO(steving) Need some representation of INFINITY in stdlib.
+  for (distEntry in distances) {
+    if ((distEntry[0] in world) and (world[distEntry[0]] == "coin") and (distEntry[1].dist < currBest[1].dist)) {
+      currBest = distEntry;
+    }
+  }
+  return currBest[0];
+}
+
+function getWeightedNeighbors(world: {Position: string}, pos: Position) -> [struct {neighbor: Position, weight: int}] {
+  var neighbors: mut [struct {neighbor: Position, weight: int}] = mut [];
+  var updatePos: function<|int, int| -> Position> =
+    lambda (dx, dy) -> Position({x = unwrap(pos).x + dx, y = unwrap(pos).y + dy});
+  var validateMove: consumer<mut [struct {neighbor: Position, weight: int}], int, int> =
+    lambda (l, dx, dy) -> {
+      var n = updatePos(dx, dy);
+      if ((not (n in world)) or (world[n] == "coin")) {
+        # TODO(steving) Making every neighbor have equal weight means Dijkstra's is just an extremely complicated BFS...
+        # TODO(steving) Soon, update this implementation to actually evaluate a score for moving into this position.
+        append(l, {neighbor = n, weight = 1});
+      }
+    };
+
+  for (dir in [(-1, 0), (1, 0), (0, -1), (0, 1)]) { # [LEFT, RIGHT, DOWN, UP]
+    validateMove(neighbors, dir[0], dir[1]);
+  }
+
+  return copy(neighbors);
+}
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# END Dijkstra.claro
+####################################################################################################
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# BEGIN DefaultDict.claro
+####################################################################################################
+
+newtype DefaultDict<K,V>: struct {defaultPr: provider<V>, dict: mut {K:V}}
+
+initializers DefaultDict {
+  function getDefaultDict<K,V>(defaultPr: provider<V>) -> DefaultDict<K,V> {
+    return DefaultDict({defaultPr = defaultPr, dict = mut {}});
+  }
+}
+
+# TODO(steving) Claro really needs to support overloading operator[] via some Contract.
+unwrappers DefaultDict {
+  function defaultDictGet<K,V>(d: DefaultDict<K,V>, key: K) -> V {
+    var dict = unwrap(d).dict;
+    if (not (key in dict)) {
+      var defPr = unwrap(d).defaultPr; # TODO(steving) Tracking bug in: https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C7
+      dict[key] = defPr();
+    }
+    return dict[key];
+  }
+
+  consumer defaultDictPut<K,V>(d: DefaultDict<K,V>, key: K, value: V) {
+    var dict = unwrap(d).dict;
+    dict[key] = value;
+  }
+
+  function asMap<K,V>(d: DefaultDict<K,V>) -> {K: V} {
+    return copy(unwrap(d).dict);
+  }
+}
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# END DefaultDict.claro
+####################################################################################################
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# BEGIN Heap.claro
+####################################################################################################
+
+# This implementation is the result of asking Chat GPT to implement it in python for me and reworking it to fit in Claro
+# I'm not thinking too hard about this...
+newtype Position : struct {x: int, y: int}
+newtype Heap: mut [struct {dist: int, pos: Position}]
+
+initializers Heap {
+  provider getHeap() -> Heap {
+    return Heap(mut []);
+  }
+}
+
+unwrappers Heap {
+  function extract_min(heap: Heap) -> oneof<Position, Error<NothingType>> {
+      if (len(unwrap(heap)) == 0) {
+          return Error(nothing);
+      }
+      var min_value = unwrap(heap)[0];
+      swap(heap, 0, len(unwrap(heap)) - 1);
+      _ = remove(unwrap(heap), len(unwrap(heap)) - 1);
+      heapify_down(heap, 0);
+
+      return min_value.pos;
+  }
+
+  function parent(i: int) -> int {
+      return (i - 1) / 2;
+  }
+
+  function left_child(i: int) -> int {
+      return 2 * i + 1;
+  }
+
+  function right_child(i: int) -> int {
+      return 2 * i + 2;
+  }
+
+  consumer swap(heap: Heap, i: int, j: int) {
+      var tmp = unwrap(heap)[i];
+      unwrap(heap)[i] = unwrap(heap)[j];
+      unwrap(heap)[j] = tmp;
+  }
+
+
+  consumer insert(heap: Heap, value: struct {dist: int, pos: Position}) {
+      append(unwrap(heap), value);
+      heapify_up(heap, len(unwrap(heap)) - 1);
+  }
+
+  function heapIsEmpty(heap: Heap) -> boolean {
+    return len(unwrap(heap)) == 0;
+  }
+
+  consumer heapify_up(heap: Heap, i: int) {
+      while ((i > 0) and (unwrap(heap)[i].dist < unwrap(heap)[parent(i)].dist)) {
+          swap(heap, i, parent(i));
+          i = parent(i);
+      }
+  }
+
+  consumer heapify_down(heap: Heap, i: int) {
+      while (true) {
+          var min_index = i;
+          if ((left_child(i) < len(unwrap(heap))) and (unwrap(heap)[left_child(i)].dist < unwrap(heap)[min_index].dist)) {
+              min_index = left_child(i);
+          }
+          if ((right_child(i) < len(unwrap(heap))) and (unwrap(heap)[right_child(i)].dist < unwrap(heap)[min_index].dist)) {
+              min_index = right_child(i);
+          }
+          if (min_index != i) {
+              swap(heap, i, min_index);
+              i = min_index;
+          } else {
+            break;
+          }
+      }
+  }
+}
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# END Heap.claro
+####################################################################################################

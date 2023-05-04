@@ -294,6 +294,8 @@ terminal LexedValue<String>  IDENTIFIER;
 terminal LexedValue<String>  LOG_PREFIX;
 // This grammar also has a builtin print() function for printing expr values.
 terminal LexedValue<String>  PRINT;
+// This grammar also has a builtin sleep() function.
+terminal LexedValue<String>  SLEEP;
 // This grammar also has a builtin numeric() function for casting booleans to doubles.
 terminal LexedValue<String>  NUMERIC_BOOL;
 // This grammar also has a builtin input() function for reading a line from stdin.
@@ -309,7 +311,7 @@ terminal LexedValue<String>  LEN;
 // This grammar also has a builtin type() function for getting the type of an Expr.
 terminal LexedValue<String>  TYPE;
 // This grammar also has a builtin append() function for appending an element to a List.
-terminal LexedValue<String>  APPEND;
+terminal LexedValue<String>  APPEND, REMOVE;
 terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE, FOR, REPEAT, BREAK, CONTINUE, WHERE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
@@ -375,6 +377,7 @@ nonterminal UnwrapUserDefinedTypeExpr          unwrap_expr;
 nonterminal CopyExpr                           copy_expr;
 nonterminal FromJsonExpr                       from_json_expr;
 nonterminal PrintStmt                          print;
+nonterminal SleepStmt                          sleep;
 nonterminal ShowTypeStmt                       show_type;
 nonterminal DeclarationStmt                    identifier_declaration;
 nonterminal AssignmentStmt                     identifier_assignment;
@@ -385,6 +388,7 @@ nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
 nonterminal AppendElementToListStmt            list_append_stmt;
+nonterminal RemoveElementFromListExpr          list_remove_expr;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
 nonterminal LambdaExpr                         lambda_function_expr;
@@ -597,6 +601,8 @@ stmt ::=
     {: RESULT = p; :}
   | http_service_def_stmt:h
     {: RESULT = h; :}
+  | sleep:s
+    {: RESULT = s; :}
   ;
 
 module_definition_stmt ::=
@@ -713,6 +719,8 @@ initializers_or_unwrappers_proc_defs_list ::=
     {: RESULT = tail.add(def); :}
   | provider_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
+  | consumer_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
   | graph_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
   | graph_provider_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
@@ -721,9 +729,13 @@ initializers_or_unwrappers_proc_defs_list ::=
     {: RESULT = tail.add(def); :}
   | generic_provider_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
     {: RESULT = tail.add(def); :}
+  | generic_consumer_function_definition_stmt:def initializers_or_unwrappers_proc_defs_list:tail
+    {: RESULT = tail.add(def); :}
   | function_definition_stmt:def
     {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | provider_function_definition_stmt:def
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
+  | consumer_function_definition_stmt:def
     {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | graph_function_definition_stmt:def
     {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
@@ -732,6 +744,8 @@ initializers_or_unwrappers_proc_defs_list ::=
   | generic_function_definition_stmt:def
     {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   | generic_provider_function_definition_stmt:def
+    {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
+  | generic_consumer_function_definition_stmt:def
     {: RESULT = ImmutableList.<Stmt>builder().add(def); :}
   ;
 
@@ -1303,6 +1317,18 @@ list_append_stmt ::=
     {: RESULT = new AppendElementToListStmt(l, e); :}
   ;
 
+list_remove_expr ::=
+    REMOVE:r LPAR:lp expr:l COMMA:c expr:e RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(r.currentInputLine, rright), new Line(lp.currentInputLine, lpright), new Line(l), new Line(c.currentInputLine, cright), new Line(e), new Line(rp.currentInputLine, rpright));
+       int startCol = min(rleft, lpleft, l.startCol, cleft, e.startCol, rpleft);
+       int endCol = max(rleft + r.len, lpleft + lp.len, l.endCol, cleft + c.len, e.endCol, rpleft + rp.len);
+
+       RESULT = new RemoveElementFromListExpr(l, e, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  ;
+
 // In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
 // language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
 expr ::=
@@ -1378,6 +1404,8 @@ expr ::=
     :}
   | input:i
     {: RESULT = i; :}
+  | list_remove_expr:lr
+    {: RESULT = lr; :}
   | unwrap_expr:u
     {: RESULT = u; :}
   | is_input_ready:i
@@ -1481,6 +1509,13 @@ parenthesized_expr ::=
        int endCol = max(lpleft + lp.len, e.endCol, rpleft + rp.len);
 
        RESULT = new ParenthesizedExpr(e, currentLinesSupplier, rpright, startCol, endCol);
+    :}
+  ;
+
+sleep ::=
+    SLEEP:i LPAR:lp expr:e RPAR:rp SEMICOLON
+    {:
+       RESULT = new SleepStmt(e);
     :}
   ;
 

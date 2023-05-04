@@ -77,8 +77,8 @@ public class ClaroFuture<T> implements ClaroBuiltinTypeImplementation, Listenabl
   //  Exception" should be reserved for situations that most programmers should not be handling. Maybe framework code
   //  should catch things like exceptions to prevent whole servers from crashing due to one recoverable error for
   //  example.
-  private static class Panic extends RuntimeException {
-    Panic(Exception cause) {
+  public static class Panic extends RuntimeException {
+    public Panic(Exception cause) {
       super("Panic! Unexpected error occurred while resolving a future<>.", cause);
     }
   }

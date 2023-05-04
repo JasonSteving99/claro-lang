@@ -36,7 +36,7 @@ public class UnwrappersBlockStmt extends Stmt {
         }
         procedureName = ((GenericFunctionDefinitionStmt) proc).functionName;
       }
-      InternalStaticStateUtil.InitializersBlockStmt_unwrappersByUnwrappedType
+      InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
           .put(this.unwrappedTypeName, procedureName);
     }
   }
