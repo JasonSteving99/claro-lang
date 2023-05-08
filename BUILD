@@ -32,6 +32,22 @@ alias(
     name = "gson",
     actual = "@maven//:com_google_code_gson_gson"
 )
+alias(
+    name = "activej_common",
+    actual = "@maven//:io_activej_activej_common"
+)
+alias(
+    name = "activej_eventloop",
+    actual = "@maven//:io_activej_activej_eventloop"
+)
+alias(
+    name = "activej_http",
+    actual = "@maven//:io_activej_activej_http"
+)
+alias(
+    name = "activej_promise",
+    actual = "@maven//:io_activej_activej_promise"
+)
 
 exports_files(["CLARO_VERSION.txt"])
 

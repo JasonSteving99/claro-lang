@@ -53,6 +53,18 @@ maven_install(
             # this is resolved. Re: https://github.com/square/retrofit/issues/3341
             "com.squareup.retrofit2:retrofit:2.7.2",
             "com.google.code.gson:gson:2.10.1",
+
+            ############################################################################################################
+            # BEGIN ACTIVE J
+            #   These deps come in a group, so if the version number ever gets bumped, must do it as a whole.
+            ############################################################################################################
+            "io.activej:activej-common:5.4.3",
+            "io.activej:activej-eventloop:5.4.3",
+            "io.activej:activej-http:5.4.3",
+            "io.activej:activej-promise:5.4.3",
+            ############################################################################################################
+            # END ACTIVE J
+            ############################################################################################################
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [

@@ -30,10 +30,15 @@ alias MoveResponse : struct {
   },
   success: boolean
 }
+alias FailedMovedResponse : struct {
+  reason: oneof<string, NothingType>,
+  result: NothingType,
+  success: boolean
+}
 
 var handle = "Jason";
-var gameId = "7a2b24f7-ae45-4e09-a9e6-d99893ccba85";
-var playerSecret = "6419912c-c8f6-44d4-a4fc-d522bc4c9503";
+var gameId = "1209c1b9-c04a-4510-9299-7341d5804121";
+var playerSecret = "1c1d5c02-fe17-4a98-a7a8-ccac89699278";
 
 if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   handle = input("What's your game handle?: ");
@@ -103,10 +108,43 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
   while (true) {
     # Blindly execute all but the final move to our target coin.
     var i = 0;
+    var retries = 0;
     while (i < len(bestMoves) - 1) {
       print("Automatic move to: {bestMoves[i]}");
-      sleep(300);
-      _ = move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
+      sleep(50);
+      var response <-| move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
+      if (response instanceof Error<string>) {
+        print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
+        break;
+      } else if (response instanceof string) {
+        if (unwrap(cast(ParsedJson<MoveResponse>, fromJson(response))).result instanceof Error<string>) {
+          if (retries >= 3) {
+            print("Retried too many times with no success! Ending game.");
+            break;
+          }
+          print(response);
+          var failedMoveResponseParsedJson: ParsedJson<FailedMovedResponse> = fromJson(response);
+          var failedMoveResponse = unwrap(failedMoveResponseParsedJson).result;
+          if (failedMoveResponse instanceof FailedMovedResponse) {
+            print("");
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            if (failedMoveResponse.reason == "throttled") {
+              # Here we actually got a throttle response, so we'll redo the latest move.
+              --i;
+              ++retries;
+              sleep(100);
+              print("!            GOT THROTTLED!            !");
+            } else {
+              print("!                ERROR!                !");
+              print("! REASON:                              !");
+              print("!   {failedMoveResponse.reason}");
+              break;
+            }
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            print("");
+          }
+        }
+      }
     }
     # For the last move, execute the move and update the best moves accordingly
     print("Automatic move to: {bestMoves[i]}");
