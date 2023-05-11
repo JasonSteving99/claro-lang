@@ -9,6 +9,7 @@ import com.google.common.collect.Sets;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class ClaroTypeException extends Exception {
 
@@ -299,7 +300,11 @@ public class ClaroTypeException extends Exception {
   private static final String INVALID_HTTP_ENDPOINT_PATH_VARIABLE =
       "Invalid Http Endpoint Path Variable: All Http Endpoint definitions must be of the form `<endpointName>: \"/(<page>/|{<pathVariable>}/)*\"` where `<pathVariable>` must be a valid identifier.";
   private static final String ILLEGAL_HTTP_CLIENT_TYPE_WITH_NON_HTTP_SERVICE_PARAM_TYPE =
-      "Illegal HttpClient Type: HttpClient's parameterized type must be some HttpService type.\n" +
+      "Illegal HttpClient Type: HttpClient<T>'s parameterized type, T, must be some HttpService type.\n" +
+      "\t\tFound the following type:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_HTTP_SERVER_TYPE_WITH_NON_HTTP_SERVICE_PARAM_TYPE =
+      "Illegal HttpClient Type: HttpServer<T>'s parameterized type, T, must be some HttpService type.\n" +
       "\t\tFound the following type:\n" +
       "\t\t\t%s";
   private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE =
@@ -321,6 +326,23 @@ public class ClaroTypeException extends Exception {
       "\t\tvar parsed = fromJson(\"...\");\n" +
       "\tProvide some target type instead:\n" +
       "\t\tvar parsed: TargetType = fromJson(\"...\");";
+  private static final String INVALID_ENDPOINT_HANDLERS_BLOCK_FOR_HTTP_SERVICE_UNDEFINED =
+      "Invalid Endpoint Handlers Block for Undefined HttpService: No HttpService named `%s` declared within the current scope!";
+  private static final String INVALID_ENDPOINT_HANDLERS_BLOCK_FOR_NON_HTTP_SERVICE =
+      "Illegal Endpoint Handlers Block for Non-HttpService Type: `%s` does not reference an HttpService!\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String INVALID_ENDPOINT_HANDLERS_NOT_SATISFYING_REQUIRED_SIGNATURE_FOR_HANDLED_HTTP_SERVICE =
+      "Invalid Endpoint Handlers: For the given HttpService, `%s`, each endpoint must have a corresponding graph procedure defined " +
+      "to handle requests. The following endpoint handler definitions were invalid:\n" +
+      "%s";
+  private static final String INVALID_HTTP_SERVER_GENERATION_REQUESTED_WITH_NO_HTTP_SERVICE_ENDPOINT_HANDLERS_DEFINED =
+      "Invalid HttpServer Generation Requested for HttpService Missing Endpoint Handlers Definition: In order to " +
+      "automatically generate an HttpServer for the given HttpService an `endpoint_handlers` block such as the " +
+      "following must be defined:\n" +
+      "\t\tendpoint_handlers %s {\n" +
+      "%s\n" +
+      "\t\t}";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1230,6 +1252,15 @@ public class ClaroTypeException extends Exception {
     );
   }
 
+  public static ClaroTypeException forIllegalHttpServerTypeWithNonHttpServiceParameterizedType(Type type) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_HTTP_SERVER_TYPE_WITH_NON_HTTP_SERVICE_PARAM_TYPE,
+            type
+        )
+    );
+  }
+
   public static ClaroTypeException forIllegalParseFromJSONForUnsupportedType(Type assertedParsedResultType) {
     return new ClaroTypeException(
         String.format(ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE, assertedParsedResultType));
@@ -1247,5 +1278,72 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forIllegalParseFromJSONWithNoTargetTypeAssertion() {
     return new ClaroTypeException(ILLEGAL_PARSE_FROM_JSON_WITH_NO_TARGET_TYPE_ASSERTION);
+  }
+
+  public static ClaroTypeException forInvalidEndpointHandlersBlockForHttpServiceUndefined() {
+    return new ClaroTypeException(INVALID_ENDPOINT_HANDLERS_BLOCK_FOR_HTTP_SERVICE_UNDEFINED);
+  }
+
+  public static ClaroTypeException forInvalidEndpointHandlersBlockForNonHttpService(String serviceName, Type referencedServiceType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_ENDPOINT_HANDLERS_BLOCK_FOR_NON_HTTP_SERVICE,
+            serviceName,
+            referencedServiceType
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidEndpointHandlersNotSatisfyingRequiredSignatureForHandledHttpService(
+      String identifier, HashMap<String, ImmutableList<Type>> invalidEndpointSignatures) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_ENDPOINT_HANDLERS_NOT_SATISFYING_REQUIRED_SIGNATURE_FOR_HANDLED_HTTP_SERVICE,
+            identifier,
+            invalidEndpointSignatures.entrySet().stream()
+                .map(e -> {
+                  if (e.getValue() == null) {
+                    return String.format(
+                        "%s: <NO SUCH ENDPOINT>",
+                        e.getKey()
+                    );
+                  } else {
+                    return String.format(
+                        "%s:\n\t\t\tFound:\n\t\t\t\t%s\n\t\t\tExpected:\n\t\t\t\t%s",
+                        e.getKey(),
+                        e.getValue().get(0),
+                        e.getValue().get(1)
+                    );
+                  }
+                })
+                .collect(Collectors.joining("\n\t- ", "\t- ", ""))
+        )
+    );
+  }
+
+  public static ClaroTypeException forInvalidHttpServerGenerationRequestedWithNoHttpServiceEndpointHandlersDefined(
+      String httpServiceName, Map<String, Integer> endpointHandlerArgCounts) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_HTTP_SERVER_GENERATION_REQUESTED_WITH_NO_HTTP_SERVICE_ENDPOINT_HANDLERS_DEFINED,
+            httpServiceName,
+            Joiner.on("\n")
+                .join(
+                    endpointHandlerArgCounts.entrySet().stream()
+                        .map(e -> String.format(
+                            "\t\t\tgraph %s %s(%s) -> future<HttpResponse> {\n" +
+                            "\t\t\t\t...\n" +
+                            "\t\t\t}",
+                            e.getValue() == 0 ? "provider" : "function",
+                            e.getKey(),
+                            IntStream.range(0, e.getValue())
+                                .mapToObj(i -> String.format("pathArg%s: string", i))
+                                .collect(Collectors.joining(", "))
+                        ))
+                        .collect(ImmutableList.toImmutableList())
+                        .reverse()
+                )
+        )
+    );
   }
 }

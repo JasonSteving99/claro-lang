@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.FormatStringExpr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -16,10 +17,10 @@ import java.util.function.BiFunction;
 
 public class HttpServiceDefStmt extends Stmt {
   private final IdentifierReferenceTerm serviceName;
-  private final ImmutableMap<IdentifierReferenceTerm, FormatStringExpr> endpoints;
+  private final ImmutableMap<IdentifierReferenceTerm, Object> endpoints;
   private ArrayList<ProcedureDefinitionStmt> syntheticEndpointProcedures = new ArrayList<>();
 
-  public HttpServiceDefStmt(IdentifierReferenceTerm serviceName, ImmutableMap<IdentifierReferenceTerm, FormatStringExpr> endpoints) {
+  public HttpServiceDefStmt(IdentifierReferenceTerm serviceName, ImmutableMap<IdentifierReferenceTerm, Object> endpoints) {
     super(ImmutableList.of());
     this.serviceName = serviceName;
     this.endpoints = endpoints;
@@ -59,12 +60,14 @@ public class HttpServiceDefStmt extends Stmt {
                             GeneratedJavaSource.forJavaSourceBody(
                                 new StringBuilder("$HttpUtil.executeAsyncHttpRequest($httpClient.")
                                     .append(endpointName).append("("));
-                        argNames.subList(0, argNames.size() - 1).forEach(
-                            arg ->
-                                res.javaSourceBody().append(((IdentifierReferenceTerm) arg).identifier).append(", "));
-                        res.javaSourceBody()
-                            .append(((IdentifierReferenceTerm) argNames.get(argNames.size() - 1)).identifier)
-                            .append("))");
+                        if (!argNames.isEmpty()) {
+                          argNames.subList(0, argNames.size() - 1).forEach(
+                              arg ->
+                                  res.javaSourceBody().append(((IdentifierReferenceTerm) arg).identifier).append(", "));
+                          res.javaSourceBody()
+                              .append(((IdentifierReferenceTerm) argNames.get(argNames.size() - 1)).identifier);
+                        }
+                        res.javaSourceBody().append("))");
                         return res;
                       }
 
@@ -84,29 +87,56 @@ public class HttpServiceDefStmt extends Stmt {
                                     )))))
                 ));
 
-    // TODO(steving) Long term I most likely don't want these to end up being top-level identifiers, but for now it'll
-    //   be the best I can do until I have proper namespacing support.
-    for (Map.Entry<IdentifierReferenceTerm, FormatStringExpr> endpoint : this.endpoints.entrySet()) {
+    for (Map.Entry<IdentifierReferenceTerm, Object> endpoint : this.endpoints.entrySet()) {
       if (scopedHeap.isIdentifierDeclared(endpoint.getKey().identifier)) {
+        // TODO(steving) Long term I most likely don't want these to end up being top-level identifiers, but for now it'll
+        //   be the best I can do until I have proper namespacing support.
         endpoint.getKey().logTypeError(
             ClaroTypeException.forUnexpectedIdentifierRedeclaration(endpoint.getKey().identifier));
       }
-      for (Expr fmtStringExpr : endpoint.getValue().fmtExprArgs) {
-        if (!(fmtStringExpr instanceof IdentifierReferenceTerm)) {
-          fmtStringExpr.logTypeError(ClaroTypeException.forInvalidHttpEndpointPathVariable());
+      if (endpoint.getValue() instanceof FormatStringExpr) {
+        for (Expr fmtStringExpr : ((FormatStringExpr) endpoint.getValue()).fmtExprArgs) {
+          if (!(fmtStringExpr instanceof IdentifierReferenceTerm)) {
+            fmtStringExpr.logTypeError(ClaroTypeException.forInvalidHttpEndpointPathVariable());
+          }
         }
       }
     }
 
+    // We'll need to register these types ahead of time so that any `endpoint_handler` blocks can be validated against
+    // the set of procedure defs that must be implemented.
+    ImmutableMap.Builder<String, Types.ProcedureType> endpointHandlerProcedureTypes = ImmutableMap.builder();
+
     // Simply put a function type signature in the symbol table for each endpoint.
-    for (Map.Entry<IdentifierReferenceTerm, FormatStringExpr> endpoint : this.endpoints.entrySet()) {
+    for (Map.Entry<IdentifierReferenceTerm, Object> endpoint : this.endpoints.entrySet()) {
       ImmutableMap.Builder<String, TypeProvider> endpointFuncArgsBuilder = ImmutableMap.<String, TypeProvider>builder()
           .put("$httpClient", (scopedHeap1) -> Types.HttpClientType.forServiceName(this.serviceName.identifier));
-      endpoint.getValue().fmtExprArgs.forEach(
-          pathArg ->
-              endpointFuncArgsBuilder.put(
-                  ((IdentifierReferenceTerm) pathArg).identifier, TypeProvider.ImmediateTypeProvider.of(Types.STRING)));
-      FunctionDefinitionStmt endpointFuncDefStmt = new FunctionDefinitionStmt(
+      ProcedureDefinitionStmt endpointProcDefStmt;
+      if (endpoint.getValue() instanceof FormatStringExpr) {
+        ((FormatStringExpr) endpoint.getValue()).fmtExprArgs.forEach(
+            pathArg ->
+                endpointFuncArgsBuilder.put(
+                    ((IdentifierReferenceTerm) pathArg).identifier, TypeProvider.ImmediateTypeProvider.of(Types.STRING)));
+        endpointHandlerProcedureTypes.put(
+            endpoint.getKey().identifier,
+            Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+                ((FormatStringExpr) endpoint.getValue()).fmtExprArgs.stream()
+                    .map(unused -> Types.STRING)
+                    .collect(ImmutableList.toImmutableList()),
+                Types.FutureType.wrapping(Types.UserDefinedType.forTypeName("HttpResponse")),
+                /*explicitlyAnnotatedBlocking=*/false
+            )
+        );
+      } else {
+        endpointHandlerProcedureTypes.put(
+            endpoint.getKey().identifier,
+            Types.ProcedureType.ProviderType.typeLiteralForReturnType(
+                Types.FutureType.wrapping(Types.HTTP_RESPONSE),
+                /*explicitlyAnnotatedBlocking=*/false
+            )
+        );
+      }
+      endpointProcDefStmt = new FunctionDefinitionStmt(
           endpoint.getKey().identifier,
           BaseType.FUNCTION,
           endpointFuncArgsBuilder.build(),
@@ -118,11 +148,20 @@ public class HttpServiceDefStmt extends Stmt {
                           Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                               "Error", ImmutableList.of(Types.STRING))
                       )))),
-          syntheticHttpProcStmtList.apply(endpoint.getValue().fmtExprArgs, endpoint.getKey().identifier)
+          syntheticHttpProcStmtList.apply(
+              endpoint.getValue() instanceof FormatStringExpr
+              ? ((FormatStringExpr) endpoint.getValue()).fmtExprArgs
+              : ImmutableList.of(),
+              endpoint.getKey().identifier
+          )
       );
-      endpointFuncDefStmt.registerProcedureTypeProvider(scopedHeap);
-      this.syntheticEndpointProcedures.add(endpointFuncDefStmt);
+      endpointProcDefStmt.registerProcedureTypeProvider(scopedHeap);
+      this.syntheticEndpointProcedures.add(endpointProcDefStmt);
     }
+    endpointHandlerProcedureTypes.build().forEach(
+        (endpointName, endpointHandlerSignature) ->
+            InternalStaticStateUtil.HttpServiceDef_endpointProcedureSignatures.put(
+                this.serviceName.identifier, endpointName, endpointHandlerSignature));
   }
 
   public void registerTypeProvider(ScopedHeap scopedHeap) {
@@ -142,6 +181,22 @@ public class HttpServiceDefStmt extends Stmt {
     for (ProcedureDefinitionStmt p : this.syntheticEndpointProcedures) {
       p.assertExpectedExprTypes(scopedHeap);
     }
+
+    // Now that everything's validated, just make note of the endpoints' paths so that any generated server can actually
+    // register the corresponding endpoint handlers.
+    this.endpoints.forEach(
+        (key, value) -> {
+          if (value instanceof FormatStringExpr) {
+            // TODO(steving) TESTING! Support Path Queries!
+            System.err.println("TESTING!!! Internal Compiler Error: Path queries not yet supported!");
+            return;
+          }
+          InternalStaticStateUtil.HttpServiceDef_endpointPaths.put(
+              this.serviceName.identifier,
+              key.identifier,
+              (String) value
+          );
+        });
   }
 
   @Override
@@ -156,38 +211,43 @@ public class HttpServiceDefStmt extends Stmt {
         e -> {
           finalRes.optionalStaticDefinitions().get()
               .append("\t@GET(\"");
-          Streams.forEachPair(
-              e.getValue().fmtStringParts.stream(),
-              e.getValue().fmtExprArgs.stream(),
-              (fmtStringPart, fmtArgPart) ->
-                  finalRes.optionalStaticDefinitions().get()
-                      .append(fmtStringPart)
-                      .append("{")
-                      .append(((IdentifierReferenceTerm) fmtArgPart).identifier)
-                      .append("}")
-          );
+          if (e.getValue() instanceof FormatStringExpr) {
+            Streams.forEachPair(
+                ((FormatStringExpr) e.getValue()).fmtStringParts.stream(),
+                ((FormatStringExpr) e.getValue()).fmtExprArgs.stream(),
+                (fmtStringPart, fmtArgPart) ->
+                    finalRes.optionalStaticDefinitions().get()
+                        .append(fmtStringPart)
+                        .append("{")
+                        .append(((IdentifierReferenceTerm) fmtArgPart).identifier)
+                        .append("}")
+            );
+          } else {
+            finalRes.optionalStaticDefinitions().get().append(e);
+          }
           finalRes.optionalStaticDefinitions().get()
               .append("\")\n\tretrofit2.Call<ResponseBody> ")
               .append(e.getKey().identifier)
               .append("(");
-          e.getValue().fmtExprArgs.subList(0, e.getValue().fmtExprArgs.size() - 1).forEach(
-              pathArg -> finalRes.optionalStaticDefinitions().get()
-                  .append("@Path(\"")
-                  .append(((IdentifierReferenceTerm) pathArg).identifier)
-                  .append("\") ")
-                  .append("String ")
-                  .append(((IdentifierReferenceTerm) pathArg).identifier)
-                  .append(", ")
-          );
-          finalRes.optionalStaticDefinitions().get()
-              .append("@Path(\"")
-              .append(((IdentifierReferenceTerm)
-                           e.getValue().fmtExprArgs.get(e.getValue().fmtExprArgs.size() - 1)).identifier)
-              .append("\") ")
-              .append("String ")
-              .append(((IdentifierReferenceTerm)
-                           e.getValue().fmtExprArgs.get(e.getValue().fmtExprArgs.size() - 1)).identifier)
-              .append(");\n");
+          if (e.getValue() instanceof FormatStringExpr) {
+            ImmutableList<Expr> fmtExprArgs = ((FormatStringExpr) e.getValue()).fmtExprArgs;
+            fmtExprArgs.subList(0, fmtExprArgs.size() - 1).forEach(
+                pathArg -> finalRes.optionalStaticDefinitions().get()
+                    .append("@Path(\"")
+                    .append(((IdentifierReferenceTerm) pathArg).identifier)
+                    .append("\") ")
+                    .append("String ")
+                    .append(((IdentifierReferenceTerm) pathArg).identifier)
+                    .append(", ")
+            );
+            finalRes.optionalStaticDefinitions().get()
+                .append("@Path(\"")
+                .append(((IdentifierReferenceTerm) fmtExprArgs.get(fmtExprArgs.size() - 1)).identifier)
+                .append("\") ")
+                .append("String ")
+                .append(((IdentifierReferenceTerm) fmtExprArgs.get(fmtExprArgs.size() - 1)).identifier);
+          }
+          finalRes.optionalStaticDefinitions().get().append(");\n");
         }
     );
     res.optionalStaticDefinitions().get()

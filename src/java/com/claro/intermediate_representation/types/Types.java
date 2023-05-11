@@ -23,6 +23,8 @@ public final class Types {
   public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
   public static final Type MODULE = ConcreteType.create(BaseType.MODULE);
 
+  public static final Type HTTP_RESPONSE = ConcreteType.create(BaseType.HTTP_RESPONSE);
+
   // Special type that indicates that the compiler won't be able to determine this type answer until runtime at which
   // point it will potentially fail other runtime type checking. Anywhere where an "UNDECIDED" type is emitted by the
   // compiler we'll require a cast on the expr causing the indecision for the programmer to assert they know what's up.
@@ -1458,7 +1460,7 @@ public final class Types {
 
     @Override
     public String getJavaSourceClaroType() {
-      throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
+      return String.format("Types.HttpServiceType.forServiceName(\"%s\")", this.getServiceName());
     }
 
     @Override
@@ -1496,6 +1498,28 @@ public final class Types {
     @Override
     public String toString() {
       return String.format(this.baseType().getClaroCanonicalTypeNameFmtStr(), this.getServiceName());
+    }
+  }
+
+  @AutoValue
+  public abstract static class HttpServerType extends Type {
+    public static final String HTTP_SERVICE_TYPE = "$httpServiceType";
+
+    public static HttpServerType forHttpService(Type httpService) {
+      return new AutoValue_Types_HttpServerType(BaseType.HTTP_SERVER, ImmutableMap.of(HTTP_SERVICE_TYPE, httpService));
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.HttpServerType.forHttpService(%s)",
+          this.parameterizedTypeArgs().get(HTTP_SERVICE_TYPE).getJavaSourceClaroType()
+      );
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return this.baseType().getJavaSourceFmtStr();
     }
   }
 

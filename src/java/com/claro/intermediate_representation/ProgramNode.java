@@ -388,18 +388,16 @@ public class ProgramNode {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
       if (currStmt instanceof ProcedureDefinitionStmt) {
         ((ProcedureDefinitionStmt) currStmt).registerProcedureTypeProvider(scopedHeap);
-      }
-      if (currStmt instanceof NewTypeDefStmt) {
+      } else if (currStmt instanceof NewTypeDefStmt) {
         ((NewTypeDefStmt) currStmt).registerConstructorTypeProvider(scopedHeap);
-      }
-      if (currStmt instanceof InitializersBlockStmt) {
+      } else if (currStmt instanceof InitializersBlockStmt) {
         ((InitializersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
-      }
-      if (currStmt instanceof UnwrappersBlockStmt) {
+      } else if (currStmt instanceof UnwrappersBlockStmt) {
         ((UnwrappersBlockStmt) currStmt).registerProcedureTypeProviders(scopedHeap);
-      }
-      if (currStmt instanceof HttpServiceDefStmt) {
+      } else if (currStmt instanceof HttpServiceDefStmt) {
         ((HttpServiceDefStmt) currStmt).registerHttpProcedureTypeProviders(scopedHeap);
+      } else if (currStmt instanceof EndpointHandlersBlockStmt) {
+        ((EndpointHandlersBlockStmt) currStmt).registerEndpointHandlerProcedureTypeProviders(scopedHeap);
       }
       currStmtListNode = currStmtListNode.tail;
     }
@@ -483,6 +481,9 @@ public class ProgramNode {
             "%s" +
             "\n" +
             "import static com.claro.stdlib.Exec.exec;\n" +
+            "import static com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForHtml;\n" +
+            "import static com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForJson;\n" +
+            "import static com.claro.runtime_utilities.http.$ClaroHttpServer.startServerAndAwaitShutdown;\n" +
             "import static com.claro.stdlib.userinput.UserInput.promptUserInput;\n" +
             "\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
@@ -495,6 +496,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.builtins_impls.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
@@ -502,6 +504,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
+            "import com.claro.runtime_utilities.http.$ClaroHttpServer;\n" +
             "import com.claro.runtime_utilities.http.$HttpUtil;\n" +
             "import com.claro.runtime_utilities.injector.Injector;\n" +
             "import com.claro.runtime_utilities.injector.Key;\n" +

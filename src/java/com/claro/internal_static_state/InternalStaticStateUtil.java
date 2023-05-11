@@ -76,6 +76,10 @@ public class InternalStaticStateUtil {
   public static String ComprehensionExpr_nestedComprehensionMappedItemName;
   public static HashSet<String> ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
   public static boolean LoopingConstructs_withinLoopingConstructBody = false;
+  public static final HashBasedTable<String, String, Type> HttpServiceDef_endpointProcedureSignatures =
+      HashBasedTable.create();
+  public static HashSet<String> HttpServiceDef_servicesWithValidEndpointHandlersDefined = Sets.newHashSet();
+  public static HashBasedTable<String, String, String> HttpServiceDef_endpointPaths = HashBasedTable.create();
 
   // This function allows IdentifierReferenceterm to add any referenced vars so that the codegen for the outermost
   // collection can create a class that collects the referenced variables in order to workaround Java's effectively

@@ -39,7 +39,7 @@ public class GetHttpClientExpr extends Expr {
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     if (!this.assertedHttpServiceName.isPresent()) {
-      this.baseUrl.logTypeError(
+      this.logTypeError(
           ClaroTypeException.forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(
               "getHttpClient", GetHttpClientExpr.GENERIC_PROCEDURE_TYPE));
       return Types.UNKNOWABLE;

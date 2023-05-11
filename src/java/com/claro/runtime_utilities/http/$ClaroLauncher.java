@@ -40,7 +40,6 @@ abstract class $ClaroLauncher {
   }
 
   private void startEventLoop() {
-    System.out.println("TESTING!! STARTING EVENT LOOP");
     Executors.defaultThreadFactory().newThread(() -> {
       eventloop.keepAlive(true);
       eventloop.run();
@@ -48,7 +47,6 @@ abstract class $ClaroLauncher {
   }
 
   private void stopEventLoop() {
-    System.out.println("TESTING!! STOPPING EVENT LOOP");
     Thread eventloopThread = eventloop.getEventloopThread();
     if (eventloopThread == null) {
       // already stopped

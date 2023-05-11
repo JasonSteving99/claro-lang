@@ -132,9 +132,7 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
 
   private static StringBuilder getCallGraphAsyncImplJavaSourceOutput(
       String graphFunctionName, GraphNodeDefinitionStmt rootNode) {
-    return new StringBuilder("new $")
-        .append(graphFunctionName)
-        .append("_graphAsyncImpl().$")
+    return new StringBuilder("new $GraphAsyncImpl().$")
         .append(rootNode.nodeName)
         .append("_nodeAsync(")
         .append(
@@ -293,9 +291,7 @@ public class GraphProcedureDefinitionStmt extends ProcedureDefinitionStmt {
     // called multiple times concurrently without the cache being accidentally reused.
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder()
-            .append("\tprivate static class $")
-            .append(this.procedureName)
-            .append("_graphAsyncImpl {\n"));
+            .append("\tprivate static class $GraphAsyncImpl {\n"));
 
     res = res.createMerged(rootNode.generateJavaSourceOutput(scopedHeap));
     for (GraphNodeDefinitionStmt node : nonRootNodes) {

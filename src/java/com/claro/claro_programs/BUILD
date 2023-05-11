@@ -165,6 +165,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "http_server",
+    srcs = [":http_server_lib"],
+    java_name = "http_server",
+)
+
+claro_library(
+    name = "http_server_lib",
+    src = "http_server.claro",
+)
+
+claro_binary(
     name = "immutability_vs_mutability",
     srcs = [":immutability_vs_mutability_lib"],
     java_name = "immutability_vs_mutability",

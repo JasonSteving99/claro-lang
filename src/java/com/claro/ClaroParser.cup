@@ -326,7 +326,7 @@ terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
 terminal LexedValue<String>  CAST;
-terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT;
+terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -448,8 +448,11 @@ nonterminal BindStmt                           bind_stmt;
 nonterminal UsingBlockStmt                     using_block_stmt;
 nonterminal Symbol/*ImmutableList.Builder<InjectedKey>*/ injected_keys_list;
 nonterminal HttpServiceDefStmt                 http_service_def_stmt;
-nonterminal ImmutableMap.Builder<IdentifierReferenceTerm, FormatStringExpr> http_endpoints_list;
+nonterminal ImmutableMap.Builder<IdentifierReferenceTerm, Object/*oneof<String, FormatStringExpr>*/> http_endpoints_list;
+nonterminal EndpointHandlersBlockStmt          endpoint_handlers_block_stmt;
+nonterminal ImmutableList.Builder<GraphProcedureDefinitionStmt> endpoint_handler_impl_graphs_list;
 nonterminal GetHttpClientExpr                  get_http_client_expr;
+nonterminal GetHttpServerExpr                  get_basic_http_server_for_port_expr;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -601,6 +604,8 @@ stmt ::=
     {: RESULT = p; :}
   | http_service_def_stmt:h
     {: RESULT = h; :}
+  | endpoint_handlers_block_stmt:e
+    {: RESULT = e; :}
   | sleep:s
     {: RESULT = s; :}
   ;
@@ -1189,6 +1194,32 @@ base_builtin_type_without_mutability_modifier ::=
             endCol - startCol)
        );
     :}
+  | HTTP_SERVER:f L_ANGLE_BRACKET:la builtin_type:wrapped R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> wrappedTypeProvider = (LexedValue<TypeProvider>) wrapped.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.currentInputLine, fright), new Line(la.currentInputLine, laright), new Line(wrappedTypeProvider.currentInputLine, wrapped.right), new Line(ra.currentInputLine, raright));
+       int startCol = min(fleft, laleft, wrapped.left, raleft);
+       int endCol = max(fleft + f.len, laleft + la.len, wrapped.left + wrappedTypeProvider.len, raleft + ra.len);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          new LexedValue(
+            (TypeProvider) (scopedHeap) -> {
+              Type resolvedHttpServiceType = wrappedTypeProvider.val.resolveType(scopedHeap);
+              if (!resolvedHttpServiceType.baseType().equals(BaseType.HTTP_SERVICE)) {
+                throw new RuntimeException(
+                  ClaroTypeException.forIllegalHttpServerTypeWithNonHttpServiceParameterizedType(resolvedHttpServiceType)
+                );
+              }
+              return Types.HttpServerType.forHttpService(resolvedHttpServiceType);
+            },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   ;
 
 builtin_types_list ::=
@@ -1476,6 +1507,8 @@ expr ::=
        RESULT = new CastExpr(((LexedValue<TypeProvider>)asserted_type.value).val, casted_expr, currentLinesSupplier, casted_expr.currentLineNumber, startCol, endCol);
     :}
   | get_http_client_expr:g
+    {: RESULT = g; :}
+  | get_basic_http_server_for_port_expr:g
     {: RESULT = g; :}
   | error:e
     // TODO(steving) This is super helpful, do the same thing for stmts.
@@ -3514,14 +3547,38 @@ http_endpoints_list ::=
 
        RESULT = tail.put(endpoint_name, pathFmtStringExpr);
     :}
+  | identifier:endpoint_name COLON STRING:path COMMA http_endpoints_list:tail
+    {:
+      RESULT = tail.put(endpoint_name, path.val);
+    :}
   | identifier:endpoint_name COLON fmt_string:path
     {:
        LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
        ImmutableList<ImmutableList.Builder> fs = fsLexedValue.val;
        FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.currentInputLine, path.right, path.left, path.left + fsLexedValue.len);
 
-       RESULT = ImmutableMap.<IdentifierReferenceTerm, FormatStringExpr>builder().put(endpoint_name, pathFmtStringExpr);
+       RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, pathFmtStringExpr);
     :}
+  | identifier:endpoint_name COLON STRING:path
+    {:
+       RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, path.val);
+    :}
+  ;
+
+endpoint_handlers_block_stmt ::=
+    ENDPOINT_HANDLERS identifier:service LCURLY endpoint_handler_impl_graphs_list:endpoint_impls RCURLY
+    {: RESULT = new EndpointHandlersBlockStmt(service, endpoint_impls.build().reverse()); :}
+  ;
+
+endpoint_handler_impl_graphs_list ::=
+    graph_function_definition_stmt:g endpoint_handler_impl_graphs_list:tail
+    {: RESULT = tail.add(g); :}
+  | graph_provider_definition_stmt:g endpoint_handler_impl_graphs_list:tail
+    {: RESULT = tail.add(g); :}
+  | graph_function_definition_stmt:g
+    {: RESULT = ImmutableList.<GraphProcedureDefinitionStmt>builder().add(g); :}
+  | graph_provider_definition_stmt:g
+    {: RESULT = ImmutableList.<GraphProcedureDefinitionStmt>builder().add(g); :}
   ;
 
 get_http_client_expr ::=
@@ -3531,6 +3588,16 @@ get_http_client_expr ::=
        int startCol = min(gleft, lleft, base_url.startCol, rleft);
        int endCol = max(gleft + g.len, lleft + l.len, base_url.endCol, rleft + r.len);
        RESULT = new GetHttpClientExpr(base_url, currentLinesSupplier, rright, startCol, endCol);
+    :}
+  ;
+
+get_basic_http_server_for_port_expr ::=
+    GET_BASIC_HTTP_SERVER_FOR_PORT:g LPAR:l expr:port RPAR:r
+    {:
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(g.currentInputLine, gright), new Line(l.currentInputLine, lright), new Line(port), new Line(r.currentInputLine, rright));
+       int startCol = min(gleft, lleft, port.startCol, rleft);
+       int endCol = max(gleft + g.len, lleft + l.len, port.endCol, rleft + r.len);
+       RESULT = new GetHttpServerExpr(port, currentLinesSupplier, rright, startCol, endCol);
     :}
   ;
 

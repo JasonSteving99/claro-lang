@@ -10,13 +10,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
 
+import java.util.Map;
+
 public class StdLibUtil {
 
   public static ImmutableList<Stmt> registerIdentifiers(ScopedHeap scopedHeap) {
-    for (Table.Cell<String, Type, Types.ProcedureType.ProcedureWrapper> stdLibProcedure
+    for (Table.Cell<String, Type, Object> stdLibProcedure
         : StdLibRegistry.stdLibProcedureTypes.cellSet()) {
-      registerStdLibProcedure(
-          scopedHeap, stdLibProcedure.getRowKey(), stdLibProcedure.getColumnKey(), stdLibProcedure.getValue());
+      registerStdLibSymbolTableEntry(
+          scopedHeap,
+          stdLibProcedure.getRowKey(),
+          stdLibProcedure.getColumnKey(),
+          stdLibProcedure.getValue(),
+          /*isTypeDef=*/false
+      );
+    }
+    for (Map.Entry<String, Type> stdLibTypeDef : StdLibRegistry.stdLibTypeDefs.entrySet()) {
+      registerStdLibSymbolTableEntry(
+          scopedHeap, stdLibTypeDef.getKey(), stdLibTypeDef.getValue(), null, /*isTypeDef=*/true);
     }
 
     // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
@@ -44,22 +55,22 @@ public class StdLibUtil {
     );
   }
 
-  private static void registerStdLibProcedure(
-      ScopedHeap scopedHeap,
-      String procedureName,
-      Type procedureType,
-      Types.ProcedureType.ProcedureWrapper procedureWrapper) {
+  private static void registerStdLibSymbolTableEntry(
+      ScopedHeap scopedHeap, String symbolName, Type type, Object value, boolean isTypeDef) {
     // Validate that this is not a redeclaration of an identifier.
     Preconditions.checkState(
-        !scopedHeap.isIdentifierDeclared(procedureName),
+        !scopedHeap.isIdentifierDeclared(symbolName),
         String.format(
-            "Internal Compiler Error: Unexpected redeclaration of std-lib procedure %s %s.",
-            procedureType,
-            procedureName
+            "Internal Compiler Error: Unexpected redeclaration of std-lib entry %s %s.",
+            symbolName,
+            type
         )
     );
 
     // Finally mark the function declared and initialized within the original calling scope.
-    scopedHeap.putIdentifierValue(procedureName, procedureType, procedureWrapper);
+    scopedHeap.putIdentifierValue(symbolName, type, value);
+    if (isTypeDef) {
+      scopedHeap.markIdentifierAsTypeDefinition(symbolName);
+    }
   }
 }

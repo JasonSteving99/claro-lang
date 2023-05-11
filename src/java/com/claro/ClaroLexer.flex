@@ -247,10 +247,13 @@ WhiteSpace     = [ \t\f]
 
     "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
 
-     // HTTP request related symbols here.
+     // Symbols related to builtin HTTP support go here.
      "HttpService"     { return symbol(Calc.HTTP_SERVICE, 0, 11, "HttpService"); }
      "HttpClient"      { return symbol(Calc.HTTP_CLIENT, 0, 10, "HttpClient"); }
      "getHttpClient"   { return symbol(Calc.GET_HTTP_CLIENT, 0, 13, "getHttpClient"); }
+     "getBasicHttpServerForPort"  { return symbol(Calc.GET_BASIC_HTTP_SERVER_FOR_PORT, 0, 25, "getBasicHttpServerForPort"); }
+     "HttpServer"      { return symbol(Calc.HTTP_SERVER, 0, 10, "HttpServer"); }
+     "endpoint_handlers" { return symbol(Calc.ENDPOINT_HANDLERS, 0, 17, "endpoint_handlers"); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

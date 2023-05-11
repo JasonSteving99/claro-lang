@@ -19,6 +19,10 @@ alias MoveResponse : struct {
   reason: oneof<string, NothingType>,
   result: struct {
     players: { string : struct { x: int, y: int } },
+    dimensions: struct {
+      height: int,
+      width: int
+    },
     world: { string: string }, # E.g. ("0,6": "wall")
     you: struct {
       handle: string,

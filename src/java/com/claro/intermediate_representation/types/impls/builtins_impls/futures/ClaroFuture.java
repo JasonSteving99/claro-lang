@@ -79,7 +79,7 @@ public class ClaroFuture<T> implements ClaroBuiltinTypeImplementation, Listenabl
   //  example.
   public static class Panic extends RuntimeException {
     public Panic(Exception cause) {
-      super("Panic! Unexpected error occurred while resolving a future<>.", cause);
+      super(cause);
     }
   }
 }

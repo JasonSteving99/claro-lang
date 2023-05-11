@@ -1,5 +1,10 @@
 package com.claro.runtime_utilities.http;
 
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;
+import com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse;
+import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -10,14 +15,38 @@ import io.activej.http.*;
 import io.activej.promise.SettablePromise;
 
 import java.net.InetSocketAddress;
-import java.time.Duration;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class $ClaroHttpServer extends $ClaroLauncher {
-  // TODO(steving) TESTING!! Unnecessary
-  private static final ScheduledExecutorService SCHEDULED_EXECUTOR = Executors.newScheduledThreadPool(50);
+
+  public static final HttpMethod GET = HttpMethod.GET;
+
+  public static ClaroConsumerFunction<$ClaroHttpServer> startServerAndAwaitShutdown =
+      new ClaroConsumerFunction<$ClaroHttpServer>() {
+        @Override
+        public void apply(Object... args) {
+          try {
+            startServerAndAwaitShutdownImpl(($ClaroHttpServer) args[0]);
+          } catch (Exception e) {
+            throw new ClaroFuture.Panic(e);
+          }
+        }
+
+        @Override
+        public Type getClaroType() {
+          return Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+              ImmutableList.of(Types.HttpServerType.forHttpService(Types.$GenericTypeParam.forTypeParamName("T"))),
+              /*explicitlyAnnotatedBlocking=*/false,
+              /*optionalAnnotatedBlockingGenericOverArgs=*/Optional.empty(),
+              Optional.of(ImmutableList.of("T"))
+          );
+        }
+      };
+
+  public static void startServerAndAwaitShutdownImpl($ClaroHttpServer server) throws Exception {
+    server.launch();
+  }
 
   public $ClaroHttpServer(AsyncServlet routingServlet, InetSocketAddress serverAddress) {
     super(
@@ -33,80 +62,9 @@ public class $ClaroHttpServer extends $ClaroLauncher {
     awaitShutdown();
   }
 
-  // TODO(steving) TESTING!!! This is all totally just testing. These methods will of course instead be replaced
-  //   by calls to actual user logic.
-  private static ListenableFuture<HttpResponse> getRootEndpointResponse(
-      ScheduledExecutorService scheduledExecutorService, HttpRequest unused) {
-    return Futures.scheduleAsync(
-        () -> Futures.immediateFuture(
-            HttpResponse.ok200()
-                .withHtml(
-                    "<!DOCTYPE html>\n" +
-                    "<html>\n" +
-                    "<head>\n" +
-                    "  <title>List of Links</title>\n" +
-                    "</head>\n" +
-                    "<body>\n" +
-                    "  <h1>Site Directory</h1>\n" +
-                    "  <ul>\n" +
-                    "    <li><a href=\"/page1\">Page 1</a></li>\n" +
-                    "    <li><a href=\"/page2\">Page 2</a></li>\n" +
-                    "    <li><a href=\"/page3\">Page 3 (will intentionally cause internal server error)</a></li>\n" +
-                    "    <li><a href=\"/page4\">Page 4 (will return JSON)</a></li>\n" +
-                    "  </ul>\n" +
-                    "</body>\n" +
-                    "</html>\n"
-                )
-        ),
-        Duration.ofSeconds(1),
-        scheduledExecutorService
-    );
-  }
-
-  // TODO(steving) TESTING!!! This is all totally just testing. These methods will of course instead be replaced
-  //   by calls to actual user logic.
-  private static ListenableFuture<HttpResponse> getPageResponse(int pageNum, HttpRequest unused) {
-    if (pageNum == 3) {
-      // Intentionally throw runtime exception to see what happens.
-      return Futures.immediateFailedFuture(new RuntimeException("TESTING!!! CAUSING RUNTIME EXCEPTION!"));
-    }
-    return Futures.immediateFuture(
-        HttpResponse.ok200()
-            .withHtml(
-                "<!DOCTYPE html>\n" +
-                "<html>\n" +
-                "<head>\n" +
-                "  <title>List of Links</title>\n" +
-                "</head>\n" +
-                "<body>\n" +
-                "  <h1>You made it to page " + pageNum + "!</h1>\n" +
-                "  <ul>\n" +
-                "    <li><a href=\"/\">Go Back to Home</a></li>\n" +
-                "  </ul>\n" +
-                "</body>\n" +
-                "</html>\n"
-            )
-    );
-  }
-
-  // TODO(steving) TESTING!!! This is all totally just testing. These methods will of course instead be replaced
-  //   by calls to actual user logic.
-  private static ListenableFuture<HttpResponse> getJSONResponse(HttpRequest unused) {
-    return Futures.immediateFuture(
-        HttpResponse.ok200().withJson(
-            "{" +
-            "  \"Field 1\": \"This is arbitrary Json.\"," +
-            "  \"Field 2\": 99" +
-            "}"
-        )
-    );
-  }
-
-  private static AsyncServlet getBasicAsyncServlet(
-      String endpoint, Function<HttpRequest, ListenableFuture<HttpResponse>> endpointHandler) {
+  public static AsyncServlet getBasicAsyncServlet(
+      String endpoint, Function<HttpRequest, ListenableFuture<? extends $ClaroHttpResponse>> endpointHandler) {
     return request -> {
-      // TODO(steving) TESTING!!! This is all totally just testing. Drop the prints.
-      System.out.println("GOT REQUEST! AT ENDPOINT: " + endpoint);
       SettablePromise<HttpResponse> promise = new SettablePromise<>();
       Futures.addCallback(
           endpointHandler.apply(request),
@@ -117,42 +75,16 @@ public class $ClaroHttpServer extends $ClaroLauncher {
     };
   }
 
-  // TODO(steving) TESTING!! DROP THE MAIN METHOD
-  public static void main(String[] args) throws Exception {
-    $ClaroHttpServer launcher = new $ClaroHttpServer(
-        RoutingServlet.create()
-            .map(
-                HttpMethod.GET,
-                "/",
-                getBasicAsyncServlet("/", httpRequest -> getRootEndpointResponse(SCHEDULED_EXECUTOR, httpRequest))
-            )
-            .map(
-                HttpMethod.GET,
-                "/page1",
-                getBasicAsyncServlet("/page1", httpRequest -> getPageResponse(1, httpRequest))
-            )
-            .map(
-                HttpMethod.GET,
-                "/page2",
-                getBasicAsyncServlet("/page2", httpRequest -> getPageResponse(2, httpRequest))
-            )
-            .map(
-                HttpMethod.GET,
-                "/page3",
-                getBasicAsyncServlet("/page3", httpRequest -> getPageResponse(3, httpRequest))
-            )
-            .map(
-                HttpMethod.GET,
-                "/page4",
-                getBasicAsyncServlet("/page4", httpRequest -> getJSONResponse(httpRequest))
-            ),
-        new InetSocketAddress(8080)
-    );
-    launcher.launch();
+  public static RoutingServlet getRoutingServlet() {
+    return RoutingServlet.create();
+  }
+
+  public static InetSocketAddress getInetSocketAddressForPort(int port) {
+    return new InetSocketAddress(port);
   }
 }
 
-class $ClaroHttpEndpointResultHandler implements FutureCallback<HttpResponse> {
+class $ClaroHttpEndpointResultHandler implements FutureCallback<$ClaroHttpResponse> {
   private final SettablePromise<HttpResponse> promise;
 
   $ClaroHttpEndpointResultHandler(SettablePromise<HttpResponse> promise) {
@@ -160,8 +92,8 @@ class $ClaroHttpEndpointResultHandler implements FutureCallback<HttpResponse> {
   }
 
   @Override
-  public void onSuccess(HttpResponse httpResponse) {
-    promise.set(httpResponse);
+  public void onSuccess($ClaroHttpResponse claroHttpResponse) {
+    promise.set(claroHttpResponse.getHttpResponse());
   }
 
   @Override
