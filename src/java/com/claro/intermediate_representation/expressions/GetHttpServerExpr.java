@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class GetHttpServerExpr extends Expr {
   private final Expr portNumber;
@@ -94,11 +95,16 @@ public class GetHttpServerExpr extends Expr {
                     "\n\t\t\t.map(" +
                     "\n\t\t\t\t$ClaroHttpServer.GET," +
                     "\n\t\t\t\t\"%s\"," +
-                    "\n\t\t\t\t$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply())" +
+                    "\n\t\t\t\t$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply(%s))" +
                     "\n\t)",
                     e.getValue(),
                     e.getValue(),
-                    e.getKey()
+                    e.getKey(),
+                    e.getValue().contains(":")
+                    ? getPathParams(e.getValue()).stream()
+                        .map(p -> String.format("httpRequest.getPathParameter(\"%s\")", p))
+                        .collect(Collectors.joining(", "))
+                    : ""
                 ))
         .forEach(res.javaSourceBody()::append);
     res.javaSourceBody()
@@ -107,6 +113,19 @@ public class GetHttpServerExpr extends Expr {
     res.javaSourceBody().append(")\n\t)");
 
     return res;
+  }
+
+  private static ImmutableList<String> getPathParams(String path) {
+    int i = 0;
+    ImmutableList.Builder<String> res = ImmutableList.builder();
+    while (++i < path.length()) {
+      if (path.charAt(i) == ':') {
+        int paramStart = ++i;
+        while (++i < path.length() && path.charAt(i) != '/') ; // Cute.
+        res.add(path.substring(paramStart, i));
+      }
+    }
+    return res.build();
   }
 
   @Override

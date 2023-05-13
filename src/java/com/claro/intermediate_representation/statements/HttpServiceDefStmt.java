@@ -123,7 +123,7 @@ public class HttpServiceDefStmt extends Stmt {
                 ((FormatStringExpr) endpoint.getValue()).fmtExprArgs.stream()
                     .map(unused -> Types.STRING)
                     .collect(ImmutableList.toImmutableList()),
-                Types.FutureType.wrapping(Types.UserDefinedType.forTypeName("HttpResponse")),
+                Types.FutureType.wrapping(Types.HTTP_RESPONSE),
                 /*explicitlyAnnotatedBlocking=*/false
             )
         );
@@ -186,15 +186,25 @@ public class HttpServiceDefStmt extends Stmt {
     // register the corresponding endpoint handlers.
     this.endpoints.forEach(
         (key, value) -> {
+          StringBuilder formattedPathStr = null;
           if (value instanceof FormatStringExpr) {
-            // TODO(steving) TESTING! Support Path Queries!
-            System.err.println("TESTING!!! Internal Compiler Error: Path queries not yet supported!");
-            return;
+            formattedPathStr = new StringBuilder();
+            FormatStringExpr fmt = (FormatStringExpr) value;
+            int i;
+            for (i = 0; i < fmt.fmtExprArgs.size(); i++) {
+              formattedPathStr
+                  .append(fmt.fmtStringParts.get(i))
+                  .append(':')
+                  .append(((IdentifierReferenceTerm) fmt.fmtExprArgs.get(i)).identifier);
+            }
+            if (i < fmt.fmtStringParts.size()) {
+              formattedPathStr.append(fmt.fmtStringParts.get(i));
+            }
           }
           InternalStaticStateUtil.HttpServiceDef_endpointPaths.put(
               this.serviceName.identifier,
               key.identifier,
-              (String) value
+              formattedPathStr == null ? (String) value : formattedPathStr.toString()
           );
         });
   }
@@ -212,9 +222,10 @@ public class HttpServiceDefStmt extends Stmt {
           finalRes.optionalStaticDefinitions().get()
               .append("\t@GET(\"");
           if (e.getValue() instanceof FormatStringExpr) {
+            FormatStringExpr fmt = (FormatStringExpr) e.getValue();
             Streams.forEachPair(
-                ((FormatStringExpr) e.getValue()).fmtStringParts.stream(),
-                ((FormatStringExpr) e.getValue()).fmtExprArgs.stream(),
+                fmt.fmtStringParts.stream(),
+                fmt.fmtExprArgs.stream(),
                 (fmtStringPart, fmtArgPart) ->
                     finalRes.optionalStaticDefinitions().get()
                         .append(fmtStringPart)
@@ -222,6 +233,9 @@ public class HttpServiceDefStmt extends Stmt {
                         .append(((IdentifierReferenceTerm) fmtArgPart).identifier)
                         .append("}")
             );
+            if (fmt.fmtStringParts.size() > fmt.fmtExprArgs.size()) {
+              finalRes.optionalStaticDefinitions().get().append(fmt.fmtStringParts.get(fmt.fmtStringParts.size() - 1));
+            }
           } else {
             finalRes.optionalStaticDefinitions().get().append(e);
           }
