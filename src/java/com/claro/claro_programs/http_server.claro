@@ -5,10 +5,6 @@ HttpService MyDemoService {
   gameMove: "/game/{gameId}/player/{secret}/{dir}",
   getBestMoves: "/game/{gameId}/player/{secret}/getBestMoves",
   resetGame: "/game/{gameId}/player/{secret}/reset"
-
-  # TODO(steving) Support the following format by generating this corresponding contract procedure signature:
-  # TODO(steving)     graph function page5(userInput: string) -> future<HttpResponse>;
-  # page5: "/page5/{userInput}"
 }
 
 ########################################################################################################################
