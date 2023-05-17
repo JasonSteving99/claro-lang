@@ -334,6 +334,7 @@ terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ProgramNode                        program;
 nonterminal Expr                               expr;
+nonterminal Expr                               non_lambda_exprs;
 nonterminal ParenthesizedExpr                  parenthesized_expr;
 nonterminal Symbol/*ImmutableList<ImmutableList.Builder>*/  fmt_string;
 nonterminal Term                               term;
@@ -427,9 +428,9 @@ nonterminal PipeChainStmt                      pipe_chain_stmt;
 //  need to reference a generated identifier for an intermediate temporary.
 nonterminal ImmutableList<Object>              pipe_chain;
 nonterminal ReturnStmt                         return_stmt;
-nonterminal FunctionCallExpr                   function_call_expr;
-nonterminal ProviderFunctionCallExpr           provider_function_call_expr;
-nonterminal ConsumerFunctionCallStmt           consumer_function_call_stmt;
+nonterminal /*(FirstClass)?FunctionCall*/Expr  function_call_expr;
+nonterminal /*(FirstClass)?ProviderFunctionCall*/Expr provider_function_call_expr;
+nonterminal /*(FirstClass)?ConsumerFunctionCall*/Stmt consumer_function_call_stmt;
 nonterminal InputExpr                          input;
 nonterminal IsInputReadyExpr                   is_input_ready;
 nonterminal Expr/*BoolExpr*/                   bool_expr;
@@ -456,6 +457,7 @@ nonterminal GetHttpServerExpr                  get_basic_http_server_for_port_ex
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence left ARROW;
 precedence left INSTANCEOF;
 precedence left IN;
 precedence left COMMA;
@@ -1360,9 +1362,18 @@ list_remove_expr ::=
     :}
   ;
 
-// In reality, right now expr is taking on multiple types and this is unchecked. Runtime failures are allowed in this
-// language at the moment. Fix this later, for now, explicit casting between bool and number have to be done carefully.
+// In order to support function calls w/in single-expr lambda bodies w/o making the grammar think that it has reached
+// the end of the lambda at the first occurrence of `(` in the expr body I am making a separate grammar production for
+// "all of the exprs including lambdas" and "all of the exprs not including lambdas" so that function application can be
+// restricted to not work on lambdas right away. Solves the ambiguity in a minimally annoying way. To immediately call a
+// lambda you'd need to wrap the lambda in parens or something.
 expr ::=
+    non_lambda_exprs:e
+    {: RESULT = e; :}
+  | lambda_function_expr:lf
+    {: RESULT = lf; :}
+  ;
+non_lambda_exprs ::=
     MINUS:m expr:e
     {:
        Supplier<String> currentLinesSupplier =
@@ -1478,8 +1489,6 @@ expr ::=
     {: RESULT = t; :}
   | function_call_expr:f
     {: RESULT = f; :}
-  | lambda_function_expr:lf
-    {: RESULT = lf; :}
   | typed_lambda_function_expr:tlf
     {: RESULT = tlf; :}
   | provider_function_call_expr:pf
@@ -3398,49 +3407,80 @@ pipe_chain ::=
   ;
 
 function_call_expr ::=
-    IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+    non_lambda_exprs:function LPAR:l args_list:args RPAR:r
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
-       int startCol = min(function_nameleft, lleft, args.left, rleft);
-       int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
-       RESULT = new FunctionCallExpr(function_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
+       int startCol = min(function.startCol, lleft, args.left, rleft);
+       int endCol = max(function.endCol, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
+       if (function instanceof IdentifierReferenceTerm) {
+         // Here, we may actually need to do some more complex handling of generic functions or something like a user-defined-type constructor.
+         RESULT = new FunctionCallExpr(((IdentifierReferenceTerm) function).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+       } else {
+         RESULT = new FirstClassFunctionCallExpr(function, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+       }
     :}
-  | IDENTIFIER:contract_name COLON_COLON IDENTIFIER:function_name LPAR:l args_list:args RPAR:r
+  | identifier:contract_name COLON_COLON:c identifier:function_name LPAR:l args_list:args RPAR:r
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(function_name.currentInputLine, function_nameright), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
-       int startCol = min(function_nameleft, lleft, args.left, rleft);
-       int endCol = max(function_nameleft + function_name.len, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.currentInputLine, cright), new Line(function_name), new Line(l.currentInputLine, lright), new Line(args), new Line(r.currentInputLine, rright));
+       int startCol = min(contract_name.startCol, cleft, function_name.startCol, lleft, args.left, rleft);
+       int endCol = max(contract_name.endCol, cleft + c.len, function_name.endCol, lleft + l.len, args.left + ((LexedValue)args.value).len, rleft + r.len);
        RESULT =
         new ContractFunctionCallExpr(
-          contract_name.val,
-          function_name.val,
+          ((IdentifierReferenceTerm) contract_name).identifier,
+          contract_name,
+          ((IdentifierReferenceTerm) function_name).identifier,
+          function_name,
           ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse(),
           currentLinesSupplier, rright, startCol, endCol);
     :}
   ;
 
 provider_function_call_expr ::=
-    IDENTIFIER:provider_name LPAR:l RPAR:r
+    non_lambda_exprs:provider_name LPAR:l RPAR:r
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(provider_name.currentInputLine, provider_nameright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
-       int startCol = min(provider_nameleft, lleft, rleft);
-       int endCol = max(provider_nameleft + provider_name.len, lleft + l.len, rleft + r.len);
-       RESULT = new ProviderFunctionCallExpr(provider_name.val, currentLinesSupplier, rright, startCol, endCol);
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(provider_name), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
+       int startCol = min(provider_name.startCol, lleft, rleft);
+       int endCol = max(provider_name.endCol, lleft + l.len, rleft + r.len);
+       if (provider_name instanceof IdentifierReferenceTerm) {
+         // Here, we may actually need to do some more complex handling of generic functions or something like a user-defined-type constructor.
+         RESULT = new ProviderFunctionCallExpr(((IdentifierReferenceTerm) provider_name).identifier, currentLinesSupplier, rright, startCol, endCol);
+       } else {
+         RESULT = new FirstClassProviderFunctionCallExpr(provider_name, currentLinesSupplier, rright, startCol, endCol);
+       }
     :}
-  | IDENTIFIER:contract_name COLON_COLON IDENTIFIER:provider_name LPAR:l RPAR:r
+  | identifier:contract_name COLON_COLON:c identifier:provider_name LPAR:l RPAR:r
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(provider_name.currentInputLine, provider_nameright), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
-       int startCol = min(provider_nameleft, lleft, rleft);
-       int endCol = max(provider_nameleft + provider_name.len, lleft + l.len, rleft + r.len);
-       RESULT = new ContractProviderFunctionCallExpr(contract_name.val, provider_name.val, currentLinesSupplier, rright, startCol, endCol);
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.currentInputLine, cright), new Line(provider_name), new Line(l.currentInputLine, lright), new Line(r.currentInputLine, rright));
+       int startCol = min(contract_name.startCol, cleft, provider_name.startCol, lleft, rleft);
+       int endCol = max(contract_name.endCol, cleft + c.len, provider_name.endCol, lleft + l.len, rleft + r.len);
+       RESULT = new ContractProviderFunctionCallExpr(
+         contract_name.identifier,
+         contract_name,
+         provider_name.identifier,
+         provider_name,
+         currentLinesSupplier, rright, startCol, endCol);
     :}
   ;
 
 consumer_function_call_stmt ::=
-    IDENTIFIER:consumer_name LPAR args_list:args RPAR SEMICOLON
-    {: RESULT = new ConsumerFunctionCallStmt(consumer_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse()); :}
-  | IDENTIFIER:contract_name COLON_COLON IDENTIFIER:consumer_name LPAR:l args_list:args RPAR:r SEMICOLON
-    {: RESULT = new ContractConsumerFunctionCallStmt(contract_name.val, consumer_name.val, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse()); :}
+    non_lambda_exprs:consumer_name LPAR args_list:args RPAR SEMICOLON
+    {:
+       if (consumer_name instanceof IdentifierReferenceTerm) {
+         // Here, we may actually need to do some more complex handling of generic functions or something like a user-defined-type constructor.
+         RESULT = new ConsumerFunctionCallStmt(((IdentifierReferenceTerm) consumer_name).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse());
+       } else {
+         RESULT = new FirstClassConsumerFunctionCallStmt(consumer_name, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse());
+       }
+    :}
+  | identifier:contract_name COLON_COLON identifier:consumer_name LPAR:l args_list:args RPAR:r SEMICOLON
+    {:
+       RESULT = new ContractConsumerFunctionCallStmt(
+         ((IdentifierReferenceTerm) contract_name).identifier,
+         contract_name,
+         ((IdentifierReferenceTerm) consumer_name).identifier,
+         consumer_name,
+         ((LexedValue<ImmutableList.Builder<Expr>>)args.value).val.build().reverse());
+    :}
   ;
 
 inequality ::=

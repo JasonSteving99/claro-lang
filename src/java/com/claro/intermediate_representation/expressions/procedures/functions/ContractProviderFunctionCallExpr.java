@@ -20,6 +20,8 @@ import java.util.function.Supplier;
 
 public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
   private final String contractName;
+  private final Expr contractNameForLogging;
+  private final Expr providerNameForLogging;
   private String referencedContractImplName;
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
@@ -28,13 +30,17 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
 
   public ContractProviderFunctionCallExpr(
       String contractName,
+      Expr contractNameForLogging,
       String providerName,
+      Expr providerNameForLogging,
       Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     // For now, we'll just masquerade as function name since we haven't resolved types yet. But we'll need to
     // canonicalize the name in a moment after type validation has gotten under way and types are known.
     super(providerName, currentLine, currentLineNumber, startCol, endCol);
 
     this.contractName = contractName;
+    this.contractNameForLogging = contractNameForLogging;
+    this.providerNameForLogging = providerNameForLogging;
   }
 
   @Override
@@ -175,7 +181,9 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
     AtomicReference<String> originalName_OUT_PARAM = new AtomicReference<>(this.originalName);
     try {
       ContractFunctionCallExpr.resolveContractType(
-          this.contractName, scopedHeap, resolvedContractType_OUT_PARAM, procedureName_OUT_PARAM, originalName_OUT_PARAM);
+          this.contractName, this.contractNameForLogging, this.providerNameForLogging, scopedHeap,
+          resolvedContractType_OUT_PARAM, procedureName_OUT_PARAM, originalName_OUT_PARAM
+      );
     } finally {
       // To simulate "out params" no matter what happens in this call, the side effects must occur.
       this.resolvedContractType = resolvedContractType_OUT_PARAM.get();

@@ -25,6 +25,9 @@ import java.util.stream.IntStream;
 
 public class ContractFunctionCallExpr extends FunctionCallExpr {
   private final String contractName;
+  private final Expr contractNameForLogging;
+  private final String procedureName;
+  private final Expr procedureNameForLogging;
   private String referencedContractImplName;
   private ImmutableList<Type> resolvedContractConcreteTypes;
   private Types.$Contract resolvedContractType;
@@ -42,7 +45,9 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
 
   public ContractFunctionCallExpr(
       String contractName,
+      Expr contractNameForLogging,
       String functionName,
+      Expr functionNameForLogging,
       ImmutableList<Expr> args,
       Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(
@@ -51,11 +56,17 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
         functionName, args, currentLine, currentLineNumber, startCol, endCol);
 
     this.contractName = contractName;
+    this.contractNameForLogging = contractNameForLogging;
+    this.procedureName = functionName;
+    this.procedureNameForLogging = functionNameForLogging;
   }
 
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type assertedOutputType) throws ClaroTypeException {
-    this.resolveContractType(scopedHeap);
+    if (!this.resolveContractType(scopedHeap)) {
+      // Some error message was already logged on the appropriate expr.
+      throw new ClaroTypeException(Types.UNKNOWABLE, assertedOutputType);
+    }
 
     // Before we do any type checking, we essentially want to disable worrying about exact matches on generic
     // type params. For a contract, we simply would want to know that the contract is listed in the requirements
@@ -139,7 +150,10 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     // We're handling both the case that this was called with a type statically asserted by the surrounding
     // context, and that it wasn't, so cleanup in the case that contract wasn't already looked up yet.
     if (this.resolvedContractType == null) {
-      this.resolveContractType(scopedHeap);
+      if (!this.resolveContractType(scopedHeap)) {
+        // Some error message was already logged on the appropriate expr.
+        return Types.UNKNOWABLE;
+      }
     }
 
     ContractDefinitionStmt contractDefinitionStmt =
@@ -154,12 +168,14 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
           // In this case the program is ambiguous when the return type isn't asserted. The output type of this particular
           // Contract procedure call happens to be composed around a Contract type param that is NOT present in one of the
           // other args, therefore making Contract Impl inference via the arg types alone impossible.
-          throw ClaroTypeException.forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
-              this.contractName,
-              contractDefinitionStmt.typeParamNames,
-              this.name,
-              contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
-          );
+          this.logTypeError(
+              ClaroTypeException.forContractProcedureCallWithoutRequiredContextualOutputTypeAssertion(
+                  this.contractName,
+                  contractDefinitionStmt.typeParamNames,
+                  this.name,
+                  contractProcedureSignatureDefinitionStmt.resolvedOutputType.get().toType()
+              ));
+          return Types.UNKNOWABLE;
         }
       } else if (!contractProcedureSignatureDefinitionStmt.resolvedOutputType.get()
           .getGenericContractTypeParamsReferencedByType()
@@ -562,14 +578,16 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     }
   }
 
-  private void resolveContractType(ScopedHeap scopedHeap) throws ClaroTypeException {
+  private boolean resolveContractType(ScopedHeap scopedHeap) {
     AtomicReference<Types.$Contract> resolvedContractType_OUT_PARAM =
         new AtomicReference<>(this.resolvedContractType);
     AtomicReference<String> procedureName_OUT_PARAM = new AtomicReference<>(this.name);
     AtomicReference<String> originalName_OUT_PARAM = new AtomicReference<>(this.originalName);
     try {
-      ContractFunctionCallExpr.resolveContractType(
-          this.contractName, scopedHeap, resolvedContractType_OUT_PARAM, procedureName_OUT_PARAM, originalName_OUT_PARAM);
+      return ContractFunctionCallExpr.resolveContractType(
+          this.contractName, this.contractNameForLogging, this.procedureNameForLogging, scopedHeap,
+          resolvedContractType_OUT_PARAM, procedureName_OUT_PARAM, originalName_OUT_PARAM
+      );
     } finally {
       // To simulate "out params" no matter what happens in this call, the side effects must occur.
       this.resolvedContractType = resolvedContractType_OUT_PARAM.get();
@@ -582,31 +600,36 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
   // to enable side effects to propagate to both callers. This hacked "out params" design is simply because Java doesn't
   // give me any language level mechanism for this single procedure to have the desired side effect on both types...
   // Claro will fix this by providing monomorphized generics over fields.
-  public static void resolveContractType(
+  public static boolean resolveContractType(
       String contractName,
+      Expr contractNameForLogging,
+      Expr procedureNameForLogging,
       ScopedHeap scopedHeap,
       // Java is garbage so there's no painless way to do anything resembling multiple returns, so instead here's this
       // gnarly hack. Taking in atomic refs so that I can simply use these as "out params" for lack of a better
       // mechanism w/ language support....
       AtomicReference<Types.$Contract> resolvedContractType_OUT_PARAM,
       AtomicReference<String> procedureName_OUT_PARAM,
-      AtomicReference<String> originalName_OUT_PARAM)
-      throws ClaroTypeException {
+      AtomicReference<String> originalName_OUT_PARAM) {
     // Validate that the contract name is valid.
     if (!scopedHeap.isIdentifierDeclared(contractName)) {
-      throw ClaroTypeException.forReferencingUnknownContract(contractName);
+      contractNameForLogging.logTypeError(ClaroTypeException.forReferencingUnknownContract(contractName));
+      return false;
     }
     Type contractType = scopedHeap.getValidatedIdentifierType(contractName);
     if (!contractType.baseType().equals(BaseType.$CONTRACT)) {
-      throw new ClaroTypeException(scopedHeap.getValidatedIdentifierType(contractName), BaseType.$CONTRACT);
+      contractNameForLogging.logTypeError(new ClaroTypeException(contractType, BaseType.$CONTRACT));
+      return false;
     }
     resolvedContractType_OUT_PARAM.set((Types.$Contract) contractType);
 
     // Validate that the referenced procedure name is even actually in the referenced contract.
     if (!resolvedContractType_OUT_PARAM.get().getProcedureNames().contains(
         originalName_OUT_PARAM.get() == null ? procedureName_OUT_PARAM.get() : originalName_OUT_PARAM.get())) {
-      throw ClaroTypeException.forContractReferenceUndefinedProcedure(
-          contractName, resolvedContractType_OUT_PARAM.get().getTypeParamNames(), procedureName_OUT_PARAM.get());
+      procedureNameForLogging.logTypeError(
+          ClaroTypeException.forContractReferenceUndefinedProcedure(
+              contractName, resolvedContractType_OUT_PARAM.get().getTypeParamNames(), procedureName_OUT_PARAM.get()));
+      return false;
     }
 
     // Ensure that we're starting off with a clean slate in regards to this.name being set to the original procedure
@@ -616,6 +639,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
       procedureName_OUT_PARAM.set(originalName_OUT_PARAM.get());
       originalName_OUT_PARAM.set(null);
     }
+    return true;
   }
 
   private static List<String> getAllDynamicDispatchConcreteContractProcedureNames(

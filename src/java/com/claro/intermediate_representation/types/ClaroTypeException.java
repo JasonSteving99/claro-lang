@@ -343,6 +343,24 @@ public class ClaroTypeException extends Exception {
       "\t\tendpoint_handlers %s {\n" +
       "%s\n" +
       "\t\t}";
+  private static final String UNEXPECTED_ARGS_PASSED_TO_PROVIDER_CALL =
+      "Unexpected Args Passed to Provider Call: Found %s args passed to no-arg Provider call.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String ILLEGAL_CONSUMER_CALL_USED_AS_EXPRESSION =
+      "Illegal Consumer Call Used as Expression: Calling a Consumer does not return a value, it cannot be used as an expression.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String FUNCTION_CALLED_WITH_WRONG_NUMBER_OF_ARGS =
+      "Illegal Function Call With Wrong Number of Args: The called %s was passed the wrong number of args.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s\n" +
+      "\t\tExpected:\n" +
+      "\t\t\t%s";
+  private static final String FUNCTION_CALL_RESULT_IGNORED =
+      "Illegally Ignoring Value Returned From Function Call: The result of call to %s must not be silently ignored.\n" +
+      "\t\tIf you really don't need to use the result, you may explicitly discard it using the \"trashcan operator\" (note this only makes sense if your function is side-effecting):\n" +
+      "\t\t\t_ = fnWhoseResultIWantToThrowAway(foo);";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1343,6 +1361,45 @@ public class ClaroTypeException extends Exception {
                         .collect(ImmutableList.toImmutableList())
                         .reverse()
                 )
+        )
+    );
+  }
+
+  public static ClaroTypeException forUnexpectedArgsPassedToProviderCall(Type providerFnType, int numArgs) {
+    return new ClaroTypeException(
+        String.format(
+            UNEXPECTED_ARGS_PASSED_TO_PROVIDER_CALL,
+            numArgs,
+            providerFnType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalConsumerCallUsedAsExpression(Type consumerFnType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_CONSUMER_CALL_USED_AS_EXPRESSION,
+            consumerFnType
+        )
+    );
+  }
+
+  public static ClaroTypeException forFunctionCallWithWrongNumberOfArgs(int argsCount, Type functionType, int actualArgsGiven) {
+    return new ClaroTypeException(
+        String.format(
+            FUNCTION_CALLED_WITH_WRONG_NUMBER_OF_ARGS,
+            functionType,
+            actualArgsGiven,
+            argsCount
+        )
+    );
+  }
+
+  public static ClaroTypeException forFunctionCallUsedAsStmt(Type functionType) {
+    return new ClaroTypeException(
+        String.format(
+            FUNCTION_CALL_RESULT_IGNORED,
+            functionType
         )
     );
   }

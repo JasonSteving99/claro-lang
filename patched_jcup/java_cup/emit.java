@@ -1,8 +1,8 @@
 package java_cup;
 
 import java.io.PrintWriter;
-import java.util.Stack;
 import java.util.Enumeration;
+import java.util.Stack;
 
 /**
  * This class handles emitting generated code for the resulting parser.
@@ -874,17 +874,21 @@ public class emit {
   // BY JASON STEVING: Also use StringBuilder instead of `+` to avoid Java's constant pool size limitation.
   private static int $do_table_as_string_doneWithSplit = 0;
   protected static int do_newline(PrintWriter out, String syntheticPrefixClassName, int nchar, int nbytes) {
-    if (nbytes % 30000 == 0) { // This is intentionally below Java's string constant pool size limit.
+    if (nbytes % 10000 == 0) { // This is intentionally below Java's string constant pool size limit.
       out.println("\").toString();\n}");
-      out.print  ("  private static class " + syntheticPrefixClassName);
-      out.print  (++$do_table_as_string_doneWithSplit);
+      out.print("  private static class " + syntheticPrefixClassName);
+      out.print(++$do_table_as_string_doneWithSplit);
       out.println(" {\n");
       out.println("    protected static final String $syntheticSplitPrefix = ");
-      out.println("      new StringBuilder(" + syntheticPrefixClassName +($do_table_as_string_doneWithSplit - 1) +".$syntheticSplitPrefix).append(");
-      out.print  ("      \"");
+      out.println("      new StringBuilder(" + syntheticPrefixClassName + ($do_table_as_string_doneWithSplit - 1) +
+                  ".$syntheticSplitPrefix).append(");
+      out.print("      \"");
+    } else if (nchar > 11) {
+      out.println("\" +");
+      out.print("    \"");
+    } else {
+      return nchar + 1;
     }
-    else if (nchar > 11) { out.println("\" +"); out.print("    \""); }
-    else return nchar+1;
     return 0;
   }
   // output an escape sequence for the given character code.
