@@ -28,3 +28,15 @@ print(m2);
 # Uncomment any of the following lines for a compile-time type error for invalid key type.
 #print(m2["foo"]);
 #m2[1] = 99;
+
+########################################################################################################################
+# DEMONSTRATE SUBSCRIPTING INTO A MAP PRODUCED VIA ARBITRARY EXPR
+#
+# Only interesting as a means of a test validating that this behavior is better supported than it once was where
+# previously the grammar was poorly constructed to only allow a limited set of lhs grammatical forms rather than
+# supporting any arbitrary Exprs of the correct type. This is necessary to validate that people can choose to package
+# maps (or lists) with data and utilize that data conveniently.
+########################################################################################################################
+
+var myStruct = {myMap = lambda () -> {int: string} { return {2: "four"}; }};
+print(myStruct.myMap()[2]);  # four

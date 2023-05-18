@@ -457,7 +457,8 @@ nonterminal GetHttpServerExpr                  get_basic_http_server_for_port_ex
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
-precedence left ARROW;
+precedence right ARROW;
+precedence right QUESTION_MARK_ASSIGNMENT;
 precedence left INSTANCEOF;
 precedence left IN;
 precedence left COMMA;
@@ -469,12 +470,14 @@ precedence left EQUALS, NOT_EQUALS;
 precedence left AND, OR, NOT;
 precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET, LTE, GTE;
 precedence left PLUS, MINUS;
+precedence left INCREMENT, DECREMENT;
 precedence left MULTIPLY, DIVIDE, MODULUS;
 precedence left EXPONENTIATE;
 precedence left LOG_PREFIX, IF, ELSE;
 precedence left WHILE, FOR, REPEAT, BREAK, WHERE;
 precedence left QUESTION_MARK_ASSIGNMENT;
 precedence left DOT;
+precedence left LPAR, RPAR, LBRACKET, RBRACKET;
 
 // This is where the grammar starts.
 program ::=
@@ -1817,35 +1820,9 @@ struct_field_assignment_stmt ::=
   ;
 
 collection_subscript ::=
-    // Support arbitrarily repeated subscripting. CollectionSubscriptExpr node will check that there's the right levels of
-    // nesting available for the given number of subscripts in this specific context.
-    collection_subscript:l LBRACKET:lb expr:e RBRACKET:rb
+    expr:l LBRACKET:lb expr:e RBRACKET:rb
     {:
        RESULT = constructCollectionSubscriptExpr(l, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | list:l LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(l, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | term:t LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(t, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(f, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | provider_function_call_expr:f LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(f, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | unwrap_expr:u LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(u, lb, lbleft, lbright, e, rb, rbleft, rbright);
-    :}
-  | parenthesized_expr:p LBRACKET:lb expr:e RBRACKET:rb
-    {:
-       RESULT = constructCollectionSubscriptExpr(p, lb, lbleft, lbright, e, rb, rbleft, rbright);
     :}
   ;
 
