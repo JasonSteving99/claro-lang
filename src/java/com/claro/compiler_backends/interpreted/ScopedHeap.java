@@ -80,11 +80,25 @@ public class ScopedHeap {
         identifier, type, value, optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1));
   }
 
+  public void putIdentifierValueAsTypeDef(String identifier, Type type, Object value) {
+    Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
+    putIdentifierValueAtLevel(
+        identifier, type, value, optionalIdentifierScopeLevel.orElse(scopeStack.size() - 1), /*isTypeDefinition=*/true);
+  }
+
   public void putIdentifierValueAtLevel(String identifier, Type type, Object value, int scopeLevel) {
+    putIdentifierValueAtLevel(identifier, type, value, scopeLevel, /*isTypeDefinition=*/false);
+  }
+
+  public void putIdentifierValueAtLevel(String identifier, Type type, Object value, int scopeLevel, boolean isTypeDefinition) {
+    IdentifierData identifierData = new IdentifierData(type, value, true);
+    if (isTypeDefinition) {
+      identifierData.isTypeDefinition = true;
+    }
     scopeStack
         .elementAt(scopeLevel)
         .scopedSymbolTable
-        .put(identifier, new IdentifierData(type, value, true));
+        .put(identifier, identifierData);
     if (value != null) {
       scopeStack.peek().initializedIdentifiers.add(identifier);
     }
@@ -230,9 +244,9 @@ public class ScopedHeap {
               ImmutableSet<BaseType> functionBaseTypes =
                   ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION);
               IdentifierData identifierData = currScope.scopedSymbolTable.get(identifier);
-              if ((functionBaseTypes.contains(identifierData.type.baseType()) &&
-                   functionBaseTypes.contains(identifierData.type.getPossiblyOverridenBaseType()))
-                  || identifierData.isTypeDefinition) {
+              if (identifierData.isTypeDefinition
+                  || (functionBaseTypes.contains(identifierData.type.baseType()) &&
+                      functionBaseTypes.contains(identifierData.type.getPossiblyOverridenBaseType()))) {
                 // In either of these cases, we should accept Function type references and Type definitions.
                 return Optional.of(scopeLevel);
               } else if (pastFunctionScopeBoundary.isPresent()) {

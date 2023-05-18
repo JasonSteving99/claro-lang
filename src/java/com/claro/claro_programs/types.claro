@@ -98,21 +98,32 @@ type(stringList2);
 
 var emptyIntList2: [int];
 emptyIntList2 = [];
-# emptyIntList2.append(i).append(2 * i).append(4 * i);
-# print(emptyIntList2 == intList2);
 print(emptyIntList2);
 type(emptyIntList2);
 
 var emptyFloatList2: [float];
 emptyFloatList2 = [];
-# emptyFloatList2.append(f).append(2 * f).append(4 * f);
-# print(emptyFloatList2 == floatList2);
 print(emptyFloatList2);
 type(emptyFloatList2);
 
 var emptyStringList2: [string];
 emptyStringList2 = [];
-# emptyStringList2.append(s).append(s).append(s);
-# print(emptyStringList2 == stringList);
 print(emptyStringList2);
 type(emptyStringList2);
+
+
+########################################################################################################################
+# DEMONSTRATE UTILIZING AN ALIAS TYPE DEF FROM WITHIN A PROCEDURE TEXTUALLY BEFORE IT'S DEFINITION
+#
+# This is only interesting as a test validating that prior limitations are worked out. Previously you couldn't reference
+# a top level alias definition within a procedure *unless* the Alias type had already been resolved by way of some usage
+# of the Alias type in some top-level stmt.
+########################################################################################################################
+
+provider doFoo() -> int {
+  var foo: Foo = -9000;
+  return foo;
+}
+alias Foo: int
+
+print(doFoo());

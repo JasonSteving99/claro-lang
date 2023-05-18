@@ -66,10 +66,12 @@ public interface TypeProvider {
               .ifPresent(
                   typeProvider -> {
                     // Replace the TypeProvider found in the symbol table with the actual resolved type.
-                    scopedHeap.putIdentifierValue(
-                        typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null);
                     if (isTypeDefinition) {
-                      scopedHeap.markIdentifierAsTypeDefinition(typeName);
+                      scopedHeap.putIdentifierValueAsTypeDef(
+                          typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null);
+                    } else {
+                      scopedHeap.putIdentifierValue(
+                          typeName, ((TypeProvider) typeProvider).resolveType(scopedHeap), null);
                     }
                   });
           // If this Type is getting referenced, it was used.

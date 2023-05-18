@@ -162,10 +162,6 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
   }
 }
 
-# TODO(steving) TESTING!!! This exists to workaround the scoping type resolution bug filed at:
-# TODO(steving)  https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C6
-provider dummyResolve() -> oneof<NothingType, MoveResponse> { return nothing; }
-
 blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, playerSecret: string, dir: string)
     -> oneof<[string], Error<string>> {
   # Make the HTTP req.
@@ -270,11 +266,6 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
 
 alias DistanceVia : struct {dist: int, via: oneof<Position, NothingType>}
 alias BestPath : [Position]
-
-# TODO(steving) TESTING!!! This exists to workaround the scoping type resolution bug filed at:
-# TODO(steving)  https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C6
-provider dummyResolve1() -> oneof<NothingType, DistanceVia> {return nothing;}
-provider dummyResolve2() -> oneof<NothingType, BestPath> {return nothing;}
 
 function dijkstra(world: {Position: string}, start: Position) -> BestPath {
   var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
