@@ -40,23 +40,20 @@ syntax match claroOperator "\v\>\="
 syntax match claroOperator "\v\<\="
 syntax match claroOperator "\v\=\="
 
-syntax match claroIdentifier "\v[a-zA-Z0-9]*"
-
-syntax match claroFunction "\v^[a-z][a-zA-Z0-9]*"
+syntax match claroIdentifier "\v^[a-zA-Z][_a-zA-Z0-9]*"
 
 syntax region claroComment start="#" end="\n"
 
 highlight link claroIdentifier Identifier
+highlight link claroFunction Identifier
 highlight link claroType Type
 highlight link claroCharacter Character
 highlight link claroNumber Number
 highlight link claroConstant Constant
 highlight link claroComment Comment
-highlight link claroFunction Function
 highlight link claroKeyword Keyword
 highlight link claroOperator Operator
 highlight link claroConditional Conditional
 highlight link claroRepeat Repeat
 
 let b:current_syntax = "claro"
-
