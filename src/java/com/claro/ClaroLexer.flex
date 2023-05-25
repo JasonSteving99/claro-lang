@@ -166,6 +166,8 @@ WhiteSpace     = [ \t\f]
     "|"                { return symbol(Calc.BAR, 0, 1, "|"); }
     "if"               { return symbol(Calc.IF, 0, 2, "if"); }
     "else"             { return symbol(Calc.ELSE, 0, 4, "else"); }
+    "match"            { return symbol(Calc.MATCH, 0, 5, "match"); }
+    "case"             { return symbol(Calc.CASE, 0, 4, "case"); }
     "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
     "for"              { return symbol(Calc.FOR, 0, 3, "for"); }
     "repeat"           { return symbol(Calc.REPEAT, 0, 6, "repeat"); }

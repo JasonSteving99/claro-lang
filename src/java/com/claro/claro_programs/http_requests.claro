@@ -80,29 +80,30 @@ var bestMoves: oneof<[string], NothingType> = nothing;
 while (true) {
   var parsedMove = parseMove(userInput);
 
-  if (parsedMove instanceof Error<string>) {
-    print(parsedMove);
-  } if (parsedMove instanceof Error<EndGame>) {
-    print("Good game!");
-    break;
-  } else if (parsedMove instanceof string) {
-    var response = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
-    if (response instanceof [string]) {
-      bestMoves = response;
-    }
-  } else if (parsedMove instanceof RepeatMove) {
-    var response: oneof<[string], Error<string>>;
-    repeat(unwrap(parsedMove).dist - 1) {
-      response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
-      if (response instanceof Error<string>) {
-        print(response);
-        break;
+  match (parsedMove) {
+    case string ->
+      var response = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
+      if (response instanceof [string]) {
+        bestMoves = response;
       }
-    }
-    response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
-    if (response instanceof [string]) {
-      bestMoves = response;
-    }
+    case RepeatMove ->
+      var response: oneof<[string], Error<string>>;
+      repeat(unwrap(parsedMove).dist - 1) {
+        response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
+        if (response instanceof Error<string>) {
+          print(response);
+          break;
+        }
+      }
+      response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
+      if (response instanceof [string]) {
+        bestMoves = response;
+      }
+    case Error<string> ->
+      print(parsedMove);
+    case Error<EndGame> ->
+      print("Good game!");
+      break;
   }
 
   userInput = input("Which direction do you want to move? (N/E/S/W): ");
@@ -117,37 +118,38 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
       print("Automatic move to: {bestMoves[i]}");
       sleep(50);
       var response <-| move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
-      if (response instanceof Error<string>) {
-        print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
-        break;
-      } else if (response instanceof string) {
-        if (unwrap(cast(ParsedJson<MoveResponse>, fromJson(response))).result instanceof Error<string>) {
-          if (retries >= 3) {
-            print("Retried too many times with no success! Ending game.");
-            break;
-          }
-          print(response);
-          var failedMoveResponseParsedJson: ParsedJson<FailedMovedResponse> = fromJson(response);
-          var failedMoveResponse = unwrap(failedMoveResponseParsedJson).result;
-          if (failedMoveResponse instanceof FailedMovedResponse) {
-            print("");
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            if (failedMoveResponse.reason == "throttled") {
-              # Here we actually got a throttle response, so we'll redo the latest move.
-              --i;
-              ++retries;
-              sleep(100);
-              print("!            GOT THROTTLED!            !");
-            } else {
-              print("!                ERROR!                !");
-              print("! REASON:                              !");
-              print("!   {failedMoveResponse.reason}");
+      match (response) {
+        case string ->
+          if (unwrap(cast(ParsedJson<MoveResponse>, fromJson(response))).result instanceof Error<string>) {
+            if (retries >= 3) {
+              print("Retried too many times with no success! Ending game.");
               break;
             }
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            print("");
+            print(response);
+            var failedMoveResponseParsedJson: ParsedJson<FailedMovedResponse> = fromJson(response);
+            var failedMoveResponse = unwrap(failedMoveResponseParsedJson).result;
+            if (failedMoveResponse instanceof FailedMovedResponse) {
+              print("");
+              print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+              if (failedMoveResponse.reason == "throttled") {
+                # Here we actually got a throttle response, so we'll redo the latest move.
+                --i;
+                ++retries;
+                sleep(100);
+                print("!            GOT THROTTLED!            !");
+              } else {
+                print("!                ERROR!                !");
+                print("! REASON:                              !");
+                print("!   {failedMoveResponse.reason}");
+                break;
+              }
+              print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+              print("");
+            }
           }
-        }
+        case Error<string> ->
+          print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
+          break;
       }
     }
     # For the last move, execute the move and update the best moves accordingly
@@ -248,6 +250,7 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
     # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
     var x: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(xstring))).result;
     var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
+    # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
     if ((x instanceof int) and (y instanceof int)) {
       return Position({x = x, y = y});
     }

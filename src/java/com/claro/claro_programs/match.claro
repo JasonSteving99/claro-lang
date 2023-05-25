@@ -1,0 +1,47 @@
+
+var i = 3;
+
+match (i) {
+  case 2  -> print("Found i = 2");
+  case 1 | 3 | 5  -> print("Found small odd number: {i}");
+  case 10 -> print("Found i = 10");
+  case _  -> print("Found unknown value: {i}");
+}
+
+var s = "foo";
+
+match (s) {
+  case "bar"  -> print("Found bar");
+  case "fizz" | "buzz" ->
+    print("Found one of the fizzbuzz strings");
+    print("\tIt's actual value is: {s}");
+  case _      -> print("Found unknown value: {s}");
+}
+
+var b = true;
+
+match (b) {
+  case true  -> print("True!");
+  case false -> print("False!");
+  # No default needed because above arms exhaustively cover all cases.
+}
+
+########################################################################################################################
+# DEMONSTRATE MATCHING OVER A ONEOF
+#
+# This is already a surprisingly powerful feature as this will be incredibly useful for doing error-handling as Claro
+# is built around Error<T> values rather than exceptions. So, for operations that may fail, it'll be a common pattern to
+# return a oneof<SuccessRes, Error<FailedRes>> and already, this match will enable very convenient exhaustive handling
+# of all errors.
+########################################################################################################################
+
+var intOrStr: oneof<int, string, boolean> = 10;
+
+match (intOrStr) {
+  case int ->
+    print("Found an int!");
+    var proveTypeIsNarrowed = intOrStr + 10;
+    print("I can even do math with it: intOrStr + 10 = {proveTypeIsNarrowed}");
+  case string -> print("Found a string!");
+  case boolean -> print("Found a boolean!");
+}

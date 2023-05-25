@@ -242,6 +242,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "match",
+    srcs = [":match_lib"],
+    java_name = "match",
+)
+
+claro_library(
+    name = "match_lib",
+    src = "match.claro",
+)
+
+claro_binary(
     name = "modules_compiled_claro_image",
     srcs = [":modules_compiled_claro"],
     java_name = "modules",

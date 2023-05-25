@@ -357,27 +357,28 @@ graph function startNewGameHandler(handle: string) -> future<string> {
 }
 
 function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> string {
-  if (buggyResponse instanceof string) {
-    var moveResponse = unwrap(cast(ParsedJson<MoveResponse>, fromJson(buggyResponse))).result;
-    if (moveResponse instanceof MoveResponse) {
-      var parsedWorld = parseWorldMap(moveResponse.result.world);
-      var computedBestPath = dijkstra(parsedWorld, Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}));
-      var computedMoves = ["\"{dir}\"" | dir in movesFromBestPath(computedBestPath)];
-      return "{computedMoves}";
-    }
-    return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
+  match (buggyResponse) {
+    case string ->
+      var moveResponse = unwrap(cast(ParsedJson<MoveResponse>, fromJson(buggyResponse))).result;
+      match (moveResponse) {
+        case MoveResponse ->
+          var parsedWorld = parseWorldMap(moveResponse.result.world);
+          var computedBestPath = dijkstra(parsedWorld, Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}));
+          var computedMoves = ["\"{dir}\"" | dir in movesFromBestPath(computedBestPath)];
+          return "{computedMoves}";
+        case Error<string> ->
+          return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
+      }
+    case Error<string> ->
+      return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{buggyResponse}";
   }
-
-  return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{buggyResponse}";
 }
 
 function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, Error<string>>) -> [string] {
-  if (buggyResponse instanceof Error<string>) {
-    return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
-  } else if (buggyResponse instanceof string) {
-    return [buggyResponse];
+  match (buggyResponse) {
+    case string        -> return [buggyResponse];
+    case Error<string> -> return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
   }
-  return ["Literally impossible, can't wait for exhaustive match blocks."];
 }
 
 function reduce<T, R>(l: [T], accumulated: R, accumulatorFn: function<|R, T| -> R>) -> R {
@@ -434,6 +435,7 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
     # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
     var x: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(xstring))).result;
     var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
+    # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
     if ((x instanceof int) and (y instanceof int)) {
       return Position({x = x, y = y});
     }

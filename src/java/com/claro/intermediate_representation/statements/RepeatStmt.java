@@ -41,8 +41,12 @@ public class RepeatStmt extends Stmt {
         GeneratedJavaSource.forJavaSourceBody(new StringBuilder("for (int $repeatCounter = 0; $repeatCounter < "));
     res = res.createMerged(this.expr.generateJavaSourceOutput(scopedHeap));
     res.javaSourceBody().append("; ++$repeatCounter) {\n");
+
+    scopedHeap.enterNewScope();
     res = res.createMerged(this.stmtListNode.generateJavaSourceOutput(scopedHeap));
     res.javaSourceBody().append("}\n");
+    scopedHeap.exitCurrScope();
+
     return res;
   }
 

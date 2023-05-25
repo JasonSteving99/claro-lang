@@ -361,6 +361,28 @@ public class ClaroTypeException extends Exception {
       "Illegally Ignoring Value Returned From Function Call: The result of call to %s must not be silently ignored.\n" +
       "\t\tIf you really don't need to use the result, you may explicitly discard it using the \"trashcan operator\" (note this only makes sense if your function is side-effecting):\n" +
       "\t\t\t_ = fnWhoseResultIWantToThrowAway(foo);";
+  private static final String MATCH_OVER_UNSUPPORTED_TYPE =
+      "Illegal Match Over Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
+      "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
+  private static final String NON_EXHAUSTIVE_MATCH =
+      "Non-exhaustive Match: The given cases do not match every possible value of the matched type `%s`. Ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as below:\n" +
+      "\t\tcase _ -> ...;";
+  private static final String DUPLICATE_MATCH_CASE =
+      "Illegal Duplicate Match Case: All case patterns should be unique within a match block.";
+  private static final String USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE =
+      "Uselessly Matching Against Single Wildcard Case: Use of match is just unwanted noise when matching over a single wildcard pattern. Remove the match and just write the logic directly:\n" +
+      "\t\tE.g. Instead of:\n" +
+      "\t\t\tvar toMatch = getVal(...);\n" +
+      "\t\t\tmatch (toMatch) {\n\t\t\t\tcase _ -> handleVal(toMatch);\n\t\t\t}\n" +
+      "\t\tRewrite as the following:\n" +
+      "\t\t\thandleVal(getVal(...));";
+  private static final String USELESS_MATCH_CASE_TYPE_LITERAL_PATTERN_FOR_NON_ONEOF_MATCHED_VAL =
+      "Uselessly Matching Non-Oneof Typed Value Against Type Literal: The type of the matched Expr is statically known to be %s, it's useless to match against the type.";
+  private static final String USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH =
+      "Useless Default Case: The given patterns exhaustively match every possible value of the matched type. Remove the branch matching against the wildcard pattern, as it is dead code.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1402,5 +1424,48 @@ public class ClaroTypeException extends Exception {
             functionType
         )
     );
+  }
+
+  public static ClaroTypeException forMatchOverUnsupportedType(Type matchedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            MATCH_OVER_UNSUPPORTED_TYPE,
+            matchedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forMatchContainsDuplicateDefaultCases() {
+    return new ClaroTypeException(MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES);
+  }
+
+  public static ClaroTypeException forMatchIsNotExhaustiveOverAllPossibleValues(Type matchedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            NON_EXHAUSTIVE_MATCH,
+            matchedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forDuplicateMatchCase() {
+    return new ClaroTypeException(DUPLICATE_MATCH_CASE);
+  }
+
+  public static ClaroTypeException forUselessMatchStatementOverSingleDefaultCase() {
+    return new ClaroTypeException(USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE);
+  }
+
+  public static ClaroTypeException forUselessMatchCaseTypeLiteralPatternForNonOneofMatchedVal(Type matchedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            USELESS_MATCH_CASE_TYPE_LITERAL_PATTERN_FOR_NON_ONEOF_MATCHED_VAL,
+            matchedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forUselessDefaultCaseInAlreadyExhaustiveMatch() {
+    return new ClaroTypeException(USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH);
   }
 }
