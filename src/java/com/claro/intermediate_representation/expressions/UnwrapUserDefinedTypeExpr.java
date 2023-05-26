@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
 
 public class UnwrapUserDefinedTypeExpr extends Expr {
   private final Expr expr;
-  private Type validatedUnwrappedType;
+  public Type validatedUnwrappedType;
 
   public UnwrapUserDefinedTypeExpr(Expr expr, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);

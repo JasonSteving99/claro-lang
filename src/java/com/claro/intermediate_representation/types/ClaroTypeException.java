@@ -365,6 +365,13 @@ public class ClaroTypeException extends Exception {
       "Illegal Match Over Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
       "\t\tFound:\n" +
       "\t\t\t%s";
+  private static final String MATCH_OVER_UNSUPPORTED_WRAPPED_TYPE =
+      "Illegal Match Over User-Defined Type Wrapping Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
+      "\t\tFound User-Defined type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tWrapping unsupported type:\n" +
+      "\t\t\t%s\n";
+
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
   private static final String NON_EXHAUSTIVE_MATCH =
@@ -383,6 +390,10 @@ public class ClaroTypeException extends Exception {
       "Uselessly Matching Non-Oneof Typed Value Against Type Literal: The type of the matched Expr is statically known to be %s, it's useless to match against the type.";
   private static final String USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH =
       "Useless Default Case: The given patterns exhaustively match every possible value of the matched type. Remove the branch matching against the wildcard pattern, as it is dead code.";
+  private static final String ILLEGAL_PROCEDURE_CALL_IN_MATCH_CASE_PATTERN =
+      "Illegal Match Case Pattern: Unexpected attempt to call a procedure as a Match case pattern. Match case patterns must be compile-time constant values, or wildcards.";
+  private static final String ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING =
+      "Wildcard Binding Shadows Declared Variable: Names of wildcard bindings in Match case patterns must not shadow any already-declared variable in scope.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1435,6 +1446,16 @@ public class ClaroTypeException extends Exception {
     );
   }
 
+  public static ClaroTypeException forMatchOverUnsupportedWrappedType(Type matchedExprType, Type wrappedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            MATCH_OVER_UNSUPPORTED_WRAPPED_TYPE,
+            matchedExprType,
+            wrappedExprType
+        )
+    );
+  }
+
   public static ClaroTypeException forMatchContainsDuplicateDefaultCases() {
     return new ClaroTypeException(MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES);
   }
@@ -1467,5 +1488,13 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forUselessDefaultCaseInAlreadyExhaustiveMatch() {
     return new ClaroTypeException(USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH);
+  }
+
+  public static ClaroTypeException forIllegalProcedureCallInMatchCasePattern() {
+    return new ClaroTypeException(ILLEGAL_PROCEDURE_CALL_IN_MATCH_CASE_PATTERN);
+  }
+
+  public static ClaroTypeException forIllegalShadowingOfDeclaredVariableForWildcardBinding() {
+    return new ClaroTypeException(ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING);
   }
 }

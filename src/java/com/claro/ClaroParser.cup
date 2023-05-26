@@ -368,7 +368,7 @@ nonterminal BreakStmt                          break_stmt;
 nonterminal ContinueStmt                       continue_stmt;
 nonterminal MatchStmt                          match_stmt;
 nonterminal ImmutableList.Builder/*<ImmutableList<Object>>*/ match_cases_list_stmt;
-nonterminal ImmutableList.Builder/*<Expr>*/    match_multi_expr_case;
+nonterminal ImmutableList.Builder/*<Object>*/  match_multi_expr_case;
 nonterminal ComprehensionExpr                  list_comprehension_expr;
 nonterminal ComprehensionExpr                  set_comprehension_expr;
 nonterminal ComprehensionExpr                  map_comprehension_expr;
@@ -1912,6 +1912,8 @@ match_cases_list_stmt ::=
     {: RESULT = tail.add(ImmutableList.of(p, s)); :}
   | CASE match_multi_expr_case:m ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(m.build().reverse(), s)); :}
+  | CASE identifier:type LPAR primitive:wrapped RPAR ARROW stmt_list:s match_cases_list_stmt:tail // Match User-Defined type
+    {: RESULT = tail.add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
   | CASE builtin_type:t ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
 
@@ -1919,6 +1921,8 @@ match_cases_list_stmt ::=
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p, s)); :}
   | CASE match_multi_expr_case:m ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(m.build().reverse(), s)); :}
+  | CASE identifier:type LPAR primitive:wrapped RPAR ARROW stmt_list:s // Match User-Defined type
+    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
   | CASE builtin_type:t ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
 
@@ -1926,13 +1930,23 @@ match_cases_list_stmt ::=
   | CASE UNDERSCORE ARROW stmt_list:s
     // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(false, s)); :}
+  | CASE identifier:type LPAR identifier:wrapped RPAR ARROW stmt_list:s // Match User-Defined type
+    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
   ;
 
 match_multi_expr_case ::=
     primitive:p BAR match_multi_expr_case:tail
     {: RESULT = tail.add(p); :}
+  | identifier:type LPAR primitive:wrapped RPAR BAR match_multi_expr_case:tail
+    {: RESULT = tail.add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped)); :}
   | primitive:p1 BAR primitive:p2
-    {: RESULT = ImmutableList.<Expr>builder().add(p2).add(p1); :}
+    {: RESULT = ImmutableList.<Object>builder().add(p2).add(p1); :}
+  | identifier:type1 LPAR primitive:wrapped1 RPAR BAR identifier:type2 LPAR primitive:wrapped2 RPAR
+    {:
+       RESULT = ImmutableList.<Object>builder()
+          .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type1, wrapped1))
+          .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type2, wrapped2));
+    :}
   ;
 
 while_stmt ::=

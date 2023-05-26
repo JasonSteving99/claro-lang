@@ -8,6 +8,7 @@ match (i) {
   case _  -> print("Found unknown value: {i}");
 }
 
+print("----------------------------------------");
 var s = "foo";
 
 match (s) {
@@ -18,6 +19,7 @@ match (s) {
   case _      -> print("Found unknown value: {s}");
 }
 
+print("----------------------------------------");
 var b = true;
 
 match (b) {
@@ -35,6 +37,7 @@ match (b) {
 # of all errors.
 ########################################################################################################################
 
+print("----------------------------------------");
 var intOrStr: oneof<int, string, boolean> = 10;
 
 match (intOrStr) {
@@ -44,4 +47,47 @@ match (intOrStr) {
     print("I can even do math with it: intOrStr + 10 = {proveTypeIsNarrowed}");
   case string -> print("Found a string!");
   case boolean -> print("Found a boolean!");
+}
+
+########################################################################################################################
+# DEMONSTRATE MATCHING A USER-DEFINED TYPE
+#
+# Note that there are certain restrictions imposed on matching against user-defined types whose unwrapper has been
+# restricted as shown below:
+#
+#   newtype Foo : ...;
+#   unwrappers Foo { ... }
+#
+# First, you are no allowed to match against such a type directly as in:
+#
+#    match (Foo(...)) { ... }
+#
+# This restriction exists in order to maintain the semantic "opaqueness" of such types as is explicitly requested by
+# defining an unwrappers-block.
+#
+# TODO(steving) You are still able to match against such a type using a wildcard pattern for the wrapped value when
+# TODO(steving) the type is nested within nested within some other structured type. E.g.:
+#
+#    match([Foo(...)]) {
+#      case [Foo(_), _, ...] -> ...; # Matched a Foo at the front of a list of length >= 2.
+#      case [..., Foo(_)]    -> ...; # Matched a Foo at the end of a list of length >= 1.
+#      case _                -> ...;
+#    }
+########################################################################################################################
+
+print("----------------------------------------");
+newtype Foo<T> : T
+
+var foo = Foo(10);
+
+match (foo) {
+  case Foo(1) | Foo(3) | Foo(5) ->
+    print("Found small odd Foo");
+    print(wrappingMessage(unwrap(foo)));
+  case Foo(2) -> print(wrappingMessage(2));
+  case Foo(X) -> print("Fell through to default case: {wrappingMessage(X)}");
+}
+
+function wrappingMessage(x: int) -> string {
+  return "Found Foo wrapping {x}";
 }
