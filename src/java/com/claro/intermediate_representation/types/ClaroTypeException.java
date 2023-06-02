@@ -370,8 +370,13 @@ public class ClaroTypeException extends Exception {
       "\t\tFound User-Defined type:\n" +
       "\t\t\t%s\n" +
       "\t\tWrapping unsupported type:\n" +
-      "\t\t\t%s\n";
-
+      "\t\t\t%s";
+  private static final String MATCH_OVER_UNSUPPORTED_TUPLE_ELEMENT_TYPES =
+      "Illegal Match Over Tuple With Elements of Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
+      "\t\tFound Tuple type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tWith the following unsupported element type(s):\n" +
+      "\t\t\t- %s";
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
   private static final String NON_EXHAUSTIVE_MATCH =
@@ -394,6 +399,12 @@ public class ClaroTypeException extends Exception {
       "Illegal Match Case Pattern: Unexpected attempt to call a procedure as a Match case pattern. Match case patterns must be compile-time constant values, or wildcards.";
   private static final String ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING =
       "Wildcard Binding Shadows Declared Variable: Names of wildcard bindings in Match case patterns must not shadow any already-declared variable in scope.";
+  private static final String INVALID_PATTERN_MATCHING_WRONG_TYPE =
+      "Invalid Pattern Matching Wrong Type: This pattern is unable to match against values of the matched expression type.\n" +
+      "\t\tExpression Type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tPattern Type:\n" +
+      "\t\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1456,6 +1467,17 @@ public class ClaroTypeException extends Exception {
     );
   }
 
+  public static ClaroTypeException forMatchOverUnsupportedTupleElementTypes(
+      Type matchedExprType, ImmutableSet<Type> unsupportedElementTypes) {
+    return new ClaroTypeException(
+        String.format(
+            MATCH_OVER_UNSUPPORTED_TUPLE_ELEMENT_TYPES,
+            matchedExprType,
+            unsupportedElementTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t"))
+        )
+    );
+  }
+
   public static ClaroTypeException forMatchContainsDuplicateDefaultCases() {
     return new ClaroTypeException(MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES);
   }
@@ -1496,5 +1518,15 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forIllegalShadowingOfDeclaredVariableForWildcardBinding() {
     return new ClaroTypeException(ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING);
+  }
+
+  public static ClaroTypeException forInvalidPatternMatchingWrongType(Type expectedExprType, Type actualType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_PATTERN_MATCHING_WRONG_TYPE,
+            expectedExprType,
+            actualType
+        )
+    );
   }
 }

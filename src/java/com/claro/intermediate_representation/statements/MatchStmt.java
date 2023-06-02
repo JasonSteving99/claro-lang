@@ -13,16 +13,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class MatchStmt extends Stmt {
+  private static long globalMatchCount = 0;
   private Expr matchedExpr;
   private final ImmutableList<ImmutableList<Object>> cases;
+  private final long matchId;
   private ImmutableList caseExprLiterals;
   private Type matchedExprType;
   private Optional<UnwrapUserDefinedTypeExpr> optionalUnwrapMatchedExpr = Optional.empty();
@@ -32,6 +34,7 @@ public class MatchStmt extends Stmt {
     super(ImmutableList.of());
     this.matchedExpr = matchedExpr;
     this.cases = cases;
+    this.matchId = MatchStmt.globalMatchCount++;
   }
 
   @Override
@@ -43,6 +46,7 @@ public class MatchStmt extends Stmt {
     if (!(supportedMatchTypes.contains(matchedExprType)
           || matchedExprType.baseType().equals(BaseType.ONEOF)
           || matchedExprType.baseType().equals(BaseType.USER_DEFINED_TYPE)
+          || matchedExprType.baseType().equals(BaseType.TUPLE)
     )) {
       this.matchedExpr.logTypeError(ClaroTypeException.forMatchOverUnsupportedType(matchedExprType));
       return;
@@ -71,6 +75,17 @@ public class MatchStmt extends Stmt {
         this.matchedExpr.logTypeError(ClaroTypeException.forMatchOverUnsupportedWrappedType(matchedExprType, wrappedType));
       }
       optionalWrappedType = Optional.of(wrappedType);
+    } else if (matchedExprType.baseType().equals(BaseType.TUPLE)) {
+      // All of the wrapped types must be primitives.
+      if (!supportedMatchTypes.containsAll(((Types.TupleType) matchedExprType).getValueTypes())) {
+        this.matchedExpr.logTypeError(
+            ClaroTypeException.forMatchOverUnsupportedTupleElementTypes(
+                matchedExprType,
+                ((Types.TupleType) matchedExprType).getValueTypes().stream()
+                    .filter(t -> !supportedMatchTypes.contains(t))
+                    .collect(ImmutableSet.toImmutableSet())
+            ));
+      }
     }
 
     ImmutableList.Builder<String> caseExprLiterals = ImmutableList.builder();
@@ -234,6 +249,45 @@ public class MatchStmt extends Stmt {
       if (!checkUniqueness.apply(pattern.getWrappedValue())) {
         pattern.getWrappedValue().logTypeError(ClaroTypeException.forDuplicateMatchCase());
       }
+    } else if (currCasePattern instanceof TuplePattern) {
+      TuplePattern currTuplePattern = (TuplePattern) currCasePattern;
+      Types.TupleType impliedPatternType =
+          Types.TupleType.forValueTypes(
+              currTuplePattern.getElementValues().stream()
+                  .map(v -> {
+                    if (v.getOptionalExpr().isPresent()) {
+                      Object val = v.getOptionalExpr().get();
+                      if (val instanceof String) {
+                        return Types.STRING;
+                      } else if (val instanceof Integer) {
+                        return Types.INTEGER;
+                      } else if (val instanceof Boolean) {
+                        return Types.BOOLEAN;
+                      } else {
+                        throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
+                      }
+                    } else {
+                      return Types.$GenericTypeParam.forTypeParamName("_");
+                    }
+                  }).collect(ImmutableList.toImmutableList()),
+              /*isMutable=*/currTuplePattern.getIsMutable()
+          );
+      try {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            Maps.newHashMap(),
+            impliedPatternType,
+            matchedExprType
+        );
+      } catch (ClaroTypeException e) {
+        // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
+        this.matchedExpr.logTypeError(
+            ClaroTypeException.forInvalidPatternMatchingWrongType(matchedExprType, impliedPatternType));
+      }
+      // Ensure that each literal value is unique.
+      if (!checkUniqueness.apply(currTuplePattern)) {
+        // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
+        this.matchedExpr.logTypeError(ClaroTypeException.forDuplicateMatchCase());
+      }
     } else {
       if (foundDefaultCase.get()) {
         // TODO(steving) This is lazy, I should be able to log this error on the actual offending `_`.
@@ -331,6 +385,32 @@ public class MatchStmt extends Stmt {
         }
         // Really I just want to defer to the underlying wrapped type as we're just unwrapping these user-defined types.
         checkUniqueness = getCheckUniquenessFn(scopedHeap, validatedWrappedType, caseExprLiterals, foundTypeLiterals);
+        break;
+      case TUPLE:
+        ArrayList<TuplePattern> foundTuplePatterns = new ArrayList<>();
+        checkUniqueness = e -> {
+          if (e instanceof TuplePattern) {
+            TuplePattern currPattern = (TuplePattern) e;
+            // Need to exhaustively check this new pattern against all preceding patterns.
+            CheckPattern:
+            for (TuplePattern precedingPattern : foundTuplePatterns) {
+              for (int i = 0; i < currPattern.getElementValues().size(); i++) {
+                MaybeWildcardPrimitivePattern precedingPatternVal = precedingPattern.getElementValues().get(i);
+                MaybeWildcardPrimitivePattern currPatternVal = currPattern.getElementValues().get(i);
+                if (!(precedingPatternVal.equals(currPatternVal) ||
+                      !precedingPatternVal.getOptionalExpr().isPresent())) {
+                  // These patterns are distinct, so let's skip straight on to the next pattern.
+                  continue CheckPattern; // I love how hacky this is, lol.
+                }
+              }
+              // We made it through all elems w/o finding anything unique, this pattern is not unique.
+              return false;
+            }
+            // This pattern was distinct from all prior patterns, so add to found patterns and signal success.
+            return foundTuplePatterns.add(currPattern);
+          }
+          return true; // Gracefully degrade when we would've already found a type mismatch.
+        };
         break;
       default:
         throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
@@ -506,6 +586,46 @@ public class MatchStmt extends Stmt {
 
         res.javaSourceBody().append("} // End match(<oneof<...>>) block\n");
         break;
+      case TUPLE:
+        res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin tuple match. \n");
+        String syntheticMatchedTupleIdentifier;
+        if (matchedExpr instanceof IdentifierReferenceTerm) {
+          syntheticMatchedTupleIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
+        } else {
+          syntheticMatchedTupleIdentifier = "$syntheticMatchedTupleIdentifier";
+          res.javaSourceBody()
+              .append(this.matchedExprType.getJavaSourceType())
+              .append(" ")
+              .append(syntheticMatchedTupleIdentifier)
+              .append(" = ");
+          res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
+          res.javaSourceBody().append(";\n");
+        }
+        res.javaSourceBody().append(
+            IntStream.range(0, ((Types.TupleType) this.matchedExprType).getValueTypes().size()).boxed()
+                .map(
+                    i ->
+                        String.format(
+                            "%s $v%s = %s.getElement(%s);\n",
+                            ((Types.TupleType) this.matchedExprType).getValueTypes().get(i).getJavaSourceType(),
+                            i,
+                            syntheticMatchedTupleIdentifier,
+                            i
+                        ))
+                .collect(Collectors.joining()));
+        Stack<ImmutableList<Object>> casesStack = new Stack<>();
+        this.cases.reverse().stream()
+            .map(
+                l -> ImmutableList.of(
+                    l.get(0) instanceof TuplePattern
+                    ? ((TuplePattern) l.get(0)).getElementValues()
+                    : Boolean.FALSE, l.get(1)))
+            .forEach(casesStack::push);
+        AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
+        codegenTupleMatch(casesStack, 0, codegen, scopedHeap, this.matchId);
+        res = codegen.get();
+        res.javaSourceBody().append("} // End tuple match. \n");
+        break;
       default:
         throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
     }
@@ -520,6 +640,87 @@ public class MatchStmt extends Stmt {
     }
 
     return res;
+  }
+
+  private static void codegenTupleMatch(Stack<ImmutableList<Object>> cases, int startInd, AtomicReference<GeneratedJavaSource> res, ScopedHeap scopedHeap, long matchId) {
+    while (!cases.isEmpty() && !cases.peek().get(0).equals(false)) {
+      ImmutableList<Object> top = cases.pop();
+      int wildcardPrefixLen =
+          countWildcardFromInd((ImmutableList<MaybeWildcardPrimitivePattern>) top.get(0), startInd);
+
+      // If it's all wildcards to the end, then you just need to fall straight into the codegen below.
+      if (wildcardPrefixLen + startInd < ((ImmutableList<?>) top.get(0)).size()) {
+        Stack<ImmutableList<Object>> switchGroup = new Stack<>();
+        switchGroup.push(top);
+        while (!cases.isEmpty()
+               && !cases.peek().get(0).equals(false)
+               && countWildcardFromInd((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek().get(0), startInd) ==
+                  wildcardPrefixLen) {
+          switchGroup.push(cases.pop());
+        }
+
+        Collections.reverse(switchGroup);
+        CodegenSwitchGroup(switchGroup, startInd + wildcardPrefixLen, res, scopedHeap, matchId);
+      } else {
+        // Just go straight to codegen on `case _ ->` or `case (..., _, _)`
+        res.updateAndGet(
+            codegen -> codegen.createMerged(((StmtListNode) top.get(1)).generateJavaSourceOutput(scopedHeap)));
+        // This is an unfortunate hack since I don't want to have to figure out how to avoid adding trailing `break`s
+        // if they'd happen to be unreachable beyond these `break $MatchN` clauses. I've already validated using javap
+        // that all of this gets optimized out of the JVM bytecode in the final class file, so this doesn't actually
+        // matter at the end of the day.
+        res.get().javaSourceBody().append("if (true) { break $Match").append(matchId).append("; }\n");
+      }
+    }
+
+    if (!cases.isEmpty() && cases.peek().get(0).equals(false)) {
+      // Just go straight to codegen on `case _ ->` or `case (..., _, _)`
+      res.updateAndGet(
+          codegen -> codegen.createMerged(((StmtListNode) cases.pop().get(1)).generateJavaSourceOutput(scopedHeap)));
+      res.get().javaSourceBody().append("if (true) { break $Match").append(matchId).append("; }\n");
+    }
+  }
+
+  private static void CodegenSwitchGroup(Stack<ImmutableList<Object>> switchGroup, int startInd, AtomicReference<GeneratedJavaSource> res, ScopedHeap scopedHeap, long matchId) {
+    res.get()
+        .javaSourceBody()
+        .append("switch ($v")
+        .append(startInd)
+        .append(") {\n");
+    while (!switchGroup.isEmpty()) {
+      Optional<Object> currCase =
+          ((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.peek().get(0)).get(startInd).getOptionalExpr();
+      Stack<ImmutableList<Object>> caseGroup = new Stack<>();
+      for (ImmutableList<Object> p : switchGroup) {
+        if (((ImmutableList<MaybeWildcardPrimitivePattern>) p.get(0)).get(startInd)
+            .getOptionalExpr()
+            .equals(currCase)) {
+          caseGroup.add(p);
+        }
+      }
+      switchGroup.removeAll(caseGroup);
+
+      res.get()
+          .javaSourceBody()
+          .append("\tcase ")
+          .append(currCase.get() instanceof String
+                  ? String.format("\"%s\"", currCase.get())
+                  : currCase.get().toString())
+          .append(":\n");
+      codegenTupleMatch(caseGroup, startInd + 1, res, scopedHeap, matchId);
+      res.get().javaSourceBody().append("break;\n");
+    }
+
+    res.get().javaSourceBody().append("}\n");
+  }
+
+  private static int countWildcardFromInd(ImmutableList<MaybeWildcardPrimitivePattern> l, int i) {
+    int count = 0;
+    while (i < l.size() && !l.get(i).getOptionalExpr().isPresent()) {
+      count++;
+      i++;
+    }
+    return count;
   }
 
   @Override
@@ -537,6 +738,39 @@ public class MatchStmt extends Stmt {
 
     public static UserDefinedTypePattern forTypeNameAndWrappedValue(IdentifierReferenceTerm typeName, Expr wrappedValue) {
       return new AutoValue_MatchStmt_UserDefinedTypePattern(typeName, wrappedValue);
+    }
+  }
+
+  // This class will be used by the parser to signal that a Tuple was matched.
+  @AutoValue
+  public abstract static class TuplePattern {
+    public abstract ImmutableList<MaybeWildcardPrimitivePattern> getElementValues();
+
+    public abstract boolean getIsMutable();
+
+    public static TuplePattern forElementValues(ImmutableList<MaybeWildcardPrimitivePattern> elementValues, boolean isMutable) {
+      return new AutoValue_MatchStmt_TuplePattern(elementValues, isMutable);
+    }
+  }
+
+  // This class will be used by the parser to signal that a nested Wildcard was matched.
+  @AutoValue
+  public abstract static class MaybeWildcardPrimitivePattern {
+    public abstract Optional<Object> getOptionalExpr();
+
+    public static MaybeWildcardPrimitivePattern forNullableExpr(Expr nullableExpr) {
+      if (nullableExpr == null) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty());
+      } else if (nullableExpr instanceof IntegerTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((IntegerTerm) nullableExpr).getValue()));
+      } else if (nullableExpr instanceof StringTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((StringTerm) nullableExpr).getValue()));
+      } else if (nullableExpr instanceof TrueTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((TrueTerm) nullableExpr).getValue()));
+      } else if (nullableExpr instanceof FalseTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((FalseTerm) nullableExpr).getValue()));
+      }
+      throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
     }
   }
 }

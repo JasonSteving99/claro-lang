@@ -250,6 +250,7 @@ claro_binary(
 claro_library(
     name = "match_lib",
     src = "match.claro",
+    debug = True
 )
 
 claro_binary(

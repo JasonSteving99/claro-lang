@@ -369,6 +369,8 @@ nonterminal ContinueStmt                       continue_stmt;
 nonterminal MatchStmt                          match_stmt;
 nonterminal ImmutableList.Builder/*<ImmutableList<Object>>*/ match_cases_list_stmt;
 nonterminal ImmutableList.Builder/*<Object>*/  match_multi_expr_case;
+nonterminal ImmutableList.Builder/*<MatchStmt.MaybeWildcardPrimitivePattern>*/ wildcard_or_primitive_list;
+nonterminal MatchStmt.MaybeWildcardPrimitivePattern wildcard_or_primitive;
 nonterminal ComprehensionExpr                  list_comprehension_expr;
 nonterminal ComprehensionExpr                  set_comprehension_expr;
 nonterminal ComprehensionExpr                  map_comprehension_expr;
@@ -1916,6 +1918,10 @@ match_cases_list_stmt ::=
     {: RESULT = tail.add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
   | CASE builtin_type:t ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
+  | CASE LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s match_cases_list_stmt:tail
+    {: RESULT = tail.add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false), s)); :}
+  | CASE MUT LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s match_cases_list_stmt:tail
+    {: RESULT = tail.add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/true), s)); :}
 
   | CASE primitive:p ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p, s)); :}
@@ -1925,6 +1931,10 @@ match_cases_list_stmt ::=
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
   | CASE builtin_type:t ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
+  | CASE LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s
+    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false), s)); :}
+  | CASE MUT LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s
+    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/true), s)); :}
 
   // You can *end* with a catch-all `case _ -> ...;` but you can't just mix and match this in the middle.
   | CASE UNDERSCORE ARROW stmt_list:s
@@ -1947,6 +1957,20 @@ match_multi_expr_case ::=
           .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type1, wrapped1))
           .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type2, wrapped2));
     :}
+  ;
+
+wildcard_or_primitive_list ::=
+    wildcard_or_primitive:wp COMMA wildcard_or_primitive_list:tail
+    {: RESULT = tail.add(wp); :}
+  | wildcard_or_primitive:wp
+    {: RESULT = ImmutableList.<MatchStmt.MaybeWildcardPrimitivePattern>builder().add(wp); :}
+  ;
+
+wildcard_or_primitive ::=
+    primitive:p
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p); :}
+  | UNDERSCORE
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(null); :}
   ;
 
 while_stmt ::=

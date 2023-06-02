@@ -41,6 +41,8 @@ print("----------------------------------------");
 var intOrStr: oneof<int, string, boolean> = 10;
 
 match (intOrStr) {
+# TODO(steving) TESTING! For some reason this int literal isn't rejected, but is also not handled properly.
+#  case 10 ->
   case int ->
     print("Found an int!");
     var proveTypeIsNarrowed = intOrStr + 10;
@@ -50,7 +52,7 @@ match (intOrStr) {
 }
 
 ########################################################################################################################
-# DEMONSTRATE MATCHING A USER-DEFINED TYPE
+# DEMONSTRATE MATCHING A USER-DEFINED TYPE (limited to wrapping a primitive value)
 #
 # Note that there are certain restrictions imposed on matching against user-defined types whose unwrapper has been
 # restricted as shown below:
@@ -90,4 +92,43 @@ match (foo) {
 
 function wrappingMessage(x: int) -> string {
   return "Found Foo wrapping {x}";
+}
+
+########################################################################################################################
+# DEMONSTRATE MATCHING AGAINST A TUPLE (limited to wrapping primitive elements)
+########################################################################################################################
+
+print("----------------------------------------");
+var t = (1, 2);
+
+match (t) {
+  case (1, 2) -> print("Found a 1 and 2");
+  case (3, 0) -> print("Found a 3 and 0");
+  case (1, _) -> print("Found a 1 and something else ({t[1]})");
+  case (_, 2) -> print("Found something ({t[0]}) and a 2");
+  case (3, 6) -> print("Found a 3 and 6");
+  case _      -> print("Fell through to default case: {t}");
+}
+
+print("----------------------------------------");
+
+for (t2 in [(1, 2, 3), (999, 999, 6), (2, 4, 999), (2, 999, 9), (999, 4, 999), (999, 2, 3), (999, 999, 999)]) {
+  print("Matching: {t2}");
+  match (t2) {
+    case (1, 2, 3) -> print("(1, 2, 3)");
+    case (_, _, 6) -> print("(_, _, 6)");
+    case (2, 4, _) -> print("(2, 4, _)");
+    case (2, _, 9) -> print("(2, _, 9)");
+    case (_, 4, _) -> print("(_, 4, _)");
+    case (_, 2, 3) -> print("(_, 2, 3)");
+    case _         -> print("...Fallthrough...");
+  }
+}
+
+print("----------------------------------------");
+match ((1, "one")) {
+  case (_, "two")   -> print("two");
+  case (1, "three") -> print("1 two");
+  case (1, "one")   -> print("ONES");
+  case _            -> print("...Fallthrough...");
 }
