@@ -96,6 +96,8 @@ function wrappingMessage(x: int) -> string {
 
 ########################################################################################################################
 # DEMONSTRATE MATCHING AGAINST A TUPLE (limited to wrapping primitive elements)
+#
+# TODO(steving) Update to support nested structured types!
 ########################################################################################################################
 
 print("----------------------------------------");
@@ -131,4 +133,23 @@ match ((1, "one")) {
   case (1, "three") -> print("1 two");
   case (1, "one")   -> print("ONES");
   case _            -> print("...Fallthrough...");
+}
+
+########################################################################################################################
+# DEMONSTRATE MATCHING AGAINST A STRUCT (limited to wrapping primitive elements)
+#
+# TODO(steving) Update to support nested structured types!
+########################################################################################################################
+
+print("----------------------------------------");
+for (myStruct in [{x = 1, y = 2}, {x = 3, y = 0}, {x = 1, y = 999}, {x = 999, y = 2}, {x = 3, y = 6}, {x = 999, y = 999}]) {
+  print("Matching: {myStruct}");
+  match (myStruct) {
+    case {x = 1, y = 2} -> print("\{x = 1, y = 2}");
+    case {x = 3, y = 0} -> print("\{x = 3, y = 0}");
+    case {x = 1, y = _} -> print("\{x = 1, y = _}");
+    case {x = _, y = 2} -> print("\{x = _, y = 2}");
+    case {x = 3, y = 6} -> print("\{x = 3, y = 6}");
+    case _              -> print("...Fallthrough...");
+  }
 }
