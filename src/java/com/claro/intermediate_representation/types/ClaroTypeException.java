@@ -371,11 +371,11 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\t\tWrapping unsupported type:\n" +
       "\t\t\t%s";
-  private static final String MATCH_OVER_UNSUPPORTED_TUPLE_ELEMENT_TYPES =
-      "Illegal Match Over Tuple With Elements of Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
-      "\t\tFound Tuple type:\n" +
+  private static final String MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES =
+      "Illegal Match Over Type Containing Unsupported Base Types: Pattern matching is only supported over values whose base types are oneof<int, string, boolean>.\n" +
+      "\t\tMatched Expression Type:\n" +
       "\t\t\t%s\n" +
-      "\t\tWith the following unsupported element type(s):\n" +
+      "\t\tWith the following unsupported base types:\n" +
       "\t\t\t- %s";
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
@@ -401,7 +401,7 @@ public class ClaroTypeException extends Exception {
       "Wildcard Binding Shadows Declared Variable: Names of wildcard bindings in Match case patterns must not shadow any already-declared variable in scope.";
   private static final String INVALID_PATTERN_MATCHING_WRONG_TYPE =
       "Invalid Pattern Matching Wrong Type: This pattern is unable to match against values of the matched expression type.\n" +
-      "\t\tExpression Type:\n" +
+      "\t\tMatched Expression Type:\n" +
       "\t\t\t%s\n" +
       "\t\tPattern Type:\n" +
       "\t\t\t%s";
@@ -1448,32 +1448,13 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static ClaroTypeException forMatchOverUnsupportedType(Type matchedExprType) {
+  public static ClaroTypeException forMatchOverUnsupportedBaseValueTypes(
+      Type matchedExprType, ImmutableSet<Type> unsupportedBaseValueTypes) {
     return new ClaroTypeException(
         String.format(
-            MATCH_OVER_UNSUPPORTED_TYPE,
-            matchedExprType
-        )
-    );
-  }
-
-  public static ClaroTypeException forMatchOverUnsupportedWrappedType(Type matchedExprType, Type wrappedExprType) {
-    return new ClaroTypeException(
-        String.format(
-            MATCH_OVER_UNSUPPORTED_WRAPPED_TYPE,
+            MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES,
             matchedExprType,
-            wrappedExprType
-        )
-    );
-  }
-
-  public static ClaroTypeException forMatchOverUnsupportedTupleElementTypes(
-      Type matchedExprType, ImmutableSet<Type> unsupportedElementTypes) {
-    return new ClaroTypeException(
-        String.format(
-            MATCH_OVER_UNSUPPORTED_TUPLE_ELEMENT_TYPES,
-            matchedExprType,
-            unsupportedElementTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t"))
+            unsupportedBaseValueTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t"))
         )
     );
   }

@@ -368,10 +368,11 @@ nonterminal BreakStmt                          break_stmt;
 nonterminal ContinueStmt                       continue_stmt;
 nonterminal MatchStmt                          match_stmt;
 nonterminal ImmutableList.Builder/*<ImmutableList<Object>>*/ match_cases_list_stmt;
+nonterminal MatchStmt.TypeMatchPattern<? extends Type> match_case_patterns_excluding_top_level_wildcard;
+nonterminal MatchStmt.TypeMatchPattern<? extends Type> match_case_patterns;
 nonterminal ImmutableList.Builder/*<Object>*/  match_multi_expr_case;
-nonterminal ImmutableList.Builder/*<MatchStmt.MaybeWildcardPrimitivePattern>*/ wildcard_or_primitive_list;
-nonterminal ImmutableList.Builder/*<MatchStmt.StructFieldPattern>*/ wildcard_or_primitive_struct_field_list;
-nonterminal MatchStmt.MaybeWildcardPrimitivePattern wildcard_or_primitive;
+nonterminal ImmutableList.Builder/*<MatchStmt.TypeMatchPattern<? extends Type>>*/ match_case_patterns_list;
+nonterminal ImmutableList.Builder/*<MatchStmt.StructFieldPattern>*/ match_case_pattern_struct_field_list;
 nonterminal ComprehensionExpr                  list_comprehension_expr;
 nonterminal ComprehensionExpr                  set_comprehension_expr;
 nonterminal ComprehensionExpr                  map_comprehension_expr;
@@ -1909,84 +1910,112 @@ match_stmt ::=
     {: RESULT = new MatchStmt(e, cases.build().reverse()); :}
   ;
 
-// TODO(steving) Obviously this will need to be extended to handle much more than just primitives.
 match_cases_list_stmt ::=
-    CASE primitive:p ARROW stmt_list:s match_cases_list_stmt:tail
+    CASE match_case_patterns_excluding_top_level_wildcard:p ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(p, s)); :}
-  | CASE match_multi_expr_case:m ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(m.build().reverse(), s)); :}
-  | CASE identifier:type LPAR primitive:wrapped RPAR ARROW stmt_list:s match_cases_list_stmt:tail // Match User-Defined type
-    {: RESULT = tail.add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
-  | CASE builtin_type:t ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
-  | CASE LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false), s)); :}
-  | CASE MUT LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/true), s)); :}
-  | CASE LCURLY:lc wildcard_or_primitive_struct_field_list:fields RCURLY:rc ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/false), s)); :}
-  | CASE MUT:mut LCURLY:lc wildcard_or_primitive_struct_field_list:fields RCURLY:rc ARROW stmt_list:s match_cases_list_stmt:tail
-    {: RESULT = tail.add(ImmutableList.of(MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true), s)); :}
-
-  | CASE primitive:p ARROW stmt_list:s
+  | CASE match_multi_expr_case:p ARROW stmt_list:s match_cases_list_stmt:tail
+    {: RESULT = tail.add(ImmutableList.of(p.build().reverse(), s)); :}
+  | CASE match_case_patterns_excluding_top_level_wildcard:p ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p, s)); :}
-  | CASE match_multi_expr_case:m ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(m.build().reverse(), s)); :}
-  | CASE identifier:type LPAR primitive:wrapped RPAR ARROW stmt_list:s // Match User-Defined type
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
-  | CASE builtin_type:t ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(((LexedValue<TypeProvider>) t.value).val, s)); :}
-  | CASE LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false), s)); :}
-  | CASE MUT LPAR:lp wildcard_or_primitive:head COMMA:c wildcard_or_primitive_list:tailValues RPAR:rp ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/true), s)); :}
-  | CASE LCURLY:lc wildcard_or_primitive_struct_field_list:fields RCURLY:rc ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/false), s)); :}
-  | CASE MUT:mut LCURLY:lc wildcard_or_primitive_struct_field_list:fields RCURLY:rc ARROW stmt_list:s
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true), s)); :}
+  | CASE match_multi_expr_case:p ARROW stmt_list:s
+    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p.build().reverse(), s)); :}
 
   // You can *end* with a catch-all `case _ -> ...;` but you can't just mix and match this in the middle.
   | CASE UNDERSCORE ARROW stmt_list:s
     // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(false, s)); :}
-  | CASE identifier:type LPAR identifier:wrapped RPAR ARROW stmt_list:s // Match User-Defined type
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped), s)); :}
-  ;
-
-match_multi_expr_case ::=
-    primitive:p BAR match_multi_expr_case:tail
-    {: RESULT = tail.add(p); :}
-  | identifier:type LPAR primitive:wrapped RPAR BAR match_multi_expr_case:tail
-    {: RESULT = tail.add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type, wrapped)); :}
-  | primitive:p1 BAR primitive:p2
-    {: RESULT = ImmutableList.<Object>builder().add(p2).add(p1); :}
-  | identifier:type1 LPAR primitive:wrapped1 RPAR BAR identifier:type2 LPAR primitive:wrapped2 RPAR
+  | CASE identifier:type LPAR identifier:wrapped RPAR ARROW stmt_list:s
     {:
-       RESULT = ImmutableList.<Object>builder()
-          .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type1, wrapped1))
-          .add(MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(type2, wrapped2));
+        RESULT = ImmutableList.<ImmutableList<Object>>builder().add(
+          ImmutableList.of(
+            MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+              type,
+              MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wrapped)),
+            s));
     :}
   ;
 
-wildcard_or_primitive_list ::=
-    wildcard_or_primitive:wp COMMA wildcard_or_primitive_list:tail
-    {: RESULT = tail.add(wp); :}
-  | wildcard_or_primitive:wp
-    {: RESULT = ImmutableList.<MatchStmt.MaybeWildcardPrimitivePattern>builder().add(wp); :}
-  ;
-
-wildcard_or_primitive_struct_field_list ::=
-    identifier:field_name ASSIGNMENT:eq wildcard_or_primitive:wp COMMA:comma wildcard_or_primitive_struct_field_list:tail
-    {: RESULT = tail.add(MatchStmt.StructFieldPattern.forFieldNameAndValue(field_name, wp)); :}
-  | identifier:field_name ASSIGNMENT:eq wildcard_or_primitive:wp
-    {: RESULT = ImmutableList.<MatchStmt.StructFieldPattern>builder().add(MatchStmt.StructFieldPattern.forFieldNameAndValue(field_name, wp)); :}
-  ;
-
-wildcard_or_primitive ::=
+match_case_patterns_excluding_top_level_wildcard ::=
     primitive:p
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p); :}
+  | identifier:type LPAR primitive:wrapped RPAR
+    {: RESULT =
+          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+            type,
+            MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped));
+    :}
+  | builtin_type:t
+    {: RESULT = MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val); :}
+  | LPAR:lp match_case_patterns:head COMMA:c match_case_patterns_list:tailValues RPAR:rp
+    {: RESULT = MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false); :}
+  | MUT LPAR:lp match_case_patterns:head COMMA:c match_case_patterns_list:tailValues RPAR:rp
+    {: RESULT = MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/true); :}
+  | LCURLY:lc match_case_pattern_struct_field_list:fields RCURLY:rc
+    {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/false); :}
+  | MUT:mut LCURLY:lc match_case_pattern_struct_field_list:fields RCURLY:rc
+    {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true); :}
+  ;
+
+match_case_patterns ::=
+    match_case_patterns_excluding_top_level_wildcard:p
+    {: RESULT = p; :}
+  // You can *end* with a catch-all `case _ -> ...;` but you can't just mix and match this in the middle.
   | UNDERSCORE
+    // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(null); :}
+  | identifier:type LPAR identifier:wrapped RPAR
+    {:
+        RESULT =
+          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+            type,
+            MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wrapped));
+    :}
+  ;
+
+// TODO(steving) TESTING!! Make multi-expr-case support arbitrary patterns.
+match_multi_expr_case ::=
+    primitive:p BAR match_multi_expr_case:tail
+    {: RESULT = tail.add(MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p)); :}
+  | identifier:type LPAR primitive:wrapped RPAR BAR match_multi_expr_case:tail
+    {:
+        RESULT =
+          tail.add(
+            MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+              type,
+              MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped)));
+    :}
+
+  | primitive:p1 BAR primitive:p2
+    {: RESULT = ImmutableList.<Object>builder()
+         .add(MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p2))
+         .add(MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p1));
+    :}
+  | identifier:type1 LPAR primitive:wrapped1 RPAR BAR identifier:type2 LPAR primitive:wrapped2 RPAR
+    {:
+       RESULT = ImmutableList.<Object>builder()
+          .add(
+            MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+              type2,
+              MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped2)))
+          .add(
+            MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+              type1,
+              MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped1)));
+    :}
+  ;
+
+match_case_patterns_list ::=
+    match_case_patterns:p COMMA match_case_patterns_list:tail
+    {: RESULT = tail.add(p); :}
+  | match_case_patterns:p
+    {: RESULT = ImmutableList.<MatchStmt.TypeMatchPattern<? extends Type>>builder().add(p); :}
+  ;
+
+match_case_pattern_struct_field_list ::=
+    identifier:field_name ASSIGNMENT:eq match_case_patterns:p COMMA:comma match_case_pattern_struct_field_list:tail
+    {: RESULT = tail.add(MatchStmt.StructFieldPattern.forFieldNameAndValue(field_name, p)); :}
+  | identifier:field_name ASSIGNMENT:eq match_case_patterns:wp
+    {: RESULT = ImmutableList.<MatchStmt.StructFieldPattern>builder().add(MatchStmt.StructFieldPattern.forFieldNameAndValue(field_name, wp)); :}
   ;
 
 while_stmt ::=

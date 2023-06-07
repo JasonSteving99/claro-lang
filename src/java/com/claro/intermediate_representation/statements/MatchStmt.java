@@ -7,6 +7,7 @@ import com.claro.intermediate_representation.expressions.procedures.functions.Fu
 import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.types.*;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -16,19 +17,19 @@ import com.google.common.collect.Sets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class MatchStmt extends Stmt {
   private static long globalMatchCount = 0;
   private Expr matchedExpr;
-  private final ImmutableList<ImmutableList<Object>> cases;
+  private ImmutableList<ImmutableList<Object>> cases;
   private final long matchId;
   private ImmutableList caseExprLiterals;
   private Type matchedExprType;
   private Optional<UnwrapUserDefinedTypeExpr> optionalUnwrapMatchedExpr = Optional.empty();
   private Optional<String> optionalWildcardBindingName = Optional.empty();
+  private Optional<ImmutableList<Type>> optionalFlattenedMatchedValues = Optional.empty();
 
   public MatchStmt(Expr matchedExpr, ImmutableList<ImmutableList<Object>> cases) {
     super(ImmutableList.of());
@@ -41,80 +42,31 @@ public class MatchStmt extends Stmt {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // TODO(steving) In the future should be able to match over more than just primitives. (Probably everything other
     //   than future<T> since there's no value to match yet?)
-    ImmutableSet<Type> supportedMatchTypes = ImmutableSet.of(Types.INTEGER, Types.STRING, Types.BOOLEAN);
     Type matchedExprType = this.matchedExpr.getValidatedExprType(scopedHeap);
-    if (!(supportedMatchTypes.contains(matchedExprType)
-          || matchedExprType.baseType().equals(BaseType.ONEOF)
-          || matchedExprType.baseType().equals(BaseType.USER_DEFINED_TYPE)
-          || matchedExprType.baseType().equals(BaseType.TUPLE)
-          || matchedExprType.baseType().equals(BaseType.STRUCT)
-    )) {
-      this.matchedExpr.logTypeError(ClaroTypeException.forMatchOverUnsupportedType(matchedExprType));
-      return;
-    }
-    Optional<Type> optionalWrappedType = Optional.empty();
-    if (matchedExprType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
-      // Make sure it's actually legal to unwrap this user defined type.
-      int errorsBefore = Expr.typeErrorsFound.size();
-
-      // Don't want to duplicate the unwrap validation logic, so I'll defer to the Expr node impl.
-      Type wrappedType =
-          (this.optionalUnwrapMatchedExpr =
-               Optional.of(
-                   new UnwrapUserDefinedTypeExpr(
-                       this.matchedExpr, this.matchedExpr.currentLine, this.matchedExpr.currentLineNumber, this.matchedExpr.startCol, this.matchedExpr.endCol)))
-              .get()
-              .getValidatedExprType(scopedHeap);
-
-      if (Expr.typeErrorsFound.size() > errorsBefore) {
-        // Apparently we've run into some error unwrapping this value, can't continue.
-        return;
-      }
-
-      // Now I just need to ensure that the wrapped type is something supported.
-      if (!supportedMatchTypes.contains(wrappedType)) {
-        this.matchedExpr.logTypeError(ClaroTypeException.forMatchOverUnsupportedWrappedType(matchedExprType, wrappedType));
-      }
-      optionalWrappedType = Optional.of(wrappedType);
-    } else if (matchedExprType.baseType().equals(BaseType.TUPLE)) {
-      // All of the wrapped types must be primitives.
-      if (!supportedMatchTypes.containsAll(((Types.TupleType) matchedExprType).getValueTypes())) {
-        this.matchedExpr.logTypeError(
-            ClaroTypeException.forMatchOverUnsupportedTupleElementTypes(
-                matchedExprType,
-                ((Types.TupleType) matchedExprType).getValueTypes().stream()
-                    .filter(t -> !supportedMatchTypes.contains(t))
-                    .collect(ImmutableSet.toImmutableSet())
-            ));
-      }
-    } else if (matchedExprType.baseType().equals(BaseType.STRUCT)) {
-      // All wrapped types must be primitives.
-      if (!supportedMatchTypes.containsAll(((Types.StructType) matchedExprType).getFieldTypes())) {
-        this.matchedExpr.logTypeError(
-            ClaroTypeException.forMatchOverUnsupportedTupleElementTypes(
-                matchedExprType,
-                ((Types.StructType) matchedExprType).getFieldTypes().stream()
-                    .filter(t -> !supportedMatchTypes.contains(t))
-                    .collect(ImmutableSet.toImmutableSet())
-            ));
-      }
-    }
+    // All base values must be of some supported primitive type (int/string/boolean).
+    this.optionalFlattenedMatchedValues = validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap);
 
     ImmutableList.Builder<String> caseExprLiterals = ImmutableList.builder();
     AtomicReference<Optional<HashSet<Type>>> foundTypeLiterals = new AtomicReference<>(Optional.empty());
     Function<Object, Boolean> checkUniqueness =
         getCheckUniquenessFn(scopedHeap, matchedExprType, caseExprLiterals, foundTypeLiterals);
+    // Make sure that the cases get preprocessed (flattened) if they're actually nested.
+    if (ImmutableSet.of(BaseType.STRUCT, BaseType.TUPLE).contains(matchedExprType.baseType())) {
+      this.cases = flattenNestedPatterns(this.cases, matchedExprType, scopedHeap);
+    }
     // Need to ensure that at the very least our cases look reasonable.
     AtomicBoolean foundDefaultCase = new AtomicBoolean(false);
     for (int i = 0; i < this.cases.size(); i++) {
-      ImmutableList<Object> currCase = this.cases.get(i);
+      ImmutableList<Object> currCase;
+      currCase = this.cases.get(i);
       AtomicBoolean narrowingRequired = new AtomicBoolean(false);
+      // TODO(steving) TESTING!! This is pretty freakin ugly. Should model actual types for these separate situations.
       if (currCase.get(0) instanceof ImmutableList) {
         for (Object currCasePattern : (ImmutableList<Object>) currCase.get(0)) {
-          validateCasePattern(scopedHeap, matchedExprType, optionalWrappedType, checkUniqueness, foundDefaultCase, currCasePattern, narrowingRequired);
+          validateCasePattern(scopedHeap, matchedExprType, checkUniqueness, foundDefaultCase, currCasePattern, narrowingRequired);
         }
       } else {
-        validateCasePattern(scopedHeap, matchedExprType, optionalWrappedType, checkUniqueness, foundDefaultCase, currCase.get(0), narrowingRequired);
+        validateCasePattern(scopedHeap, matchedExprType, checkUniqueness, foundDefaultCase, currCase.get(0), narrowingRequired);
       }
 
       // Each branch gets isolated to its own scope.
@@ -130,7 +82,7 @@ public class MatchStmt extends Stmt {
 
         String narrowedTypeSyntheticIdentifier = String.format("$NARROWED_%s", identifierName);
         scopedHeap.putIdentifierValueAllowingHiding(
-            narrowedTypeSyntheticIdentifier, ((TypeProvider) currCase.get(0)).resolveType(scopedHeap), null);
+            narrowedTypeSyntheticIdentifier, ((TypeProviderPattern) currCase.get(0)).toImpliedType(scopedHeap), null);
         scopedHeap.markIdentifierUsed(narrowedTypeSyntheticIdentifier);
       }
 
@@ -147,8 +99,7 @@ public class MatchStmt extends Stmt {
       // Drop any wildcard bindings if necessary.
       {
         Object wildcardBindingIdentifier;
-        if (optionalWrappedType.isPresent()
-            && currCase.get(0) instanceof UserDefinedTypePattern
+        if (currCase.get(0) instanceof UserDefinedTypePattern
             && (wildcardBindingIdentifier =
                     ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue()) instanceof IdentifierReferenceTerm) {
           scopedHeap.deleteIdentifierValue(((IdentifierReferenceTerm) wildcardBindingIdentifier).identifier);
@@ -192,11 +143,104 @@ public class MatchStmt extends Stmt {
     this.matchedExprType = matchedExprType;
   }
 
-  private void validateCasePattern(ScopedHeap scopedHeap, Type matchedExprType, Optional<Type> optionalWrappedType, Function<Object, Boolean> checkUniqueness, AtomicBoolean foundDefaultCase, Object currCasePattern, AtomicBoolean narrowingRequired) throws ClaroTypeException {
+  // Here, we'll recursively descend into the type of the matched expr to determine that pattern matching over the type
+  // is actually supported. For now, only int/string/boolean/user-defined-type-of-prior-types/nested-tuples-and-structs-of-prior-types
+  // are supported.
+  // Returns: the type sequence that the flattened patterns will effectively codegen against.
+  private Optional<ImmutableList<Type>> validateMatchedExprTypeIsSupported(Type matchedExprType, ScopedHeap scopedHeap) throws ClaroTypeException {
+    ImmutableList.Builder<Type> res = ImmutableList.builder();
+    ImmutableSet.Builder<Type> invalidTypesFound = ImmutableSet.builder();
+    if (validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap, res, invalidTypesFound)) {
+      return Optional.of(res.build());
+    }
+    this.matchedExpr.logTypeError(
+        ClaroTypeException.forMatchOverUnsupportedBaseValueTypes(matchedExprType, invalidTypesFound.build()));
+    return Optional.empty();
+  }
+
+  private boolean validateMatchedExprTypeIsSupported(
+      Type matchedExprType, ScopedHeap scopedHeap, ImmutableList.Builder<Type> flattenedMatchValueTypes, ImmutableSet.Builder<Type> invalidTypesFound)
+      throws ClaroTypeException {
+    switch (matchedExprType.baseType()) {
+      case INTEGER:
+      case STRING:
+      case BOOLEAN:
+        flattenedMatchValueTypes.add(matchedExprType);
+        return true; // Supported!
+      case USER_DEFINED_TYPE:
+        // Don't want to duplicate the unwrap validation logic, so I'll defer to the Expr node impl.
+        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedExprType)) {
+          this.matchedExpr.logTypeError(ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
+              matchedExprType,
+              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.get(((Types.UserDefinedType) matchedExprType).getTypeName())
+          ));
+          invalidTypesFound.add(matchedExprType);
+          return false;
+        }
+
+        // Make sure it's actually legal to unwrap this user defined type.
+        int errorsBefore = Expr.typeErrorsFound.size();
+        Type wrappedType =
+            new UnwrapUserDefinedTypeExpr(
+                new Expr(ImmutableList.of(), this.matchedExpr.currentLine, this.matchedExpr.currentLineNumber, this.matchedExpr.startCol, this.matchedExpr.endCol) {
+                  @Override
+                  public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+                    return matchedExprType;
+                  }
+
+                  @Override
+                  public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                    throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+                  }
+                },
+                this.matchedExpr.currentLine, this.matchedExpr.currentLineNumber, this.matchedExpr.startCol, this.matchedExpr.endCol
+            ).getValidatedExprType(scopedHeap);
+
+        if (Expr.typeErrorsFound.size() > errorsBefore) {
+          // Apparently we've run into some error unwrapping this value, can't continue.
+          invalidTypesFound.add(matchedExprType);
+          return false;
+        }
+
+        // Now I just need to ensure that the wrapped type is something supported.
+        return validateMatchedExprTypeIsSupported(wrappedType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+      case ONEOF:
+        ImmutableList.Builder<Type> variants = ImmutableList.builder();
+        for (Type variantType : ((Types.OneofType) matchedExprType).getVariantTypes()) {
+          // Here we actually don't want to add each variant to the flattenedMatchValueTypes list as these types are all
+          // represented in a single match "slot"...
+          if (!validateMatchedExprTypeIsSupported(variantType, scopedHeap, variants, invalidTypesFound)) {
+            return false;
+          }
+        }
+        // The oneof itself gets placed into the flattenedMatchValueTypes for this pattern "slot".
+        flattenedMatchValueTypes.add(matchedExprType);
+        return true;
+      case TUPLE:
+        for (Type elemType : ((Types.TupleType) matchedExprType).getValueTypes()) {
+          if (!validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound)) {
+            return false;
+          }
+        }
+        return true;
+      case STRUCT:
+        for (Type elemType : ((Types.StructType) matchedExprType).getFieldTypes()) {
+          if (!validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound)) {
+            return false;
+          }
+        }
+        return true;
+      default:
+        invalidTypesFound.add(matchedExprType);
+        return false;
+    }
+  }
+
+  private void validateCasePattern(ScopedHeap scopedHeap, Type matchedExprType, Function<Object, Boolean> checkUniqueness, AtomicBoolean foundDefaultCase, Object currCasePattern, AtomicBoolean narrowingRequired) throws ClaroTypeException {
     if (currCasePattern instanceof Expr) {
       Expr currCaseExpr = (Expr) currCasePattern;
       validateCaseExpr(scopedHeap, matchedExprType, checkUniqueness, currCaseExpr);
-    } else if (currCasePattern instanceof TypeProvider) {
+    } else if (currCasePattern instanceof TypeProviderPattern) {
       // Ensure that each literal value is unique.
       if (!checkUniqueness.apply(currCasePattern)) {
         // TODO(steving) This is lazy, I should be able to log this error on the actual offending type literal.
@@ -224,18 +268,24 @@ public class MatchStmt extends Stmt {
         pattern.getTypeName().logTypeError(e);
       }
 
+      // TODO(steving) TESTING!!! This handling of wildcards is no longer sufficiently general. It only works on
+      //    patterns like `case Foo(X) -> ...use X...;` whereas it should also work on something less trivial like
+      //    `case (10, Foo({val = (_, X)})) -> ...use X...;`.
       // Determine whether this is actually a wildcard binding.
-      if (pattern.getWrappedValue() instanceof IdentifierReferenceTerm) {
+      if (pattern.getWrappedValue() instanceof MaybeWildcardPrimitivePattern
+          && ((MaybeWildcardPrimitivePattern) pattern.getWrappedValue()).isWildcardBinding()) {
         // The identifier must not already be in use somewhere else, as that shadowing would be confusing.
-        String wildcardBinding = ((IdentifierReferenceTerm) pattern.getWrappedValue()).identifier;
-        if (scopedHeap.isIdentifierDeclared(wildcardBinding)) {
-          pattern.getWrappedValue().logTypeError(
+        IdentifierReferenceTerm wildcardBinding =
+            ((MaybeWildcardPrimitivePattern) pattern.getWrappedValue())
+                .getOptionalWildcardBinding().get();
+        if (scopedHeap.isIdentifierDeclared(wildcardBinding.identifier)) {
+          wildcardBinding.logTypeError(
               ClaroTypeException.forIllegalShadowingOfDeclaredVariableForWildcardBinding());
         } else {
           // This is a temporary variable definition that will actually need to get deleted from the symbol table.
-          scopedHeap.putIdentifierValue(wildcardBinding, optionalWrappedType.get());
-          scopedHeap.initializeIdentifier(wildcardBinding);
-          this.optionalWildcardBindingName = Optional.of(wildcardBinding);
+          scopedHeap.putIdentifierValue(wildcardBinding.identifier, this.optionalFlattenedMatchedValues.get().get(0));
+          scopedHeap.initializeIdentifier(wildcardBinding.identifier);
+          this.optionalWildcardBindingName = Optional.of(wildcardBinding.identifier);
         }
         // Mark this pattern as a default pattern since it'll match everything.
         if (foundDefaultCase.get()) {
@@ -247,23 +297,28 @@ public class MatchStmt extends Stmt {
 
       // We have what apparently looks like a user-defined type constructor call. Let's defer to the FunctionCallExpr
       // to validate that the call was parameterized correctly.
-      new FunctionCallExpr(
-          pattern.getTypeName().identifier,
-          ImmutableList.of(pattern.getWrappedValue()),
-          pattern.getTypeName().currentLine,
-          pattern.getTypeName().currentLineNumber,
-          pattern.getTypeName().startCol,
-          pattern.getTypeName().endCol
-      )
-          .assertExpectedExprType(scopedHeap, matchedExprType);
+      Type impliedPatternType = pattern.toImpliedType(scopedHeap);
+      try {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            Maps.newHashMap(),
+            impliedPatternType,
+            matchedExprType
+        );
+      } catch (ClaroTypeException e) {
+        // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
+        this.matchedExpr.logTypeError(
+            ClaroTypeException.forInvalidPatternMatchingWrongType(matchedExprType, impliedPatternType));
+      }
 
       // Ensure that each literal value is unique.
       if (!checkUniqueness.apply(pattern.getWrappedValue())) {
-        pattern.getWrappedValue().logTypeError(ClaroTypeException.forDuplicateMatchCase());
+        ((MaybeWildcardPrimitivePattern) pattern.getWrappedValue()).getOptionalWildcardBinding()
+            .get()
+            .logTypeError(ClaroTypeException.forDuplicateMatchCase());
       }
     } else if (currCasePattern instanceof TypeMatchPattern) {
-      TypeMatchPattern<?> currTuplePattern = (TypeMatchPattern<?>) currCasePattern;
-      Type impliedPatternType = currTuplePattern.toImpliedType();
+      TypeMatchPattern<?> currTypeMatchPattern = (TypeMatchPattern<?>) currCasePattern;
+      Type impliedPatternType = currTypeMatchPattern.toImpliedType(scopedHeap);
       try {
         StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
             Maps.newHashMap(),
@@ -276,7 +331,27 @@ public class MatchStmt extends Stmt {
             ClaroTypeException.forInvalidPatternMatchingWrongType(matchedExprType, impliedPatternType));
       }
       // Ensure that each literal value is unique.
-      if (!checkUniqueness.apply(currTuplePattern)) {
+      if (!checkUniqueness.apply(currTypeMatchPattern)) {
+        // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
+        this.matchedExpr.logTypeError(ClaroTypeException.forDuplicateMatchCase());
+      }
+    } else if (currCasePattern instanceof FlattenedTypeMatchPattern) {
+      // TODO(steving) TESTING!! DO NOT SUBMIT Here just testing flattening works.
+      FlattenedTypeMatchPattern currTypeMatchPattern = (FlattenedTypeMatchPattern) currCasePattern;
+      Type impliedPatternType = currTypeMatchPattern.getImpliedType();
+      try {
+        StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+            Maps.newHashMap(),
+            impliedPatternType,
+            matchedExprType
+        );
+      } catch (ClaroTypeException e) {
+        // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
+        this.matchedExpr.logTypeError(
+            ClaroTypeException.forInvalidPatternMatchingWrongType(matchedExprType, impliedPatternType));
+      }
+      // Ensure that each literal value is unique.
+      if (!checkUniqueness.apply(currTypeMatchPattern.getFlattenedPattern())) {
         // TODO(steving) This is lazy, I should be able to log this error on the actual offending tuple pattern.
         this.matchedExpr.logTypeError(ClaroTypeException.forDuplicateMatchCase());
       }
@@ -299,18 +374,21 @@ public class MatchStmt extends Stmt {
       case BOOLEAN:
         final byte[] foundBoolMask = {0};
         checkUniqueness = e -> {
-          if (e instanceof TrueTerm) {
-            caseExprLiterals.add("true");
-            if ((foundBoolMask[0] & 2) != 0) {
-              return false; // Already found it.
+          if (e instanceof MaybeWildcardPrimitivePattern
+              && ((MaybeWildcardPrimitivePattern) e).toImpliedType(scopedHeap).equals(Types.BOOLEAN)) {
+            if (((MaybeWildcardPrimitivePattern) e).getOptionalExpr().get().equals(Boolean.TRUE)) {
+              caseExprLiterals.add("true");
+              if ((foundBoolMask[0] & 2) != 0) {
+                return false; // Already found it.
+              }
+              foundBoolMask[0] |= 2;
+            } else {
+              caseExprLiterals.add("false");
+              if ((foundBoolMask[0] & 1) != 0) {
+                return false; // Already found it.
+              }
+              foundBoolMask[0] |= 1;
             }
-            foundBoolMask[0] |= 2;
-          } else if (e instanceof FalseTerm) {
-            caseExprLiterals.add("false");
-            if ((foundBoolMask[0] & 1) != 0) {
-              return false; // Already found it.
-            }
-            foundBoolMask[0] |= 1;
           }
           return true;
         };
@@ -318,8 +396,9 @@ public class MatchStmt extends Stmt {
       case INTEGER:
         HashSet<Integer> foundIntLiterals = Sets.newHashSet();
         checkUniqueness = e -> {
-          if (e instanceof IntegerTerm) {
-            Integer val = ((IntegerTerm) e).value;
+          if (e instanceof MaybeWildcardPrimitivePattern
+              && ((MaybeWildcardPrimitivePattern) e).toImpliedType(scopedHeap).equals(Types.INTEGER)) {
+            Integer val = (Integer) ((MaybeWildcardPrimitivePattern) e).getOptionalExpr().get();
             caseExprLiterals.add(val.toString());
             return foundIntLiterals.add(val);
           }
@@ -329,8 +408,9 @@ public class MatchStmt extends Stmt {
       case STRING:
         HashSet<String> foundStrLiterals = Sets.newHashSet();
         checkUniqueness = e -> {
-          if (e instanceof StringTerm) {
-            String val = ((StringTerm) e).getValue();
+          if (e instanceof MaybeWildcardPrimitivePattern
+              && ((MaybeWildcardPrimitivePattern) e).toImpliedType(scopedHeap).equals(Types.STRING)) {
+            String val = (String) ((MaybeWildcardPrimitivePattern) e).getOptionalExpr().get();
             caseExprLiterals.add(String.format("\"%s\"", val));
             return foundStrLiterals.add(val);
           }
@@ -341,8 +421,8 @@ public class MatchStmt extends Stmt {
         foundTypeLiterals.set(Optional.of(Sets.newHashSet()));
         Optional<HashSet<Type>> finalFoundTypeLiterals = foundTypeLiterals.get();
         checkUniqueness = e -> {
-          if (e instanceof TypeProvider) {
-            Type val = ((TypeProvider) e).resolveType(scopedHeap);
+          if (e instanceof TypeProviderPattern) {
+            Type val = ((TypeProviderPattern) e).toImpliedType(scopedHeap);
             caseExprLiterals.add(val.getJavaSourceClaroType());
             return finalFoundTypeLiterals.get().add(val);
           }
@@ -379,16 +459,18 @@ public class MatchStmt extends Stmt {
         checkUniqueness = getCheckUniquenessFn(scopedHeap, validatedWrappedType, caseExprLiterals, foundTypeLiterals);
         break;
       case TUPLE:
-        ArrayList<TuplePattern> foundTuplePatterns = new ArrayList<>();
+      case STRUCT:
+        ArrayList<ImmutableList<MaybeWildcardPrimitivePattern>> foundStructuredTypePatterns = new ArrayList<>();
         checkUniqueness = e -> {
-          if (e instanceof TuplePattern) {
-            TuplePattern currPattern = (TuplePattern) e;
+          if (e instanceof ImmutableList<?>) {
+            ImmutableList<MaybeWildcardPrimitivePattern> currFlattenedPattern =
+                (ImmutableList<MaybeWildcardPrimitivePattern>) e;
             // Need to exhaustively check this new pattern against all preceding patterns.
             CheckPattern:
-            for (TuplePattern precedingPattern : foundTuplePatterns) {
-              for (int i = 0; i < currPattern.getElementValues().size(); i++) {
-                MaybeWildcardPrimitivePattern precedingPatternVal = precedingPattern.getElementValues().get(i);
-                MaybeWildcardPrimitivePattern currPatternVal = currPattern.getElementValues().get(i);
+            for (ImmutableList<MaybeWildcardPrimitivePattern> precedingPattern : foundStructuredTypePatterns) {
+              for (int i = 0; i < currFlattenedPattern.size(); i++) {
+                MaybeWildcardPrimitivePattern precedingPatternVal = precedingPattern.get(i);
+                MaybeWildcardPrimitivePattern currPatternVal = currFlattenedPattern.get(i);
                 if (!(precedingPatternVal.equals(currPatternVal) ||
                       !precedingPatternVal.getOptionalExpr().isPresent())) {
                   // These patterns are distinct, so let's skip straight on to the next pattern.
@@ -399,33 +481,7 @@ public class MatchStmt extends Stmt {
               return false;
             }
             // This pattern was distinct from all prior patterns, so add to found patterns and signal success.
-            return foundTuplePatterns.add(currPattern);
-          }
-          return true; // Gracefully degrade when we would've already found a type mismatch.
-        };
-        break;
-      case STRUCT:
-        ArrayList<StructPattern> foundStructPatterns = new ArrayList<>();
-        checkUniqueness = e -> {
-          if (e instanceof StructPattern) {
-            StructPattern currPattern = (StructPattern) e;
-            // Need to exhaustively check this new pattern against all preceding patterns.
-            CheckPattern:
-            for (StructPattern precedingPattern : foundStructPatterns) {
-              for (int i = 0; i < currPattern.getFieldPatterns().size(); i++) {
-                StructFieldPattern precedingPatternVal = precedingPattern.getFieldPatterns().get(i);
-                StructFieldPattern currPatternVal = currPattern.getFieldPatterns().get(i);
-                if (!(precedingPatternVal.getValue().equals(currPatternVal.getValue()) ||
-                      !precedingPatternVal.getValue().getOptionalExpr().isPresent())) {
-                  // These patterns are distinct, so let's skip straight on to the next pattern.
-                  continue CheckPattern; // I love how hacky this is, lol.
-                }
-              }
-              // We made it through all elems w/o finding anything unique, this pattern is not unique.
-              return false;
-            }
-            // This pattern was distinct from all prior patterns, so add to found patterns and signal success.
-            return foundStructPatterns.add(currPattern);
+            return foundStructuredTypePatterns.add(currFlattenedPattern);
           }
           return true; // Gracefully degrade when we would've already found a type mismatch.
         };
@@ -456,7 +512,15 @@ public class MatchStmt extends Stmt {
     Optional<Expr> optionalOriginalMatchedExpr = Optional.empty();
     Optional<Type> optionalOriginalMatchedExprType = Optional.empty();
     Optional<String> optionalSyntheticMatchedWrappedValIdentifier = Optional.empty();
-    if (this.optionalUnwrapMatchedExpr.isPresent()) {
+    if (this.matchedExprType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
+      this.optionalUnwrapMatchedExpr = Optional.of(
+          new UnwrapUserDefinedTypeExpr(
+              this.matchedExpr, this.matchedExpr.currentLine, this.matchedExpr.currentLineNumber, this.matchedExpr.startCol, this.matchedExpr.endCol));
+      try {
+        this.optionalUnwrapMatchedExpr.get().getValidatedExprType(scopedHeap);
+      } catch (ClaroTypeException e) {
+        throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+      }
       optionalOriginalMatchedExpr = Optional.of(this.matchedExpr);
       optionalOriginalMatchedExprType = Optional.of(this.matchedExprType);
       this.matchedExpr = this.optionalUnwrapMatchedExpr.get();
@@ -491,11 +555,13 @@ public class MatchStmt extends Stmt {
         for (int i = 0, caseLiteralsInd = 0; i < this.cases.size(); i++, caseLiteralsInd++) {
           ImmutableList<Object> currCase = this.cases.get(i);
           boolean usesWildcardBinding = false;
-          if (currCase.get(0) instanceof Expr
+          if (currCase.get(0) instanceof MaybeWildcardPrimitivePattern
               || (currCase.get(0) instanceof UserDefinedTypePattern
                   &&
                   !(usesWildcardBinding =
-                        ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue() instanceof IdentifierReferenceTerm))) {
+                        ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue() instanceof MaybeWildcardPrimitivePattern
+                        &&
+                        ((MaybeWildcardPrimitivePattern) ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue()).isWildcardBinding()))) {
             res.javaSourceBody()
                 .append("\tcase ")
                 .append(this.caseExprLiterals.get(caseLiteralsInd))
@@ -516,7 +582,8 @@ public class MatchStmt extends Stmt {
           scopedHeap.enterNewScope();
           if (usesWildcardBinding) {
             String wildcardBindingName =
-                ((IdentifierReferenceTerm) ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue()).identifier;
+                ((MaybeWildcardPrimitivePattern) ((UserDefinedTypePattern) currCase.get(0)).getWrappedValue())
+                    .getOptionalWildcardBinding().get().identifier;
             scopedHeap.putIdentifierValue(wildcardBindingName, this.matchedExprType);
             scopedHeap.initializeIdentifier(wildcardBindingName);
             res.javaSourceBody()
@@ -605,91 +672,37 @@ public class MatchStmt extends Stmt {
         res.javaSourceBody().append("} // End match(<oneof<...>>) block\n");
         break;
       case TUPLE:
-        res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin tuple match. \n");
-        String syntheticMatchedTupleIdentifier;
+      case STRUCT:
+        res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin structured type match. \n");
+        String syntheticMatchedStructuredTypeIdentifier;
         if (matchedExpr instanceof IdentifierReferenceTerm) {
-          syntheticMatchedTupleIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
+          syntheticMatchedStructuredTypeIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
         } else {
-          syntheticMatchedTupleIdentifier = "$syntheticMatchedStructIdentifier";
+          syntheticMatchedStructuredTypeIdentifier = "$syntheticMatchedStructuredTypeIdentifier";
           res.javaSourceBody()
               .append(this.matchedExprType.getJavaSourceType())
               .append(" ")
-              .append(syntheticMatchedTupleIdentifier)
+              .append(syntheticMatchedStructuredTypeIdentifier)
               .append(" = ");
           res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
           res.javaSourceBody().append(";\n");
         }
-        res.javaSourceBody().append(
-            IntStream.range(0, ((Types.TupleType) this.matchedExprType).getValueTypes().size()).boxed()
-                .map(
-                    i ->
-                        String.format(
-                            "%s $v%s = %s.getElement(%s);\n",
-                            ((Types.TupleType) this.matchedExprType).getValueTypes().get(i).getJavaSourceType(),
-                            i,
-                            syntheticMatchedTupleIdentifier,
-                            i
-                        ))
-                .collect(Collectors.joining()));
+        codegenNestedValueDestructuring(
+            this.matchedExprType, new Stack<>(), 0, syntheticMatchedStructuredTypeIdentifier, res);
         Stack<ImmutableList<Object>> casesStack = new Stack<>();
         this.cases.reverse().stream()
             .map(
                 l -> ImmutableList.of(
-                    l.get(0) instanceof TuplePattern
-                    ? ((TuplePattern) l.get(0)).getElementValues()
+                    l.get(0) instanceof FlattenedTypeMatchPattern
+                    ? ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern()
                     : Boolean.FALSE,
                     l.get(1)
                 ))
             .forEach(casesStack::push);
         AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
-        codegenTupleMatch(casesStack, 0, codegen, scopedHeap, this.matchId);
+        codegenDestructuredSequenceMatch(casesStack, 0, codegen, scopedHeap, this.matchId);
         res = codegen.get();
-        res.javaSourceBody().append("} // End tuple match. \n");
-        break;
-      case STRUCT:
-        res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin struct match. \n");
-        String syntheticMatchedStructIdentifier;
-        if (matchedExpr instanceof IdentifierReferenceTerm) {
-          syntheticMatchedStructIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
-        } else {
-          syntheticMatchedStructIdentifier = "$syntheticMatchedStructIdentifier";
-          res.javaSourceBody()
-              .append(this.matchedExprType.getJavaSourceType())
-              .append(" ")
-              .append(syntheticMatchedStructIdentifier)
-              .append(" = ");
-          res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
-          res.javaSourceBody().append(";\n");
-        }
-        res.javaSourceBody().append(
-            IntStream.range(0, ((Types.StructType) this.matchedExprType).getFieldTypes().size()).boxed()
-                .map(
-                    i ->
-                        String.format(
-                            "%s $v%s = (%s) %s.values[%s];\n",
-                            ((Types.StructType) this.matchedExprType).getFieldTypes().get(i).getJavaSourceType(),
-                            i,
-                            ((Types.StructType) this.matchedExprType).getFieldTypes().get(i).getJavaSourceType(),
-                            syntheticMatchedStructIdentifier,
-                            i
-                        ))
-                .collect(Collectors.joining()));
-        casesStack = new Stack<>();
-        this.cases.reverse().stream()
-            .map(
-                l -> ImmutableList.of(
-                    l.get(0) instanceof StructPattern
-                    ? ((StructPattern) l.get(0)).getFieldPatterns().stream()
-                        .map(StructFieldPattern::getValue)
-                        .collect(ImmutableList.toImmutableList())
-                    : Boolean.FALSE,
-                    l.get(1)
-                ))
-            .forEach(casesStack::push);
-        codegen = new AtomicReference<>(res);
-        codegenTupleMatch(casesStack, 0, codegen, scopedHeap, this.matchId);
-        res = codegen.get();
-        res.javaSourceBody().append("} // End struct match. \n");
+        res.javaSourceBody().append("} // End structured type match. \n");
         break;
       default:
         throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
@@ -707,7 +720,162 @@ public class MatchStmt extends Stmt {
     return res;
   }
 
-  private static void codegenTupleMatch(Stack<ImmutableList<Object>> cases, int startInd, AtomicReference<GeneratedJavaSource> res, ScopedHeap scopedHeap, long matchId) {
+  // This function is used to recursively traverse an arbitrarily nested type to codegen destructuring of its primitive
+  // values into variables in a flat scope named like $v0, ..., $vn.
+  private static int codegenNestedValueDestructuring(
+      Type matchedExprType, Stack<String> path, int count, String matchedValIdentifier, GeneratedJavaSource codegen) {
+    ImmutableList<Type> elementTypes;
+    BiFunction<Type, Integer, String> getElementAccessPattern;
+    switch (matchedExprType.baseType()) {
+      case TUPLE:
+        elementTypes = ((Types.TupleType) matchedExprType).getValueTypes();
+        getElementAccessPattern = (type, i) -> "((" + type.getJavaSourceType() + ") %s.getElement(" + i + "))";
+        break;
+      case STRUCT:
+        elementTypes = ((Types.StructType) matchedExprType).getFieldTypes();
+        getElementAccessPattern = (type, i) -> "((" + type.getJavaSourceType() + ") %s.values[" + i + "])";
+        break;
+      case USER_DEFINED_TYPE:
+        HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();
+        ImmutableList<Type> matchedExprConcreteTypeParams = matchedExprType.parameterizedTypeArgs().values().asList();
+        ImmutableList<String> matchedExprTypeParamNames =
+            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+        for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
+          userDefinedConcreteTypeParamsMap.put(
+              Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
+              matchedExprConcreteTypeParams.get(i)
+          );
+        }
+        Type potentiallyGenericWrappedType =
+            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+        Type validatedWrappedType;
+        try {
+          validatedWrappedType =
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  userDefinedConcreteTypeParamsMap,
+                  potentiallyGenericWrappedType,
+                  potentiallyGenericWrappedType,
+                  /*inferConcreteTypes=*/true
+              );
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException("Internal Compiler Error: Should be unreachable.", e);
+        }
+        elementTypes = ImmutableList.of(validatedWrappedType);
+        getElementAccessPattern = (type, i) -> "((" + type.getJavaSourceType() + ") %s.wrappedValue)";
+        break;
+      default:
+        throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+    }
+
+    for (int i = 0; i < elementTypes.size(); i++) {
+      Type elemType = elementTypes.get(i);
+      path.push(getElementAccessPattern.apply(elemType, i));
+      if (elemType instanceof ConcreteType) {
+        codegen.javaSourceBody()
+            .append(elemType.getJavaSourceType())
+            .append(" ")
+            .append("$v")
+            .append(count++)
+            .append(" = ");
+        String destructuredValCodegen = matchedValIdentifier;
+        for (String pathComponent : path) {
+          // Need to compose the accesses so that the necessary casts are associated correctly.
+          destructuredValCodegen = String.format(pathComponent, destructuredValCodegen);
+        }
+        codegen.javaSourceBody()
+            .append(destructuredValCodegen)
+            .append(";\n");
+      } else {
+        count = codegenNestedValueDestructuring(elemType, path, count, matchedValIdentifier, codegen);
+      }
+      path.pop();
+    }
+    return count;
+  }
+
+  // This function is used to flatten arbitrarily nested patterns into a flat sequence of patterns so that they can be
+  // switched over using general-purpose logic that's not concerned with the particular structuring of the type.
+  private static ImmutableList<ImmutableList<Object>> flattenNestedPatterns(
+      ImmutableList<ImmutableList<Object>> patterns, Type matchedExprType, ScopedHeap scopedHeap) throws ClaroTypeException {
+    ImmutableList.Builder<ImmutableList<Object>> flatPatternsStack = ImmutableList.builder();
+    for (ImmutableList<Object> pattern : patterns) {
+      if (pattern.get(0) instanceof Boolean) { // case _ -> ...;
+        flatPatternsStack.add(pattern);
+      } else { // case (1, 2, _) -> ...;
+        ImmutableList.Builder<MaybeWildcardPrimitivePattern> currFlattenedPattern = ImmutableList.builder();
+        flattenPattern((TypeMatchPattern<Type>) pattern.get(0), matchedExprType, currFlattenedPattern, scopedHeap);
+        flatPatternsStack.add(
+            ImmutableList.of(
+                FlattenedTypeMatchPattern.create(
+                    currFlattenedPattern.build(), ((TypeMatchPattern<?>) pattern.get(0)).toImpliedType(scopedHeap)),
+                pattern.get(1)
+            ));
+      }
+    }
+    return flatPatternsStack.build();
+  }
+
+  private static void flattenPattern(
+      TypeMatchPattern<? extends Type> pattern, Type matchedType, ImmutableList.Builder<MaybeWildcardPrimitivePattern> currFlattenedPattern, ScopedHeap scopedHeap) throws ClaroTypeException {
+    // Handle wildcards first.
+    if (pattern instanceof MaybeWildcardPrimitivePattern
+        && !((MaybeWildcardPrimitivePattern) pattern).getOptionalExpr().isPresent()) {
+      if (matchedType instanceof ConcreteType) { // Wildcard matching a primitive.
+        currFlattenedPattern.add((MaybeWildcardPrimitivePattern) pattern);
+      } else { // Wildcard matching a nested type.
+        ImmutableList<Type> elementTypes;
+        switch (matchedType.baseType()) {
+          case TUPLE:
+            elementTypes = ((Types.TupleType) matchedType).getValueTypes();
+            break;
+          case STRUCT:
+            elementTypes = ((Types.StructType) matchedType).getFieldTypes();
+            break;
+          default:
+            throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+        }
+        // Now iterate over the types themselves to put a wildcard for every single primitive.
+        for (Type elemType : elementTypes) {
+          flattenPattern(pattern, elemType, currFlattenedPattern, scopedHeap);
+        }
+      }
+      return;
+    }
+
+    // Handle nested patterns here.
+    ImmutableList<? extends TypeMatchPattern<?>> patternParts;
+    ImmutableList<Type> patternTypes;
+    if (pattern instanceof TuplePattern) {
+      patternParts = ((TuplePattern) pattern).getElementValues();
+      patternTypes = ((Types.TupleType) matchedType).getValueTypes();
+    } else if (pattern instanceof StructPattern) {
+      patternParts = ((StructPattern) pattern).getFieldPatterns()
+          .stream()
+          .map(StructFieldPattern::getValue)
+          .collect(ImmutableList.toImmutableList());
+      patternTypes = ((Types.StructType) matchedType).getFieldTypes();
+    } else if (pattern instanceof UserDefinedTypePattern) {
+      patternParts = ImmutableList.of(((UserDefinedTypePattern) pattern).getWrappedValue());
+      patternTypes = ImmutableList.of(((UserDefinedTypePattern) pattern).toImpliedType(scopedHeap));
+    } else {
+      System.err.println("TESTING!!! FOUND UNEXPECTED PATTERN: " + pattern);
+      throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+    }
+    for (int i = 0; i < patternParts.size(); i++) {
+      if (patternParts.get(i) instanceof MaybeWildcardPrimitivePattern
+          && ((MaybeWildcardPrimitivePattern) patternParts.get(i)).getOptionalExpr().isPresent()) {
+        currFlattenedPattern.add((MaybeWildcardPrimitivePattern) patternParts.get(i));
+      } else {
+        flattenPattern(patternParts.get(i), patternTypes.get(i), currFlattenedPattern, scopedHeap);
+      }
+    }
+  }
+
+  // This function will be used to perform codegen for any arbitrarily nested structure that's already had its values
+  // de-structured into a flat sequence of values represented as variables $v0, ..., $vn. This modelling is very
+  // powerful as it allows the codegen for all manners of structured types to be rendered consistently using efficient
+  // switching.
+  private static void codegenDestructuredSequenceMatch(Stack<ImmutableList<Object>> cases, int startInd, AtomicReference<GeneratedJavaSource> res, ScopedHeap scopedHeap, long matchId) {
     while (!cases.isEmpty() && !cases.peek().get(0).equals(false)) {
       ImmutableList<Object> top = cases.pop();
       int wildcardPrefixLen =
@@ -772,7 +940,7 @@ public class MatchStmt extends Stmt {
                   ? String.format("\"%s\"", currCase.get())
                   : currCase.get().toString())
           .append(":\n");
-      codegenTupleMatch(caseGroup, startInd + 1, res, scopedHeap, matchId);
+      codegenDestructuredSequenceMatch(caseGroup, startInd + 1, res, scopedHeap, matchId);
       res.get().javaSourceBody().append("break;\n");
     }
 
@@ -795,37 +963,82 @@ public class MatchStmt extends Stmt {
   }
 
   // This class will be used by the parser to signal that a User-Defined type was matched.
+  // TODO(steving) TESTING!!! I'll need to rework this to take a TypeMatchPattern<?> instead of an Expr for the wrapped
+  //   value because otherwise for any user-defined type, you'll be unable to use any wildcard patterns. This is
+  //   actually particularly difficult because I'll end up needing to rewrite the logic for inferring the parameterized
+  //   types that currently FunctionCallExpr is doing for me here. Basically I'll have to rewrite the core logic of
+  //   Structural type validation and handle wildcards as generic type params, and handle type providers in oneof places.
   @AutoValue
-  public abstract static class UserDefinedTypePattern {
+  public abstract static class UserDefinedTypePattern implements TypeMatchPattern<Types.UserDefinedType> {
     public abstract IdentifierReferenceTerm getTypeName();
 
-    public abstract Expr getWrappedValue();
+    public abstract TypeMatchPattern<? extends Type> getWrappedValue();
 
-    public static UserDefinedTypePattern forTypeNameAndWrappedValue(IdentifierReferenceTerm typeName, Expr wrappedValue) {
+    public static UserDefinedTypePattern forTypeNameAndWrappedValue(IdentifierReferenceTerm typeName, TypeMatchPattern<? extends Type> wrappedValue) {
       return new AutoValue_MatchStmt_UserDefinedTypePattern(typeName, wrappedValue);
+    }
+
+    @Override
+    public Types.UserDefinedType toImpliedType(ScopedHeap scopedHeap) throws ClaroTypeException {
+      // We have what apparently looks like a user-defined type constructor call. Let's defer to the FunctionCallExpr
+      // to validate that the call was parameterized correctly.
+      return (Types.UserDefinedType)
+          this.getSyntheticFunctionCallExprForTypeValidation()
+              .getValidatedExprType(scopedHeap);
+    }
+
+    private FunctionCallExpr getSyntheticFunctionCallExprForTypeValidation() {
+      return
+          new FunctionCallExpr(
+              this.getTypeName().identifier,
+              ImmutableList.of(
+                  new Expr(
+                      ImmutableList.of(),
+                      this.getTypeName().currentLine,
+                      this.getTypeName().currentLineNumber,
+                      this.getTypeName().startCol,
+                      this.getTypeName().endCol
+                  ) {
+                    @Override
+                    public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
+                      return UserDefinedTypePattern.this.getWrappedValue().toImpliedType(scopedHeap);
+                    }
+
+                    @Override
+                    public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                      throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+                    }
+                  }),
+              this.getTypeName().currentLine,
+              this.getTypeName().currentLineNumber,
+              this.getTypeName().startCol,
+              this.getTypeName().endCol
+          );
     }
   }
 
-  interface TypeMatchPattern<T extends Type> {
-    T toImpliedType();
+  public interface TypeMatchPattern<T extends Type> {
+    T toImpliedType(ScopedHeap scopedHeap) throws ClaroTypeException;
   }
 
   // This class will be used by the parser to signal that a Tuple was matched.
   @AutoValue
   public abstract static class TuplePattern implements TypeMatchPattern<Types.TupleType> {
-    public abstract ImmutableList<MaybeWildcardPrimitivePattern> getElementValues();
+    public abstract ImmutableList<TypeMatchPattern<? extends Type>> getElementValues();
 
     public abstract boolean getIsMutable();
 
-    public static TuplePattern forElementValues(ImmutableList<MaybeWildcardPrimitivePattern> elementValues, boolean isMutable) {
+    public static TuplePattern forElementValues(ImmutableList<TypeMatchPattern<? extends Type>> elementValues, boolean isMutable) {
       return new AutoValue_MatchStmt_TuplePattern(elementValues, isMutable);
     }
 
-    public Types.TupleType toImpliedType() {
+    public Types.TupleType toImpliedType(ScopedHeap scopedHeap) throws ClaroTypeException {
+      ImmutableList.Builder<Type> valueTypes = ImmutableList.builder();
+      for (TypeMatchPattern<?> p : this.getElementValues()) {
+        valueTypes.add(p.toImpliedType(scopedHeap));
+      }
       return Types.TupleType.forValueTypes(
-          this.getElementValues().stream()
-              .map(MaybeWildcardPrimitivePattern::toImpliedType)
-              .collect(ImmutableList.toImmutableList()),
+          valueTypes.build(),
           /*isMutable=*/this.getIsMutable()
       );
     }
@@ -843,16 +1056,17 @@ public class MatchStmt extends Stmt {
     }
 
     @Override
-    public Types.StructType toImpliedType() {
+    public Types.StructType toImpliedType(ScopedHeap scopedHeap) throws ClaroTypeException {
+      ImmutableList.Builder<Type> fieldImpliedTypes = ImmutableList.builder();
+      for (StructFieldPattern fieldPattern : this.getFieldPatterns()) {
+        fieldImpliedTypes.add(fieldPattern.getValue().toImpliedType(scopedHeap));
+      }
       return Types.StructType.forFieldTypes(
           this.getFieldPatterns()
               .stream()
               .map(f -> f.getFieldName().identifier)
               .collect(ImmutableList.toImmutableList()),
-          this.getFieldPatterns()
-              .stream()
-              .map(f -> f.getValue().toImpliedType())
-              .collect(ImmutableList.toImmutableList()),
+          fieldImpliedTypes.build(),
           this.getIsMutable()
       );
     }
@@ -862,35 +1076,61 @@ public class MatchStmt extends Stmt {
   public abstract static class StructFieldPattern {
     public abstract IdentifierReferenceTerm getFieldName();
 
-    public abstract MaybeWildcardPrimitivePattern getValue();
+    public abstract TypeMatchPattern<? extends Type> getValue();
 
-    public static StructFieldPattern forFieldNameAndValue(IdentifierReferenceTerm fieldName, MaybeWildcardPrimitivePattern fieldValue) {
+    public static StructFieldPattern forFieldNameAndValue(IdentifierReferenceTerm fieldName, TypeMatchPattern<? extends Type> fieldValue) {
       return new AutoValue_MatchStmt_StructFieldPattern(fieldName, fieldValue);
+    }
+  }
+
+  @AutoValue
+  public abstract static class FlattenedTypeMatchPattern {
+    public abstract ImmutableList<MaybeWildcardPrimitivePattern> getFlattenedPattern();
+
+    public abstract Type getImpliedType();
+
+    public static FlattenedTypeMatchPattern create(
+        ImmutableList<MaybeWildcardPrimitivePattern> flattenedPattern,
+        Type impliedType) {
+      return new AutoValue_MatchStmt_FlattenedTypeMatchPattern(flattenedPattern, impliedType);
     }
   }
 
   // This class will be used by the parser to signal that a nested Wildcard was matched.
   @AutoValue
   public abstract static class MaybeWildcardPrimitivePattern implements TypeMatchPattern<Type> {
+    private static long globalWildcardCount = 0;
+
+    // Two Optionals representing only 3 valid states... here's a perfect example of where Claro will give me better
+    // tools for reasoning about correctness than Java gives me with reasonable effort.
     public abstract Optional<Object> getOptionalExpr();
+
+    public abstract Optional<IdentifierReferenceTerm> getOptionalWildcardBinding();
+
+    public abstract Optional<Long> getOptionalWildcardId();
+
 
     public static MaybeWildcardPrimitivePattern forNullableExpr(Expr nullableExpr) {
       if (nullableExpr == null) {
-        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty());
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty(), Optional.empty(), Optional.of(MaybeWildcardPrimitivePattern.globalWildcardCount++));
       } else if (nullableExpr instanceof IntegerTerm) {
-        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((IntegerTerm) nullableExpr).getValue()));
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((IntegerTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof StringTerm) {
-        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((StringTerm) nullableExpr).getValue()));
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((StringTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof TrueTerm) {
-        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((TrueTerm) nullableExpr).getValue()));
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((TrueTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof FalseTerm) {
-        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((FalseTerm) nullableExpr).getValue()));
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((FalseTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       }
       throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
     }
 
+    public static MaybeWildcardPrimitivePattern forWildcardBinding(IdentifierReferenceTerm wildcardBinding) {
+      return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty(), Optional.of(wildcardBinding), Optional.of(MaybeWildcardPrimitivePattern.globalWildcardCount++));
+    }
+
     @Override
-    public Type toImpliedType() {
+    public Type toImpliedType(ScopedHeap unusedScopedHeap) {
       if (this.getOptionalExpr().isPresent()) {
         Object primitiveLiteral = this.getOptionalExpr().get();
         if (primitiveLiteral instanceof String) {
@@ -903,8 +1143,26 @@ public class MatchStmt extends Stmt {
           throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
         }
       } else {
-        return Types.$GenericTypeParam.forTypeParamName("_");
+        return Types.$GenericTypeParam.forTypeParamName("$_" + this.getOptionalWildcardId().get() + "_");
       }
+    }
+
+    public boolean isWildcardBinding() {
+      return !this.getOptionalExpr().isPresent() && this.getOptionalWildcardBinding().isPresent();
+    }
+  }
+
+  @AutoValue
+  public abstract static class TypeProviderPattern implements TypeMatchPattern<Type> {
+    public abstract TypeProvider getMatchedTypeProvider();
+
+    public static TypeProviderPattern forTypeProvider(TypeProvider matchedTypeProvider) {
+      return new AutoValue_MatchStmt_TypeProviderPattern(matchedTypeProvider);
+    }
+
+    @Override
+    public Type toImpliedType(ScopedHeap scopedHeap) {
+      return this.getMatchedTypeProvider().resolveType(scopedHeap);
     }
   }
 }
