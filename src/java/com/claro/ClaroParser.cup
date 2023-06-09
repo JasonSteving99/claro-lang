@@ -368,7 +368,6 @@ nonterminal BreakStmt                          break_stmt;
 nonterminal ContinueStmt                       continue_stmt;
 nonterminal MatchStmt                          match_stmt;
 nonterminal ImmutableList.Builder/*<ImmutableList<Object>>*/ match_cases_list_stmt;
-nonterminal MatchStmt.TypeMatchPattern<? extends Type> match_case_patterns_excluding_top_level_wildcard;
 nonterminal MatchStmt.TypeMatchPattern<? extends Type> match_case_patterns;
 nonterminal ImmutableList.Builder/*<Object>*/  match_multi_expr_case;
 nonterminal ImmutableList.Builder/*<MatchStmt.TypeMatchPattern<? extends Type>>*/ match_case_patterns_list;
@@ -1911,41 +1910,34 @@ match_stmt ::=
   ;
 
 match_cases_list_stmt ::=
-    CASE match_case_patterns_excluding_top_level_wildcard:p ARROW stmt_list:s match_cases_list_stmt:tail
+    CASE match_case_patterns:p ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(p, s)); :}
   | CASE match_multi_expr_case:p ARROW stmt_list:s match_cases_list_stmt:tail
     {: RESULT = tail.add(ImmutableList.of(p.build().reverse(), s)); :}
-  | CASE match_case_patterns_excluding_top_level_wildcard:p ARROW stmt_list:s
+
+  | CASE match_case_patterns:p ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p, s)); :}
   | CASE match_multi_expr_case:p ARROW stmt_list:s
     {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(p.build().reverse(), s)); :}
-
-  // You can *end* with a catch-all `case _ -> ...;` but you can't just mix and match this in the middle.
-  | CASE UNDERSCORE ARROW stmt_list:s
-    // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
-    {: RESULT = ImmutableList.<ImmutableList<Object>>builder().add(ImmutableList.of(false, s)); :}
-  | CASE identifier:type LPAR identifier:wrapped RPAR ARROW stmt_list:s
-    {:
-        RESULT = ImmutableList.<ImmutableList<Object>>builder().add(
-          ImmutableList.of(
-            MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
-              type,
-              MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wrapped)),
-            s));
-    :}
   ;
 
-match_case_patterns_excluding_top_level_wildcard ::=
+match_case_patterns ::=
     primitive:p
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p); :}
+  | identifier:wildcard
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wildcard); :}
   | identifier:type LPAR primitive:wrapped RPAR
     {: RESULT =
           MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
             type,
             MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped));
     :}
-  | builtin_type:t
-    {: RESULT = MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val); :}
+  | identifier:type LPAR match_case_patterns:wrapped RPAR
+    {: RESULT =
+          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+            type,
+            wrapped);
+    :}
   | LPAR:lp match_case_patterns:head COMMA:c match_case_patterns_list:tailValues RPAR:rp
     {: RESULT = MatchStmt.TuplePattern.forElementValues(tailValues.add(head).build().reverse(), /*isMutable=*/false); :}
   | MUT LPAR:lp match_case_patterns:head COMMA:c match_case_patterns_list:tailValues RPAR:rp
@@ -1954,22 +1946,11 @@ match_case_patterns_excluding_top_level_wildcard ::=
     {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/false); :}
   | MUT:mut LCURLY:lc match_case_pattern_struct_field_list:fields RCURLY:rc
     {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true); :}
-  ;
-
-match_case_patterns ::=
-    match_case_patterns_excluding_top_level_wildcard:p
-    {: RESULT = p; :}
-  // You can *end* with a catch-all `case _ -> ...;` but you can't just mix and match this in the middle.
+  | UNDERSCORE COLON builtin_type:t
+    {: RESULT = MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val); :}
   | UNDERSCORE
     // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(null); :}
-  | identifier:type LPAR identifier:wrapped RPAR
-    {:
-        RESULT =
-          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
-            type,
-            MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wrapped));
-    :}
   ;
 
 // TODO(steving) TESTING!! Make multi-expr-case support arbitrary patterns.
