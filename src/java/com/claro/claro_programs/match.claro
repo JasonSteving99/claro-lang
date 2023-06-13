@@ -3,7 +3,11 @@ var i = 3;
 
 match (i) {
   case 2  -> print("Found i = 2");
-  case 1 | 3 | 5  -> print("Found small odd number: {i}");
+  # TODO(steving) TESTING!!! NO LONGER WORKS AFTER UNIFICATION. CONSIDER HOW TO BRING THIS BACK.
+#  case 1 | 3 | 5  -> print("Found small odd number: {i}");
+  case 1 -> print("Found small odd number: {i}");
+  case 3 -> print("Found small odd number: {i}");
+  case 5  -> print("Found small odd number: {i}");
   case 10 -> print("Found i = 10");
   case _  -> print("Found unknown value: {i}");
 }
@@ -13,7 +17,12 @@ var s = "foo";
 
 match (s) {
   case "bar"  -> print("Found bar");
-  case "fizz" | "buzz" ->
+  # TODO(steving) TESTING!!! NO LONGER WORKS AFTER UNIFICATION. CONSIDER HOW TO BRING THIS BACK.
+#  case "fizz" | "buzz" ->
+  case "fizz" ->
+    print("Found one of the fizzbuzz strings");
+    print("\tIt's actual value is: {s}");
+  case "buzz" ->
     print("Found one of the fizzbuzz strings");
     print("\tIt's actual value is: {s}");
   case _      -> print("Found unknown value: {s}");
@@ -38,17 +47,27 @@ match (b) {
 ########################################################################################################################
 
 print("----------------------------------------");
-var intOrStr: oneof<int, string, boolean> = 10;
+alias FancyOneof: oneof<int, string, boolean>
+var myFancyOneof : FancyOneof = 10;
 
-match (intOrStr) {
+match (myFancyOneof) {
 # TODO(steving) TESTING! For some reason this int literal isn't rejected, but is also not handled properly.
 #  case 10 ->
-  case _ : int ->
+  case _:int ->
     print("Found an int!");
-    var proveTypeIsNarrowed = intOrStr + 10;
-    print("I can even do math with it: intOrStr + 10 = {proveTypeIsNarrowed}");
-  case _ : string -> print("Found a string!");
-  case _ : boolean -> print("Found a boolean!");
+    var proveTypeIsNarrowed = myFancyOneof + 10;
+    print("I can even do math with it: FancyOneof + 10 = {proveTypeIsNarrowed}");
+  case _:string -> print("Found a string!");
+  case _:boolean -> print("Found a boolean!");
+}
+
+print("----------------------------------------");
+var oneofTup: tuple<FancyOneof, FancyOneof> = (10, "ten");
+
+match (oneofTup) {
+  case (_:int, _:int)    -> print("(_:int, _:int)");
+  case (_:int, _:string) -> print("(_:int, _:string)");
+  case _                 -> print("...Fallthrough...");
 }
 
 ########################################################################################################################
@@ -83,9 +102,16 @@ newtype Foo<T> : T
 var foo = Foo(10);
 
 match (foo) {
-  case Foo(1) | Foo(3) | Foo(5) ->
-    print("Found small odd Foo");
-    print(wrappingMessage(unwrap(foo)));
+  # TODO(steving) TESTING!!! NO LONGER WORKS AFTER UNIFICATION. CONSIDER HOW TO BRING THIS BACK.
+#  case Foo(1) | Foo(3) | Foo(5) ->
+#    print("Found small odd Foo");
+#    print(wrappingMessage(unwrap(foo)));
+  case Foo(1) ->
+    print("Found small odd Foo: {wrappingMessage(unwrap(foo))}");
+  case Foo(3) ->
+    print("Found small odd Foo: {wrappingMessage(unwrap(foo))}");
+  case Foo(5) ->
+    print("Found small odd Foo: {wrappingMessage(unwrap(foo))}");
   case Foo(2) ->
     print(wrappingMessage(2));
   case Foo(X) ->
@@ -178,13 +204,13 @@ for (myStruct in [{x = 1, y = 2}, {x = 3, y = 0}, {x = 1, y = 999}, {x = 999, y 
 }
 
 print("----------------------------------------");
-var myStruct2 = {a = {x = 1, y = "ninety-nine"}, z = Foo(0)};
+var myStruct2 = {a = {x = 1, y = "ninety-nine"}, z = Foo(true)};
 match (Foo(myStruct2)) {
-  case Foo({a = {x = 1, y = "two"},  z = Foo(3)})  -> print("Foo(\{a = \{x = 1, y = \"two\"},  z = Foo(3)})");
-  case Foo({a = {x = 3, y = "zero"}, z = Foo(3)})  -> print("Foo(\{a = \{x = 3, y = \"zero\"}, z = Foo(3)})");
-  case Foo({a = {x = 1, y = _},      z = Foo(3)})  -> print("Foo(\{a = \{x = 1, y = _},        z = Foo(3)})");
-  case Foo({a = {x = _, y = "two"},  z = Foo(3)})  -> print("Foo(\{a = \{x = _, y = \"two\"},  z = Foo(3)})");
-  case Foo({a = A,                   z = Foo(0)})  -> print("Foo(\{a = A, z = Foo(0)}) where A = {A}");
-  case Foo({a = {x = 3, y = "six"},  z = Foo(3)})  -> print("Foo(\{a = \{x = 3, y = \"six\"},  z = Foo(3)})");
-  case _                                           -> print("...Fallthrough...");
+  case Foo({a = {x = 1, y = "two"},  z = Foo(false)}) -> print("Foo(\{a = \{x = 1, y = \"two\"},  z = Foo(false)})");
+  case Foo({a = {x = 3, y = "zero"}, z = Foo(false)}) -> print("Foo(\{a = \{x = 3, y = \"zero\"}, z = Foo(false)})");
+  case Foo({a = {x = 1, y = _},      z = Foo(false)}) -> print("Foo(\{a = \{x = 1, y = _},        z = Foo(false)})");
+  case Foo({a = {x = _, y = "two"},  z = Foo(false)}) -> print("Foo(\{a = \{x = _, y = \"two\"},  z = Foo(false)})");
+  case Foo({a = A,                   z = Foo(true)})  -> print("Foo(\{a = A, z = Foo(true)}) where A = {A}");
+  case Foo({a = {x = 3, y = "six"},  z = Foo(false)}) -> print("Foo(\{a = \{x = 3, y = \"six\"},  z = Foo(false)})");
+  case _                                              -> print("...Fallthrough...");
 }

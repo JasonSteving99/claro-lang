@@ -1947,7 +1947,8 @@ match_case_patterns ::=
   | MUT:mut LCURLY:lc match_case_pattern_struct_field_list:fields RCURLY:rc
     {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true); :}
   | UNDERSCORE COLON builtin_type:t
-    {: RESULT = MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val); :}
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(((LexedValue<TypeProvider>) t.value).val); :}
+//          MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val)); :}
   | UNDERSCORE
     // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(null); :}
