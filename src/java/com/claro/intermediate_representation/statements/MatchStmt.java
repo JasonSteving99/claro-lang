@@ -16,10 +16,12 @@ import com.google.common.collect.Sets;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class MatchStmt extends Stmt {
   private static long globalMatchCount = 0;
@@ -110,32 +112,28 @@ public class MatchStmt extends Stmt {
       scopedHeap.exitCurrObservedScope(/*finalizeIdentifierInitializationBranchInspection=*/i == this.cases.size() - 1);
     }
 
-    if (matchedExprType.baseType().equals(BaseType.BOOLEAN)) {
-      if (!foundDefaultCase.get() && this.cases.size() < 2) {
-        // Ugly hack means that errors for duplicate branches and exhaustiveness will show up on separate compiles...not sure if I like this.
-        this.matchedExpr.logTypeError(ClaroTypeException.forMatchIsNotExhaustiveOverAllPossibleValues(matchedExprType));
-      }
-      // It's useless to have a default case when the other branches are already exhaustively matching the value.
-      if (foundDefaultCase.get() && this.cases.size() > 2) {
-        // TODO(steving) This is lazy, I should be able to log this error on the actual offending `_`.
-        this.matchedExpr.logTypeError(ClaroTypeException.forUselessDefaultCaseInAlreadyExhaustiveMatch());
-      }
-    } else if (!foundDefaultCase.get() && matchedExprType.baseType().equals(BaseType.ONEOF)) {
-      if (!(this.cases.stream()
-                .map(
-                    l ->
-                        ((TypeProvider)
-                             ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern().get(0)
-                                 .getOptionalExpr().get())
-                            .resolveType(scopedHeap))
-                .collect(ImmutableList.toImmutableList())
-                .containsAll(((Types.OneofType) matchedExprType).getVariantTypes()))) {
+    if (!foundDefaultCase.get()) {
+      // Let's find out if a default case is needed.
+      Optional<ImmutableList<Object>> optionalNonExhaustivePatternsCounterExample =
+          validatePatternsExhaustiveness(
+              this.optionalFlattenedMatchedValues.get(),
+              this.cases.stream()
+                  .map(c -> ((FlattenedTypeMatchPattern) c.get(0)).getFlattenedPattern().stream()
+                      .map(e -> e.getOptionalExpr().orElse(e))
+                      .collect(ImmutableList.toImmutableList()))
+                  .collect(ImmutableList.toImmutableList()),
+              this.optionalFlattenedMatchedValues.get().size(),
+              scopedHeap
+          );
+
+      if (optionalNonExhaustivePatternsCounterExample.isPresent()) {
         // TODO(steving) This is an ugly error, it shouldn't point at the matched expr, it should point at the `match` keyword.
-        this.matchedExpr.logTypeError(ClaroTypeException.forMatchIsNotExhaustiveOverAllPossibleValues(matchedExprType));
+        this.matchedExpr.logTypeError(
+            ClaroTypeException.forMatchIsNotExhaustiveOverAllPossibleValues(
+                matchedExprType,
+                reconstructCounterExample(matchedExprType, optionalNonExhaustivePatternsCounterExample.get()).toString()
+            ));
       }
-    } else if (!foundDefaultCase.get()) {
-      // TODO(steving) This is an ugly error, it shouldn't point at the matched expr, it should point at the `match` keyword.
-      this.matchedExpr.logTypeError(ClaroTypeException.forMatchIsNotExhaustiveOverAllPossibleValues(matchedExprType));
     }
 
     // It's useless to use a match statement to just simply match a wildcard.
@@ -437,8 +435,11 @@ public class MatchStmt extends Stmt {
           CheckPattern:
           for (ImmutableList<MaybeWildcardPrimitivePattern> precedingPattern : foundStructuredTypePatterns) {
             for (int i = 0; i < currFlattenedPattern.size(); i++) {
-              MaybeWildcardPrimitivePattern precedingPatternVal = precedingPattern.get(i);
-              MaybeWildcardPrimitivePattern currPatternVal = currFlattenedPattern.get(i);
+              // We need to be careful about how we do equality checking on TypeProviders, to actually resolve the type.
+              MaybeWildcardPrimitivePattern precedingPatternVal =
+                  maybeResolveTypeProviderPattern(precedingPattern.get(i), scopedHeap);
+              MaybeWildcardPrimitivePattern currPatternVal =
+                  maybeResolveTypeProviderPattern(currFlattenedPattern.get(i), scopedHeap);
               if (!(precedingPatternVal.equals(currPatternVal) ||
                     !precedingPatternVal.getOptionalExpr().isPresent())) {
                 // These patterns are distinct, so let's skip straight on to the next pattern.
@@ -457,6 +458,16 @@ public class MatchStmt extends Stmt {
     return checkUniqueness;
   }
 
+  private static MaybeWildcardPrimitivePattern maybeResolveTypeProviderPattern(
+      MaybeWildcardPrimitivePattern p, ScopedHeap scopedHeap) {
+    if (p.getOptionalExpr().isPresent() &&
+        p.getOptionalExpr().get() instanceof TypeProvider) {
+      return MaybeWildcardPrimitivePattern.forNullableExpr(((TypeProvider) p.getOptionalExpr()
+          .get()).resolveType(scopedHeap));
+    }
+    return p;
+  }
+
   private static void validateCaseExpr(ScopedHeap scopedHeap, Type matchedExprType, Function<Object, Boolean> checkUniqueness, Expr currCaseExpr) throws ClaroTypeException {
     // They should all be of the correct type relative to the matched expr.
     currCaseExpr.assertExpectedExprType(scopedHeap, matchedExprType);
@@ -464,6 +475,225 @@ public class MatchStmt extends Stmt {
     // Ensure that each literal value is unique.
     if (!checkUniqueness.apply(currCaseExpr)) {
       currCaseExpr.logTypeError(ClaroTypeException.forDuplicateMatchCase());
+    }
+  }
+
+  // Attempting to implement the algorithm for exhaustiveness checking detailed in the paper "Warnings for pattern
+  // matching" (by Luc Maranget) hosted at http://moscova.inria.fr/~maranget/papers/warn/warn007.html
+  private static Optional<ImmutableList<Object>> validatePatternsExhaustiveness(
+      ImmutableList<Type> flattenedPatternTypes,
+      ImmutableList<ImmutableList<Object>> flattenedPatterns,
+      int numWildcards,
+      ScopedHeap scopedHeap) {
+    // Base cases.
+    if (flattenedPatterns.size() == 0) {
+      // There are no rows to match the remaining wildcards, so return a list of wildcards.
+      return Optional.of(
+          IntStream.range(0, numWildcards).boxed()
+              .map(unused -> MaybeWildcardPrimitivePattern.forNullableExpr(null))
+              .collect(ImmutableList.toImmutableList()));
+    } else if (numWildcards == 0) {
+      return Optional.empty();
+    }
+
+    int currColInd = flattenedPatterns.get(0).size() - numWildcards;
+
+    // Collect ∑ (currColPatternElems) according to the paper. ∑ is the set of all patterns instances that appear in the
+    // currently considered column.
+    ImmutableSet<Object> currColPatternElems =
+        flattenedPatterns.stream()
+            .map(
+                p -> {
+                  Object res = p.get(currColInd);
+                  if (res instanceof TypeProvider) {
+                    return ((TypeProvider) res).resolveType(scopedHeap);
+                  }
+                  return res;
+                })
+            // Wildcards do not count as being a part of ∑.
+            .filter(e -> !(e instanceof MaybeWildcardPrimitivePattern
+                           && !((MaybeWildcardPrimitivePattern) e).getOptionalExpr().isPresent()))
+            .collect(ImmutableSet.toImmutableSet());
+
+    // Determine if ∑ (currColPatternElems) is a "complete signature" for the type being considered.
+    Type currColType = flattenedPatternTypes.get(currColInd);
+    if ((currColType.equals(Types.BOOLEAN)
+         && currColPatternElems.equals(ImmutableSet.of(Boolean.TRUE, Boolean.FALSE)))
+        ||
+        (currColType.baseType().equals(BaseType.ONEOF)
+         && currColPatternElems.equals(((Types.OneofType) currColType).getVariantTypes()))) {
+      // We've exhaustively matched all possible variants of this oneof type/boolean.
+      // Check I(S(c_k, P), n) according to the paper.
+      ImmutableList.Builder<ImmutableList<Object>> S_ck_P;
+      for (Object elem : currColPatternElems) {
+        S_ck_P = ImmutableList.builder();
+        for (ImmutableList<Object> currPattern : flattenedPatterns) {
+          Object currConsidered = currPattern.get(currColInd);
+          if (elem instanceof Type) {
+            currConsidered = ((TypeProvider) currConsidered).resolveType(scopedHeap);
+          }
+          if (elem.equals(currConsidered)
+              || (currConsidered instanceof MaybeWildcardPrimitivePattern
+                  && !((MaybeWildcardPrimitivePattern) currConsidered).getOptionalExpr().isPresent())) {
+            S_ck_P.add(currPattern);
+          }
+        }
+        Optional<ImmutableList<Object>> currExhaustivenessRes =
+            validatePatternsExhaustiveness(flattenedPatternTypes, S_ck_P.build(), numWildcards - 1, scopedHeap);
+        if (currExhaustivenessRes.isPresent()) {
+          // We found a counter-example! These patterns are not exhaustive!
+          return Optional.of(ImmutableList.builder().add(elem).addAll(currExhaustivenessRes.get()).build());
+        }
+      }
+      // We made it through checking everything and never found a counter-example, hence this subset of the patterns are
+      // in fact exhaustive!
+      return Optional.empty();
+    } else {
+      // We have definitely not made an exhaustive match, as every other Claro type is implicitly defined to have
+      // infinite instances.
+      // Check I(D(P), n - 1) according to the paper.
+      ImmutableList<ImmutableList<Object>> D_P =
+          flattenedPatterns.stream()
+              .filter(p -> {
+                // We only care about the patterns with a wildcard at the curr col.
+                Object currElem = p.get(currColInd);
+                return currElem instanceof MaybeWildcardPrimitivePattern
+                       && !((MaybeWildcardPrimitivePattern) currElem).getOptionalExpr().isPresent();
+              })
+              .collect(ImmutableList.toImmutableList());
+      Optional<ImmutableList<Object>> currExhaustivenessRes =
+          validatePatternsExhaustiveness(flattenedPatternTypes, D_P, numWildcards - 1, scopedHeap);
+      return currExhaustivenessRes.map(
+          resTail -> {
+            Object currColCounterExamplePatternElem;
+            if (currColPatternElems.isEmpty()) {
+              // Here we're just gonna add a wildcard to the front of whatever pattern we got back from recursion into
+              // default matrix.
+              currColCounterExamplePatternElem = MaybeWildcardPrimitivePattern.forNullableExpr(null);
+            } else {
+              // Here we're gonna add a valid concrete instance that's *not already present in this column*.
+              currColCounterExamplePatternElem = getCounterExampleElem(currColType, currColPatternElems);
+            }
+            return ImmutableList.builder()
+                .add(currColCounterExamplePatternElem)
+                .addAll(resTail)
+                .build();
+          }
+      );
+    }
+  }
+
+  private static Object getCounterExampleElem(Type currColType, ImmutableSet<Object> currColPatternElems) {
+    switch (currColType.baseType()) {
+      case BOOLEAN:
+        // By definition this means that currColPatternElems has only a single value. Figure out what it is and return
+        // the other one.
+        if (currColPatternElems.asList().get(0).equals(Boolean.TRUE)) {
+          return Boolean.FALSE;
+        }
+        return Boolean.TRUE;
+      case ONEOF:
+        // Here there could be multiple different variants represented, just find the first one that isn't.
+        return ((Types.OneofType) currColType).getVariantTypes().stream()
+            .filter(v -> !currColPatternElems.contains(v))
+            .findFirst()
+            .get();
+      default:
+        // Unfortunately, there's no good value to pick for any other type considering that all other types in the
+        // language have infinite instances. I could construct some example instance that's not in the
+        // currColPatternElems, but it wouldn't be particularly useful since then if the programmer used exactly that
+        // recommendation as a match pattern, they'll *definitely* never reach an exhaustive solution. For the above two
+        // cases, the user can at least iterate towards an exhaustive match by repeatedly letting the compiler find
+        // another counter-example.
+        return MaybeWildcardPrimitivePattern.forNullableExpr(null);
+    }
+  }
+
+  private static StringBuilder reconstructCounterExample(Type matchedExprType, ImmutableList<Object> counterExample) {
+    if (!ImmutableSet.of(BaseType.USER_DEFINED_TYPE, BaseType.ONEOF, BaseType.TUPLE, BaseType.STRUCT)
+        .contains(matchedExprType.baseType())) {
+      // I have no useful error messaging to provide unless there's at least some level of pattern nesting supported.
+      return new StringBuilder("case _ -> ...;");
+    }
+    return new StringBuilder("case ")
+        .append(
+            reconstructCounterExample(
+                matchedExprType, counterExample, new AtomicInteger(0), new StringBuilder()))
+        .append(" -> ...;");
+  }
+
+  private static StringBuilder reconstructCounterExample(
+      Type matchedExprType, ImmutableList<Object> counterExample, AtomicInteger startInd, StringBuilder res) {
+    if (startInd.get() >= counterExample.size()) {
+      return res;
+    }
+    switch (matchedExprType.baseType()) {
+      case TUPLE:
+        res.append("(");
+        ImmutableList<Type> elemTypes = ((Types.TupleType) matchedExprType).getValueTypes();
+        for (int i = 0; i < elemTypes.size() - 1; i++) {
+          reconstructCounterExample(elemTypes.get(i), counterExample, startInd, res);
+          res.append(", ");
+        }
+        reconstructCounterExample(elemTypes.get(elemTypes.size() - 1), counterExample, startInd, res);
+        return res.append(")");
+      case STRUCT:
+        res.append("{");
+        ImmutableList<Type> fieldTypes = ((Types.StructType) matchedExprType).getFieldTypes();
+        ImmutableList<String> fieldNames = ((Types.StructType) matchedExprType).getFieldNames();
+        for (int i = 0; i < fieldTypes.size() - 1; i++) {
+          res.append(fieldNames.get(i)).append(" = ");
+          reconstructCounterExample(fieldTypes.get(i), counterExample, startInd, res);
+          res.append(", ");
+        }
+        res.append(fieldNames.get(fieldNames.size() - 1)).append(" = ");
+        reconstructCounterExample(fieldTypes.get(fieldTypes.size() - 1), counterExample, startInd, res);
+        return res.append("}");
+      case USER_DEFINED_TYPE:
+        res.append(((Types.UserDefinedType) matchedExprType).getTypeName())
+            .append("(");
+        // Now do a bunch of work to figure out what the wrapped type is. Dear God Claro's representation of these types
+        // is such a painful experience.
+        HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();
+        ImmutableList<Type> matchedExprConcreteTypeParams = matchedExprType.parameterizedTypeArgs().values().asList();
+        ImmutableList<String> matchedExprTypeParamNames =
+            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+        for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
+          userDefinedConcreteTypeParamsMap.put(
+              Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
+              matchedExprConcreteTypeParams.get(i)
+          );
+        }
+        Type potentiallyGenericWrappedType =
+            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+        Type validatedWrappedType;
+        try {
+          validatedWrappedType =
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  userDefinedConcreteTypeParamsMap,
+                  potentiallyGenericWrappedType,
+                  potentiallyGenericWrappedType,
+                  /*inferConcreteTypes=*/true
+              );
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException("Internal Compiler Error: Should be unreachable.", e);
+        }
+        reconstructCounterExample(validatedWrappedType, counterExample, startInd, res);
+        return res.append(")");
+      case ONEOF:
+        Object counterExamplePatternElem = counterExample.get(startInd.getAndIncrement());
+        if (counterExamplePatternElem instanceof MaybeWildcardPrimitivePattern
+            && !((MaybeWildcardPrimitivePattern) counterExamplePatternElem).getOptionalExpr().isPresent()) {
+          return res.append("_");
+        }
+        return res.append("_:").append(counterExamplePatternElem);
+      default:
+        counterExamplePatternElem = counterExample.get(startInd.getAndIncrement());
+        if (counterExamplePatternElem instanceof MaybeWildcardPrimitivePattern
+            && !((MaybeWildcardPrimitivePattern) counterExamplePatternElem).getOptionalExpr().isPresent()) {
+          return res.append("_");
+        }
+        return res.append(counterExamplePatternElem);
     }
   }
 
@@ -1102,7 +1332,7 @@ public class MatchStmt extends Stmt {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((TrueTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof FalseTerm) {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((FalseTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
-      } else if (nullableExpr instanceof TypeProvider) {
+      } else if (nullableExpr instanceof TypeProvider || nullableExpr instanceof Type) {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(nullableExpr), Optional.empty(), Optional.empty());
       }
       throw new RuntimeException("Internal Compiler Error: Should be unreachable.");

@@ -380,8 +380,11 @@ public class ClaroTypeException extends Exception {
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
   private static final String NON_EXHAUSTIVE_MATCH =
-      "Non-exhaustive Match: The given cases do not match every possible value of the matched type `%s`. Ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as below:\n" +
-      "\t\tcase _ -> ...;";
+      "Non-exhaustive Match: The given cases do not match every possible value of the matched type `%s`.\n" +
+      "\t\tFor example the following case is unhandled:\n" +
+      "\t\t\t%s\n" +
+      "\t\tYou can also ensure that all possible cases are being handled by adding a final fallback case as below:\n" +
+      "\t\t\tcase _ -> ...;";
   private static final String DUPLICATE_MATCH_CASE =
       "Illegal Duplicate Match Case: All case patterns should be unique within a match block.";
   private static final String USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE =
@@ -1463,11 +1466,12 @@ public class ClaroTypeException extends Exception {
     return new ClaroTypeException(MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES);
   }
 
-  public static ClaroTypeException forMatchIsNotExhaustiveOverAllPossibleValues(Type matchedExprType) {
+  public static ClaroTypeException forMatchIsNotExhaustiveOverAllPossibleValues(Type matchedExprType, String counterExample) {
     return new ClaroTypeException(
         String.format(
             NON_EXHAUSTIVE_MATCH,
-            matchedExprType
+            matchedExprType,
+            counterExample
         )
     );
   }
