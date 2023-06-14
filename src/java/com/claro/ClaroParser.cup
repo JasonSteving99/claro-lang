@@ -1948,7 +1948,8 @@ match_case_patterns ::=
     {: RESULT = MatchStmt.StructPattern.forFieldPatterns(fields.build().reverse(), /*isMutable=*/true); :}
   | UNDERSCORE COLON builtin_type:t
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(((LexedValue<TypeProvider>) t.value).val); :}
-//          MatchStmt.TypeProviderPattern.forTypeProvider(((LexedValue<TypeProvider>) t.value).val)); :}
+  | identifier:binding COLON builtin_type:t
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forTypeLiteralWildcardBinding(((LexedValue<TypeProvider>) t.value).val, binding); :}
   | UNDERSCORE
     // TODO(steving) This should model `_` as an Expr to have something to point at in errors.
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(null); :}

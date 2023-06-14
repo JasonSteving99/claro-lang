@@ -67,7 +67,7 @@ var oneofTup: tuple<IntOrStr, IntOrStr> = (10, "ten");
 
 match (oneofTup) {
   case (_:int, _:int)       -> print("(_:int, _:int)");
-  case (_:int, _:string)    -> print("(_:int, _:string)");
+  case (X:int, Y:string)    -> print("(X:int, Y:string) where X = {X}, Y = \"{Y}\"");
   case (_:string, _:int)    -> print("(_:string, _:int)");
   case (_:string, _:string) -> print("(_:string, _:string)");
   # TODO(steving) TESTING! I NEED SOME FORM OF "USELESSNESS" CHECKING TO DETERMINE AUTOMATICALLY THAT THESE ARE UNNECESSARY.

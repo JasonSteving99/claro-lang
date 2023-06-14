@@ -529,7 +529,7 @@ public class MatchStmt extends Stmt {
         S_ck_P = ImmutableList.builder();
         for (ImmutableList<Object> currPattern : flattenedPatterns) {
           Object currConsidered = currPattern.get(currColInd);
-          if (elem instanceof Type) {
+          if (elem instanceof Type && currConsidered instanceof TypeProvider) {
             currConsidered = ((TypeProvider) currConsidered).resolveType(scopedHeap);
           }
           if (elem.equals(currConsidered)
@@ -941,18 +941,7 @@ public class MatchStmt extends Stmt {
         // If this is a wildcard binding, then set the type that the wildcard is matching so that the codegen is able to
         // generate a variable of the appropriate type.
         MaybeWildcardPrimitivePattern wildcardBindingPattern = (MaybeWildcardPrimitivePattern) pattern;
-        StringBuilder codegen = new StringBuilder()
-            .append(matchedType.getJavaSourceType())
-            .append(" ")
-            .append(wildcardBindingPattern.getOptionalWildcardBinding().get().identifier)
-            .append(" = ");
-        String destructuredValCodegen = "%s"; // matchedValIdentifier, which I don't know yet at this stage.
-        for (String pathComponent : path) {
-          // Need to compose the accesses so that the necessary casts are associated correctly.
-          destructuredValCodegen = String.format(pathComponent, destructuredValCodegen);
-        }
-        codegen.append(destructuredValCodegen).append(";\n");
-        wildcardBindingPattern.autoValueIgnored_optionalWildcardBindingDestructuringCodegen.set(Optional.of(codegen));
+        setWildcardBindingCodegen(matchedType, path, wildcardBindingPattern);
         wildcardBindingPattern.autoValueIgnored_optionalWildcardBindingType.set(Optional.of(matchedType));
       }
 
@@ -1006,6 +995,23 @@ public class MatchStmt extends Stmt {
             ((MaybeWildcardPrimitivePattern) patternParts.get(i)).toImpliedType(scopedHeap)
         );
         currFlattenedPattern.add((MaybeWildcardPrimitivePattern) patternParts.get(i));
+        // Special case: oneof-type-literal-matches can optionally have a wildcard binding associated. So we'll want to
+        // add the resolved type here to make codegen easy later on.
+        if (((MaybeWildcardPrimitivePattern) patternParts.get(i)).isWildcardBinding()) {
+          Type wildcardBindingType;
+          ((MaybeWildcardPrimitivePattern) patternParts.get(i)).autoValueIgnored_optionalWildcardBindingType
+              .set(Optional.ofNullable(
+                  wildcardBindingType =
+                      ((TypeProvider)
+                           ((MaybeWildcardPrimitivePattern) patternParts.get(i)).getOptionalExpr()
+                               .get())
+                          .resolveType(scopedHeap)));
+
+          path.push("(" + wildcardBindingType.getJavaSourceType() + ") " +
+                    getElementAccessPattern_OUT_PARAM.get().apply(patternTypes_OUT_PARAM.get().get(i), i));
+          setWildcardBindingCodegen(wildcardBindingType, path, ((MaybeWildcardPrimitivePattern) patternParts.get(i)));
+          path.pop();
+        }
       } else {
         path.push(getElementAccessPattern_OUT_PARAM.get().apply(patternTypes_OUT_PARAM.get().get(i), i));
         flattenPattern(patternParts.get(i), patternTypes_OUT_PARAM.get()
@@ -1013,6 +1019,21 @@ public class MatchStmt extends Stmt {
         path.pop();
       }
     }
+  }
+
+  private static void setWildcardBindingCodegen(Type matchedType, Stack<String> path, MaybeWildcardPrimitivePattern wildcardBindingPattern) {
+    StringBuilder codegen = new StringBuilder()
+        .append(matchedType.getJavaSourceType())
+        .append(" ")
+        .append(wildcardBindingPattern.getOptionalWildcardBinding().get().identifier)
+        .append(" = ");
+    String destructuredValCodegen = "%s"; // matchedValIdentifier, which I don't know yet at this stage.
+    for (String pathComponent : path) {
+      // Need to compose the accesses so that the necessary casts are associated correctly.
+      destructuredValCodegen = String.format(pathComponent, destructuredValCodegen);
+    }
+    codegen.append(destructuredValCodegen).append(";\n");
+    wildcardBindingPattern.autoValueIgnored_optionalWildcardBindingDestructuringCodegen.set(Optional.of(codegen));
   }
 
   // This function will be used to perform codegen for any arbitrarily nested structure that's already had its values
@@ -1088,6 +1109,14 @@ public class MatchStmt extends Stmt {
       }
     } else if (firstGroupCasePattern.getOptionalExpr().isPresent()
                && firstGroupCasePattern.getOptionalExpr().get() instanceof TypeProvider) {
+      // TODO(steving) At some point I can probably gain a tiny optimization by just switching over the type's hashcode
+      //   instead of doing a series of if-stmts. To be safe, I should of course first put in a sanity check that for
+      //   this current oneof's variants, all hashcodes are *actually* different. In the case that they're not, probably
+      //   would be simplest to just maintain this current if-stmt approach (Maybe just for the collisions? i.e.
+      //   encoding the dynamic logic of a hashtable lookup in the static codegen..). For now, I don't necessarily want
+      //   to commit to this as I'm not 100% sure of all implications relating to what happens if hashcode impls change
+      //   over time in relation to already compiled code....since Claro doesn't have a module system yet, I don't want
+      //   to pretend that I know those implications in advance.
       res.get().javaSourceBody().append("if (ClaroRuntimeUtilities.getClaroType(")
           .append("$v").append(startInd)
           .append(").equals(")
@@ -1342,6 +1371,15 @@ public class MatchStmt extends Stmt {
       return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty(), Optional.of(wildcardBinding), Optional.of(MaybeWildcardPrimitivePattern.globalWildcardCount++));
     }
 
+    public static MaybeWildcardPrimitivePattern forTypeLiteralWildcardBinding(
+        TypeProvider typeProvider, IdentifierReferenceTerm wildcardBinding) {
+      return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(
+          Optional.of(typeProvider),
+          Optional.of(wildcardBinding),
+          Optional.of(MaybeWildcardPrimitivePattern.globalWildcardCount++)
+      );
+    }
+
     @Override
     public Type toImpliedType(ScopedHeap scopedHeap) {
       if (this.getOptionalExpr().isPresent()) {
@@ -1363,7 +1401,7 @@ public class MatchStmt extends Stmt {
     }
 
     public boolean isWildcardBinding() {
-      return !this.getOptionalExpr().isPresent() && this.getOptionalWildcardBinding().isPresent();
+      return this.getOptionalWildcardBinding().isPresent();
     }
   }
 
