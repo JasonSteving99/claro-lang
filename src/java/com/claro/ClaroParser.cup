@@ -1924,6 +1924,9 @@ match_cases_list_stmt ::=
 match_case_patterns ::=
     primitive:p
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(p); :}
+  | MINUS INTEGER:i
+    {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(
+                  new IntegerTerm(-(i.val), i.currentInputLine, iright, ileft, ileft + i.len)); :}
   | identifier:wildcard
     {: RESULT = MatchStmt.MaybeWildcardPrimitivePattern.forWildcardBinding(wildcard); :}
   | identifier:type LPAR primitive:wrapped RPAR

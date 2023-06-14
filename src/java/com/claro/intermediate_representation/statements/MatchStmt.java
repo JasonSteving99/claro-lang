@@ -7,7 +7,6 @@ import com.claro.intermediate_representation.expressions.procedures.functions.Fu
 import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.types.*;
-import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -160,34 +159,37 @@ public class MatchStmt extends Stmt {
   // are supported.
   // Returns: the type sequence that the flattened patterns will effectively codegen against.
   private Optional<ImmutableList<Type>> validateMatchedExprTypeIsSupported(Type matchedExprType, ScopedHeap scopedHeap) throws ClaroTypeException {
-    ImmutableList.Builder<Type> res = ImmutableList.builder();
-    ImmutableSet.Builder<Type> invalidTypesFound = ImmutableSet.builder();
-    if (validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap, res, invalidTypesFound)) {
-      return Optional.of(res.build());
+    ImmutableList.Builder<Type> resBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Type> invalidTypesFoundBuilder = ImmutableList.builder();
+    validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap, resBuilder, invalidTypesFoundBuilder);
+    ImmutableList<Type> res = resBuilder.build();
+    ImmutableList<Type> invalidTypesFound = invalidTypesFoundBuilder.build();
+    if (invalidTypesFound.size() < res.size()) {
+      // So long as we have at least some supported types, then there's some utility to this match stmt. All of the
+      // invalid types will only be able to be matched by wildcards though.
+      return Optional.of(res);
     }
     this.matchedExpr.logTypeError(
-        ClaroTypeException.forMatchOverUnsupportedBaseValueTypes(matchedExprType, invalidTypesFound.build()));
+        ClaroTypeException.forMatchOverUnsupportedBaseValueTypes(matchedExprType, ImmutableSet.copyOf(invalidTypesFound)));
     return Optional.empty();
   }
 
-  private boolean validateMatchedExprTypeIsSupported(
-      Type matchedExprType, ScopedHeap scopedHeap, ImmutableList.Builder<Type> flattenedMatchValueTypes, ImmutableSet.Builder<Type> invalidTypesFound)
+  private void validateMatchedExprTypeIsSupported(
+      Type matchedExprType, ScopedHeap scopedHeap, ImmutableList.Builder<Type> flattenedMatchValueTypes, ImmutableList.Builder<Type> invalidTypesFound)
       throws ClaroTypeException {
     switch (matchedExprType.baseType()) {
       case INTEGER:
       case STRING:
       case BOOLEAN:
         flattenedMatchValueTypes.add(matchedExprType);
-        return true; // Supported!
+        return; // Supported!
       case USER_DEFINED_TYPE:
         // Don't want to duplicate the unwrap validation logic, so I'll defer to the Expr node impl.
         if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedExprType)) {
-          this.matchedExpr.logTypeError(ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
-              matchedExprType,
-              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.get(((Types.UserDefinedType) matchedExprType).getTypeName())
-          ));
           invalidTypesFound.add(matchedExprType);
-          return false;
+          // Unknowable works since we'll actually only allow wildcard matches of this particular opaque user-defined type.
+          flattenedMatchValueTypes.add(Types.UNKNOWABLE);
+          return;
         }
 
         // Make sure it's actually legal to unwrap this user defined type.
@@ -211,40 +213,37 @@ public class MatchStmt extends Stmt {
         if (Expr.typeErrorsFound.size() > errorsBefore) {
           // Apparently we've run into some error unwrapping this value, can't continue.
           invalidTypesFound.add(matchedExprType);
-          return false;
+          return;
         }
 
         // Now I just need to ensure that the wrapped type is something supported.
-        return validateMatchedExprTypeIsSupported(wrappedType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+        validateMatchedExprTypeIsSupported(wrappedType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+        return;
       case ONEOF:
         ImmutableList.Builder<Type> variants = ImmutableList.builder();
         for (Type variantType : ((Types.OneofType) matchedExprType).getVariantTypes()) {
           // Here we actually don't want to add each variant to the flattenedMatchValueTypes list as these types are all
           // represented in a single match "slot"...
-          if (!validateMatchedExprTypeIsSupported(variantType, scopedHeap, variants, invalidTypesFound)) {
-            return false;
-          }
+          validateMatchedExprTypeIsSupported(variantType, scopedHeap, variants, invalidTypesFound);
         }
         // The oneof itself gets placed into the flattenedMatchValueTypes for this pattern "slot".
         flattenedMatchValueTypes.add(matchedExprType);
-        return true;
+        return;
       case TUPLE:
         for (Type elemType : ((Types.TupleType) matchedExprType).getValueTypes()) {
-          if (!validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound)) {
-            return false;
-          }
+          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
         }
-        return true;
+        return;
       case STRUCT:
         for (Type elemType : ((Types.StructType) matchedExprType).getFieldTypes()) {
-          if (!validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound)) {
-            return false;
-          }
+          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
         }
-        return true;
+        return;
       default:
+        // Add the type to both the actual flattened type list and the invalid type list. This will allow the singaling
+        // of an unsupported match type if the two lists have equal length.
+        flattenedMatchValueTypes.add(matchedExprType);
         invalidTypesFound.add(matchedExprType);
-        return false;
     }
   }
 
@@ -518,10 +517,10 @@ public class MatchStmt extends Stmt {
     // Determine if ∑ (currColPatternElems) is a "complete signature" for the type being considered.
     Type currColType = flattenedPatternTypes.get(currColInd);
     if ((currColType.equals(Types.BOOLEAN)
-         && currColPatternElems.equals(ImmutableSet.of(Boolean.TRUE, Boolean.FALSE)))
+         && currColPatternElems.containsAll(ImmutableSet.of(Boolean.TRUE, Boolean.FALSE)))
         ||
         (currColType.baseType().equals(BaseType.ONEOF)
-         && currColPatternElems.equals(((Types.OneofType) currColType).getVariantTypes()))) {
+         && currColPatternElems.containsAll(((Types.OneofType) currColType).getVariantTypes()))) {
       // We've exhaustively matched all possible variants of this oneof type/boolean.
       // Check I(S(c_k, P), n) according to the paper.
       ImmutableList.Builder<ImmutableList<Object>> S_ck_P;
@@ -810,23 +809,27 @@ public class MatchStmt extends Stmt {
     for (int i = 0; i < elementTypes.size(); i++) {
       Type elemType = elementTypes.get(i);
       path.push(getElementAccessPattern.apply(elemType, i));
-      if (elemType instanceof ConcreteType || elemType instanceof Types.OneofType) {
-        codegen.javaSourceBody()
-            .append(elemType.getJavaSourceType())
-            .append(" ")
-            .append("$v")
-            .append(count++)
-            .append(" = ");
-        String destructuredValCodegen = matchedValIdentifier;
-        for (String pathComponent : path) {
-          // Need to compose the accesses so that the necessary casts are associated correctly.
-          destructuredValCodegen = String.format(pathComponent, destructuredValCodegen);
-        }
-        codegen.javaSourceBody()
-            .append(destructuredValCodegen)
-            .append(";\n");
-      } else {
-        count = codegenNestedValueDestructuring(elemType, path, count, matchedValIdentifier, codegen);
+      switch (elemType.baseType()) {
+        case TUPLE:
+        case STRUCT:
+        case USER_DEFINED_TYPE:
+          count = codegenNestedValueDestructuring(elemType, path, count, matchedValIdentifier, codegen);
+          break;
+        default:
+          codegen.javaSourceBody()
+              .append(elemType.getJavaSourceType())
+              .append(" ")
+              .append("$v")
+              .append(count++)
+              .append(" = ");
+          String destructuredValCodegen = matchedValIdentifier;
+          for (String pathComponent : path) {
+            // Need to compose the accesses so that the necessary casts are associated correctly.
+            destructuredValCodegen = String.format(pathComponent, destructuredValCodegen);
+          }
+          codegen.javaSourceBody()
+              .append(destructuredValCodegen)
+              .append(";\n");
       }
       path.pop();
     }
@@ -876,7 +879,8 @@ public class MatchStmt extends Stmt {
         getElementAccessPattern_OUT_PARAM.set((type, i) -> "((" + type.getJavaSourceType() + ") %s.wrappedValue)");
         break;
       default:
-        throw new RuntimeException("Internal Compiler Error! Should be unreachable. " + matchedExprType);
+        elementTypes_OUT_PARAM.set(ImmutableList.of(matchedExprType));
+        getElementAccessPattern_OUT_PARAM.set((unusedType, unusedInd) -> "%s");
     }
   }
 
@@ -913,7 +917,6 @@ public class MatchStmt extends Stmt {
         flattenPattern((TypeMatchPattern<Type>) pattern.get(0), matchedExprType, currFlattenedPattern, scopedHeap, new Stack<>());
       }
       if (Expr.typeErrorsFound.size() > countErrorsBefore) {
-        Expr.typeErrorsFound.setSize(countErrorsBefore);
         this.matchedExpr.logTypeError(ClaroTypeException.forInvalidPatternMatchingWrongType(
             matchedExprType,
             ((TypeMatchPattern<?>) pattern.get(0)).toImpliedType(scopedHeap)
@@ -945,16 +948,20 @@ public class MatchStmt extends Stmt {
         wildcardBindingPattern.autoValueIgnored_optionalWildcardBindingType.set(Optional.of(matchedType));
       }
 
-      if (matchedType instanceof ConcreteType ||
-          matchedType instanceof Types.OneofType) { // Wildcard matching a primitive.
-        currFlattenedPattern.add((MaybeWildcardPrimitivePattern) pattern);
-      } else { // Wildcard matching a nested type.
-        AtomicReference<ImmutableList<Type>> elementTypes_OUT_PARAM = new AtomicReference<>();
-        getNestedValueDestructuringPathPartCodegen(matchedType, elementTypes_OUT_PARAM, /*unused*/new AtomicReference<>());
-        // Now iterate over the types themselves to put a wildcard for every single primitive.
-        for (Type elemType : elementTypes_OUT_PARAM.get()) {
-          flattenPattern(pattern, elemType, currFlattenedPattern, scopedHeap, path);
-        }
+      switch (matchedType.baseType()) {
+        // Wildcard matching a nested type.
+        case TUPLE:
+        case STRUCT:
+        case USER_DEFINED_TYPE:
+          AtomicReference<ImmutableList<Type>> elementTypes_OUT_PARAM = new AtomicReference<>();
+          getNestedValueDestructuringPathPartCodegen(matchedType, elementTypes_OUT_PARAM, /*unused*/new AtomicReference<>());
+          // Now iterate over the types themselves to put a wildcard for every single primitive.
+          for (Type elemType : elementTypes_OUT_PARAM.get()) {
+            flattenPattern(pattern, elemType, currFlattenedPattern, scopedHeap, path);
+          }
+          break;
+        default: // Wildcard matching anything either non-nested or that doesn't support matching literal patterns.
+          currFlattenedPattern.add((MaybeWildcardPrimitivePattern) pattern);
       }
       return;
     }
@@ -977,6 +984,16 @@ public class MatchStmt extends Stmt {
     } else if (pattern instanceof UserDefinedTypePattern) {
       patternParts = ImmutableList.of(((UserDefinedTypePattern) pattern).getWrappedValue());
       patternMatchesCorrectType = matchedType.baseType().equals(BaseType.USER_DEFINED_TYPE);
+      // If the user-defined-type pattern contains anything other than a non-binding wildcard, then that means
+      // unwrapping is happening, so it must not be an opaque user-defined type.
+      if (!((patternParts.get(0) instanceof MaybeWildcardPrimitivePattern
+             && !((MaybeWildcardPrimitivePattern) patternParts.get(0)).isWildcardBinding())
+            || UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedType))) {
+        this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
+            matchedType,
+            ((Types.UserDefinedType) matchedType).getTypeName()
+        ));
+      }
     } else {
       throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
     }

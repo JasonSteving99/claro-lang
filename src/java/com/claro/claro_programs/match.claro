@@ -52,7 +52,7 @@ var myFancyOneof : FancyOneof = 10;
 
 match (myFancyOneof) {
 # TODO(steving) TESTING! For some reason this int literal isn't rejected, but is also not handled properly.
-#  case 10 ->
+#  case 10 -> print("Matched 10!");
   case _:int ->
     print("Found an int!");
     var proveTypeIsNarrowed = myFancyOneof + 10;
@@ -218,4 +218,38 @@ match (Foo(myStruct2)) {
   case Foo({a = A,                   z = Foo(true)})  -> print("Foo(\{a = A, z = Foo(true)}) where A = {A}");
   case Foo({a = {x = 3, y = "six"},  z = Foo(false)}) -> print("Foo(\{a = \{x = 3, y = \"six\"},  z = Foo(false)})");
   case _                                              -> print("...Fallthrough...");
+}
+
+########################################################################################################################
+# CERTAIN TYPES ARE FUNDAMENTALLY UNABLE TO BE EXACTLY MATCHED AGAINST.
+#
+# In these cases you are required to use a wildcard to match any value since Claro's match can't do any form of
+# meaningful exact equality check between instances of the type. In particular, this is relevant for floats as floating
+# point equality checks are notoriously inaccurate at a hardware level. This is also relevant for other types that have
+# no meaningful concept of "equality", for example `future<...>` explicitly represents a value that *is not yet known*
+# hence there's literally nothing to compare yet.
+########################################################################################################################
+
+print("----------------------------------------");
+
+graph provider getDummyFuture() -> future<int> {
+  node dummyVal <- -1;
+  root dummyRes <- @dummyVal;
+}
+
+newtype Bar<T> : T
+# This is a great demonstration that Bar instances can still be present in matched values, but only if the wrapped
+# value isn't implicitly unwrapped.
+unwrappers Bar {
+  function unwrapBar<T>(bar: Bar<T>) -> T {
+    return unwrap(bar);
+  }
+}
+
+match ((getDummyFuture(), 9.9, ["ok"], 1, Bar([10]))) {
+  case (F, N, L, 1, B) ->
+    var awaited <-| F;
+    print("({awaited}, {N}, {L}, 1, {B})");
+  case _ ->
+    print("...Fallthrough...");
 }

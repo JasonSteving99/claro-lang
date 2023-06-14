@@ -227,6 +227,17 @@ public class ClaroTypeException extends Exception {
       "Illegal Use of User-Defined Type Unwrapper Outside of Unwrappers Block: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to use the type's default `unwrap()` function directly.\n" +
       "\t\tInstead, to unwrap an instance of this type, consider calling one of the defined unwrappers:\n" +
       "%s";
+  private static final String ILLEGAL_IMPLICIT_UNWRAP_OF_OPAQUE_USER_DEFINED_TYPE_IN_MATCH_PATTERN =
+      "Illegal Implicit Unwrap of Opaque User-Defined Type in Match Pattern: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to implicitly `unwrap()` values of this type by attempting to pattern match the wrapped value.\n" +
+      "\t\tFor example, the following case pattern:\n" +
+      "\t\t\tcase %s(X) -> ...use X...;\n" +
+      "\t\tis equivalent to the following use of unwrap:\n" +
+      "\t\t\tcase Matched%s ->\n" +
+      "\t\t\t\tvar X = unwrap(Matched%s);\n" +
+      "\t\t\t\t...use X...;\n\n" +
+      "\t\tInstead, to match on an instance of this type you must use a wildcard as in one of the below options:\n" +
+      "\t\t\t- case %s(_) -> ...;\n" +
+      "\t\t\t- case _ -> ...;";
   private static final String ILLEGAL_AUTOMATIC_ERROR_PROPAGATION =
       "Illegal Use of Automatic Error Propagation: Automatic Error Propagation only applies to oneofs containing at least one `Error<T>` variant and one non-`Error<T>` variant.\n" +
       "\t\tFound:\n" +
@@ -372,10 +383,10 @@ public class ClaroTypeException extends Exception {
       "\t\tWrapping unsupported type:\n" +
       "\t\t\t%s";
   private static final String MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES =
-      "Illegal Match Over Type Containing Unsupported Base Types: Pattern matching is only supported over values whose base types are oneof<int, string, boolean>.\n" +
+      "Illegal Match Over Type Entirely Composed of Base Types For Which Exact Matches are Impossible to Evaluate.\n" +
       "\t\tMatched Expression Type:\n" +
       "\t\t\t%s\n" +
-      "\t\tWith the following unsupported base types:\n" +
+      "\t\tContains the following unsupported base types:\n" +
       "\t\t\t- %s";
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
@@ -1171,7 +1182,7 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static Exception forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
+  public static ClaroTypeException forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
       Type userDefinedType, Collection<String> unwrapperProcedureTypes) {
     return new ClaroTypeException(
         String.format(
@@ -1179,6 +1190,20 @@ public class ClaroTypeException extends Exception {
             userDefinedType,
             unwrapperProcedureTypes.stream()
                 .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
+      Type userDefinedType, String userDefinedTypeName) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_IMPLICIT_UNWRAP_OF_OPAQUE_USER_DEFINED_TYPE_IN_MATCH_PATTERN,
+            userDefinedType,
+            userDefinedTypeName,
+            userDefinedTypeName,
+            userDefinedTypeName,
+            userDefinedTypeName
         )
     );
   }
@@ -1457,7 +1482,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES,
             matchedExprType,
-            unsupportedBaseValueTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t"))
+            unsupportedBaseValueTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t- "))
         )
     );
   }
