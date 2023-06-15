@@ -439,8 +439,11 @@ public class MatchStmt extends Stmt {
                   maybeResolveTypeProviderPattern(precedingPattern.get(i), scopedHeap);
               MaybeWildcardPrimitivePattern currPatternVal =
                   maybeResolveTypeProviderPattern(currFlattenedPattern.get(i), scopedHeap);
-              if (!(precedingPatternVal.equals(currPatternVal) ||
-                    !precedingPatternVal.getOptionalExpr().isPresent())) {
+              if (!(precedingPatternVal.equals(currPatternVal)
+                    || !precedingPatternVal.getOptionalExpr().isPresent()
+                    || (precedingPatternVal.getOptionalExpr().get() instanceof Type
+                        && precedingPatternVal.toImpliedType(scopedHeap)
+                            .equals(currPatternVal.toImpliedType(scopedHeap))))) {
                 // These patterns are distinct, so let's skip straight on to the next pattern.
                 continue CheckPattern; // I love how hacky this is, lol.
               }
@@ -496,6 +499,7 @@ public class MatchStmt extends Stmt {
     }
 
     int currColInd = flattenedPatterns.get(0).size() - numWildcards;
+    Type currColType = flattenedPatternTypes.get(currColInd);
 
     // Collect ∑ (currColPatternElems) according to the paper. ∑ is the set of all patterns instances that appear in the
     // currently considered column.
@@ -512,10 +516,12 @@ public class MatchStmt extends Stmt {
             // Wildcards do not count as being a part of ∑.
             .filter(e -> !(e instanceof MaybeWildcardPrimitivePattern
                            && !((MaybeWildcardPrimitivePattern) e).getOptionalExpr().isPresent()))
+            // I'm also going to go out on a limb and say that anything other than Types don't count if we're matching a
+            // oneof, because those patterns can't possibly contribute to the exhaustiveness of the match.
+            .filter(e -> !currColType.baseType().equals(BaseType.ONEOF) || e instanceof Type)
             .collect(ImmutableSet.toImmutableSet());
 
     // Determine if ∑ (currColPatternElems) is a "complete signature" for the type being considered.
-    Type currColType = flattenedPatternTypes.get(currColInd);
     if ((currColType.equals(Types.BOOLEAN)
          && currColPatternElems.containsAll(ImmutableSet.of(Boolean.TRUE, Boolean.FALSE)))
         ||
@@ -788,7 +794,7 @@ public class MatchStmt extends Stmt {
               ))
           .forEach(casesStack::push);
       AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
-      codegenDestructuredSequenceMatch(casesStack, 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId);
+      codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId);
       res = codegen.get();
       res.javaSourceBody().append("} // End structured type match. \n");
     }
@@ -1057,9 +1063,14 @@ public class MatchStmt extends Stmt {
   // de-structured into a flat sequence of values represented as variables $v0, ..., $vn. This modelling is very
   // powerful as it allows the codegen for all manners of structured types to be rendered consistently using efficient
   // switching.
-  private static void codegenDestructuredSequenceMatch(Stack<ImmutableList<Object>> cases,
-                                                       int startInd, AtomicReference<GeneratedJavaSource> res, String matchedValIdentifier, ScopedHeap scopedHeap,
-                                                       long matchId) {
+  private static void codegenDestructuredSequenceMatch(
+      Stack<ImmutableList<Object>> cases,
+      ImmutableList<Type> flattenedPatternTypes,
+      int startInd,
+      AtomicReference<GeneratedJavaSource> res,
+      String matchedValIdentifier,
+      ScopedHeap scopedHeap,
+      long matchId) {
     while (!cases.isEmpty() && !cases.peek().get(0).equals(false)) {
       ImmutableList<Object> top = cases.pop();
       int wildcardPrefixLen =
@@ -1071,14 +1082,25 @@ public class MatchStmt extends Stmt {
         switchGroup.push(top);
         while (!cases.isEmpty()
                && !cases.peek().get(0).equals(false)
-               &&
-               countWildcardFromInd((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek().get(0), startInd) ==
-               wildcardPrefixLen) {
+               && countWildcardFromInd((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek().get(0), startInd) ==
+                  wildcardPrefixLen
+               && // This case ensures type literals are segregated to their own groups separate from values.
+               ((((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek().get(0)).get(startInd + wildcardPrefixLen)
+                     .getOptionalExpr()
+                     .get() instanceof TypeProvider)
+                == (((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.peek().get(0)).get(
+                       startInd + wildcardPrefixLen)
+                        .getOptionalExpr()
+                        .get() instanceof TypeProvider))
+        ) {
           switchGroup.push(cases.pop());
         }
 
         Collections.reverse(switchGroup);
-        CodegenSwitchGroup(switchGroup, startInd + wildcardPrefixLen, res, matchedValIdentifier, scopedHeap, matchId);
+        CodegenSwitchGroup(
+            switchGroup, flattenedPatternTypes,
+            startInd + wildcardPrefixLen, res, matchedValIdentifier, scopedHeap, matchId
+        );
       } else { // Just go straight to codegen on `case _ ->` or `case (..., _, _)`
         // First thing, check if there are any wildcard bindings I need to codegen assignments for.
         HashSet<String> alreadyCodegendWildcardBindings = Sets.newHashSet();
@@ -1114,11 +1136,13 @@ public class MatchStmt extends Stmt {
   }
 
   private static void CodegenSwitchGroup(
-      Stack<ImmutableList<Object>> switchGroup, int startInd, AtomicReference<GeneratedJavaSource> res,
-      String matchedValIdentifier, ScopedHeap scopedHeap, long matchId) {
+      Stack<ImmutableList<Object>> switchGroup, ImmutableList<Type> flattenedPatternTypes,
+      int startInd, AtomicReference<GeneratedJavaSource> res, String matchedValIdentifier, ScopedHeap scopedHeap,
+      long matchId) {
     MaybeWildcardPrimitivePattern firstGroupCasePattern =
         ((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.peek().get(0)).get(startInd);
     Type firstGroupCasePatternImpliedType = firstGroupCasePattern.toImpliedType(scopedHeap);
+    boolean needExtraRCurly = false;
     if (firstGroupCasePatternImpliedType.equals(Types.BOOLEAN)) {
       res.get().javaSourceBody().append("if ($v").append(startInd);
       if (firstGroupCasePattern.getOptionalExpr().get().equals(Boolean.FALSE)) {
@@ -1139,6 +1163,22 @@ public class MatchStmt extends Stmt {
           .append(").equals(")
           .append(firstGroupCasePatternImpliedType.getJavaSourceClaroType())
           .append(")");
+    } else if (flattenedPatternTypes.get(startInd).baseType().equals(BaseType.ONEOF)) {
+      // In this case I still need to gen a switch, but I need to enclose it in a check that we're looking at the right
+      // type first, and I also need to cast the switched value because it was destructured as a oneof (Object in Java).
+      String currDestructuredVal = "$v" + startInd;
+      res.get()
+          .javaSourceBody()
+          .append("if (ClaroRuntimeUtilities.getClaroType(")
+          .append(currDestructuredVal)
+          .append(").equals(")
+          .append(firstGroupCasePatternImpliedType.getJavaSourceClaroType())
+          .append(")) {\n")
+          .append("switch ((")
+          .append(firstGroupCasePatternImpliedType.getJavaSourceType())
+          .append(") ")
+          .append(currDestructuredVal);
+      needExtraRCurly = true;
     } else {
       res.get()
           .javaSourceBody()
@@ -1168,14 +1208,16 @@ public class MatchStmt extends Stmt {
       switchGroup.removeAll(caseGroup);
 
       if (firstGroupCasePatternImpliedType.equals(Types.BOOLEAN)) {
-        codegenDestructuredSequenceMatch(caseGroup, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+        codegenDestructuredSequenceMatch(
+            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
         if (firstGroupCasePattern != null && !switchGroup.isEmpty()) {
           res.get().javaSourceBody().append("} else {");
           firstGroupCasePattern = null; // I'm a monster.
         }
       } else if (firstGroupCasePattern.getOptionalExpr().isPresent()
                  && firstGroupCasePattern.getOptionalExpr().get() instanceof TypeProvider) {
-        codegenDestructuredSequenceMatch(caseGroup, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+        codegenDestructuredSequenceMatch(
+            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
         if (!switchGroup.isEmpty()) {
           res.get().javaSourceBody().append("} else if (ClaroRuntimeUtilities.getClaroType(")
               .append("$v").append(startInd)
@@ -1196,12 +1238,16 @@ public class MatchStmt extends Stmt {
                     ? String.format("\"%s\"", currCase.get())
                     : currCase.get().toString())
             .append(":\n");
-        codegenDestructuredSequenceMatch(caseGroup, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+        codegenDestructuredSequenceMatch(
+            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
         res.get().javaSourceBody().append("break;\n");
       }
     }
 
     res.get().javaSourceBody().append("}\n");
+    if (needExtraRCurly) {
+      res.get().javaSourceBody().append("}\n");
+    }
   }
 
   private static int countWildcardFromInd(ImmutableList<MaybeWildcardPrimitivePattern> l, int i) {
@@ -1409,6 +1455,8 @@ public class MatchStmt extends Stmt {
           return Types.BOOLEAN;
         } else if (primitiveLiteral instanceof TypeProvider) {
           return ((TypeProvider) primitiveLiteral).resolveType(scopedHeap);
+        } else if (primitiveLiteral instanceof Type) {
+          return (Type) primitiveLiteral;
         } else {
           throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
         }

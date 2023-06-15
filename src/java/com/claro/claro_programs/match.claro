@@ -63,11 +63,12 @@ match (myFancyOneof) {
 
 print("----------------------------------------");
 alias IntOrStr : oneof<int, string>
-var oneofTup: tuple<IntOrStr, IntOrStr> = (10, "ten");
+var oneofTup: tuple<IntOrStr, IntOrStr> = (20, "ten");
 
 match (oneofTup) {
   case (_:int, _:int)       -> print("(_:int, _:int)");
-  case (X:int, Y:string)    -> print("(X:int, Y:string) where X = {X}, Y = \"{Y}\"");
+  case (10, _:string)       -> print("(10, _:int)");
+  case (X:int, Y:string)    -> print("(X:int, Y:string) where X = {X} (X != 10), Y = \"{Y}\"");
   case (_:string, _:int)    -> print("(_:string, _:int)");
   case (_:string, _:string) -> print("(_:string, _:string)");
   # TODO(steving) TESTING! I NEED SOME FORM OF "USELESSNESS" CHECKING TO DETERMINE AUTOMATICALLY THAT THESE ARE UNNECESSARY.
