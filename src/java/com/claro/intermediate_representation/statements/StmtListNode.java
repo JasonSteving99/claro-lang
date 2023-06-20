@@ -23,6 +23,11 @@ public class StmtListNode extends Node {
     this.tail = tail;
   }
 
+  /*DO NOT USE THIS CONSTRUCTOR EXCEPT FOR SYNTHETIC NODES.*/
+  public StmtListNode() {
+    super(ImmutableList.of());
+  }
+
   // Called after complete construction of AST-IR, but before evaluating any program values.
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Type checking shouldn't be recursive over StmtListNode as it may cause stack overflow during compilation just

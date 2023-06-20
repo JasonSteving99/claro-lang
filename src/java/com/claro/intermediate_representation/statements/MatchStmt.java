@@ -121,6 +121,7 @@ public class MatchStmt extends Stmt {
                       .map(e -> e.getOptionalExpr().orElse(e))
                       .collect(ImmutableList.toImmutableList()))
                   .collect(ImmutableList.toImmutableList()),
+              /*currColInd=*/0,
               this.optionalFlattenedMatchedValues.get().size(),
               scopedHeap
           );
@@ -378,9 +379,22 @@ public class MatchStmt extends Stmt {
       // Finally, attempt to declare variables for any necessary wildcard bindings.
       HashSet<Long> alreadyHandledWildcardBindings = Sets.newHashSet();
       for (MaybeWildcardPrimitivePattern wildcardBindingPattern :
-          ((FlattenedTypeMatchPattern) currCasePattern).getFlattenedPattern().stream()
-              .filter(MaybeWildcardPrimitivePattern::isWildcardBinding)
-              .collect(Collectors.toList())) {
+          ImmutableList.<MaybeWildcardPrimitivePattern>builder()
+              .addAll(
+                  ((FlattenedTypeMatchPattern) currCasePattern).getFlattenedPattern().stream()
+                      .filter(MaybeWildcardPrimitivePattern::isWildcardBinding)
+                      .collect(Collectors.toList()))
+              .addAll(
+                  // Need to also collect any wildcard bindings nested within any oneof variant value sentinels.
+                  ((FlattenedTypeMatchPattern) currCasePattern).getFlattenedPattern().stream()
+                      .filter(m -> m.isOneofTypeVariantValueLiteralSentinel())
+                      .map(m -> ((OneofTypeVariantsMatchedSentinel) m.getOptionalExpr().get())
+                          .getVariantValueLiteralFlattenedPattern().stream()
+                          .filter(m2 -> m2.isWildcardBinding()).collect(ImmutableList.toImmutableList()))
+                      .flatMap(l -> l.stream())
+                      .collect(ImmutableList.toImmutableList())
+              )
+              .build()) {
         // The identifier must not already be in use somewhere else, as that shadowing would be confusing.
         IdentifierReferenceTerm wildcardBinding = wildcardBindingPattern.getOptionalWildcardBinding().get();
         if (!alreadyHandledWildcardBindings.contains(wildcardBindingPattern.getOptionalWildcardId().get())) {
@@ -439,11 +453,32 @@ public class MatchStmt extends Stmt {
                   maybeResolveTypeProviderPattern(precedingPattern.get(i), scopedHeap);
               MaybeWildcardPrimitivePattern currPatternVal =
                   maybeResolveTypeProviderPattern(currFlattenedPattern.get(i), scopedHeap);
-              if (!(precedingPatternVal.equals(currPatternVal)
-                    || !precedingPatternVal.getOptionalExpr().isPresent()
-                    || (precedingPatternVal.getOptionalExpr().get() instanceof Type
-                        && precedingPatternVal.toImpliedType(scopedHeap)
-                            .equals(currPatternVal.toImpliedType(scopedHeap))))) {
+              if (precedingPatternVal.getOptionalExpr().map(opt -> opt instanceof OneofTypeVariantsMatchedSentinel)
+                      .equals(Optional.of(true))
+                  && currPatternVal.getOptionalExpr().map(opt -> opt instanceof OneofTypeVariantsMatchedSentinel)
+                      .equals(Optional.of(true))
+                  && precedingPatternVal.toImpliedType(scopedHeap).equals(currPatternVal.toImpliedType(scopedHeap))) {
+                Function<Object, Boolean> recurseCheckUniquenessFn =
+                    getCheckUniquenessFn(
+                        scopedHeap,
+                        ((OneofTypeVariantsMatchedSentinel) currPatternVal.getOptionalExpr().get()).getImpliedType(),
+                        caseExprLiterals, foundTypeLiterals
+                    );
+                boolean ignored =
+                    recurseCheckUniquenessFn.apply(
+                        ((OneofTypeVariantsMatchedSentinel) precedingPatternVal.getOptionalExpr().get())
+                            .getVariantValueLiteralFlattenedPattern());
+                if (recurseCheckUniquenessFn.apply(
+                    ((OneofTypeVariantsMatchedSentinel) currPatternVal.getOptionalExpr().get())
+                        .getVariantValueLiteralFlattenedPattern())) {
+                  // These patterns are distinct, so let's skip straight on to the next pattern.
+                  continue CheckPattern;
+                }
+              } else if (!(precedingPatternVal.equals(currPatternVal)
+                           || !precedingPatternVal.getOptionalExpr().isPresent()
+                           || (precedingPatternVal.getOptionalExpr().get() instanceof Type
+                               && precedingPatternVal.toImpliedType(scopedHeap)
+                                   .equals(currPatternVal.toImpliedType(scopedHeap))))) {
                 // These patterns are distinct, so let's skip straight on to the next pattern.
                 continue CheckPattern; // I love how hacky this is, lol.
               }
@@ -485,6 +520,7 @@ public class MatchStmt extends Stmt {
   private static Optional<ImmutableList<Object>> validatePatternsExhaustiveness(
       ImmutableList<Type> flattenedPatternTypes,
       ImmutableList<ImmutableList<Object>> flattenedPatterns,
+      int currColInd,
       int numWildcards,
       ScopedHeap scopedHeap) {
     // Base cases.
@@ -498,7 +534,6 @@ public class MatchStmt extends Stmt {
       return Optional.empty();
     }
 
-    int currColInd = flattenedPatterns.get(0).size() - numWildcards;
     Type currColType = flattenedPatternTypes.get(currColInd);
 
     // Collect ∑ (currColPatternElems) according to the paper. ∑ is the set of all patterns instances that appear in the
@@ -544,7 +579,8 @@ public class MatchStmt extends Stmt {
           }
         }
         Optional<ImmutableList<Object>> currExhaustivenessRes =
-            validatePatternsExhaustiveness(flattenedPatternTypes, S_ck_P.build(), numWildcards - 1, scopedHeap);
+            validatePatternsExhaustiveness(
+                flattenedPatternTypes, S_ck_P.build(), currColInd + 1, numWildcards - 1, scopedHeap);
         if (currExhaustivenessRes.isPresent()) {
           // We found a counter-example! These patterns are not exhaustive!
           return Optional.of(ImmutableList.builder().add(elem).addAll(currExhaustivenessRes.get()).build());
@@ -567,7 +603,7 @@ public class MatchStmt extends Stmt {
               })
               .collect(ImmutableList.toImmutableList());
       Optional<ImmutableList<Object>> currExhaustivenessRes =
-          validatePatternsExhaustiveness(flattenedPatternTypes, D_P, numWildcards - 1, scopedHeap);
+          validatePatternsExhaustiveness(flattenedPatternTypes, D_P, currColInd + 1, numWildcards - 1, scopedHeap);
       return currExhaustivenessRes.map(
           resTail -> {
             Object currColCounterExamplePatternElem;
@@ -794,7 +830,7 @@ public class MatchStmt extends Stmt {
               ))
           .forEach(casesStack::push);
       AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
-      codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId);
+      codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId, /*currMatchedValIdentifierPrefix=*/"");
       res = codegen.get();
       res.javaSourceBody().append("} // End structured type match. \n");
     }
@@ -802,10 +838,15 @@ public class MatchStmt extends Stmt {
     return res;
   }
 
+  private static int codegenNestedValueDestructuring(
+      Type matchedExprType, Stack<String> path, int count, String matchedValIdentifier, GeneratedJavaSource codegen) {
+    return codegenNestedValueDestructuring(matchedExprType, path, count, matchedValIdentifier, codegen, "");
+  }
+
   // This function is used to recursively traverse an arbitrarily nested type to codegen destructuring of its primitive
   // values into variables in a flat scope named like $v0, ..., $vn.
   private static int codegenNestedValueDestructuring(
-      Type matchedExprType, Stack<String> path, int count, String matchedValIdentifier, GeneratedJavaSource codegen) {
+      Type matchedExprType, Stack<String> path, int count, String matchedValIdentifier, GeneratedJavaSource codegen, String generatedVarPrefix) {
     AtomicReference<ImmutableList<Type>> elementTypes_OUT_PARAM = new AtomicReference<>();
     AtomicReference<BiFunction<Type, Integer, String>> getElementAccessPattern_OUT_PARAM = new AtomicReference<>();
     getNestedValueDestructuringPathPartCodegen(matchedExprType, elementTypes_OUT_PARAM, getElementAccessPattern_OUT_PARAM);
@@ -819,13 +860,15 @@ public class MatchStmt extends Stmt {
         case TUPLE:
         case STRUCT:
         case USER_DEFINED_TYPE:
-          count = codegenNestedValueDestructuring(elemType, path, count, matchedValIdentifier, codegen);
+          count =
+              codegenNestedValueDestructuring(elemType, path, count, matchedValIdentifier, codegen, generatedVarPrefix);
           break;
         default:
           codegen.javaSourceBody()
               .append(elemType.getJavaSourceType())
-              .append(" ")
-              .append("$v")
+              .append(" $")
+              .append(generatedVarPrefix)
+              .append("v")
               .append(count++)
               .append(" = ");
           String destructuredValCodegen = matchedValIdentifier;
@@ -939,7 +982,7 @@ public class MatchStmt extends Stmt {
   }
 
   private void flattenPattern(
-      TypeMatchPattern<? extends Type> pattern, Type matchedType, ImmutableList.Builder<MaybeWildcardPrimitivePattern> currFlattenedPattern, ScopedHeap scopedHeap, Stack<String> path) {
+      TypeMatchPattern<? extends Type> pattern, Type matchedType, ImmutableList.Builder<MaybeWildcardPrimitivePattern> currFlattenedPattern, ScopedHeap scopedHeap, Stack<String> path) throws ClaroTypeException {
     // Handle wildcards first.
     if (pattern instanceof MaybeWildcardPrimitivePattern
         && !((MaybeWildcardPrimitivePattern) pattern).getOptionalExpr().isPresent()) {
@@ -973,43 +1016,156 @@ public class MatchStmt extends Stmt {
     }
 
     // Handle nested patterns here.
+    ImmutableList<? extends TypeMatchPattern<?>> patternParts;
+    boolean patternMatchesCorrectBaseType;
+    boolean patternMarkedMut;
+    { // Wrapping in a block b/c `checkPatternMatchesCorrectType` below is invalid after this section if matchedType changes.
+      Type finalMatchedType = matchedType;
+      Function<BaseType, Boolean> checkPatternMatchesCorrectType =
+          patternBaseType ->
+              finalMatchedType.baseType().equals(patternBaseType)
+              || (finalMatchedType.baseType().equals(BaseType.ONEOF)
+                  && ((Types.OneofType) finalMatchedType).getVariantTypes().stream()
+                      .anyMatch(v -> v.baseType().equals(patternBaseType)));
+      if (pattern instanceof TuplePattern) {
+        patternParts = ((TuplePattern) pattern).getElementValues();
+        patternMatchesCorrectBaseType = checkPatternMatchesCorrectType.apply(BaseType.TUPLE);
+        patternMarkedMut = ((TuplePattern) pattern).getIsMutable();
+      } else if (pattern instanceof StructPattern) {
+        patternParts = ((StructPattern) pattern).getFieldPatterns()
+            .stream()
+            .map(StructFieldPattern::getValue)
+            .collect(ImmutableList.toImmutableList());
+        patternMatchesCorrectBaseType = checkPatternMatchesCorrectType.apply(BaseType.STRUCT);
+        patternMarkedMut = ((StructPattern) pattern).getIsMutable();
+      } else if (pattern instanceof UserDefinedTypePattern) {
+        patternParts = ImmutableList.of(((UserDefinedTypePattern) pattern).getWrappedValue());
+        patternMatchesCorrectBaseType = checkPatternMatchesCorrectType.apply(BaseType.USER_DEFINED_TYPE);
+        // If the user-defined-type pattern contains anything other than a non-binding wildcard, then that means
+        // unwrapping is happening, so it must not be an opaque user-defined type.
+        if (matchedType instanceof Types.UserDefinedType // Allow below oneof logic handle checking this for variants.
+            &&
+            !((patternParts.get(0) instanceof MaybeWildcardPrimitivePattern
+               && !((MaybeWildcardPrimitivePattern) patternParts.get(0)).isWildcardBinding())
+              || UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedType))) {
+          this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
+              matchedType,
+              ((Types.UserDefinedType) matchedType).getTypeName()
+          ));
+        }
+        patternMarkedMut = false;
+      } else {
+        throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+      }
+    }
+
+    // This gets a little nuts... I need to handle the situation where a nested value literal is matching against a oneof
+    // variant (or variants). For example:
+    //   match (...oneof<[Foo], {Bar}, tuple<int, int>, tuple<string, int>>...) {
+    //     ...
+    //     case (X, 10) -> ...;
+    //     ...
+    // This needs to somehow recognize that X is of type oneof<int, string> as it can match both tuple<int, int> and
+    // tuple<string, int>. This is crazy! This is a form of generics! It's insane how even if I'd decided to never
+    // implement generic functions, it shows up here organically anyways...
+
+    // All of these optionals should really be one type but Java hates inlined type definitions so I'm out....
+    Optional<ImmutableList.Builder<MaybeWildcardPrimitivePattern>>
+        optionalOriginalFlattenedPatternToAddOneofTypeVariantLiteralSentinelFlattenedPatternTo = Optional.empty();
+    Optional<ImmutableList<Type>> optionalActualMatchedTypeVariants = Optional.empty();
+    Optional<Type> optionalInvertedOneofMatchedVariant = Optional.empty();
+    Optional<ImmutableList<Type>> optionalInvertedOneofFlattenedPatternTypes = Optional.empty();
+    if (patternMatchesCorrectBaseType && matchedType.baseType().equals(BaseType.ONEOF)) {
+      // Here we need to determine which variants are actually being matched here, and then move on with just those
+      // variants as a means of "narrowing".
+      ImmutableList.Builder<Type> actualMatchedTypeVariantsBuilder = ImmutableList.builder();
+      Type patternImpliedType = pattern.toImpliedType(scopedHeap);
+      for (Type matchedTypeVariant : ((Types.OneofType) matchedType).getVariantTypes()) {
+        try {
+          StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+              new HashMap<>(),
+              patternImpliedType,
+              matchedTypeVariant
+          );
+          // No exception means this match was good.
+          actualMatchedTypeVariantsBuilder.add(matchedTypeVariant);
+        } catch (ClaroTypeException unused) {
+          // Intentionally unused.
+        }
+      }
+      ImmutableList<Type> actualMatchedTypeVariants = actualMatchedTypeVariantsBuilder.build();
+      if (actualMatchedTypeVariants.isEmpty()) {
+        // It turns out that this value pattern actually can't match any of the variant types of this oneof.
+        patternMatchesCorrectBaseType = false;
+      } else {
+        // Quickly make sure that unwraps of UserDefinedType variants would be legal.
+        for (Type t : actualMatchedTypeVariants) {
+          if (t.baseType().equals(BaseType.USER_DEFINED_TYPE)
+              && !UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) t)) {
+            this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
+                matchedType,
+                ((Types.UserDefinedType) t).getTypeName()
+            ));
+          }
+        }
+
+        // We're going to be able to match against some variant(s) of this oneof, we just need to "invert" the oneof so
+        // that we can sort of "push down" the possible variants for each element in this nested type.
+        //   E.g. oneof<tuple<int, string>, tuple<string, int>>  -> tuple<oneof<int, string>, oneof<string, int>>
+        // Please bear in mind that this is absolute MADNESS compared to how generics type-checking typically operates.
+        // This oneof-inversion effectively strips the appropriate ordering constraint as on its own the inverted tuple
+        // could match tuple<int, int> and tuple<string, string> which are both invalid relative to the original type
+        // constraints! However, since we know for a fact that those types are not possible, we can blissfully ignore that.
+        // The whole point is to be able to "push down" the possible types for the nested elements which this does accomplish.
+        optionalActualMatchedTypeVariants = Optional.of(actualMatchedTypeVariants);
+        AtomicReference<ImmutableList<ImmutableSet<Type>>> invertedOneofFlattenedPatternTypes_OUT_PARAM =
+            new AtomicReference<>();
+        Type invertedOneofMatchedVariant =
+            invertOneof(actualMatchedTypeVariants, patternMarkedMut, invertedOneofFlattenedPatternTypes_OUT_PARAM);
+        optionalInvertedOneofMatchedVariant = Optional.of(invertedOneofMatchedVariant);
+        optionalInvertedOneofFlattenedPatternTypes =
+            Optional.of(invertedOneofFlattenedPatternTypes_OUT_PARAM.get().stream()
+                            .map(s -> {
+                              ImmutableList<Type> types = s.asList();
+                              if (types.size() == 1) {
+                                return types.get(0);
+                              }
+                              return Types.OneofType.forVariantTypes(types);
+                            }).collect(ImmutableList.toImmutableList()));
+        matchedType = invertedOneofMatchedVariant;
+        // It turns out that the prior pushed path would have been wrong because it would say oneof, whereas we now know
+        // its real concrete type that the pattern will actually be matching.
+        path.pop();
+        path.push("((" + matchedType.getJavaSourceType() + ") %s)");
+        // I need to actually put a synthetic pattern into the flattened pattern so that I can get codegen to generate a
+        // oneof typecheck.
+        //   E.g.:
+        //     if (ImmutableSet.of(...actualMatchedTypeVariants...).contains(ClaroRuntimeUtilities.getClaroType($v0))) {
+        //       ...
+        //     } // NO ELSE-IF ALLOWED. This can't get grouped with any other type checks as those should be used for fallthrough
+        // To accomplish the above we need a new representation, different than MaybeWildcard wrapping a TypeProvider.
+        // I need to keep this flattened pattern at the same apparent length as every other flattened pattern in this
+        // match. The only way to do that is for the oneof type variant value literal sentinel to be composed of the
+        // flattened pattern that will be used to match its value literal. So I'll do some tricky jiu-jitsu here for the
+        // remainder of this function. The actual currFlattenedPattern list builder will have JUST the sentinel added,
+        // but the sentinel itself will have all of the nested patterns for matching this type added.
+        optionalOriginalFlattenedPatternToAddOneofTypeVariantLiteralSentinelFlattenedPatternTo =
+            Optional.of(currFlattenedPattern);
+        currFlattenedPattern = ImmutableList.builder();
+      }
+    }
+
     AtomicReference<ImmutableList<Type>> patternTypes_OUT_PARAM = new AtomicReference<>();
     AtomicReference<BiFunction<Type, Integer, String>> getElementAccessPattern_OUT_PARAM = new AtomicReference<>();
     getNestedValueDestructuringPathPartCodegen(matchedType, patternTypes_OUT_PARAM, getElementAccessPattern_OUT_PARAM);
-    ImmutableList<? extends TypeMatchPattern<?>> patternParts;
-    boolean patternMatchesCorrectType;
-    if (pattern instanceof TuplePattern) {
-      patternParts = ((TuplePattern) pattern).getElementValues();
-      patternMatchesCorrectType = matchedType.baseType().equals(BaseType.TUPLE);
-    } else if (pattern instanceof StructPattern) {
-      patternParts = ((StructPattern) pattern).getFieldPatterns()
-          .stream()
-          .map(StructFieldPattern::getValue)
-          .collect(ImmutableList.toImmutableList());
-      patternMatchesCorrectType = matchedType.baseType().equals(BaseType.STRUCT);
-    } else if (pattern instanceof UserDefinedTypePattern) {
-      patternParts = ImmutableList.of(((UserDefinedTypePattern) pattern).getWrappedValue());
-      patternMatchesCorrectType = matchedType.baseType().equals(BaseType.USER_DEFINED_TYPE);
-      // If the user-defined-type pattern contains anything other than a non-binding wildcard, then that means
-      // unwrapping is happening, so it must not be an opaque user-defined type.
-      if (!((patternParts.get(0) instanceof MaybeWildcardPrimitivePattern
-             && !((MaybeWildcardPrimitivePattern) patternParts.get(0)).isWildcardBinding())
-            || UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedType))) {
-        this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
-            matchedType,
-            ((Types.UserDefinedType) matchedType).getTypeName()
-        ));
-      }
-    } else {
-      throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
-    }
-    if (!(patternMatchesCorrectType && patternTypes_OUT_PARAM.get().size() == patternParts.size())) {
+    if (!(patternMatchesCorrectBaseType && patternTypes_OUT_PARAM.get().size() == patternParts.size())) {
       try {
         throw ClaroTypeException.forInvalidPatternMatchingWrongType(matchedType, pattern.toImpliedType(scopedHeap));
       } catch (ClaroTypeException e) {
         this.matchedExpr.logTypeError(e);
       }
     }
+
     for (int i = 0; i < patternParts.size(); i++) {
       if (patternParts.get(i) instanceof MaybeWildcardPrimitivePattern
           && ((MaybeWildcardPrimitivePattern) patternParts.get(i)).getOptionalExpr().isPresent()) {
@@ -1037,10 +1193,173 @@ public class MatchStmt extends Stmt {
         }
       } else {
         path.push(getElementAccessPattern_OUT_PARAM.get().apply(patternTypes_OUT_PARAM.get().get(i), i));
-        flattenPattern(patternParts.get(i), patternTypes_OUT_PARAM.get()
-            .get(i), currFlattenedPattern, scopedHeap, path);
+        flattenPattern(
+            patternParts.get(i), patternTypes_OUT_PARAM.get().get(i), currFlattenedPattern, scopedHeap, path);
         path.pop();
       }
+    }
+    // If we need to handle a oneof value literal sentinel, do that cleanup here.
+    if (optionalOriginalFlattenedPatternToAddOneofTypeVariantLiteralSentinelFlattenedPatternTo.isPresent()) {
+      ImmutableList.Builder<MaybeWildcardPrimitivePattern> originalFlattenedPattern =
+          optionalOriginalFlattenedPatternToAddOneofTypeVariantLiteralSentinelFlattenedPatternTo.get();
+      originalFlattenedPattern.add(
+          MaybeWildcardPrimitivePattern.forOneofTypeVariantValueLiteralSentinel(
+              currFlattenedPattern.build(),
+              optionalActualMatchedTypeVariants.get(),
+              optionalInvertedOneofMatchedVariant.get(),
+              optionalInvertedOneofFlattenedPatternTypes.get()
+          )
+      );
+    }
+  }
+
+  // E.g. oneof<tuple<int, string>, tuple<string, int>>  -> tuple<oneof<int, string>, oneof<string, int>>
+  private static Type invertOneof(ImmutableList<Type> variantsToInvert, boolean patternMarkedMut, AtomicReference<ImmutableList<ImmutableSet<Type>>> invertedOneofFlattenedPatternTypes_OUT_PARAM) {
+    // Easy enough if there's actually only a single variant, then it turns out there's really no inversion to be done.
+    Optional<Type> precomputedRes = Optional.empty();
+    if (variantsToInvert.size() == 1) {
+      invertedOneofFlattenedPatternTypes_OUT_PARAM.set(ImmutableList.of(ImmutableSet.of(variantsToInvert.get(0))));
+      // Mark the precomputed inverted Type res, but we still need to actually produce the inverted flattened pattern.
+      precomputedRes = Optional.of(variantsToInvert.get(0));
+    }
+    // All variants will have the same base type, so just jump into the first one.
+    switch (variantsToInvert.get(0).baseType()) {
+      case TUPLE:
+        int tupleElemCount = ((Types.TupleType) variantsToInvert.get(0)).getValueTypes().size();
+        ImmutableList<ImmutableSet.Builder<Type>> tupleElemVariantsBuilders =
+            IntStream.range(0, tupleElemCount).boxed()
+                .map(unused -> ImmutableSet.<Type>builder())
+                .collect(ImmutableList.toImmutableList());
+        for (int i = 0; i < tupleElemCount; i++) {
+          for (Type variant : variantsToInvert) {
+            tupleElemVariantsBuilders.get(i).add(((Types.TupleType) variant).getValueTypes().get(i));
+          }
+        }
+        invertedOneofFlattenedPatternTypes_OUT_PARAM.set(
+            tupleElemVariantsBuilders.stream()
+                .map(ImmutableSet.Builder::build)
+                .collect(ImmutableList.toImmutableList()));
+        return precomputedRes.orElse(
+            Types.TupleType.forValueTypes(
+                tupleElemVariantsBuilders.stream()
+                    .map(e -> {
+                      ImmutableSet<Type> tupleElemVariants = e.build();
+                      if (tupleElemVariants.size() == 1) {
+                        return tupleElemVariants.asList().get(0);
+                      }
+                      return Types.OneofType.forVariantTypes(tupleElemVariants.asList());
+                    })
+                    .collect(ImmutableList.toImmutableList()),
+                patternMarkedMut
+            ));
+      case STRUCT:
+        int structElemCount = ((Types.StructType) variantsToInvert.get(0)).getFieldTypes().size();
+        ImmutableList<ImmutableSet.Builder<Type>> structElemVariantsBuilders =
+            IntStream.range(0, structElemCount).boxed()
+                .map(unused -> ImmutableSet.<Type>builder())
+                .collect(ImmutableList.toImmutableList());
+        for (int i = 0; i < structElemCount; i++) {
+          for (Type variant : variantsToInvert) {
+            structElemVariantsBuilders.get(i).add(((Types.StructType) variant).getFieldTypes().get(i));
+          }
+        }
+        invertedOneofFlattenedPatternTypes_OUT_PARAM.set(
+            structElemVariantsBuilders.stream()
+                .map(ImmutableSet.Builder::build)
+                .collect(ImmutableList.toImmutableList()));
+        return precomputedRes.orElse(
+            Types.StructType.forFieldTypes(
+                ((Types.StructType) variantsToInvert.get(0)).getFieldNames(),
+                structElemVariantsBuilders.stream()
+                    .map(e -> {
+                      ImmutableSet<Type> structElemVariants = e.build();
+                      if (structElemVariants.size() == 1) {
+                        return structElemVariants.asList().get(0);
+                      }
+                      return Types.OneofType.forVariantTypes(e.build().asList());
+                    })
+                    .collect(ImmutableList.toImmutableList()),
+                patternMarkedMut
+            ));
+      case USER_DEFINED_TYPE:
+        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) variantsToInvert.get(0))) {
+          // Turns out there's no way that the pattern can be anything other than a wildcard anyways so this doesn't matter.
+          invertedOneofFlattenedPatternTypes_OUT_PARAM.set(
+              ImmutableList.of(ImmutableSet.of(Types.UNKNOWABLE)));
+          return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(), ImmutableList.of(Types.UNKNOWABLE));
+        }
+
+        int parameterizedTypesCount = variantsToInvert.get(0).parameterizedTypeArgs().size();
+        ImmutableList<ImmutableSet.Builder<Type>> parameterizedTypeVariantsBuilders =
+            IntStream.range(0, parameterizedTypesCount).boxed()
+                .map(unused -> ImmutableSet.<Type>builder())
+                .collect(ImmutableList.toImmutableList());
+        for (Type variant : variantsToInvert) {
+          ImmutableList<Type> userDefinedTypeParameterizedTypesList = variant.parameterizedTypeArgs().values().asList();
+          for (int i = 0; i < parameterizedTypesCount; i++) {
+            parameterizedTypeVariantsBuilders.get(i).add(userDefinedTypeParameterizedTypesList.get(i));
+          }
+        }
+        Types.UserDefinedType invertedUserDefinedType = Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+            ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(),
+            parameterizedTypeVariantsBuilders.stream()
+                .map(sb -> {
+                  ImmutableList<Type> types = sb.build().asList();
+                  if (types.size() == 1) {
+                    return types.asList().get(0);
+                  }
+                  return Types.OneofType.forVariantTypes(types);
+                })
+                .collect(ImmutableList.toImmutableList())
+        );
+        if (precomputedRes.isPresent()) {
+          return precomputedRes.get();
+        }
+        // Now do a bunch of work to figure out what the wrapped type is. Dear God Claro's representation of these types
+        // is such a painful experience.
+        HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();
+        ImmutableList<Type> matchedExprConcreteTypeParams =
+            invertedUserDefinedType.parameterizedTypeArgs().values().asList();
+        ImmutableList<String> matchedExprTypeParamNames =
+            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) invertedUserDefinedType).getTypeName());
+        for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
+          userDefinedConcreteTypeParamsMap.put(
+              Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
+              matchedExprConcreteTypeParams.get(i)
+          );
+        }
+        Type potentiallyGenericWrappedType =
+            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) invertedUserDefinedType).getTypeName());
+        Type validatedWrappedType;
+        try {
+          validatedWrappedType =
+              StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
+                  userDefinedConcreteTypeParamsMap,
+                  potentiallyGenericWrappedType,
+                  potentiallyGenericWrappedType,
+                  /*inferConcreteTypes=*/true
+              );
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException("Internal Compiler Error: Should be unreachable.", e);
+        }
+        invertedOneofFlattenedPatternTypes_OUT_PARAM.set(ImmutableList.of(ImmutableSet.of(validatedWrappedType)));
+        return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+            ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(),
+            parameterizedTypeVariantsBuilders.stream()
+                .map(e -> {
+                  ImmutableSet<Type> structElemVariants = e.build();
+                  if (structElemVariants.size() == 1) {
+                    return structElemVariants.asList().get(0);
+                  }
+                  return Types.OneofType.forVariantTypes(e.build().asList());
+                })
+                .collect(ImmutableList.toImmutableList())
+        );
+      default:
+        // The only way that we get to the point of needing to do oneof-inversion is in the case that there was a
+        // value-pattern present to match this type. There's no such value-pattern for any other nested type.
+        throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
     }
   }
 
@@ -1070,7 +1389,8 @@ public class MatchStmt extends Stmt {
       AtomicReference<GeneratedJavaSource> res,
       String matchedValIdentifier,
       ScopedHeap scopedHeap,
-      long matchId) {
+      long matchId,
+      String currMatchedValIdentifierPrefix) {
     while (!cases.isEmpty() && !cases.peek().get(0).equals(false)) {
       ImmutableList<Object> top = cases.pop();
       int wildcardPrefixLen =
@@ -1092,6 +1412,20 @@ public class MatchStmt extends Stmt {
                        startInd + wildcardPrefixLen)
                         .getOptionalExpr()
                         .get() instanceof TypeProvider))
+               // This case ensures that when we're matching a oneof, we end up segregating value types of different types into different groups.
+               &&
+               (!(((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek().get(0)).get(startInd + wildcardPrefixLen)
+                      .getOptionalExpr()
+                      .get() instanceof OneofTypeVariantsMatchedSentinel)
+                ||
+                ((OneofTypeVariantsMatchedSentinel) ((ImmutableList<MaybeWildcardPrimitivePattern>) cases.peek()
+                    .get(0)).get(startInd + wildcardPrefixLen)
+                    .getOptionalExpr().get())
+                    .getOneofTypeVariantsMatched()
+                    .equals(((OneofTypeVariantsMatchedSentinel) ((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.peek()
+                        .get(0)).get(
+                        startInd + wildcardPrefixLen).getOptionalExpr().get())
+                                .getOneofTypeVariantsMatched()))
         ) {
           switchGroup.push(cases.pop());
         }
@@ -1099,7 +1433,8 @@ public class MatchStmt extends Stmt {
         Collections.reverse(switchGroup);
         CodegenSwitchGroup(
             switchGroup, flattenedPatternTypes,
-            startInd + wildcardPrefixLen, res, matchedValIdentifier, scopedHeap, matchId
+            startInd +
+            wildcardPrefixLen, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
         );
       } else { // Just go straight to codegen on `case _ ->` or `case (..., _, _)`
         // First thing, check if there are any wildcard bindings I need to codegen assignments for.
@@ -1138,13 +1473,15 @@ public class MatchStmt extends Stmt {
   private static void CodegenSwitchGroup(
       Stack<ImmutableList<Object>> switchGroup, ImmutableList<Type> flattenedPatternTypes,
       int startInd, AtomicReference<GeneratedJavaSource> res, String matchedValIdentifier, ScopedHeap scopedHeap,
-      long matchId) {
+      long matchId, String currMatchedValIdentifierPrefix) {
     MaybeWildcardPrimitivePattern firstGroupCasePattern =
         ((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.peek().get(0)).get(startInd);
     Type firstGroupCasePatternImpliedType = firstGroupCasePattern.toImpliedType(scopedHeap);
     boolean needExtraRCurly = false;
+    String currMatchedValIdentifier = String.format("$%sv%s", currMatchedValIdentifierPrefix, startInd);
+
     if (firstGroupCasePatternImpliedType.equals(Types.BOOLEAN)) {
-      res.get().javaSourceBody().append("if ($v").append(startInd);
+      res.get().javaSourceBody().append("if (").append(currMatchedValIdentifier);
       if (firstGroupCasePattern.getOptionalExpr().get().equals(Boolean.FALSE)) {
         res.get().javaSourceBody().append(" == false");
       }
@@ -1159,31 +1496,145 @@ public class MatchStmt extends Stmt {
       //   over time in relation to already compiled code....since Claro doesn't have a module system yet, I don't want
       //   to pretend that I know those implications in advance.
       res.get().javaSourceBody().append("if (ClaroRuntimeUtilities.getClaroType(")
-          .append("$v").append(startInd)
+          .append(currMatchedValIdentifier)
           .append(").equals(")
           .append(firstGroupCasePatternImpliedType.getJavaSourceClaroType())
           .append(")");
+    } else if (firstGroupCasePattern.isOneofTypeVariantValueLiteralSentinel()) {
+      if (((OneofTypeVariantsMatchedSentinel) firstGroupCasePattern.getOptionalExpr().get())
+              .getOneofTypeVariantsMatched().size() == 1) {
+        res.get().javaSourceBody()
+            .append("if (ClaroRuntimeUtilities.getClaroType(")
+            .append(currMatchedValIdentifier)
+            .append(").equals(")
+            .append(
+                ((OneofTypeVariantsMatchedSentinel) firstGroupCasePattern.getOptionalExpr().get())
+                    .getOneofTypeVariantsMatched().get(0).getJavaSourceClaroType())
+            .append(")) {\n");
+      } else {
+        res.get()
+            .javaSourceBody()
+            .append("if (ImmutableSet.of(")
+            .append(((OneofTypeVariantsMatchedSentinel) firstGroupCasePattern.getOptionalExpr().get())
+                        .getOneofTypeVariantsMatched().stream()
+                        .map(Type::getJavaSourceClaroType)
+                        .collect(Collectors.joining(", ")))
+            .append(").contains(ClaroRuntimeUtilities.getClaroType(")
+            .append(currMatchedValIdentifier)
+            .append("))) {\n");
+      }
+      currMatchedValIdentifierPrefix =
+          String.format("v%s_oneofVariantValueLiteralDestructuring_", currMatchedValIdentifier);
+      codegenNestedValueDestructuring(
+          firstGroupCasePatternImpliedType,
+          new Stack<>(),
+          0,
+          String.format("((%s) %s)", firstGroupCasePatternImpliedType.getJavaSourceType(), currMatchedValIdentifier),
+//          currMatchedValIdentifier,
+          res.get(),
+          currMatchedValIdentifierPrefix
+      );
+      // From this point I need to do codegen on the pattern that's nested within this OneofTypeVariantsMatchedSentinel.
+      // The complication is that I also need to continue with codegen on the remaining pattern *after* the sentinel,
+      // but it must be nested within the checks for the sentinal value pattern.
+      Stack<ImmutableList<Object>> oneofTypeVariantValueLiteralSwitchGroup = new Stack<>();
+
+      switchGroup.stream()
+          .map(
+              l -> ImmutableList.of(
+                  // Recurse straight into only handling nested oneof value literal sentinel match alone. Doing this
+                  // matching alone ensures that indices will be correct when codegen'ing references to destructured vars.
+                  ((OneofTypeVariantsMatchedSentinel)
+                       ((ImmutableList<MaybeWildcardPrimitivePattern>) l.get(0)).get(startInd).getOptionalExpr().get())
+                      .getVariantValueLiteralFlattenedPattern(),
+                  new StmtListNode(
+                      new Stmt(ImmutableList.of()) {
+                        @Override
+                        public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+                        }
+
+                        @Override
+                        public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+                          // This is the key trick to this entire approach: Continue the recursion across the remainder of the
+                          // original flattened pattern that this oneof value literal sentinel match was a part of. Continuing
+                          // here allows the remainder of the pattern matching codegen to be nested within the checks for the
+                          // preceding oneof value literal sentinel.
+                          AtomicReference<GeneratedJavaSource> internalJavaSource =
+                              new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
+                          Stack<ImmutableList<Object>> currPatternContinuedMatching = new Stack<>();
+                          currPatternContinuedMatching.push(
+                              ImmutableList.of(l.get(0), l.get(1))
+                          );
+                          codegenDestructuredSequenceMatch(
+                              currPatternContinuedMatching,
+                              flattenedPatternTypes,
+                              startInd + 1, // Move past curr sentinel.
+                              internalJavaSource,
+                              matchedValIdentifier,
+                              scopedHeap,
+                              matchId,
+                              ""
+                          );
+                          // This is an absolute trashy hack, but to workaround the fact that this codegen is using
+                          // an `if (true) { break $MatchN; }` block to avoid falling through after a match is made, in
+                          // this case since we're NOT actually assured that this codegen is a legitimate match, I need
+                          // to short-circuit that `break` that would have been hit in the case that there's actually
+                          // no match. I'm really counting on Javac to strip these useless blocks once Claro's codegen
+                          // runs through the Java compilation pipeline.
+                          internalJavaSource.get().javaSourceBody().append("if (false)");
+                          return internalJavaSource.get();
+                        }
+
+                        @Override
+                        public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                          return null;
+                        }
+                      }
+                  )
+              )
+          )
+          .forEach(oneofTypeVariantValueLiteralSwitchGroup::push);
+
+      ImmutableList<Type> variantValueLiteralFLattenedPatternTypes =
+          ((OneofTypeVariantsMatchedSentinel)
+               ((ImmutableList<MaybeWildcardPrimitivePattern>) switchGroup.get(0).get(0))
+                   .get(startInd).getOptionalExpr().get())
+              .getVariantValueLiteralFlattenedPatternTypes();
+      // Recurse directly into the oneof value literal sentinel.
+      codegenDestructuredSequenceMatch(
+          oneofTypeVariantValueLiteralSwitchGroup,
+          variantValueLiteralFLattenedPatternTypes,
+          0,
+          res,
+          currMatchedValIdentifier,
+          scopedHeap,
+          matchId,
+          currMatchedValIdentifierPrefix
+      );
+      res.get().javaSourceBody().append("}\n");
+      // We're done, because the remainder of the pattern was handled recursively by the synthetic stmt constructed
+      // above for the oneof value literal sentinel pattern.
+      return;
     } else if (flattenedPatternTypes.get(startInd).baseType().equals(BaseType.ONEOF)) {
       // In this case I still need to gen a switch, but I need to enclose it in a check that we're looking at the right
       // type first, and I also need to cast the switched value because it was destructured as a oneof (Object in Java).
-      String currDestructuredVal = "$v" + startInd;
       res.get()
           .javaSourceBody()
           .append("if (ClaroRuntimeUtilities.getClaroType(")
-          .append(currDestructuredVal)
+          .append(currMatchedValIdentifier)
           .append(").equals(")
           .append(firstGroupCasePatternImpliedType.getJavaSourceClaroType())
           .append(")) {\n")
           .append("switch ((")
           .append(firstGroupCasePatternImpliedType.getJavaSourceType())
           .append(") ")
-          .append(currDestructuredVal);
+          .append(currMatchedValIdentifier);
       needExtraRCurly = true;
     } else {
       res.get()
           .javaSourceBody()
-          .append("switch ($v")
-          .append(startInd);
+          .append("switch (")
+          .append(currMatchedValIdentifier);
     }
     res.get().javaSourceBody().append(") {\n");
     while (!switchGroup.isEmpty()) {
@@ -1209,7 +1660,9 @@ public class MatchStmt extends Stmt {
 
       if (firstGroupCasePatternImpliedType.equals(Types.BOOLEAN)) {
         codegenDestructuredSequenceMatch(
-            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+            caseGroup, flattenedPatternTypes,
+            startInd + 1, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
+        );
         if (firstGroupCasePattern != null && !switchGroup.isEmpty()) {
           res.get().javaSourceBody().append("} else {");
           firstGroupCasePattern = null; // I'm a monster.
@@ -1217,10 +1670,12 @@ public class MatchStmt extends Stmt {
       } else if (firstGroupCasePattern.getOptionalExpr().isPresent()
                  && firstGroupCasePattern.getOptionalExpr().get() instanceof TypeProvider) {
         codegenDestructuredSequenceMatch(
-            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+            caseGroup, flattenedPatternTypes,
+            startInd + 1, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
+        );
         if (!switchGroup.isEmpty()) {
           res.get().javaSourceBody().append("} else if (ClaroRuntimeUtilities.getClaroType(")
-              .append("$v").append(startInd)
+              .append(currMatchedValIdentifier)
               .append(").equals(")
               .append(
                   // Peek the top to find the next type we'll do codegen for.
@@ -1239,7 +1694,9 @@ public class MatchStmt extends Stmt {
                     : currCase.get().toString())
             .append(":\n");
         codegenDestructuredSequenceMatch(
-            caseGroup, flattenedPatternTypes, startInd + 1, res, matchedValIdentifier, scopedHeap, matchId);
+            caseGroup, flattenedPatternTypes,
+            startInd + 1, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
+        );
         res.get().javaSourceBody().append("break;\n");
       }
     }
@@ -1399,7 +1856,7 @@ public class MatchStmt extends Stmt {
   public abstract static class MaybeWildcardPrimitivePattern implements TypeMatchPattern<Type> {
     private static long globalWildcardCount = 0;
 
-    // Two Optionals representing only 3 valid states... here's a perfect example of where Claro will give me better
+    // Many Optionals representing only a few valid states... here's a perfect example of where Claro will give me better
     // tools for reasoning about correctness than Java gives me with reasonable effort.
     public abstract Optional<Object> getOptionalExpr();
 
@@ -1443,6 +1900,21 @@ public class MatchStmt extends Stmt {
       );
     }
 
+    public static MaybeWildcardPrimitivePattern forOneofTypeVariantValueLiteralSentinel(
+        ImmutableList<MaybeWildcardPrimitivePattern> variantValueLiteralFlattenedPattern, ImmutableList<Type> typeVariantsMatched, Type impliedType, ImmutableList<Type> variantValueLiteralFlattenedPatternTypes) {
+      return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(
+          Optional.of(
+              OneofTypeVariantsMatchedSentinel.forTypeVariantsMatched(
+                  variantValueLiteralFlattenedPattern,
+                  typeVariantsMatched,
+                  variantValueLiteralFlattenedPatternTypes,
+                  impliedType
+              )),
+          Optional.empty(),
+          Optional.empty()
+      );
+    }
+
     @Override
     public Type toImpliedType(ScopedHeap scopedHeap) {
       if (this.getOptionalExpr().isPresent()) {
@@ -1457,6 +1929,8 @@ public class MatchStmt extends Stmt {
           return ((TypeProvider) primitiveLiteral).resolveType(scopedHeap);
         } else if (primitiveLiteral instanceof Type) {
           return (Type) primitiveLiteral;
+        } else if (primitiveLiteral instanceof OneofTypeVariantsMatchedSentinel) {
+          return ((OneofTypeVariantsMatchedSentinel) primitiveLiteral).toImpliedType(scopedHeap);
         } else {
           throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
         }
@@ -1467,6 +1941,34 @@ public class MatchStmt extends Stmt {
 
     public boolean isWildcardBinding() {
       return this.getOptionalWildcardBinding().isPresent();
+    }
+
+    public boolean isOneofTypeVariantValueLiteralSentinel() {
+      return this.getOptionalExpr().map(e -> e instanceof OneofTypeVariantsMatchedSentinel).orElse(false);
+    }
+  }
+
+  @AutoValue
+  public abstract static class OneofTypeVariantsMatchedSentinel implements TypeMatchPattern<Type> {
+    public abstract ImmutableList<MaybeWildcardPrimitivePattern> getVariantValueLiteralFlattenedPattern();
+
+    public abstract ImmutableList<Type> getOneofTypeVariantsMatched();
+
+    public abstract ImmutableList<Type> getVariantValueLiteralFlattenedPatternTypes();
+
+    public abstract Type getImpliedType();
+
+    public static OneofTypeVariantsMatchedSentinel forTypeVariantsMatched(
+        ImmutableList<MaybeWildcardPrimitivePattern> variantValueLiteralFlattenedPattern,
+        ImmutableList<Type> oneofTypeVariantsMatched,
+        ImmutableList<Type> variantValueLiteralFlattenedPatternTypes,
+        Type impliedType) {
+      return new AutoValue_MatchStmt_OneofTypeVariantsMatchedSentinel(variantValueLiteralFlattenedPattern, oneofTypeVariantsMatched, variantValueLiteralFlattenedPatternTypes, impliedType);
+    }
+
+    @Override
+    public Type toImpliedType(ScopedHeap unused) {
+      return this.getImpliedType();
     }
   }
 

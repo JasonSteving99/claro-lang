@@ -68,6 +68,7 @@ var oneofTup: tuple<IntOrStr, IntOrStr> = (20, "ten");
 match (oneofTup) {
   case (_:int, _:int)       -> print("(_:int, _:int)");
   case (10, _:string)       -> print("(10, _:int)");
+  case (20, _:string)       -> print("(20, _:int)");
   case (X:int, Y:string)    -> print("(X:int, Y:string) where X = {X} (X != 10), Y = \"{Y}\"");
   case (_:string, _:int)    -> print("(_:string, _:int)");
   case (_:string, _:string) -> print("(_:string, _:string)");
@@ -253,4 +254,25 @@ match ((getDummyFuture(), 9.9, ["ok"], 1, Bar([10]))) {
     print("({awaited}, {N}, {L}, 1, {B})");
   case _ ->
     print("...Fallthrough...");
+}
+
+print("----------------------------------------");
+
+alias GnarlyOneof :
+  oneof<
+    tuple<int, string>,
+    tuple<string, string>,
+    Foo<int>
+  >
+var gnarlyOneof: GnarlyOneof = (20, "ten");
+match ((gnarlyOneof, 1)) {
+  case ((10, "ten"), 1)             -> print("((10, \"ten\"), 1)");
+  case ((10, "ten"), 2)             -> print("((10, \"ten\"), 2)");
+  case ((20, "ten"), 2)             -> print("((20, \"ten\"), 2)");
+  case (Foo(X), 1)                  -> print("(Foo(X), 1) where X = {X}");
+  case ((1,"one"), Y)               -> print("(_, Y) where Y = {Y}");
+  case ((X, "ten"), 1)              -> print("((X, \"ten\"), 1) where X = {X}");
+  case (_:tuple<int, string>, 1)    -> print("(_:tuple<int, string>, 1)");
+  case (_:tuple<string, string>, 1) -> print("(_:tuple<string, string>, 1)");
+  case _                            -> print("...Fallthrough...");
 }

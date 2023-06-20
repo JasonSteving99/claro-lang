@@ -512,6 +512,7 @@ public class ProgramNode {
             "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +
+            "import com.google.common.collect.ImmutableSet;\n" +
             "import com.google.common.util.concurrent.Futures;\n" +
             "import com.google.common.util.concurrent.ListenableFuture;\n" +
             "import java.io.StringReader;\n" +
