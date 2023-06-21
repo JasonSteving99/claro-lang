@@ -16,6 +16,8 @@ import java.util.function.BiFunction;
 // minimal dependencies, specifically none that go into the intermediate_representation/(expressions|statements)
 // packages to avoid all circular deps.
 public class InternalStaticStateUtil {
+  public static final ImmutableMap.Builder<String, Integer> AtomDefinition_CACHE_INDEX_BY_ATOM_NAME =
+      ImmutableMap.builder();
   public static ImmutableMap<String, TypeProvider> GraphProcedureDefinitionStmt_graphFunctionArgs;
   public static Optional<ImmutableMap<String, TypeProvider>>
       GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys;

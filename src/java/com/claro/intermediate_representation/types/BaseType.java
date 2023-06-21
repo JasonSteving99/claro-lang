@@ -11,6 +11,7 @@ public enum BaseType {
   // the Expr type until runtime.
   UNDECIDED("UNDECIDED"),
   UNKNOWABLE("<UNKNOWABLE DUE TO PRIOR TYPE VALIDATION ERROR>"),
+  ATOM("%s", "$ClaroAtom"),
   INTEGER("int", "Integer", Integer.class),
   FLOAT("float", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),

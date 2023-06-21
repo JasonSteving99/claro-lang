@@ -210,6 +210,7 @@ WhiteSpace     = [ \t\f]
     "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
     "lambda"           { return symbol(Calc.LAMBDA, 0, 6, "lambda"); }
     "alias"            { return symbol(Calc.ALIAS, 0, 5, "alias"); }
+    "atom"             { return symbol(Calc.ATOM, 0, 4, "atom"); }
     "newtype"          { return symbol(Calc.NEWTYPE, 0, 7, "newtype"); }
     "unwrap"           { return symbol(Calc.UNWRAP, 0, 6, "unwrap"); }
     "initializers"     { return symbol(Calc.INITIALIZERS, 0, 12, "initializers"); }

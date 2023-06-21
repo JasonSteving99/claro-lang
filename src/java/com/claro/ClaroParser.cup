@@ -318,7 +318,7 @@ terminal LexedValue<String>  WHILE, FOR, REPEAT, BREAK, CONTINUE, WHERE, MATCH, 
 terminal LexedValue<String>  NOTHING_TYPE, INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
-terminal LexedValue<String>  NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
+terminal LexedValue<String>  ATOM, NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  RETURN, QUESTION_MARK_ASSIGNMENT;
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  DOT;
@@ -376,6 +376,7 @@ nonterminal ComprehensionExpr                  list_comprehension_expr;
 nonterminal ComprehensionExpr                  set_comprehension_expr;
 nonterminal ComprehensionExpr                  map_comprehension_expr;
 nonterminal AliasStmt                          alias_stmt;
+nonterminal AtomDefinitionStmt                 atom_def_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal ImmutableList.Builder<Stmt>        initializers_or_unwrappers_proc_defs_list;
 nonterminal InitializersBlockStmt              initializers_block_stmt;
@@ -609,6 +610,8 @@ stmt ::=
     {: RESULT = r; :}
   | alias_stmt:a
     {: RESULT = a; :}
+  | atom_def_stmt:a
+    {: RESULT = a; :}
   | newtype_def_stmt:n
     {: RESULT = n; :}
   | using_block_stmt:u
@@ -702,6 +705,11 @@ alias_stmt ::=
        LexedValue<TypeProvider> aliasedTypeLexedVal = (LexedValue<TypeProvider>) aliased_type.value;
        RESULT = new AliasStmt(alias.val, aliasedTypeLexedVal.val);
     :}
+  ;
+
+atom_def_stmt ::=
+    ATOM identifier:name
+    {: RESULT = new AtomDefinitionStmt(name); :}
   ;
 
 newtype_def_stmt ::=

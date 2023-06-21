@@ -81,12 +81,12 @@ while (true) {
   var parsedMove = parseMove(userInput);
 
   match (parsedMove) {
-    case string ->
+    case _:string ->
       var response = handleMove(buggyBuggiesClient, gameId, playerSecret, parsedMove);
       if (response instanceof [string]) {
         bestMoves = response;
       }
-    case RepeatMove ->
+    case _:RepeatMove ->
       var response: oneof<[string], Error<string>>;
       repeat(unwrap(parsedMove).dist - 1) {
         response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
@@ -99,11 +99,14 @@ while (true) {
       if (response instanceof [string]) {
         bestMoves = response;
       }
-    case Error<string> ->
+    case _:Error<string> ->
       print(parsedMove);
-    case Error<EndGame> ->
+    case _:Error<EndGame> ->
       print("Good game!");
-      break;
+      # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
+      if (true) {
+        break;
+      }
   }
 
   userInput = input("Which direction do you want to move? (N/E/S/W): ");
@@ -119,7 +122,7 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
       sleep(50);
       var response <-| move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
       match (response) {
-        case string ->
+        case _:string ->
           if (unwrap(cast(ParsedJson<MoveResponse>, fromJson(response))).result instanceof Error<string>) {
             if (retries >= 3) {
               print("Retried too many times with no success! Ending game.");
@@ -147,9 +150,12 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
               print("");
             }
           }
-        case Error<string> ->
+        case _:Error<string> ->
           print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
-          break;
+          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
+          if (true) {
+            break;
+          }
       }
     }
     # For the last move, execute the move and update the best moves accordingly

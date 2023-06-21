@@ -260,13 +260,19 @@ public class StructuralConcreteGenericTypeValidationUtil {
           }
 
           return Types.StructType.forFieldTypes(actualStructType.getFieldNames(), validatedFieldTypesBuilder.build(), actualStructType.isMutable());
+        case USER_DEFINED_TYPE:
+          // UserDefinedTypes also have a name to be compared.
+          if (!((Types.UserDefinedType) functionExpectedArgType).getTypeName()
+              .equals(((Types.UserDefinedType) actualArgExprType).getTypeName())) {
+            throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+          }
+          // But then can go ahead and fallthrough to the generic handling of parameterized types.
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
         case MAP:
         case SET:
         case TUPLE:
         case HTTP_SERVER:
-        case USER_DEFINED_TYPE:
           ImmutableList<Type> expectedParameterizedArgTypes =
               functionExpectedArgType.parameterizedTypeArgs().values().asList();
           ImmutableList<Type> actualParameterizedArgTypes = actualArgExprType.parameterizedTypeArgs().values().asList();

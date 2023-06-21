@@ -26,6 +26,7 @@ public class MatchStmt extends Stmt {
   private static long globalMatchCount = 0;
   private final Expr matchedExpr;
   private ImmutableList<ImmutableList<Object>> cases;
+  private final ImmutableList<ImmutableList<Object>> originalCases;
   private final long matchId;
   private ImmutableList caseExprLiterals;
   private Type matchedExprType;
@@ -37,11 +38,15 @@ public class MatchStmt extends Stmt {
     super(ImmutableList.of());
     this.matchedExpr = matchedExpr;
     this.cases = cases;
+    this.originalCases = cases;
     this.matchId = MatchStmt.globalMatchCount++;
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
+    // In case this is used within a monomorphized function reset cases.
+    this.cases = this.originalCases;
+
     Type matchedExprType = this.matchedExpr.getValidatedExprType(scopedHeap);
     // All base values must be of some supported primitive type (int/string/boolean).
     this.optionalFlattenedMatchedValues = validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap);
@@ -162,10 +167,11 @@ public class MatchStmt extends Stmt {
   private Optional<ImmutableList<Type>> validateMatchedExprTypeIsSupported(Type matchedExprType, ScopedHeap scopedHeap) throws ClaroTypeException {
     ImmutableList.Builder<Type> resBuilder = ImmutableList.builder();
     ImmutableList.Builder<Type> invalidTypesFoundBuilder = ImmutableList.builder();
-    validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap, resBuilder, invalidTypesFoundBuilder);
+    AtomicBoolean validMatchPatternsPossible = new AtomicBoolean(false);
+    validateMatchedExprTypeIsSupported(matchedExprType, scopedHeap, resBuilder, invalidTypesFoundBuilder, validMatchPatternsPossible);
     ImmutableList<Type> res = resBuilder.build();
     ImmutableList<Type> invalidTypesFound = invalidTypesFoundBuilder.build();
-    if (invalidTypesFound.size() < res.size()) {
+    if (validMatchPatternsPossible.get()) {
       // So long as we have at least some supported types, then there's some utility to this match stmt. All of the
       // invalid types will only be able to be matched by wildcards though.
       return Optional.of(res);
@@ -176,12 +182,14 @@ public class MatchStmt extends Stmt {
   }
 
   private void validateMatchedExprTypeIsSupported(
-      Type matchedExprType, ScopedHeap scopedHeap, ImmutableList.Builder<Type> flattenedMatchValueTypes, ImmutableList.Builder<Type> invalidTypesFound)
+      Type matchedExprType, ScopedHeap scopedHeap, ImmutableList.Builder<Type> flattenedMatchValueTypes, ImmutableList.Builder<Type> invalidTypesFound, AtomicBoolean validMatchPatternsPossible)
       throws ClaroTypeException {
     switch (matchedExprType.baseType()) {
+      case ATOM:
       case INTEGER:
       case STRING:
       case BOOLEAN:
+        validMatchPatternsPossible.set(true);
         flattenedMatchValueTypes.add(matchedExprType);
         return; // Supported!
       case USER_DEFINED_TYPE:
@@ -218,26 +226,27 @@ public class MatchStmt extends Stmt {
         }
 
         // Now I just need to ensure that the wrapped type is something supported.
-        validateMatchedExprTypeIsSupported(wrappedType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+        validateMatchedExprTypeIsSupported(wrappedType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound, validMatchPatternsPossible);
         return;
       case ONEOF:
         ImmutableList.Builder<Type> variants = ImmutableList.builder();
         for (Type variantType : ((Types.OneofType) matchedExprType).getVariantTypes()) {
           // Here we actually don't want to add each variant to the flattenedMatchValueTypes list as these types are all
           // represented in a single match "slot"...
-          validateMatchedExprTypeIsSupported(variantType, scopedHeap, variants, invalidTypesFound);
+          validateMatchedExprTypeIsSupported(variantType, scopedHeap, variants, invalidTypesFound, validMatchPatternsPossible);
         }
         // The oneof itself gets placed into the flattenedMatchValueTypes for this pattern "slot".
         flattenedMatchValueTypes.add(matchedExprType);
+        validMatchPatternsPossible.set(true);
         return;
       case TUPLE:
         for (Type elemType : ((Types.TupleType) matchedExprType).getValueTypes()) {
-          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound, validMatchPatternsPossible);
         }
         return;
       case STRUCT:
         for (Type elemType : ((Types.StructType) matchedExprType).getFieldTypes()) {
-          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound);
+          validateMatchedExprTypeIsSupported(elemType, scopedHeap, flattenedMatchValueTypes, invalidTypesFound, validMatchPatternsPossible);
         }
         return;
       default:
@@ -742,98 +751,44 @@ public class MatchStmt extends Stmt {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
 
-    if (this.matchedExprType.baseType().equals(BaseType.ONEOF)) {
-      res.javaSourceBody().append("{// Begin match(<oneof<...>>) block\n");
-      String matchedOneofIdentifier;
-      if (this.matchedExpr instanceof IdentifierReferenceTerm) {
-        matchedOneofIdentifier = ((IdentifierReferenceTerm) this.matchedExpr).identifier;
-      } else {
-        matchedOneofIdentifier = "$syntheticMatchedOneofVal";
-        res.javaSourceBody().append("Object ").append(matchedOneofIdentifier).append(" = ");
-        res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
-        res.javaSourceBody().append(";\n");
-      }
-      boolean hasDefaultCase =
-          !((FlattenedTypeMatchPattern) this.cases.get(this.cases.size() - 1).get(0)).getFlattenedPattern().get(0)
-              .getOptionalExpr().isPresent();
-      this.caseExprLiterals = this.cases.subList(0, this.cases.size() - (hasDefaultCase ? 1 : 0)).stream()
-          .map(l ->
-                   ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern().get(0)
-                       .toImpliedType(scopedHeap).getJavaSourceClaroType())
-          .collect(ImmutableList.toImmutableList());
-      res.javaSourceBody().append("if (ClaroRuntimeUtilities.getClaroType(")
-          .append(matchedOneofIdentifier)
-          .append(").equals(")
-          .append(this.caseExprLiterals.get(0))
-          .append(")) {\n");
-
-      // Each branch gets isolated to its own scope.
-      scopedHeap.enterNewScope();
-      res = res.createMerged(((StmtListNode) this.cases.get(0).get(1)).generateJavaSourceOutput(scopedHeap));
-      scopedHeap.exitCurrScope();
-      res.javaSourceBody().append("} ");
-
-      for (int i = 1; i < this.caseExprLiterals.size() - (hasDefaultCase ? 0 : 1); i++) {
-        res.javaSourceBody().append("else if (ClaroRuntimeUtilities.getClaroType(")
-            .append(matchedOneofIdentifier)
-            .append(").equals(")
-            .append(this.caseExprLiterals.get(i))
-            .append(")) {\n");
-        // Each branch gets isolated to its own scope.
-        scopedHeap.enterNewScope();
-        res = res.createMerged(((StmtListNode) this.cases.get(i).get(1)).generateJavaSourceOutput(scopedHeap));
-        scopedHeap.exitCurrScope();
-        res.javaSourceBody().append("}\n");
-      }
-      res.javaSourceBody().append("else {\n");
-      // Each branch gets isolated to its own scope.
-      scopedHeap.enterNewScope();
-      res = res.createMerged(
-          ((StmtListNode) this.cases.get(this.cases.size() - 1).get(1)).generateJavaSourceOutput(scopedHeap));
-      scopedHeap.exitCurrScope();
-      res.javaSourceBody().append("}\n");
-
-      res.javaSourceBody().append("} // End match(<oneof<...>>) block\n");
+    res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin structured type match. \n");
+    String syntheticMatchedStructuredTypeIdentifier;
+    if (matchedExpr instanceof IdentifierReferenceTerm) {
+      syntheticMatchedStructuredTypeIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
     } else {
-      res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin structured type match. \n");
-      String syntheticMatchedStructuredTypeIdentifier;
-      if (matchedExpr instanceof IdentifierReferenceTerm) {
-        syntheticMatchedStructuredTypeIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
-      } else {
-        syntheticMatchedStructuredTypeIdentifier = "$syntheticMatchedStructuredTypeIdentifier";
-        res.javaSourceBody()
-            .append(this.matchedExprType.getJavaSourceType())
-            .append(" ")
-            .append(syntheticMatchedStructuredTypeIdentifier)
-            .append(" = ");
-        res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
-        res.javaSourceBody().append(";\n");
-      }
-      if (!(this.matchedExprType instanceof ConcreteType)) {
-        codegenNestedValueDestructuring(
-            this.matchedExprType, new Stack<>(), 0, syntheticMatchedStructuredTypeIdentifier, res);
-      } else {
-        res.javaSourceBody()
-            .append(this.matchedExprType.getJavaSourceType())
-            .append(" $v0 = ")
-            .append(syntheticMatchedStructuredTypeIdentifier)
-            .append(";\n");
-      }
-      Stack<ImmutableList<Object>> casesStack = new Stack<>();
-      this.cases.reverse().stream()
-          .map(
-              l -> ImmutableList.of(
-                  l.get(0) instanceof FlattenedTypeMatchPattern
-                  ? ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern()
-                  : Boolean.FALSE,
-                  l.get(1)
-              ))
-          .forEach(casesStack::push);
-      AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
-      codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId, /*currMatchedValIdentifierPrefix=*/"");
-      res = codegen.get();
-      res.javaSourceBody().append("} // End structured type match. \n");
+      syntheticMatchedStructuredTypeIdentifier = "$syntheticMatchedStructuredTypeIdentifier_$Match" + this.matchId;
+      res.javaSourceBody()
+          .append(this.matchedExprType.getJavaSourceType())
+          .append(" ")
+          .append(syntheticMatchedStructuredTypeIdentifier)
+          .append(" = ");
+      res = res.createMerged(this.matchedExpr.generateJavaSourceOutput(scopedHeap));
+      res.javaSourceBody().append(";\n");
     }
+    if (!(this.matchedExprType instanceof ConcreteType)) {
+      codegenNestedValueDestructuring(
+          this.matchedExprType, new Stack<>(), 0, syntheticMatchedStructuredTypeIdentifier, res);
+    } else {
+      res.javaSourceBody()
+          .append(this.matchedExprType.getJavaSourceType())
+          .append(" $v0 = ")
+          .append(syntheticMatchedStructuredTypeIdentifier)
+          .append(";\n");
+    }
+    Stack<ImmutableList<Object>> casesStack = new Stack<>();
+    this.cases.reverse().stream()
+        .map(
+            l -> ImmutableList.of(
+                l.get(0) instanceof FlattenedTypeMatchPattern
+                ? ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern()
+                : Boolean.FALSE,
+                l.get(1)
+            ))
+        .forEach(casesStack::push);
+    AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
+    codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId, /*currMatchedValIdentifierPrefix=*/"");
+    res = codegen.get();
+    res.javaSourceBody().append("} // End structured type match. \n");
 
     return res;
   }
@@ -958,10 +913,28 @@ public class MatchStmt extends Stmt {
       if (pattern.get(0) instanceof MaybeWildcardPrimitivePattern
           && ((MaybeWildcardPrimitivePattern) pattern.get(0)).getOptionalExpr().isPresent()) {
         // Validate that this is actually matching the correct type.
+        Type patternImpliedType;
         validateLiteralPatternMatchesExpectedType(
-            matchedExprType, ((MaybeWildcardPrimitivePattern) pattern.get(0)).toImpliedType(scopedHeap));
+            matchedExprType,
+            patternImpliedType = ((MaybeWildcardPrimitivePattern) pattern.get(0)).toImpliedType(scopedHeap)
+        );
         // This is not a nested value, there's nothing to flatten.
         currFlattenedPattern.add((MaybeWildcardPrimitivePattern) pattern.get(0));
+        // Make sure to set the binding type if this is a wildcard binding.
+        if (((MaybeWildcardPrimitivePattern) pattern.get(0)).isWildcardBinding()) {
+          ((MaybeWildcardPrimitivePattern) pattern.get(0)).autoValueIgnored_optionalWildcardBindingType
+              .set(Optional.of(patternImpliedType));
+          ((MaybeWildcardPrimitivePattern) pattern.get(0)).autoValueIgnored_optionalWildcardBindingDestructuringCodegen
+              .set(Optional.of(
+                  new StringBuilder(patternImpliedType.getJavaSourceType())
+                      .append(((MaybeWildcardPrimitivePattern) pattern.get(0)).getOptionalWildcardBinding()
+                                  .get().identifier)
+                      .append(" = ((")
+                      .append(patternImpliedType.getJavaSourceType())
+                      .append(") ")
+                      .append("%s")
+                      .append(");\n")));
+        }
       } else {
         flattenPattern((TypeMatchPattern<Type>) pattern.get(0), matchedExprType, currFlattenedPattern, scopedHeap, new Stack<>());
       }
@@ -1135,7 +1108,9 @@ public class MatchStmt extends Stmt {
         matchedType = invertedOneofMatchedVariant;
         // It turns out that the prior pushed path would have been wrong because it would say oneof, whereas we now know
         // its real concrete type that the pattern will actually be matching.
-        path.pop();
+        if (!path.isEmpty()) {
+          path.pop();
+        }
         path.push("((" + matchedType.getJavaSourceType() + ") %s)");
         // I need to actually put a synthetic pattern into the flattened pattern so that I can get codegen to generate a
         // oneof typecheck.
@@ -1692,12 +1667,12 @@ public class MatchStmt extends Stmt {
             .append(currCase.get() instanceof String
                     ? String.format("\"%s\"", currCase.get())
                     : currCase.get().toString())
-            .append(":\n");
+            .append(": {\n");
         codegenDestructuredSequenceMatch(
             caseGroup, flattenedPatternTypes,
             startInd + 1, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
         );
-        res.get().javaSourceBody().append("break;\n");
+        res.get().javaSourceBody().append("break;\n}\n");
       }
     }
 

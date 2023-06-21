@@ -1,0 +1,111 @@
+########################################################################################################################
+# The interesting thing about these atoms is that they're "self-describing" in some sense. You could imagine that they
+# represent some more meaningful value, but considering they're the only one of their type in the universe, it's
+# somewhat pointless to *actually* carry that data around, after all, that data really is just some *interpretation* of
+# the presence of such a type.
+#
+# This is interesting in its own right beyond just the trivial example of making a better representation for
+# NothingType/nothing, as this can also be the foundation of something like an "enum" that you would find in Java/C/etc.
+########################################################################################################################
+
+atom Nothing
+
+newtype Tree<T> : struct {
+  val: T,
+  left: oneof<Tree<T>, Nothing>,   # Using `Nothing` as a type.
+  right: oneof<Tree<T>, Nothing>
+}
+
+var myTree =
+  Tree({
+    val = 10,
+    left =
+      Tree({
+        val = 20,
+        left = Nothing,            # Using `Nothing` as a value.
+        right = Nothing
+      }),
+    right = Nothing
+  });
+
+print(myTree);
+
+
+var n1 = Nothing;
+var n2 = Nothing;
+
+print(n1 == n2); # true
+
+########################################################################################################################
+# USING ATOMS TO REPRESENT "ENUMS".
+#
+# Here I'd like to demonstrate that the notion of an "Enum" in the Java/C/etc sense, is not something that needs any
+# particular special language level support. The combination of atoms with oneof, makes for an enum. I see this as a
+# nice validation of the utility of Claro's simple type system as it allows these *ideas* to be expressed natively
+# as-needed, w/o special casing by the type system itself.
+########################################################################################################################
+
+atom OutOfMemory
+atom TimeLimitExceeded
+atom PermissionDenied
+atom UnknownInternalError
+newtype Success<T> : T
+
+newtype FallibleOpResult<T> : oneof<
+  Success<T>,
+  Error<OutOfMemory>,
+  Error<TimeLimitExceeded>,
+  Error<PermissionDenied>,
+  Error<UnknownInternalError>
+>
+
+########################################################################################################################
+# DEMONSTRATE USING ATOMS FOR EXPRESSIVE ERROR-HANDLING
+########################################################################################################################
+
+function doFallibleThing<T>(arg: T) -> FallibleOpResult<T> {
+  # To simulate something that might fail, let's just ask the user interactively what should happen.
+  # TODO(steving) GET THIS NESTED MATCH WORKING!
+#  match(input("Want an error? (Y/n)")) {
+#    case "Y" ->
+    if (input("Want an error? (Y/n)") == "Y") {
+      print("Ok what error in particular?\n\t1 ------- {OutOfMemory}\n\t2 ------- {TimeLimitExceeded}\n\t3 ------- {PermissionDenied}\n\tOther --- {UnknownInternalError}");
+      # TODO(steving) RETURNING DIRECTLY FROM CASE ACTION SHOULD WORK!
+#      match(input("Pick one of the above options: ")) {
+#        case "1" -> return FallibleOpResult(OutOfMemory);
+#        case "2" -> return FallibleOpResult(TimeLimitExceeded);
+#        case "3" -> return FallibleOpResult(PermissionDenied);
+#        case _   -> return FallibleOpResult(UnknownInternalError);
+#      }
+      var res: FallibleOpResult<T>;
+      match(input("Pick one of the above options: ")) {
+        case "1" ->
+          # TODO(steving) NEED TO FIGURE OUT HOW TO MAKE THIS TYPE INFERENCE WORK CORRECTLY.
+#          res = FallibleOpResult(Error(OutOfMemory));
+          var err = Error(OutOfMemory);
+          res = FallibleOpResult(err);
+        case "2" ->
+          var err = Error(TimeLimitExceeded);
+          res = FallibleOpResult(err);
+        case "3" ->
+          var err = Error(PermissionDenied);
+          res = FallibleOpResult(err);
+        case _   ->
+          var err = Error(UnknownInternalError);
+          res = FallibleOpResult(err);
+      }
+      return res;
+    }
+    return FallibleOpResult(Success(arg));
+#    case _   -> return FallibleOpResult(Success(arg));
+#  }
+}
+
+var fallibleOpRes = unwrap(doFallibleThing("Dummy-Task"));
+match (fallibleOpRes) {
+  case _:Error<OutOfMemory>          -> print("Ran out of memory while processing task!");
+  case _:Error<TimeLimitExceeded>    -> print("Ran out of time while processing task!");
+  case _:Error<PermissionDenied>     -> print("You do not have permission to perform this task!");
+  case _:Error<UnknownInternalError> -> print("Failed to complete this task for some unknown reason!");
+  case S:Success<string>             -> print("Successful operation: {unwrap(S)}");
+}

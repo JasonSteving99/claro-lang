@@ -214,7 +214,14 @@ public class IdentifierReferenceTerm extends Term {
     return new StringBuilder(
         this.alternateCodegenString.orElse(
             () -> {
-              if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
+              if (scopedHeap.getValidatedIdentifierType(this.identifier).baseType().equals(BaseType.ATOM)
+                  && scopedHeap.getIdentifierData(this.identifier).isTypeDefinition) {
+                // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE.
+                return String.format(
+                    "$ClaroAtom.forCacheIndex(%s)",
+                    InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.build().get(this.identifier)
+                );
+              } else if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
                 // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to
                 // workaround Java's restriction that all lambda captures must be effectively final.
                 return "$nestedComprehensionState." + this.identifier;

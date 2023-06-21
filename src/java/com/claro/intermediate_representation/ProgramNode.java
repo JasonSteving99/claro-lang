@@ -266,7 +266,9 @@ public class ProgramNode {
     StmtListNode currStmtListNode = stmtListNode;
     while (currStmtListNode != null) {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
-      if (currStmt instanceof UserDefinedTypeDefinitionStmt) {
+      if (currStmt instanceof AtomDefinitionStmt) {
+        ((AtomDefinitionStmt) currStmt).registerType(scopedHeap);
+      } else if (currStmt instanceof UserDefinedTypeDefinitionStmt) {
         ((UserDefinedTypeDefinitionStmt) currStmt).registerTypeProvider(scopedHeap);
       } else if (currStmt instanceof HttpServiceDefStmt) {
         ((HttpServiceDefStmt) currStmt).registerTypeProvider(scopedHeap);
@@ -495,6 +497,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.atoms.$ClaroAtom;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
@@ -539,7 +542,11 @@ public class ProgramNode {
             "%s\n\n" +
             "  public static void main(String[] args) {\n" +
             "    try {\n" +
+            "      // Setup the atom cache so that all atoms are singleton.\n" +
+            "      %s\n\n" +
+            "/**BEGIN USER CODE**/\n" +
             "%s\n\n" +
+            "/**END USER CODE**/\n" +
             "    } finally {\n" +
             "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
             "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
@@ -555,6 +562,7 @@ public class ProgramNode {
             this.generatedClassName,
             stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
             stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
+            AtomDefinitionStmt.codegenAtomCacheInit(),
             stmtListJavaSource.javaSourceBody()
         )
     );

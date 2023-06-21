@@ -23,6 +23,17 @@ claro_library(
 )
 
 claro_binary(
+    name = "atoms",
+    srcs = [":atoms_lib"],
+    java_name = "atoms",
+)
+
+claro_library(
+    name = "atoms_lib",
+    src = "atoms.claro",
+)
+
+claro_binary(
     name = "collection_comprehensions",
     srcs = [":collection_comprehensions_lib"],
     java_name = "collection_comprehensions",

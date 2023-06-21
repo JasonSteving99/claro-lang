@@ -40,6 +40,25 @@ public final class Types {
   }
 
   @AutoValue
+  public abstract static class AtomType extends Type {
+    public abstract String getName();
+
+    public static AtomType forName(String name) {
+      return new AutoValue_Types_AtomType(BaseType.ATOM, ImmutableMap.of(), name);
+    }
+
+    @Override
+    public String toString() {
+      return this.getName();
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format("Types.AtomType.forName(\"%s\")", this.getName());
+    }
+  }
+
+  @AutoValue
   public abstract static class NothingType extends Type {
     public static NothingType get() {
       return new AutoValue_Types_NothingType(BaseType.NOTHING, ImmutableMap.of());

@@ -19,6 +19,7 @@ def claro_binary(name, srcs, java_name):
             "//src/java/com/claro/stdlib",
             "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
+            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
             "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
