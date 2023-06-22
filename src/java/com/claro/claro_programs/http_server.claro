@@ -357,49 +357,28 @@ graph function startNewGameHandler(handle: string) -> future<string> {
 }
 
 function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> string {
-  # TODO(steving) TESTING!!! SUPPORT NESTED MATCHES!
-#  match (buggyResponse) {
-#    case _:string ->
-  if (buggyResponse instanceof string) {
+  match (buggyResponse) {
+    case _:string ->
       var moveResponse = unwrap(cast(ParsedJson<MoveResponse>, fromJson(buggyResponse))).result;
       match (moveResponse) {
         case _:MoveResponse ->
           var parsedWorld = parseWorldMap(moveResponse.result.world);
           var computedBestPath = dijkstra(parsedWorld, Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}));
           var computedMoves = ["\"{dir}\"" | dir in movesFromBestPath(computedBestPath)];
-          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-          if (true) {
-            return "{computedMoves}";
-          }
+          return "{computedMoves}";
         case _:Error<string> ->
-          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-          if (true) {
-            return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
-          }
+          return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
       }
-      # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-      return "SHOULDN'T BE NECESSARY!";
-  } else {
-#    case _:Error<string> ->
+    case _:Error<string> ->
       return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{buggyResponse}";
   }
 }
 
 function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, Error<string>>) -> [string] {
   match (buggyResponse) {
-    case _:string        ->
-          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-          if (true) {
-            return [buggyResponse];
-          }
-    case _:Error<string> ->
-          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-          if (true) {
-            return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
-          }
+    case _:string        -> return [buggyResponse];
+    case _:Error<string> -> return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
   }
-  # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-  return ["SHOULDN'T BE NECESSARY!"];
 }
 
 function reduce<T, R>(l: [T], accumulated: R, accumulatorFn: function<|R, T| -> R>) -> R {

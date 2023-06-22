@@ -103,10 +103,7 @@ while (true) {
       print(parsedMove);
     case _:Error<EndGame> ->
       print("Good game!");
-      # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-      if (true) {
-        break;
-      }
+      break;
   }
 
   userInput = input("Which direction do you want to move? (N/E/S/W): ");
@@ -152,10 +149,7 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
           }
         case _:Error<string> ->
           print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
-          # TODO(steving) TESTING!!! NEED TO FIGURE OUT HOW TO SUPPORT BREAK/RETURN W/IN CASE BODIES!
-          if (true) {
-            break;
-          }
+          break;
       }
     }
     # For the last move, execute the move and update the best moves accordingly

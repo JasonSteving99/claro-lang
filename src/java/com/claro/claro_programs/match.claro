@@ -270,7 +270,7 @@ match ((gnarlyOneof, 1)) {
   case ((10, "ten"), 2)             -> print("((10, \"ten\"), 2)");
   case ((20, "ten"), 2)             -> print("((20, \"ten\"), 2)");
   case (Foo(X), 1)                  -> print("(Foo(X), 1) where X = {X}");
-  case ((1,"one"), Y)               -> print("(_, Y) where Y = {Y}");
+  case ((1,"one"), Y)               -> print("((1, \"one\"), Y) where Y = {Y}");
   case ((X, "ten"), 1)              -> print("((X, \"ten\"), 1) where X = {X}");
   case (_:tuple<int, string>, 1)    -> print("(_:tuple<int, string>, 1)");
   case (_:tuple<string, string>, 1) -> print("(_:tuple<string, string>, 1)");

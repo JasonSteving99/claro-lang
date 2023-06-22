@@ -33,6 +33,7 @@ public class MatchStmt extends Stmt {
   private Optional<UnwrapUserDefinedTypeExpr> optionalUnwrapMatchedExpr = Optional.empty();
   private Optional<String> optionalWildcardBindingName = Optional.empty();
   private Optional<ImmutableList<Type>> optionalFlattenedMatchedValues = Optional.empty();
+  private boolean foundDefaultCase = false;
 
   public MatchStmt(Expr matchedExpr, ImmutableList<ImmutableList<Object>> cases) {
     super(ImmutableList.of());
@@ -108,6 +109,13 @@ public class MatchStmt extends Stmt {
       // Type check the stmt-list associated with this case.
       ((StmtListNode) currCase.get(1)).assertExpectedExprTypes(scopedHeap);
 
+      if (scopedHeap.scopeStack.peek().initializedIdentifiers.stream()
+          .anyMatch(initVars -> initVars.matches("\\$(.*RETURNS|BREAK|CONTINUE)"))) {
+        // Signal that we definitely exit this match by way of the case's action.
+        ((FlattenedTypeMatchPattern) currCase.get(0))
+            .autoValueIgnored_CaseActionAlreadyExitsMatchViaReturnBreakContinue.set(true);
+      }
+
       // Undo narrowing if necessary.
       if (narrowingRequired.get()) {
         originalIdentifierTypeMarkedNarrowed.get().autoValueIgnored_IsNarrowedType.set(false);
@@ -158,6 +166,7 @@ public class MatchStmt extends Stmt {
     // Preserve information needed for codegen.
     this.caseExprLiterals = caseExprLiterals.build();
     this.matchedExprType = matchedExprType;
+    this.foundDefaultCase = foundDefaultCase.get();
   }
 
   // Here, we'll recursively descend into the type of the matched expr to determine that pattern matching over the type
@@ -257,6 +266,7 @@ public class MatchStmt extends Stmt {
     }
   }
 
+  // TODO(steving) TESTING!!! MAJORITY OF THIS CAN GET DELETED SINCE EVERYTHING'S A FLATTENED PATTERN NOW.
   private void validateCasePattern(ScopedHeap scopedHeap, Type matchedExprType, Function<Object, Boolean> checkUniqueness, AtomicBoolean foundDefaultCase, Object currCasePattern, AtomicBoolean narrowingRequired) throws ClaroTypeException {
     if (currCasePattern instanceof Expr) {
       Expr currCaseExpr = (Expr) currCasePattern;
@@ -767,11 +777,13 @@ public class MatchStmt extends Stmt {
     }
     if (!(this.matchedExprType instanceof ConcreteType)) {
       codegenNestedValueDestructuring(
-          this.matchedExprType, new Stack<>(), 0, syntheticMatchedStructuredTypeIdentifier, res);
+          this.matchedExprType, new Stack<>(), 0, syntheticMatchedStructuredTypeIdentifier, res, String.format("Match%s_", this.matchId));
     } else {
       res.javaSourceBody()
           .append(this.matchedExprType.getJavaSourceType())
-          .append(" $v0 = ")
+          .append(" $Match")
+          .append(this.matchId)
+          .append("_v0 = ")
           .append(syntheticMatchedStructuredTypeIdentifier)
           .append(";\n");
     }
@@ -779,23 +791,28 @@ public class MatchStmt extends Stmt {
     this.cases.reverse().stream()
         .map(
             l -> ImmutableList.of(
-                l.get(0) instanceof FlattenedTypeMatchPattern
-                ? ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern()
-                : Boolean.FALSE,
-                l.get(1)
+                ((FlattenedTypeMatchPattern) l.get(0)).getFlattenedPattern(),
+                l.get(1),
+                ((FlattenedTypeMatchPattern) l.get(0)).autoValueIgnored_CaseActionAlreadyExitsMatchViaReturnBreakContinue.get()
             ))
         .forEach(casesStack::push);
     AtomicReference<GeneratedJavaSource> codegen = new AtomicReference<>(res);
-    codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId, /*currMatchedValIdentifierPrefix=*/"");
+    codegenDestructuredSequenceMatch(casesStack, this.optionalFlattenedMatchedValues.get(), 0, codegen, syntheticMatchedStructuredTypeIdentifier, scopedHeap, this.matchId, /*currMatchedValIdentifierPrefix=*/String.format("Match%s_", this.matchId));
     res = codegen.get();
+
+    // Making note of the fact that Claro pattern match stmts are statically validated to be exhaustive, but yet Java
+    // is unaware of this fact, we need to codegen an exception to indicate to Java that we're doing something terminal
+    // to unwind the stack since it won't be aware that there's a guarantee that the program won't continue past this
+    // match block. We don't need this if there's a default case because then in that case Java actually will be able to
+    // acknowledge that this is exhaustive.
+    if (!this.foundDefaultCase && casesStack.stream().allMatch(l -> (boolean) l.get(2))) {
+      res.javaSourceBody()
+          .append("throw new RuntimeException(\"Claro Compiler Error! This should be unreachable as the preceding match-block should have been statically validated to be exhaustive and containing a return/break/continue stmt along every codepath. If this exception is ever observed at runtime, please report a bug at clarolang.com.\");\n");
+    }
+
     res.javaSourceBody().append("} // End structured type match. \n");
 
     return res;
-  }
-
-  private static int codegenNestedValueDestructuring(
-      Type matchedExprType, Stack<String> path, int count, String matchedValIdentifier, GeneratedJavaSource codegen) {
-    return codegenNestedValueDestructuring(matchedExprType, path, count, matchedValIdentifier, codegen, "");
   }
 
   // This function is used to recursively traverse an arbitrarily nested type to codegen destructuring of its primitive
@@ -1439,7 +1456,11 @@ public class MatchStmt extends Stmt {
         // This is an unfortunate hack since I don't want to have to figure out how to avoid adding trailing `break`s
         // if they'd happen to be unreachable beyond these `break $MatchN` clauses. I've already validated using javap
         // that all of this gets optimized out of the JVM bytecode in the final class file, so this doesn't actually
-        // matter at the end of the day.
+        // matter at the end of the day. If there's already a return stmt within this action, then we don't need to
+        // bother.
+        if ((boolean) top.get(2)) {
+          continue;
+        }
         res.get().javaSourceBody().append("if (true) { break $Match").append(matchId).append("; }\n");
       }
     }
@@ -1537,9 +1558,7 @@ public class MatchStmt extends Stmt {
                           AtomicReference<GeneratedJavaSource> internalJavaSource =
                               new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
                           Stack<ImmutableList<Object>> currPatternContinuedMatching = new Stack<>();
-                          currPatternContinuedMatching.push(
-                              ImmutableList.of(l.get(0), l.get(1))
-                          );
+                          currPatternContinuedMatching.push(l);
                           codegenDestructuredSequenceMatch(
                               currPatternContinuedMatching,
                               flattenedPatternTypes,
@@ -1548,7 +1567,7 @@ public class MatchStmt extends Stmt {
                               matchedValIdentifier,
                               scopedHeap,
                               matchId,
-                              ""
+                              String.format("Match%s_", matchId)
                           );
                           // This is an absolute trashy hack, but to workaround the fact that this codegen is using
                           // an `if (true) { break $MatchN; }` block to avoid falling through after a match is made, in
@@ -1565,7 +1584,8 @@ public class MatchStmt extends Stmt {
                           return null;
                         }
                       }
-                  )
+                  ),
+                  l.get(2) // Maintain indication of whether this case action returns.
               )
           )
           .forEach(oneofTypeVariantValueLiteralSwitchGroup::push);
@@ -1633,6 +1653,11 @@ public class MatchStmt extends Stmt {
       }
       switchGroup.removeAll(caseGroup);
 
+      // Now that we know which cases are getting grouped, determine if there's definitely going to be a
+      // return/break/continue jumping stmt in all of the cases' actions to determine whether or not a synthetic `break`
+      // is going to be needed to prevent codegen from falling through to other cases accidentally.
+      boolean syntheticTrailingBreakNeeded = caseGroup.stream().anyMatch(l -> !((boolean) l.get(2)));
+
       if (firstGroupCasePatternImpliedType.equals(Types.BOOLEAN)) {
         codegenDestructuredSequenceMatch(
             caseGroup, flattenedPatternTypes,
@@ -1672,7 +1697,10 @@ public class MatchStmt extends Stmt {
             caseGroup, flattenedPatternTypes,
             startInd + 1, res, matchedValIdentifier, scopedHeap, matchId, currMatchedValIdentifierPrefix
         );
-        res.get().javaSourceBody().append("break;\n}\n");
+        if (syntheticTrailingBreakNeeded) {
+          res.get().javaSourceBody().append("break;\n");
+        }
+        res.get().javaSourceBody().append("}\n");
       }
     }
 
@@ -1818,6 +1846,13 @@ public class MatchStmt extends Stmt {
     public abstract ImmutableList<MaybeWildcardPrimitivePattern> getFlattenedPattern();
 
     public abstract Type getImpliedType();
+
+    // This field allows signaling that it's unnecessary to codegen the synthetic `if (true) { break $MatchN; }` for
+    // preventing fallthrough after a match is found. This says that the case's action already has some
+    // return/break/continue stmt ending it which guarantees that the action won't be able to fallthrough to
+    // accidentally perform actions relating to other overlapping cases.
+    public final AtomicBoolean autoValueIgnored_CaseActionAlreadyExitsMatchViaReturnBreakContinue =
+        new AtomicBoolean(false);
 
     public static FlattenedTypeMatchPattern create(
         ImmutableList<MaybeWildcardPrimitivePattern> flattenedPattern,

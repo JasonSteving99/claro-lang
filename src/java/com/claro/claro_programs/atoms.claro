@@ -51,61 +51,43 @@ atom PermissionDenied
 atom UnknownInternalError
 newtype Success<T> : T
 
-newtype FallibleOpResult<T> : oneof<
-  Success<T>,
-  Error<OutOfMemory>,
-  Error<TimeLimitExceeded>,
-  Error<PermissionDenied>,
-  Error<UnknownInternalError>
+alias FallibleOpErrors : oneof<
+  OutOfMemory,
+  TimeLimitExceeded,
+  PermissionDenied,
+  UnknownInternalError
 >
 
 ########################################################################################################################
 # DEMONSTRATE USING ATOMS FOR EXPRESSIVE ERROR-HANDLING
 ########################################################################################################################
 
-function doFallibleThing<T>(arg: T) -> FallibleOpResult<T> {
+function doFallibleThing<T>(arg: T) -> oneof<T, Error<FallibleOpErrors>> {
   # To simulate something that might fail, let's just ask the user interactively what should happen.
-  # TODO(steving) GET THIS NESTED MATCH WORKING!
-#  match(input("Want an error? (Y/n)")) {
-#    case "Y" ->
-    if (input("Want an error? (Y/n)") == "Y") {
+  match(input("Want an error? (Y/n)")) {
+    case "Y" ->
       print("Ok what error in particular?\n\t1 ------- {OutOfMemory}\n\t2 ------- {TimeLimitExceeded}\n\t3 ------- {PermissionDenied}\n\tOther --- {UnknownInternalError}");
-      # TODO(steving) RETURNING DIRECTLY FROM CASE ACTION SHOULD WORK!
-#      match(input("Pick one of the above options: ")) {
-#        case "1" -> return FallibleOpResult(OutOfMemory);
-#        case "2" -> return FallibleOpResult(TimeLimitExceeded);
-#        case "3" -> return FallibleOpResult(PermissionDenied);
-#        case _   -> return FallibleOpResult(UnknownInternalError);
-#      }
-      var res: FallibleOpResult<T>;
+      # TODO(steving) SHOULD BE ABLE TO JUST IMMEDIATELY RETURN.
+      var res: Error<FallibleOpErrors>;
       match(input("Pick one of the above options: ")) {
-        case "1" ->
-          # TODO(steving) NEED TO FIGURE OUT HOW TO MAKE THIS TYPE INFERENCE WORK CORRECTLY.
-#          res = FallibleOpResult(Error(OutOfMemory));
-          var err = Error(OutOfMemory);
-          res = FallibleOpResult(err);
-        case "2" ->
-          var err = Error(TimeLimitExceeded);
-          res = FallibleOpResult(err);
-        case "3" ->
-          var err = Error(PermissionDenied);
-          res = FallibleOpResult(err);
-        case _   ->
-          var err = Error(UnknownInternalError);
-          res = FallibleOpResult(err);
+        case "1" -> res = Error(OutOfMemory);
+        case "2" -> res = Error(TimeLimitExceeded);
+        case "3" -> res = Error(PermissionDenied);
+        case _   -> res = Error(UnknownInternalError);
       }
       return res;
-    }
-    return FallibleOpResult(Success(arg));
-#    case _   -> return FallibleOpResult(Success(arg));
-#  }
+    case _ ->
+      return arg;
+  }
 }
 
-var fallibleOpRes = unwrap(doFallibleThing("Dummy-Task"));
-match (fallibleOpRes) {
-  case _:Error<OutOfMemory>          -> print("Ran out of memory while processing task!");
-  case _:Error<TimeLimitExceeded>    -> print("Ran out of time while processing task!");
-  case _:Error<PermissionDenied>     -> print("You do not have permission to perform this task!");
-  case _:Error<UnknownInternalError> -> print("Failed to complete this task for some unknown reason!");
-  case S:Success<string>             -> print("Successful operation: {unwrap(S)}");
+match (doFallibleThing("Dummy-Task")) {
+  case Error(ERR) ->
+    match (ERR) {
+      case _:OutOfMemory          -> print("Ran out of memory while processing task!");
+      case _:TimeLimitExceeded    -> print("Ran out of time while processing task!");
+      case _:PermissionDenied     -> print("You do not have permission to perform this task!");
+      case _:UnknownInternalError -> print("Failed to complete this task for some unknown reason!");
+    }
+  case S          -> print("Successful operation: {S}");
 }
