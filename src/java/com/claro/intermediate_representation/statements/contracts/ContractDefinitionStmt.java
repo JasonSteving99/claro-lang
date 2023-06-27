@@ -679,8 +679,11 @@ public class ContractDefinitionStmt extends Stmt {
                       .requiredContextualOutputTypeAssertionTypeParamNames
                       .contains(this.typeParamNames.get(n))
                   ||
-                  this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
-                      .get(procedureName).values().stream().anyMatch(i -> n == i)) {
+                  Optional.ofNullable(
+                          this.contractProceduresSupportingDynamicDispatchOverArgsWhenGenericReturnTypeInferenceRequired
+                              .get(procedureName))
+                      .map(m -> m.values().stream().anyMatch(i -> n == i))
+                      .orElse(false)) {
                 return String.format("$%s_vtableKey", this.typeParamNames.get(n));
               }
               Type onlyConcreteTypeForCurrTypeParam =

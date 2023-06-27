@@ -42,8 +42,7 @@ public class StmtListNode extends Node {
         // TODO(steving) Find some way to make this assertion in the CUP parsing phase itself. Once we start
         //  implementing better error messages with line numbers etc, I get a feeling that
         //  throwing this manner of error here will make it hard to get line numbers right.
-        throw new ClaroParserException(
-            "Unreachable statements following a return/break stmt are not allowed." + curr.getChildren().get(0));
+        throw new ClaroParserException("Unreachable statements following a return/break stmt are not allowed.");
       }
 
       Stmt currStmt = ((Stmt) curr.getChildren().get(0));
