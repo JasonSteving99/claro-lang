@@ -261,7 +261,6 @@ claro_binary(
 claro_library(
     name = "match_lib",
     src = "match.claro",
-    debug = True
 )
 
 claro_binary(
@@ -273,6 +272,21 @@ claro_binary(
 claro_library(
     name = "modules_compiled_claro",
     src = "modules.claro",
+)
+
+claro_binary(
+    name = "multiple_files",
+    srcs = [":multiple_files_lib"],
+    java_name = "multiple_files_A",
+)
+
+claro_library(
+    name = "multiple_files_lib",
+    src = [
+        "multiple_files_A.claro",
+        "multiple_files_B.claro"
+    ],
+    java_name = "multiple_files_A",
 )
 
 claro_binary(

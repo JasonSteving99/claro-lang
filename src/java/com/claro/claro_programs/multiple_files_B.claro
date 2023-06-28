@@ -1,0 +1,8 @@
+consumer fileBFn(filename: string) {
+  print("This function is:\n\t- defined in File B and,\n\t- called by File {filename}");
+  print("Demonstrating non-main calling back into main:");
+  fileAFn("B");
+}
+
+fileBFn("B");
+fileAFn("B");

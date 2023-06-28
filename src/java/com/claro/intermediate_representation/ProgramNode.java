@@ -16,15 +16,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import java.util.Stack;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class ProgramNode {
   private final String packageString, generatedClassName;
   private StmtListNode stmtListNode;
   public static final Stack<Runnable> miscErrorsFound = new Stack<>();
+  public static ImmutableList<ProgramNode> nonMainFiles = ImmutableList.of();
 
+  // By default, don't support any StdLib.
   private Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn = s -> ImmutableList.of();
-      // By default, don't support any StdLib.
 
   // TODO(steving) package and generatedClassName should probably be injected some cleaner way since this is a Target::JAVA_SOURCE-only artifact.
   public ProgramNode(
@@ -81,6 +83,15 @@ public class ProgramNode {
     return generatedOutput;
   }
 
+  private void runPhaseOverAllProgramFiles(Consumer<ProgramNode> runPhaseFn) {
+    // First run through the non-main src files.
+    for (ProgramNode currNonMainProgramNode : ProgramNode.nonMainFiles) {
+      runPhaseFn.accept(currNonMainProgramNode);
+    }
+    // Then finally apply to *this* src file which is implied to be the "main" file.
+    runPhaseFn.accept(this);
+  }
+
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
   protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
@@ -91,16 +102,16 @@ public class ProgramNode {
     // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
     // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
     // TYPE DISCOVERY PHASE:
-    performTypeDiscoveryPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // PROCEDURE DISCOVERY PHASE:
-    performProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // CONTRACT DISCOVERY PHASE:
-    performContractDiscoveryPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performContractDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // GENERIC PROCEDURE DISCOVERY PHASE:
-    performGenericProcedureDiscoveryPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performGenericProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // Modules only need to know about procedure type signatures, nothing else, so save procedure type
     // validation for after the full module discovery and validation phases since procedure type validation
@@ -108,19 +119,19 @@ public class ProgramNode {
     // top-level procedures.
 
     // MODULE DISCOVERY PHASE:
-    performModuleDiscoveryPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performModuleDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // MODULE TYPE VALIDATION PHASE:
-    performModuleTypeValidationPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performModuleTypeValidationPhase(p.stmtListNode, scopedHeap));
 
     // PROCEDURE TYPE VALIDATION PHASE:
-    performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performProcedureTypeValidationPhase(p.stmtListNode, scopedHeap));
 
     // CONTRACT TYPE VALIDATION PHASE:
-    performContractTypeValidationPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performContractTypeValidationPhase(p.stmtListNode, scopedHeap));
 
     // GENERIC PROCEDURE TYPE VALIDATION PHASE:
-    performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+    runPhaseOverAllProgramFiles(p -> p.performGenericProcedureTypeValidationPhase(p.stmtListNode, scopedHeap));
 
     // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
     // definitions live in their own scope and cannot reference variables below. We consider functions defined
@@ -129,15 +140,19 @@ public class ProgramNode {
 
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
-    try {
-      // TODO(steving) Currently, GenericProcedureDefinitionStmts are getting type checked a second time here for no reason.
-      stmtListNode.assertExpectedExprTypes(scopedHeap);
-    } catch (ClaroTypeException e) {
-      // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
-      // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
-      // use in the execution stage.
-      throw new RuntimeException(e);
-    }
+    runPhaseOverAllProgramFiles(
+        p -> {
+          try {
+            // TODO(steving) Currently, GenericProcedureDefinitionStmts are getting type checked a second time here for no reason.
+            p.stmtListNode.assertExpectedExprTypes(scopedHeap);
+          } catch (ClaroTypeException e) {
+            // Java get the ... out of my way and just let me not pollute the interface with a throws modifier.
+            // Also let's be fair that I'm just too lazy to make a new RuntimeException version of the ClaroTypeException for
+            // use in the execution stage.
+            throw new RuntimeException(e);
+          }
+        }
+    );
 
     // UNUSED CHECKING PHASE:
     // Manually exit the last observed scope which is the global scope, since nothing else will trigger its exit.
@@ -161,9 +176,20 @@ public class ProgramNode {
     // Refuse to do code-gen phase if there were any type validation errors.
     StringBuilder res = null; // I hate null but am also too lazy right now to refactor to Optional<StringBuilder>
     if (Expr.typeErrorsFound.isEmpty() && miscErrorsFound.isEmpty()) {
-      // Now that we've validated that all types are valid, go to town in a fresh scope!
-      Node.GeneratedJavaSource programJavaSource =
-          stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName);
+      // Begin codegen on all non-main src files.
+      Node.GeneratedJavaSource programJavaSource = Node.GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
+      for (ProgramNode currNonMainProgramNode : ProgramNode.nonMainFiles) {
+        programJavaSource = programJavaSource.createMerged(
+            currNonMainProgramNode.stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName));
+        // Drop all javaSourceBody's from each because we actually don't want anything from non-main src files except
+        // for things like type/procedure defs.
+        programJavaSource.javaSourceBody().setLength(0);
+      }
+      // Now do codegen on this current program, implied to be the "main" src file. Do NOT throw away the javaSourceBody
+      // on this main src file as this is the actual "program" that the programmer wants to be able to run.
+      programJavaSource =
+          programJavaSource.createMerged(stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName));
+      // Finally, wrap up the GeneratedJavaSource as a Java src file.
       res = genJavaSource(programJavaSource);
     }
 

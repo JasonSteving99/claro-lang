@@ -42,18 +42,34 @@ def claro_binary(name, srcs, java_name):
     )
 
 def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
-    if not src.endswith(".claro"):
-        fail("claro_library: Provided src must use .claro extension.")
-    if not java_name:
-        java_name = src[:-6]
+    hasMultipleSrcs = str(type(src)) == "list"
+    if hasMultipleSrcs:
+        if not java_name:
+            fail("claro_library: java_name must be set when providing multiple srcs")
+        javaNameMatchesASrc = False
+        for filename in src:
+            if not filename.endswith(".claro"):
+                fail("claro_library: Provided srcs must use .claro extension.")
+            if filename[:-6] == java_name:
+                javaNameMatchesASrc = True
+        if not javaNameMatchesASrc:
+            fail("claro_library: java_name must match one of the given srcs to indicate which one is the main file.")
+    else:
+        if not src.endswith(".claro"):
+            fail("claro_library: Provided src must use .claro extension.")
+        if not java_name:
+            java_name = src[:-6]
     native.genrule(
         name = name,
-        srcs = [src],
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} < $< > $(OUTS)".format(
+        srcs = src if hasMultipleSrcs else [src],
+        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} {4} > $(OUTS)".format(
             claro_compiler_name,
             "false" if debug else "true", # --silent
             java_name, # --classname
             DEFAULT_PACKAGE_PREFIX, # --package
+            # Only need to continue supporting the single file case via stdin just in order to avoid breaking Riju
+            # config which I'm not going to touch now.
+            "--srcs=$$(echo $(SRCS) | tr ' ' ',')" if hasMultipleSrcs else "< $< "
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
         tools = [
