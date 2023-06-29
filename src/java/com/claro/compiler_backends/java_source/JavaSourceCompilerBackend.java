@@ -47,6 +47,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.length() - 6), f))
                 .collect(ImmutableList.toImmutableList());
       } else {
+        // TODO(steving) This is getting overly complicated just b/c I don't want to fix Riju's config. Go update Riju
+        //    so that this can all be simplified. Only need to continue supporting the single file case via stdin just
+        //    in order to avoid breaking Riju config which I'm not going to touch now.
+        StdLibUtil.setupBuiltinTypes = true;
         // Turns out there's going to just be a single file that'll be consumed on STDIN.
         this.SRCS = ImmutableList.of(SrcFile.create(this.GENERATED_CLASSNAME.get(), System.in));
       }

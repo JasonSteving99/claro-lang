@@ -59,17 +59,18 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
             fail("claro_library: Provided src must use .claro extension.")
         if not java_name:
             java_name = src[:-6]
+    # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
+    srcs = [
+        "//src/java/com/claro/stdlib:builtin_types.claro"
+    ] + (src if hasMultipleSrcs else [src])
     native.genrule(
         name = name,
-        srcs = src if hasMultipleSrcs else [src],
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} {4} > $(OUTS)".format(
+        srcs = srcs,
+        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --srcs=$$(echo $(SRCS) | tr ' ' ',') > $(OUTS)".format(
             claro_compiler_name,
             "false" if debug else "true", # --silent
             java_name, # --classname
             DEFAULT_PACKAGE_PREFIX, # --package
-            # Only need to continue supporting the single file case via stdin just in order to avoid breaking Riju
-            # config which I'm not going to touch now.
-            "--srcs=$$(echo $(SRCS) | tr ' ' ',')" if hasMultipleSrcs else "< $< "
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
         tools = [

@@ -368,9 +368,9 @@ print(myIntOrList);
 # DEMONSTRATE PARAMETERIZED CUSTOM TYPE DEFINITIONS
 ########################################################################################################################
 
-newtype Maybe<T> : oneof<T, NothingType>
+newtype Maybe<T> : oneof<T, Nothing>
 
-var m : Maybe<int> = Maybe(nothing);
+var m : Maybe<int> = Maybe(Nothing);
 print("Maybe<int>: {m}");
 type(m);
 var s = Maybe(["yo"]);
@@ -378,10 +378,10 @@ print("Maybe::<string>: {s}");
 type(s);
 
 
-newtype Node<T> : mut tuple<T, oneof<Node<T>, NothingType>, oneof<Node<T>, NothingType>>
+newtype Node<T> : mut tuple<T, oneof<Node<T>, Nothing>, oneof<Node<T>, Nothing>>
 
-var myOneof: oneof<Node<int>, NothingType> = Node(mut (2, nothing, nothing));
-var treeRoot: Node<int> = Node(mut (1, myOneof,  nothing));
+var myOneof: oneof<Node<int>, Nothing> = Node(mut (2, Nothing, Nothing));
+var treeRoot: Node<int> = Node(mut (1, myOneof,  Nothing));
 
 print("\n\nTYPES!!!");
 print(treeRoot);
@@ -396,7 +396,7 @@ type(unwrap(treeRoot)[1]);
 # I'm just leaving this here b/c supporting parameterized types actually ended up leading to a lot of backflips in the
 # parser in order to avoid an ambiguous grammar. So take this as a note that that's happened.
 i = 1;
-var leftNode = cast(oneof<Node<int>, NothingType>, unwrap(treeRoot)[i]);
+var leftNode = cast(oneof<Node<int>, Nothing>, unwrap(treeRoot)[i]);
 if (leftNode instanceof Node<int>) {
   type(leftNode);
   print(unwrap(leftNode)[0]);
@@ -414,7 +414,7 @@ implement Foo<Node<string>> as SNode {
   }
 }
 
-var stringNode = Node(mut ("My Tree!", nothing, nothing));
+var stringNode = Node(mut ("My Tree!", Nothing, Nothing));
 
 Foo::bar(treeRoot);
 Foo::bar(stringNode);
@@ -425,7 +425,7 @@ someNode = treeRoot;
 Foo::bar(someNode);
 
 consumer prettyishPrintTree<T>(currRoot: Node<T>) {
-  var fringe: mut [oneof<Node<T>, NothingType>] = mut [currRoot];
+  var fringe: mut [oneof<Node<T>, Nothing>] = mut [currRoot];
   var i = 0;
   while (len(fringe) - i > 0) {
     var currNode = fringe[i];
@@ -444,7 +444,7 @@ consumer prettyishPrintTree<T>(currRoot: Node<T>) {
 
 print("PRETTY-ISH PRINT! {treeRoot}");
 prettyishPrintTree(treeRoot);
-var getNewNode = (x: int) -> Node<int> { return Node(mut (x, nothing, nothing)); };
+var getNewNode = (x: int) -> Node<int> { return Node(mut (x, Nothing, Nothing)); };
 print(getNewNode(3));
 
 unwrap(treeRoot)[2] = getNewNode(3);
@@ -460,7 +460,7 @@ newtype NonEmptyList<T> : [T]
 initializers NonEmptyList {
   function GetValidatedNonEmptyList<T>(l: [T]) -> Maybe<NonEmptyList<T>> {
     if (len(l) == 0) {
-      return Maybe(nothing);
+      return Maybe(Nothing);
     }
     return Maybe(NonEmptyList(l));
   }

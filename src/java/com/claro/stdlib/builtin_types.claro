@@ -1,0 +1,13 @@
+########################################################################################################################
+# This file contains simple definitions of builtin types that come as part of Claro's stdlib. Very likely this will get
+# reorganized over time, for now it's a single centralized dumping ground.
+########################################################################################################################
+
+atom Nothing
+
+newtype Error<T> : T
+
+newtype ParsedJson<T> : struct {
+  result: oneof<T, Error<string>>,
+  rawJson: string
+}

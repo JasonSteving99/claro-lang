@@ -6,7 +6,7 @@ HttpService BuggyBuggies {
 var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
 alias HostJoinGameResponse : struct {
-  reason: oneof<string, NothingType>,
+  reason: oneof<string, Nothing>,
   result: struct {
     example: string,
     game_id: string,
@@ -16,7 +16,7 @@ alias HostJoinGameResponse : struct {
   success: boolean
 }
 alias MoveResponse : struct {
-  reason: oneof<string, NothingType>,
+  reason: oneof<string, Nothing>,
   result: struct {
     players: { string : struct { x: int, y: int } },
     dimensions: struct {
@@ -35,8 +35,8 @@ alias MoveResponse : struct {
   success: boolean
 }
 alias FailedMovedResponse : struct {
-  reason: oneof<string, NothingType>,
-  result: NothingType,
+  reason: oneof<string, Nothing>,
+  result: Nothing,
   success: boolean
 }
 
@@ -76,7 +76,7 @@ if (input("Do you want to start a new game? (Y/N): ") == "Y") {
 }
 
 var userInput = input("Which direction do you want to move? (N/E/S/W): ");
-var bestMoves: oneof<[string], NothingType> = nothing;
+var bestMoves: oneof<[string], Nothing> = Nothing;
 while (true) {
   var parsedMove = parseMove(userInput);
 
@@ -189,7 +189,7 @@ newtype RepeatMove: struct{
   dist: int,
   dir: string
 }
-newtype EndGame: NothingType
+newtype EndGame: Nothing
 function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>, Error<EndGame>> {
   var dirs = {"N", "E", "S", "W"};
   var numbers = {"{x}":x | x in [1,2,3,4,5,6,7,8,9]};
@@ -203,7 +203,7 @@ function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>
   }
 
   if (len(moveInput) == 0) {
-    return Error(EndGame(nothing));
+    return Error(EndGame(Nothing));
   } else {
     return Error("Unexpected input: {moveInput}");
   }
@@ -267,11 +267,11 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
 # BEGIN Dijkstra.claro
 ####################################################################################################
 
-alias DistanceVia : struct {dist: int, via: oneof<Position, NothingType>}
+alias DistanceVia : struct {dist: int, via: oneof<Position, Nothing>}
 alias BestPath : [Position]
 
 function dijkstra(world: {Position: string}, start: Position) -> BestPath {
-  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
   defaultDictPut(distances, start, {dist = 0, via = start});
   var pq = getHeap();
   insert(pq, {dist = 0, pos = start});
@@ -406,9 +406,9 @@ initializers Heap {
 }
 
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Position, Error<NothingType>> {
+  function extract_min(heap: Heap) -> oneof<Position, Error<Nothing>> {
       if (len(unwrap(heap)) == 0) {
-          return Error(nothing);
+          return Error(Nothing);
       }
       var min_value = unwrap(heap)[0];
       swap(heap, 0, len(unwrap(heap)) - 1);

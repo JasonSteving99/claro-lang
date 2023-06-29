@@ -90,7 +90,7 @@ HttpService BuggyBuggies {
   reset: "/api/game/{gameId}/player/{secret}/reset"
 }
 alias MoveResponse : struct {
-  reason: oneof<string, NothingType>,
+  reason: oneof<string, Nothing>,
   result: struct {
     players: { string : struct { x: int, y: int } },
     dimensions: struct {
@@ -455,11 +455,11 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
 # BEGIN Dijkstra.claro
 ####################################################################################################
 
-alias DistanceVia : struct {dist: int, via: oneof<Position, NothingType>}
+alias DistanceVia : struct {dist: int, via: oneof<Position, Nothing>}
 alias BestPath : [Position]
 
 function dijkstra(world: {Position: string}, start: Position) -> BestPath {
-  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
   defaultDictPut(distances, start, {dist = 0, via = start});
   var pq = getHeap();
   insert(pq, {dist = 0, pos = start});
@@ -594,9 +594,9 @@ initializers Heap {
 }
 
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Position, Error<NothingType>> {
+  function extract_min(heap: Heap) -> oneof<Position, Error<Nothing>> {
       if (len(unwrap(heap)) == 0) {
-          return Error(nothing);
+          return Error(Nothing);
       }
       var min_value = unwrap(heap)[0];
       swap(heap, 0, len(unwrap(heap)) - 1);

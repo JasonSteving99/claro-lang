@@ -6,7 +6,7 @@ print("Here's the original JSON:\n\t{testJson}\n");
 alias TargetType : struct{
   field1: [int],
   field2: string,
-  field3: [oneof<NothingType, int, string>]
+  field3: [oneof<Nothing, int, string>]
 }
 var parsedJson: ParsedJson<TargetType> = fromJson(testJson);
 

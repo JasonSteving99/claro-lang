@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -73,11 +74,15 @@ public class FromJsonExpr extends Expr {
 
   private void validateJSONParsingIsPossible(Type type) throws ClaroTypeException {
     switch (type.baseType()) {
+      case ATOM:
+        if (((Types.AtomType) type).getName().equals("Nothing")) {
+          return; // OK.
+        }
+        throw ClaroTypeException.forIllegalParseFromJSONForUnsupportedOneofType(type, this.assertedTargetType);
       case BOOLEAN:
       case INTEGER:
       case FLOAT:
       case STRING:
-      case NOTHING:
         return;
       case LIST:
         validateJSONParsingIsPossible(((Types.ListType) type).getElementType());
@@ -210,18 +215,27 @@ public class FromJsonExpr extends Expr {
           res.append("} ");
         }
         break;
-      case NOTHING:
-        if (!alreadyPeekedType) {
-          res.append("if (").append(GSON_TOKEN).append(".NULL.equals($peeked").append(nestingLevel).append(")) {\n");
+      case ATOM:
+        if (((Types.AtomType) type).getName().equals("Nothing")) {
+          if (!alreadyPeekedType) {
+            res.append("if (").append(GSON_TOKEN).append(".NULL.equals($peeked").append(nestingLevel).append(")) {\n");
+          }
+          res.append("\t$jsonReader.nextNull();\n")
+              .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
+              .append(type.getJavaSourceClaroType())
+              .append(", ")
+              .append(
+                  String.format(
+                      "$ClaroAtom.forCacheIndex(%s)",
+                      InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.build().get("Nothing")
+                  ))
+              .append(", $jsonString);");
+          if (!alreadyPeekedType) {
+            res.append("} ");
+          }
+          break;
         }
-        res.append("\t$jsonReader.nextNull();\n")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $ClaroNothing.SINGLETON_NOTHING, $jsonString);");
-        if (!alreadyPeekedType) {
-          res.append("} ");
-        }
-        break;
+        throw new RuntimeException("Internal Compiler Error: Should be unreachable! " + type);
       case LIST:
         Type elemType = ((Types.ListType) type).getElementType();
         if (!alreadyPeekedType) {
@@ -342,7 +356,7 @@ public class FromJsonExpr extends Expr {
             .append("\t}\n")
             .append("\t$jsonReader.endObject();\n")
             // Make sure that we validate that *all* required fields were actually set, otherwise the json parsing is
-            // considered a failure. Even if the missing field types were `oneof<..., NothingType>`, NothingType only
+            // considered a failure. Even if the missing field types were `oneof<..., Nothing>`, Nothing only
             // maps to `null` in the JSON representation, a missing field is an error, not auto-coerced to null.
             .append("\tfor (int $i = 0; $i < ")
             .append(structType.getFieldNames().size())
@@ -436,7 +450,8 @@ public class FromJsonExpr extends Expr {
         IntStream.range(0, oneofType.getVariantTypes().size()).boxed().forEach(
             i -> {
               res.append("\t\tcase ");
-              switch (oneofType.getVariantTypes().asList().get(i).baseType()) {
+              Type currType;
+              switch ((currType = oneofType.getVariantTypes().asList().get(i)).baseType()) {
                 case BOOLEAN:
                   res.append("BOOLEAN:\n");
                   break;
@@ -447,9 +462,12 @@ public class FromJsonExpr extends Expr {
                 case STRING:
                   res.append("STRING:\n");
                   break;
-                case NOTHING:
-                  res.append("NULL:\n");
-                  break;
+                case ATOM:
+                  if (((Types.AtomType) currType).getName().equals("Nothing")) {
+                    res.append("NULL:\n");
+                    break;
+                  }
+                  throw new RuntimeException("Internal Compiler Error! Should be unreachable." + currType);
                 case LIST:
                   res.append("BEGIN_ARRAY:\n");
                   break;
