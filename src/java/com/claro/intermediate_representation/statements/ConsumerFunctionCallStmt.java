@@ -273,6 +273,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
     // the name now.
     this.consumerName = this.originalName;
+    this.optionalConcreteGenericTypeParams = Optional.empty();
 
     return consumerFnGenJavaSource.createMerged(argValsGenJavaSource.get());
   }

@@ -60,7 +60,7 @@ public class StdLibUtil {
       );
     } else {
       // This is much better handled by using Claro source files instead. These builtin types are actually found at
-      // com/claro/stdlib/builtin_types.claro.
+      // com/claro/stdlib/builtin_types.claro_internal.
       return ImmutableList.of();
     }
   }

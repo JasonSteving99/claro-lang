@@ -40,7 +40,8 @@ public class Exec {
       };
 
   public static void execImpl(String claroString) {
-    ClaroParser claroParser = ParserUtil.createParser(claroString, false);
+    ClaroParser claroParser =
+        ParserUtil.createParser(claroString, "EXEC", /*supportInternalOnlyFeatures*/false, /*escapeSpecialChars*/false);
     try {
       ((ProgramNode) claroParser.parse().value).generateTargetOutput(Target.INTERPRETED, StdLibUtil::registerIdentifiers);
     } catch (Exception e) {

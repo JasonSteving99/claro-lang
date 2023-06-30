@@ -52,7 +52,6 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
       referencedContractImplName = null;
       resolvedContractConcreteTypes = null;
       resolvedContractType = null;
-      originalName = null;
     }
 
     this.resolveContractType(scopedHeap);

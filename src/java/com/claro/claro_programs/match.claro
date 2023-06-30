@@ -63,7 +63,7 @@ match (myFancyOneof) {
 
 print("----------------------------------------");
 alias IntOrStr : oneof<int, string>
-var oneofTup: tuple<IntOrStr, IntOrStr> = (20, "ten");
+var oneofTup: tuple<IntOrStr, IntOrStr> = (30, "ten");
 
 match (oneofTup) {
   case (_:int, _:int)       -> print("(_:int, _:int)");
@@ -264,7 +264,7 @@ alias GnarlyOneof :
     tuple<string, string>,
     Foo<int>
   >
-var gnarlyOneof: GnarlyOneof = (20, "ten");
+var gnarlyOneof: GnarlyOneof = (200, "ten");
 match ((gnarlyOneof, 1)) {
   case ((10, "ten"), 1)             -> print("((10, \"ten\"), 1)");
   case ((10, "ten"), 2)             -> print("((10, \"ten\"), 2)");

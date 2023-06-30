@@ -334,6 +334,8 @@ claro_library(
     src = "recursion.claro",
 )
 
+# TODO(steving) TESTING!!! DO NOT SUBMIT! THIS IS NOT ACTUALLY WORKING. GOT REVEALED ONCE APPEND WAS MADE INTO A PROPER
+# TODO(steving) TESTING!!!   FUNCTION INSTEAD OF A COMPILER BUILTIN.
 claro_binary(
     name = "recursive_aliases_compiled_claro_image",
     srcs = [":recursive_aliases_compiled_claro"],

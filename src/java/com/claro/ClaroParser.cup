@@ -310,7 +310,7 @@ terminal LexedValue<String>  LEN;
 // This grammar also has a builtin type() function for getting the type of an Expr.
 terminal LexedValue<String>  TYPE;
 // This grammar also has a builtin append() function for appending an element to a List.
-terminal LexedValue<String>  APPEND, REMOVE;
+terminal LexedValue<String>  REMOVE;
 terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE, FOR, REPEAT, BREAK, CONTINUE, WHERE, MATCH, CASE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
@@ -326,6 +326,7 @@ terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRA
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
 terminal LexedValue<String>  CAST;
 terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
+terminal LexedValue<String>  PRIVILEGED_INLINE_JAVA;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -394,7 +395,6 @@ nonterminal IncrementStmt                      identifier_increment_stmt;
 nonterminal DecrementExpr                      identifier_decrement;
 nonterminal DecrementStmt                      identifier_decrement_stmt;
 nonterminal ListElementAssignmentStmt          list_element_assignment;
-nonterminal AppendElementToListStmt            list_append_stmt;
 nonterminal RemoveElementFromListExpr          list_remove_expr;
 nonterminal FunctionDefinitionStmt             function_definition_stmt;
 nonterminal GenericFunctionDefinitionStmt      generic_function_definition_stmt;
@@ -460,6 +460,7 @@ nonterminal EndpointHandlersBlockStmt          endpoint_handlers_block_stmt;
 nonterminal ImmutableList.Builder<GraphProcedureDefinitionStmt> endpoint_handler_impl_graphs_list;
 nonterminal GetHttpClientExpr                  get_http_client_expr;
 nonterminal GetHttpServerExpr                  get_basic_http_server_for_port_expr;
+nonterminal PrivilegedInlineJavaStmt           privileged_inline_java;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -571,8 +572,6 @@ stmt ::=
     {: RESULT = s; :}
   | list_element_assignment:l
     {: RESULT = l; :}
-  | list_append_stmt:la
-    {: RESULT = la; :}
   | if_else_chain_stmt:i
     {: RESULT = i; :}
   | match_stmt:m
@@ -623,6 +622,8 @@ stmt ::=
     {: RESULT = e; :}
   | sleep:s
     {: RESULT = s; :}
+  | privileged_inline_java:java
+    {: RESULT = java; :}
   ;
 
 module_definition_stmt ::=
@@ -1349,11 +1350,6 @@ list_element_assignment ::=
     {: RESULT = new ListElementAssignmentStmt(l, e); :}
   | collection_subscript:l QUESTION_MARK_ASSIGNMENT expr:e SEMICOLON
     {: RESULT = new ListElementAssignmentStmt(l, e, /*errorProp=*/true); :}
-  ;
-
-list_append_stmt ::=
-    APPEND LPAR expr:l COMMA expr:e RPAR SEMICOLON
-    {: RESULT = new AppendElementToListStmt(l, e); :}
   ;
 
 list_remove_expr ::=
@@ -3468,14 +3464,6 @@ pipe_chain ::=
            .add(ImmutableList.builder())
            .build();
     :}
-  | PIPE_ARROW list_append_stmt:sink
-    {:
-       RESULT =
-          ImmutableList.builder()
-           .add(sink)
-           .add(ImmutableList.builder())
-           .build();
-    :}
   | PIPE_ARROW print:sink
     {:
        RESULT =
@@ -3719,6 +3707,11 @@ get_basic_http_server_for_port_expr ::=
        int endCol = max(gleft + g.len, lleft + l.len, port.endCol, rleft + r.len);
        RESULT = new GetHttpServerExpr(port, currentLinesSupplier, rright, startCol, endCol);
     :}
+  ;
+
+privileged_inline_java ::=
+    PRIVILEGED_INLINE_JAVA:java
+    {: RESULT = new PrivilegedInlineJavaStmt(java.currentInputLine.get()); :}
   ;
 
 // The last production 'term' closes the grammar. It's a primitive or identifier reference.

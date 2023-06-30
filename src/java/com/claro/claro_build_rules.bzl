@@ -9,6 +9,8 @@ def claro_binary(name, srcs, java_name):
         name = name,
         main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
         srcs = srcs,
+        # TODO(steving) TESTING!!! CAN I MAKE A SIMPLE JAVA_LIBRARY FOR ALL OF THESE DEPS SO THAT THERE'S A SINGLE
+        # TODO(steving)     JARFILE AVAILABLE FOR RUNNING CLARO PROGRAMS W/O BAZEL INSTALLED?
         deps = [
             "//:autovalue",
             "//:guava",
@@ -61,7 +63,8 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
             java_name = src[:-6]
     # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
     srcs = [
-        "//src/java/com/claro/stdlib:builtin_types.claro"
+        "//src/java/com/claro/stdlib:builtin_functions.claro_internal",
+        "//src/java/com/claro/stdlib:builtin_types.claro_internal",
     ] + (src if hasMultipleSrcs else [src])
     native.genrule(
         name = name,

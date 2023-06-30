@@ -154,7 +154,10 @@ function getTableColumn<C>(table: Table) -> mut [C] {
   var res: mut [C] = mut [];
   var i: ID = 0;
   while (i < len(table)) {
-    append(res, ColumnAccess::get(table, i++));
+    # TODO(steving) TESTING!!! CLARO'S GENERICS TYPE INFERENCE SUFFERS FROM A LIMITATION THAT WON'T TYPE CHECK THIS:
+    # append(res, ColumnAccess::get(table, i++));
+    var toAppend: C = ColumnAccess::get(table, i++);
+    append(res, toAppend);
   }
   return res;
 }

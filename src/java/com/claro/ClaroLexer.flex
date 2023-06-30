@@ -16,6 +16,8 @@
 
 package com.claro;
 
+import com.google.common.base.Strings;
+
 import java_cup.runtime.Symbol;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +39,9 @@ import java.util.concurrent.atomic.AtomicReference;
 %unicode
 
 %{
+    // Use this for more precise error messaging.
+    public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
+
     // This will be used to accumulate all string characters during the STRING state.
     StringBuffer string = new StringBuffer();
     // Because we're going to support format strings over arbitrary expressions, that means we need to support
@@ -76,6 +81,32 @@ import java.util.concurrent.atomic.AtomicReference;
         s.append(specialChar);
       }
     }
+
+    // This will be used to signal whether or not the PRIVILEGED_INLINE_JAVA token should actually be supported or not.
+    // This allows me to create a mechanism that will only enable this unsafe feature for special .claro_internal files
+    // that are used to implement the stdlib.
+    public boolean supportPrivilegedInlineJava = false;
+
+    private void handleUnknownToken() {
+        String lexed = yytext();
+        addToLine(lexed);
+        int line = yyline + 1;
+        int column = yycolumn;
+        yycolumn += lexed.length();
+        StringBuilder lineToPointAt = currentInputLine.get();
+        ClaroParser.errorMessages.push(
+            () -> {
+              String currStringLineToPointAt = lineToPointAt.toString();
+              int trailingWhitespaceStart = currStringLineToPointAt.length();
+              // This is just cute for the sake of it....barf...but I'm keeping it lol.
+              while (Character.isWhitespace(currStringLineToPointAt.charAt(--trailingWhitespaceStart)));
+              System.err.println(
+                  generatedClassName + ".claro:" + line + ": Unexpected token <" + lexed.charAt(0) + ">\n" + currStringLineToPointAt.substring(0, trailingWhitespaceStart + 1));
+              System.err.println(Strings.repeat(" ", column) + '^');
+            }
+        );
+        yybegin(IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR);
+    }
 %}
 
 // A (integer) number is a sequence of digits.
@@ -93,8 +124,11 @@ LineTerminator = \r|\n|\r\n
 /* White space is a line terminator, space, tab, or line feed. */
 WhiteSpace     = [ \t\f]
 
+PrivilegedInlineJava = [^]*\$\$END_JAVA
+
 %state LINECOMMENT
 %state STRING
+%state PRIVILEGED_INLINE_JAVA
 %state IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR
 
 %%
@@ -184,7 +218,6 @@ WhiteSpace     = [ \t\f]
     "isInputReady"     { return symbol(Calc.IS_INPUT_READY, 0, 12, "isInputReady"); }
     "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
     "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
-    "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }
     "remove"           { return symbol(Calc.REMOVE, 0, 6, "remove"); }
     "in"               { return symbol(Calc.IN, 0, 2, "in"); }
     "instanceof"       { return symbol(Calc.INSTANCEOF, 0, 10, "instanceof"); }
@@ -194,6 +227,16 @@ WhiteSpace     = [ \t\f]
 
     // DEBUGGING keywords that should be removed when we want a real release...
     "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
+
+    // This is an internal-only feature, reserved for implementing the stdlib.
+    "$$BEGIN_JAVA"    { if (supportPrivilegedInlineJava) {
+                          yycolumn+=12;
+                          addToLine("$$BEGIN_JAVA");
+                          yybegin(PRIVILEGED_INLINE_JAVA);
+                        } else {
+                          handleUnknownToken();
+                        }
+                      }
 
     // Builtin Types.
     "int"              { return symbol(Calc.INT_TYPE, 0, 3, "int"); }
@@ -345,6 +388,19 @@ WhiteSpace     = [ \t\f]
                        }
 }
 
+<PRIVILEGED_INLINE_JAVA> {
+    {PrivilegedInlineJava} {
+                             yybegin(YYINITIAL);
+                             String lexed = yytext();
+                             // Just want to make sure line numbers are still tracked properly.
+                             int lines = (int) lexed.lines().count();
+                             yyline += lines - 1;
+                             // Just drop the preceding `$$BEGIN_JAVA` since we've already made a match.
+                             currentInputLine.set(new StringBuilder());
+                             return symbol(Calc.PRIVILEGED_INLINE_JAVA, lines, lexed.length() - lexed.lastIndexOf("\n"), lexed.substring(0, lexed.length() - new String("$$END_JAVA").length()).trim());
+                           }
+}
+
 // This lexing state is literally just a mimimum-effort approach to trying to give more useful errors. Instead of just
 // stopping lexing early or simply ignoring the illegal char, we'll try to consume the rest of the current statement
 // or paired braces in order to give more useful errors on other statements as soon as possible.
@@ -378,13 +434,5 @@ WhiteSpace     = [ \t\f]
                        }
 
 /* Catch-all the rest, i.e. unknown character. */
-[^]  {
-        yybegin(IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR);
-        String lexed = yytext();
-        addToLine(lexed);
-        ClaroParser.errorMessages.push(
-            () ->
-              System.err.println(
-                  "Illegal character <" + lexed + "> found at line: " + (yyline + 1) + " column: " + ++yycolumn));
-     }
+[^]  { handleUnknownToken(); }
 

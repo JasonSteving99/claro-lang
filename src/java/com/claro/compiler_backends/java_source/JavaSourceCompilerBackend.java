@@ -44,7 +44,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         this.SRCS =
             ImmutableList.copyOf(args[3].substring("--srcs=" .length()).split(","))
                 .stream()
-                .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.length() - 6), f))
+                .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.lastIndexOf('.')), f))
                 .collect(ImmutableList.toImmutableList());
       } else {
         // TODO(steving) This is getting overly complicated just b/c I don't want to fix Riju's config. Go update Riju
@@ -92,7 +92,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       inputProgram.append("\n");
     }
 
-    return ParserUtil.createParser(inputProgram.toString());
+    return ParserUtil.createParser(
+        inputProgram.toString(),
+        srcFile.getFilename(),
+        srcFile.getUsesClaroInternalFileSuffix(),
+        /*escapeSpecialChars*/true
+    );
   }
 
   private Node.GeneratedJavaSource checkTypesAndGenJavaSourceForSrcFiles(
@@ -101,13 +106,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         nonMainSrcFiles.stream()
             .map(f -> {
               ClaroParser currNonMainSrcFileParser = getParserForSrcFile(f);
-              currNonMainSrcFileParser.generatedClassName = f.getFilename();
               this.PACKAGE_STRING.ifPresent(s -> currNonMainSrcFileParser.package_string = s);
               return currNonMainSrcFileParser;
             })
             .collect(ImmutableList.toImmutableList());
     ClaroParser mainSrcFileParser = getParserForSrcFile(mainSrcFile);
-    this.GENERATED_CLASSNAME.ifPresent(s -> mainSrcFileParser.generatedClassName = s);
     this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s);
 
     try {
@@ -179,11 +182,14 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     abstract InputStream getFileInputStream();
 
+    abstract boolean getUsesClaroInternalFileSuffix();
+
     static SrcFile forFilenameAndPath(String filename, String path) {
       try {
         return new AutoValue_JavaSourceCompilerBackend_SrcFile(
             filename,
-            Files.newInputStream(FileSystems.getDefault().getPath(path), StandardOpenOption.READ)
+            Files.newInputStream(FileSystems.getDefault().getPath(path), StandardOpenOption.READ),
+            path.endsWith(".claro_internal")
         );
       } catch (IOException e) {
         throw new RuntimeException("File not found:", e);
@@ -191,7 +197,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     }
 
     static SrcFile create(String filename, InputStream inputStream) {
-      return new AutoValue_JavaSourceCompilerBackend_SrcFile(filename, inputStream);
+      return new AutoValue_JavaSourceCompilerBackend_SrcFile(filename, inputStream, false);
     }
   }
 }

@@ -706,6 +706,8 @@ public class FunctionCallExpr extends Expr {
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
     // the name now.
     this.name = this.originalName;
+    this.optionalConcreteGenericTypeParams = Optional.empty();
+    this.assertedOutputTypeForGenericFunctionCallUse = null;
 
     // We definitely don't want to be throwing away the static definitions and preambles required for the exprs
     // passed as args to this function call, so ensure that they're correctly collected and passed on here.

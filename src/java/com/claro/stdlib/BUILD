@@ -9,7 +9,7 @@ package(
 
 load("//src/java/com/claro:claro_build_rules.bzl", "DEFAULT_CLARO_NAME")
 
-exports_files(["builtin_types.claro"])
+exports_files(glob(["*.claro_internal"]))
 
 java_library(
     name = "stdlib",
