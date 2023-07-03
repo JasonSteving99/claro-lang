@@ -24,9 +24,11 @@ jobs:
           bazel build //src/java/com/claro:claro_compiler_binary_deploy.jar
           bazel build //src/java/com/claro/claro_programs:claro_builtin_java_deps_deploy.jar
           # Create a single tar file to encapsulate all CLI resources.
-          tar -cvf claro-cli-install.tar \
-              bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar \
-              bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar \
+          ln -s bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar claro_compiler_binary_deploy.jar
+          ln -s bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
+          tar -cvf claro-cli-install.tar.gz \
+              claro_compiler_binary_deploy.jar \
+              claro_builtin_java_deps_deploy.jar \
               cli/claroc.sh \
               cli/claro.sh
           
@@ -81,7 +83,7 @@ jobs:
           fail_on_unmatched_files: true
           # TODO(steving) REMOVE claro-lang-bazel-bin.tar.gz. THIS IS PART OF THE LEGACY HACK JOB FOR SETTING UP RIJU.
           files: |
-            claro-cli-install.tar
+            claro-cli-install.tar.gz
             bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
             bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
 
