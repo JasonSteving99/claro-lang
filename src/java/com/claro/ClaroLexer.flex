@@ -393,7 +393,13 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                              yybegin(YYINITIAL);
                              String lexed = yytext();
                              // Just want to make sure line numbers are still tracked properly.
-                             int lines = (int) lexed.lines().count();
+                             int lines = 0;
+                             int i = 0;
+                             while (i < lexed.length()) {
+                               if (lexed.charAt(i++) == '\n') {
+                                 lines++;
+                               }
+                             }
                              yyline += lines - 1;
                              // Just drop the preceding `$$BEGIN_JAVA` since we've already made a match.
                              currentInputLine.set(new StringBuilder());

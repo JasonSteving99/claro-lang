@@ -158,6 +158,10 @@ parser code {:
 
     errorMessages.push(
       () -> {
+        // It's possible that this is just a terminal report from JCUP.
+        if (lexedValue == null) {
+          return;
+        }
         System.err.print(String.format("%s.claro:%s: ", generatedClassName, currSymbol.right + 1));
         System.err.println("Unexpected token <" + lexedValue.val + ">");
         String currentInputLineString = lexedValue.currentInputLine.get();

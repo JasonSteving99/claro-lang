@@ -538,7 +538,6 @@ public class ProgramNode {
             "import com.claro.runtime_utilities.injector.Injector;\n" +
             "import com.claro.runtime_utilities.injector.Key;\n" +
             "import com.claro.stdlib.userinput.UserInput;\n" +
-            "import com.google.auto.value.AutoValue;\n" +
             "import com.google.common.collect.ImmutableList;\n" +
             "import com.google.common.collect.ImmutableMap;\n" +
             "import com.google.common.collect.ImmutableSet;\n" +
@@ -552,15 +551,11 @@ public class ProgramNode {
             "import java.util.function.Function;\n" +
             "import java.util.function.Supplier;\n" +
             "import java.util.stream.Collectors;\n" +
-            "import lombok.Builder;\n" +
-            "import lombok.Data;\n" +
-            "import lombok.EqualsAndHashCode;\n" +
-            "import lombok.ToString;\n" +
-            "import lombok.Value;\n" +
             "import okhttp3.ResponseBody;\n" +
             "import retrofit2.http.GET;\n" +
             "import retrofit2.http.Path;\n" +
             "\n\n" +
+            "@SuppressWarnings(\"unchecked\")\n" +
             "public class %s {\n" +
             "// Static preamble statements first thing.\n" +
             "%s\n\n" +

@@ -4,18 +4,9 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
-def claro_binary(name, srcs, java_name):
-    native.java_binary(
-        name = name,
-        main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
-        srcs = srcs,
-        # TODO(steving) TESTING!!! CAN I MAKE A SIMPLE JAVA_LIBRARY FOR ALL OF THESE DEPS SO THAT THERE'S A SINGLE
-        # TODO(steving)     JARFILE AVAILABLE FOR RUNNING CLARO PROGRAMS W/O BAZEL INSTALLED?
-        deps = [
-            "//:autovalue",
+CLARO_BUILTIN_JAVA_DEPS = [
             "//:guava",
             "//:gson",
-            "//:lombok",
             "//:okhttp",
             "//:retrofit",
             "//src/java/com/claro/stdlib",
@@ -40,7 +31,32 @@ def claro_binary(name, srcs, java_name):
             "//src/java/com/claro/runtime_utilities/injector",
             "//src/java/com/claro/runtime_utilities/injector:key",
             "//src/java/com/claro/stdlib/userinput",
-        ]
+]
+
+def claro_binary(name, srcs, java_name):
+    native.java_binary(
+        name = name,
+        main_class = DEFAULT_PACKAGE_PREFIX + "." + java_name,
+        srcs = srcs,
+        deps = CLARO_BUILTIN_JAVA_DEPS
+    )
+
+# This macro produces a target that will allow you to build a claro_builtin_java_deps_deploy.jar that can be used by the
+# CLI to compile Claro programs from source w/o using Bazel. This is intended for use in lightweight scripting scenarios
+# and is not intended to be the primary form of building Claro programs. Bazel is very much the answer for large scale
+# Claro programs (this will be particularly apparent once Claro's module/library system is built out).
+def gen_claro_builtin_java_deps_jar():
+    # I literally just have no idea how to create this JAR file using Bazel w/o a src-file.
+    native.genrule(
+        name = "dummy_java_file",
+        cmd = "echo \"public class dummy {}\" > $(OUTS)",
+        outs = ["dummy.java"]
+    )
+    native.java_binary(
+        name = "claro_builtin_java_deps",
+        srcs = [":dummy_java_file"],
+        create_executable = False,
+        deps = CLARO_BUILTIN_JAVA_DEPS
     )
 
 def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
@@ -63,8 +79,8 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
             java_name = src[:-6]
     # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
     srcs = [
-        "//src/java/com/claro/stdlib:builtin_functions.claro_internal",
-        "//src/java/com/claro/stdlib:builtin_types.claro_internal",
+        "//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
+        "//src/java/com/claro/stdlib/claro:builtin_types.claro_internal",
     ] + (src if hasMultipleSrcs else [src])
     native.genrule(
         name = name,
