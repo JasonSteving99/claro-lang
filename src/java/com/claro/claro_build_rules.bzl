@@ -4,33 +4,37 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
+CLARO_STDLIB_FILES = [
+    "//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
+    "//src/java/com/claro/stdlib/claro:builtin_types.claro_internal",
+]
 CLARO_BUILTIN_JAVA_DEPS = [
-            "//:guava",
-            "//:gson",
-            "//:okhttp",
-            "//:retrofit",
-            "//src/java/com/claro/stdlib",
-            "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-            "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
-            "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
-            "//src/java/com/claro/intermediate_representation/types:base_type",
-            "//src/java/com/claro/intermediate_representation/types:concrete_type",
-            "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
-            "//src/java/com/claro/intermediate_representation/types:type",
-            "//src/java/com/claro/intermediate_representation/types:types",
-            "//src/java/com/claro/intermediate_representation/types:type_provider",
-            "//src/java/com/claro/runtime_utilities",
-            "//src/java/com/claro/runtime_utilities/http",
-            "//src/java/com/claro/runtime_utilities/http:http_server",
-            "//src/java/com/claro/runtime_utilities/injector",
-            "//src/java/com/claro/runtime_utilities/injector:key",
-            "//src/java/com/claro/stdlib/userinput",
+    "//:guava",
+    "//:gson",
+    "//:okhttp",
+    "//:retrofit",
+    "//src/java/com/claro/stdlib",
+    "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
+    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
+    "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
+    "//src/java/com/claro/intermediate_representation/types:base_type",
+    "//src/java/com/claro/intermediate_representation/types:concrete_type",
+    "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
+    "//src/java/com/claro/intermediate_representation/types:type",
+    "//src/java/com/claro/intermediate_representation/types:types",
+    "//src/java/com/claro/intermediate_representation/types:type_provider",
+    "//src/java/com/claro/runtime_utilities",
+    "//src/java/com/claro/runtime_utilities/http",
+    "//src/java/com/claro/runtime_utilities/http:http_server",
+    "//src/java/com/claro/runtime_utilities/injector",
+    "//src/java/com/claro/runtime_utilities/injector:key",
+    "//src/java/com/claro/stdlib/userinput",
 ]
 
 def claro_binary(name, srcs, java_name):
@@ -56,7 +60,10 @@ def gen_claro_builtin_java_deps_jar():
         name = "claro_builtin_java_deps",
         srcs = [":dummy_java_file"],
         create_executable = False,
-        deps = CLARO_BUILTIN_JAVA_DEPS
+        deps = CLARO_BUILTIN_JAVA_DEPS,
+        # Pack the stdlib into this JAR file just so that there's one fewer thing for users to download and keep in the
+        # right place. This can always be changed later.
+        resources = CLARO_STDLIB_FILES
     )
 
 def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
@@ -78,10 +85,7 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
         if not java_name:
             java_name = src[:-6]
     # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
-    srcs = [
-        "//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
-        "//src/java/com/claro/stdlib/claro:builtin_types.claro_internal",
-    ] + (src if hasMultipleSrcs else [src])
+    srcs = CLARO_STDLIB_FILES + (src if hasMultipleSrcs else [src])
     native.genrule(
         name = name,
         srcs = srcs,
