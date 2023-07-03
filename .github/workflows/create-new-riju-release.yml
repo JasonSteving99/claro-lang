@@ -28,7 +28,8 @@ jobs:
           ln -s bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
           ln -s cli/claroc.sh claroc.sh
           ln -s cli/claro.sh claro.sh
-          tar -cvf claro-cli-install.tar.gz \
+          # -h ensures that the above symlinks are actually dereferenced, else they'd be empty symlinks in the tar file.
+          tar -hcf claro-cli-install.tar.gz \
               claro_compiler_binary_deploy.jar \
               claro_builtin_java_deps_deploy.jar \
               claroc.sh \
