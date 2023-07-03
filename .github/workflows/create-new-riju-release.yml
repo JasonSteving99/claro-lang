@@ -73,12 +73,12 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
+          # TODO(steving) REMOVE claro-lang-bazel-bin.tar.gz. THIS IS PART OF THE LEGACY HACK JOB FOR SETTING UP RIJU.
           files: |
             bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar
             bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar
             cli/claroc.sh
             cli/claro.sh
-            # TODO(steving) REMOVE THIS. THIS IS PART OF THE LEGACY HACK JOB FOR SETTING UP RIJU.
             bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
 
   Deploy-User-Docs-to-GH-Pages:
