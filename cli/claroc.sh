@@ -5,6 +5,9 @@
 # in the end there's a *single* artifact produced that users can directly invoke, namely a single fat executable Jar
 # that has already had all Java deps bundled into it.
 
+CLARO_COMPILER_JAR_NAME="claro_compiler_binary_deploy.jar"
+CLARO_BUILTIN_DEPS_JAR_NAME="claro_builtin_java_deps_deploy.jar"
+
 function main() {
   # First, validate that all the args actually are as expected.
   validateArgs "$@"
@@ -24,7 +27,6 @@ function main() {
   cp "$@" "$TMP_DIR"
   cd "$TMP_DIR" || die
 
-  CLARO_COMPILER_JAR_NAME="claro_compiler_binary_deploy.jar"
   # TODO(steving) I need to figure out better way to consistently identify this file's location on various machines...
   # Check if CLARO_COMPILER_PATH is defined
   if CLARO_COMPILER_PATH=$(check_env_var_and_set_default "\$CLARO_COMPILER_PATH" "$CLARO_COMPILER_PATH" $CLARO_COMPILER_JAR_NAME);
@@ -35,8 +37,6 @@ function main() {
     echo "$CLARO_COMPILER_PATH" >&2 && die
   fi
 
-  echo "Creating symlink to Claro Builtin Deps Jar"
-  CLARO_BUILTIN_DEPS_JAR_NAME="claro_builtin_java_deps_deploy.jar"
   # TODO(steving) I need to figure out better way to consistently identify this file's location on various machines...
   # Check if CLARO_BUILTIN_DEPS_PATH is defined
   if CLARO_BUILTIN_DEPS_PATH=$(check_env_var_and_set_default "\$CLARO_BUILTIN_DEPS_PATH" "$CLARO_BUILTIN_DEPS_PATH" $CLARO_BUILTIN_DEPS_JAR_NAME);
@@ -133,5 +133,39 @@ function die() {
   fi
   exit 1
 }
+
+
+# Extract script's location and convert to absolute path
+CLARO_BIN_PATH=$(readlink -f "$(dirname "$0")")/../lib/claro/
+# If compiler path is not defined, use the above (bin path) to make the compiler path
+CLARO_COMPILER_PATH=${CLARO_COMPILER_PATH:=$CLARO_BIN_PATH/$CLARO_COMPILER_JAR_NAME}
+# If deps path is not defined, use the above (bin path) to make the deps path
+CLARO_BUILTIN_DEPS_PATH=${CLARO_BUILTIN_DEPS_PATH:=$CLARO_BIN_PATH/$CLARO_BUILTIN_DEPS_JAR_NAME}
+# Assumption: JAR files and script are located in directories as below:
+#   ..
+#   |-- bin
+#       |-- claro.sh
+#       |-- claroc.sh
+#   |-- lib
+#       |-- claro
+#           |-- claro_builtin_java_deps_deploy.jar
+#           |-- claro_compiler_binary_deploy.jar
+# My recommendation is that you place them somewhere like /usr/local/bin and /usr/local/lib/claro (assuming that the dir
+# /usr/local/bin is already in your PATH).
+# Alternatively, if you want to get fancier, you can use symlinks and the below structure.
+#   ..
+#   |-- bin
+#       |-- claro -> ../lib/claro/claro.sh
+#       |-- claroc -> ../lib/claro/claroc.sh
+#   |-- lib
+#       |-- claro
+#           |-- claro.sh
+#           |-- claroc.sh
+#           |-- claro_builtin_java_deps_deploy.jar
+#           |-- claro_compiler_binary_deploy.jar
+# This gives the added benefit of your usage of the CLIs looking like the below:
+#   $ claroc foo.claro
+#   $ claro foo
+
 
 main "$@"; die
