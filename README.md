@@ -55,11 +55,11 @@ Note: For now, your Claro programs will need to be in the same dir as the extrac
 ```
 echo 'print("Hello, world!");' > hello_world.claro
 ```
-### Compile using claroc.sh
+### Compile using claroc
 ```
 claroc hello_world.claro
 ```
-### Run using claro.sh
+### Run using claro
 ```
 claro hello_world
 ```
