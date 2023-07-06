@@ -15,14 +15,40 @@ Please understand that these docs are a work in progress, and while they do cove
 Check out the [example Claro programs](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/claro_programs).
 
 # Try it Out Locally!
-## Download the latest release
-The release tagged `latest` contains the up-to-date CLIs to get started running Claro programs on the command line!
+For now, this requires a few manual setup steps, but in the future this process will be replaced with an automated installation script.
+## Expected Installation Directory Structure
 ```
-curl -L https://github.com/JasonSteving99/claro-lang/releases/latest/download/claro-cli-install.tar.gz > claro-cli-install.tar.gz
+..
+|-- bin
+    |-- claro -> ../lib/claro/claro.sh
+    |-- claroc -> ../lib/claro/claroc.sh
+|-- lib
+    |-- claro
+        |-- claro.sh
+        |-- claroc.sh
+        |-- claro_builtin_java_deps_deploy.ja
+        |-- claro_compiler_binary_deploy.jar
 ```
-### Unpack the tar
+## Make .../lib/claro directory
 ```
-tar -xzf claro-cli-install.tar.gz
+mkdir /usr/local/lib/claro
+```
+## Download the latest release to the .../lib/claro dir
+The release tagged `latest` contains the up-to-date CLIs to get started running Claro programs on the command line! 
+```
+curl -L https://github.com/JasonSteving99/claro-lang/releases/latest/download/claro-cli-install.tar.gz > /usr/local/lib/claro/claro-cli-install.tar.gz
+```
+### Unpack the tar and remove it
+```
+tar -xzf /usr/local/lib/claro/claro-cli-install.tar.gz -C /usr/local/lib/claro && rm /usr/local/lib/claro/claro-cli-install.tar.gz
+```
+### Create symlinks in .../bin dir
+Here I'm assuming that /usr/local/bin is already in your PATH, if not, add it now.
+```
+ln -s /usr/local/lib/claro/claroc.sh /usr/local/bin/claroc
+```
+```
+ln -s /usr/local/lib/claro/claro.sh /usr/local/bin/claro
 ```
 ### Create your first Claro program!
 Note: For now, your Claro programs will need to be in the same dir as the extracted CLI artifacts.
@@ -31,11 +57,11 @@ echo 'print("Hello, world!");' > hello_world.claro
 ```
 ### Compile using claroc.sh
 ```
-./claroc.sh hello_world.claro
+claroc hello_world.claro
 ```
 ### Run using claro.sh
 ```
-./claro.sh hello_world
+claro hello_world
 ```
 
 
