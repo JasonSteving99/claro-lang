@@ -14,6 +14,31 @@ Please understand that these docs are a work in progress, and while they do cove
 # Learn Claro By Example! 
 Check out the [example Claro programs](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/claro_programs).
 
+# Try it Out Locally!
+## Download the latest release
+The release tagged `latest` contains the up-to-date CLIs to get started running Claro programs on the command line!
+```
+curl -L https://github.com/JasonSteving99/claro-lang/releases/latest/download/claro-cli-install.tar.gz > claro-cli-install.tar.gz
+```
+### Unpack the tar
+```
+tar -xzf claro-cli-install.tar.gz
+```
+### Create your first Claro program!
+Note: For now, your Claro programs will need to be in the same dir as the extracted CLI artifacts.
+```
+echo 'print("Hello, world!");' > hello_world.claro
+```
+### Compile using claroc.sh
+```
+./claroc.sh hello_world.claro
+```
+### Run using claro.sh
+```
+./claro.sh hello_world
+```
+
+
 # Try it Out in a GitHub Codespace!
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/JasonSteving99/claro-lang?quickstart=1)
 
