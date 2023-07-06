@@ -19,7 +19,24 @@ jobs:
         # --incompatible_restrict_string_escapes=false because there's a bug in 
         # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
         # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
-        run: |
+        run: |          
+          # In order to be able to run the Claro CLIs users will need the compiler and builtin Java deps Jars.
+          bazel build //src/java/com/claro:claro_compiler_binary_deploy.jar
+          bazel build //src/java/com/claro/claro_programs:claro_builtin_java_deps_deploy.jar
+          # Create a single tar file to encapsulate all CLI resources.
+          ln -s bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar claro_compiler_binary_deploy.jar
+          ln -s bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
+          ln -s cli/claroc.sh claroc.sh
+          ln -s cli/claro.sh claro.sh
+          # -h ensures that the above symlinks are actually dereferenced, else they'd be empty symlinks in the tar file.
+          tar -hcf claro-cli-install.tar.gz \
+              claro_compiler_binary_deploy.jar \
+              claro_builtin_java_deps_deploy.jar \
+              claroc.sh \
+              claro.sh
+          
+          # TODO(steving) DELETE THE REST OF THIS RUN SCRIPT. THE REST OF THIS SETUP IS A LEGACY HACK JOB
+          
           # We must build the Conditions.claro program so that the necessary build artifacts are available.
           # Note: This --nojava_header_compilation flag is necessary because Lombok
           #       fails with error "Turbine is not currently supported by lombok."
@@ -67,10 +84,12 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
+          # TODO(steving) REMOVE claro-lang-bazel-bin.tar.gz. THIS IS PART OF THE LEGACY HACK JOB FOR SETTING UP RIJU.
           files: |
+            claro-cli-install.tar.gz
             bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
             bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
-          
+
   Deploy-User-Docs-to-GH-Pages:
     runs-on: ubuntu-latest
     steps:

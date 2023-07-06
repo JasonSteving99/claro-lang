@@ -77,14 +77,14 @@ function main() {
   cd "$ORIG_DIR" || die
   rm -r "$TMP_DIR"
 
-  echo "Done. Run your program using: \"claro.sh $CLARO_MAIN_FILE\""
+  echo "Done. Run your program using: \"claro $CLARO_MAIN_FILE\""
 }
 
 function validateArgs() {
   # Make sure there were actually some args passed.
   if [ $# -eq 0 ]; then
     echo "claroc requires at least one .claro file to compile. Try rerunning like the following:" >&2
-    echo "  $ ./claroc.sh foo.claro [...]" >&2
+    echo "  $ ./claro foo.claro [...]" >&2
     exit 1
   fi
 
