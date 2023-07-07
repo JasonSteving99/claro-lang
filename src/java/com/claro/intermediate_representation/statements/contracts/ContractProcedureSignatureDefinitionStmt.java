@@ -206,7 +206,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     );
   }
 
-  Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
+  public Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
     HashMap<Type, Type> typeParamsForInferenceMap = Maps.newHashMap();
     ImmutableList<Type> concreteArgTypes =
         getConcreteArgTypesForConcreteContractTypeParams(concreteTypeParams, typeParamsForInferenceMap);

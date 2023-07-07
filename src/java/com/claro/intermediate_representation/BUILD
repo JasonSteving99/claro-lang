@@ -5,6 +5,7 @@ package(
         "//src/java/com/claro/intermediate_representation/expressions:__subpackages__",
         "//src/java/com/claro/intermediate_representation/statements:__subpackages__",
         "//src/java/com/claro/intermediate_representation/types:__pkg__",
+        "//src/java/com/claro/module_system:__subpackages__",
         "//src/java/com/claro/repl_site/server/handlers:__pkg__",
         "//src/java/com/claro/stdlib:__subpackages__",
     ]
@@ -28,6 +29,15 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/internal_static_state",
+    ],
+)
+
+java_library(
+    name = "module_node",
+    srcs = ["ModuleNode.java"],
+    deps = [
+        "//:guava",
+        "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
     ],
 )
 
