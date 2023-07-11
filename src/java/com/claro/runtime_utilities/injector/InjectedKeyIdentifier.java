@@ -17,6 +17,6 @@ public class InjectedKeyIdentifier {
   public Optional<String> optionalAlias;
 
   public InjectedKey toInjectedKey() {
-    return new InjectedKey(name.getIdentifier(), typeProvider, optionalAlias);
+    return InjectedKey.create(name.getIdentifier(), typeProvider, optionalAlias);
   }
 }

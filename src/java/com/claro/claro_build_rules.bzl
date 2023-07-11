@@ -106,7 +106,7 @@ def claro_library(name, src, module_api_file = None, java_name = None, claro_com
             DEFAULT_PACKAGE_PREFIX, # --package
             # Here, construct a totally unique name for this particular module. Since we're using Bazel, I have the
             # guarantee that this RULEDIR+target name is globally unique across the entire project.
-            "--unique_module_name=$$(echo $(RULEDIR) | cut -c $$(($$(echo $(GENDIR) | wc -c ) - 1))- | tr '/' '$$')\$$" + name if isModule else ""
+            "--unique_module_name=$$(echo $(RULEDIR) | cut -c $$(($$(echo $(GENDIR) | wc -c ) - 1))- | tr '/' '$$')\\$$" + name if isModule else ""
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
         tools = [
@@ -199,6 +199,6 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         name = "lexed_value",
         srcs = ["LexedValue.java"],
         deps = [
-            "//:lombok",
+            "//:autovalue",
         ],
     )

@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
     private <T> Symbol symbol(int type, int lines, int columns, T value) {
         addToLine(value);
         final StringBuilder currentInputLineBuilder = currentInputLine.get();
-        Symbol res = new Symbol(type, yycolumn, yyline, new LexedValue<T>(value, () -> currentInputLineBuilder.toString(), columns));
+        Symbol res = new Symbol(type, yycolumn, yyline, LexedValue.create(value, () -> currentInputLineBuilder.toString(), columns));
         yyline += lines;
         yycolumn += columns;
         return res;

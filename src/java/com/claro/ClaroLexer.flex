@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
     private <T> Symbol symbol(int type, int lines, int columns, T value) {
         addToLine(value);
         final StringBuilder currentInputLineBuilder = currentInputLine.get();
-        Symbol res = new Symbol(type, yycolumn, yyline, new LexedValue<T>(value, () -> currentInputLineBuilder.toString(), columns));
+        Symbol res = new Symbol(type, yycolumn, yyline, LexedValue.create(value, () -> currentInputLineBuilder.toString(), columns));
         yyline += lines;
         yycolumn += columns;
         return res;
@@ -338,7 +338,7 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                           string.setLength(0);
                           addToLine("\"");
                           final StringBuilder currentInputLineBuilder = currentInputLine.get();
-                          return new Symbol(Tokens.STRING, ++yycolumn - matchedString.length() - 2 , yyline, new LexedValue(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
+                          return new Symbol(Tokens.STRING, ++yycolumn - matchedString.length() - 2 , yyline, LexedValue.create(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
                        }
     [^\n\r\"\\{]+      {
                          String parsed = yytext();
@@ -368,7 +368,7 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                          yycolumn++;
                          addToLine("{");
                          final StringBuilder currentInputLineBuilder = currentInputLine.get();
-                         return new Symbol(Tokens.FMT_STRING_PART, yycolumn, yyline, new LexedValue<String>(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
+                         return new Symbol(Tokens.FMT_STRING_PART, yycolumn, yyline, LexedValue.create(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
                        }
 }
 

@@ -79,7 +79,8 @@ public class FunctionDefinitionStmt extends ProcedureDefinitionStmt {
                                 injectedKeysTypes.stream()
                                     .map(
                                         injectedKey ->
-                                            new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                            new Key(injectedKey.getName(), injectedKey.getTypeProvider()
+                                                .resolveType(scopedHeap)))
                                     .collect(Collectors.toSet())
                         )
                         .orElse(Sets.newHashSet()),

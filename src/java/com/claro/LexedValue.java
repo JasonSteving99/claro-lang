@@ -1,14 +1,18 @@
 package com.claro;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.google.auto.value.AutoValue;
 
 import java.util.function.Supplier;
 
-@Data
-@AllArgsConstructor
-public class LexedValue<T> {
-  public final T val;
-  public final Supplier<String> currentInputLine;
-  public final int len;
+@AutoValue
+public abstract class LexedValue<T> {
+  public abstract T getVal();
+
+  public abstract Supplier<String> getCurrentInputLine();
+
+  public abstract int getLen();
+
+  public static <T> LexedValue<T> create(T val, Supplier<String> currentInputLine, int len) {
+    return new AutoValue_LexedValue<>(val, currentInputLine, len);
+  }
 }

@@ -140,8 +140,8 @@ public class ProcedureDefinitionStmt extends Stmt {
                     .collect(
                         ImmutableMap.toImmutableMap(
                             injectedKey ->
-                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)),
-                            injectedKey -> injectedKey.optionalAlias
+                                new Key(injectedKey.getName(), injectedKey.getTypeProvider().resolveType(scopedHeap)),
+                            injectedKey -> injectedKey.getOptionalAlias()
                         )));
 
     // Validate that this is not a redeclaration of an identifier.

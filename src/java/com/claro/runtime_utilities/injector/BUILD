@@ -17,7 +17,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
     ],
     deps = [
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
     ],
