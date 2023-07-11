@@ -77,7 +77,7 @@ jobs:
           files: |
             claro-cli-install.tar.gz
             bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
-            bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
+            bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar
 
   Deploy-User-Docs-to-GH-Pages:
     runs-on: ubuntu-latest
