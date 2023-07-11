@@ -77,7 +77,7 @@ and you should be able to run any of the `claro_binary` Bazel Build targets by c
 ## In case the VSCode Bazel Plugin Isn't Working
 ...you can always manually run the programs manually by finding the corresponding build target name and running a command like the following:
 ```
-bazel run --nojava_header_compilation //src/java/com/claro/claro_programs:<replace this with your desired build target>
+bazel run //src/java/com/claro/claro_programs:<replace this with your desired build target>
 ```
 
 # Try it Out Online at [riju.codes/claro](https://riju.codes/claro)!
