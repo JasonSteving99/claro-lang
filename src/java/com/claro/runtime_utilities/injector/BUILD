@@ -33,7 +33,7 @@ java_library(
     ],
     deps = [
         ":injected_key",
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
@@ -44,7 +44,7 @@ java_library(
     name = "key",
     srcs = ["Key.java"],
     deps = [
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
     ],
 )

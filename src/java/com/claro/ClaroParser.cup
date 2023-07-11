@@ -38,7 +38,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import lombok.Data;
 
 action code {:
   AtomicReference<TypeProvider> returnTypeHolder;
@@ -181,7 +180,6 @@ parser code {:
     this.report_error("Syntax error", cur_token);
   }
 
-  @Data
   static class Line {
     Supplier<String> inputLineSupplier;
     int inputLineNumber;
@@ -2839,7 +2837,7 @@ injected_keys_list ::=
           t.right, // line number
           LexedValue.create(
             ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) tail.value).getVal()
-              .add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.empty())),
+              .add(InjectedKeyIdentifier.create(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.empty())),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -2857,7 +2855,7 @@ injected_keys_list ::=
           t.right, // line number
           LexedValue.create(
             ((LexedValue<ImmutableList.Builder<InjectedKeyIdentifier>>) tail.value).getVal()
-              .add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.of(alias.getVal()))),
+              .add(InjectedKeyIdentifier.create(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.of(alias.getVal()))),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -2874,7 +2872,7 @@ injected_keys_list ::=
           startCol,
           t.right, // line number
           LexedValue.create(
-            ImmutableList.<InjectedKeyIdentifier>builder().add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.empty())),
+            ImmutableList.<InjectedKeyIdentifier>builder().add(InjectedKeyIdentifier.create(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.empty())),
             currentLinesSupplier,
             endCol - startCol)
        );
@@ -2891,7 +2889,7 @@ injected_keys_list ::=
           startCol,
           t.right, // line number
           LexedValue.create(
-            ImmutableList.<InjectedKeyIdentifier>builder().add(new InjectedKeyIdentifier(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.of(alias.getVal()))),
+            ImmutableList.<InjectedKeyIdentifier>builder().add(InjectedKeyIdentifier.create(key_name, ((LexedValue<TypeProvider>) t.value).getVal(), Optional.of(alias.getVal()))),
             currentLinesSupplier,
             endCol - startCol)
        );

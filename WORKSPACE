@@ -43,7 +43,6 @@ maven_install(
             "com.googlecode.lanterna:lanterna:3.1.1",
             "io.javalin:javalin:4.1.1",
             "org.apache.commons:commons-text:jar:1.1",
-            "org.projectlombok:lombok:1.18.20",
             "org.slf4j:slf4j-simple:1.7.31",
             "com.squareup.okhttp3:okhttp:4.11.0",
             # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.

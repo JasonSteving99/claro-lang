@@ -65,7 +65,6 @@ java_library(
         "//src/java/com/claro/runtime_utilities/injector:key",
         "//:autovalue",
         "//:guava",
-        "//:lombok",
     ],
 )
 

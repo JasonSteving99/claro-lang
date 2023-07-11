@@ -49,7 +49,7 @@ public class ModuleDefinitionStmt extends Stmt {
     do {
       BindStmt bindStmt = (BindStmt) curr.getChildren().get(0);
       bindStmt.registerBindingType(scopedHeap);
-      Key key = new Key(bindStmt.name, bindStmt.type);
+      Key key = Key.create(bindStmt.name, bindStmt.type);
       if (!boundKeySetBuilder.add(key)) {
         // This is a duplicate key binding.
         duplicateKeySet.add(key);
@@ -259,7 +259,7 @@ public class ModuleDefinitionStmt extends Stmt {
                 new StringBuilder(
                     ModuleDefinitionStmt.this.boundKeySet.stream()
                         .map(
-                            key -> String.format("Injector.bindings.remove(new Key(\"%s\", %s));\n", key.name, key.type
+                            key -> String.format("Injector.bindings.remove(Key.create(\"%s\", %s));\n", key.getName(), key.getType()
                                 .getJavaSourceClaroType()))
                         .collect(Collectors.joining()))
                     .append(

@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.Stack;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import lombok.Data;
 
 action code {:
   private Symbol constructBuiltinType(LexedValue<String> lb, int lbleft, int lbright, Symbol t, LexedValue<String> rb, int rbleft, int rbright, Function<LexedValue<TypeProvider>, TypeProvider> typeProviderConstructor) {
@@ -79,7 +78,6 @@ parser code {:
     this.report_error("Syntax error", cur_token);
   }
 
-  @Data
   static class Line {
     Supplier<String> inputLineSupplier;
     int inputLineNumber;

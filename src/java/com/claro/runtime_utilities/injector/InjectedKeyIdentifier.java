@@ -2,7 +2,7 @@ package com.claro.runtime_utilities.injector;
 
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.TypeProvider;
-import lombok.Value;
+import com.google.auto.value.AutoValue;
 
 import java.util.Optional;
 
@@ -10,13 +10,19 @@ import java.util.Optional;
 // existing InjectedKey.java with the only difference being that modeling the key name as an IdentifierReferenceTerm
 // allows logging better error messages as applicable. (For now only necessary for Graphs which must assert that
 // injected values are deeply-immutable).
-@Value
-public class InjectedKeyIdentifier {
-  public IdentifierReferenceTerm name;
-  public TypeProvider typeProvider;
-  public Optional<String> optionalAlias;
+@AutoValue
+public abstract class InjectedKeyIdentifier {
+  public abstract IdentifierReferenceTerm getName();
+
+  public abstract TypeProvider getTypeProvider();
+
+  public abstract Optional<String> getOptionalAlias();
+
+  public static InjectedKeyIdentifier create(IdentifierReferenceTerm name, TypeProvider typeProvider, Optional<String> optionalAlias) {
+    return new AutoValue_InjectedKeyIdentifier(name, typeProvider, optionalAlias);
+  }
 
   public InjectedKey toInjectedKey() {
-    return InjectedKey.create(name.getIdentifier(), typeProvider, optionalAlias);
+    return InjectedKey.create(getName().getIdentifier(), getTypeProvider(), getOptionalAlias());
   }
 }

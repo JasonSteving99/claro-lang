@@ -140,7 +140,8 @@ public class ProcedureDefinitionStmt extends Stmt {
                     .collect(
                         ImmutableMap.toImmutableMap(
                             injectedKey ->
-                                new Key(injectedKey.getName(), injectedKey.getTypeProvider().resolveType(scopedHeap)),
+                                Key.create(injectedKey.getName(), injectedKey.getTypeProvider()
+                                    .resolveType(scopedHeap)),
                             injectedKey -> injectedKey.getOptionalAlias()
                         )));
 
@@ -423,7 +424,7 @@ public class ProcedureDefinitionStmt extends Stmt {
         HashSet<String> uniqueInjectedLocalNames = new HashSet<>(optionalInjectedKeysToAliasMap.get().size());
         HashSet<String> duplicateInjectedLocalNames = new HashSet<>();
         for (Map.Entry<Key, Optional<String>> injectedLocalName : optionalInjectedKeysToAliasMap.get().entrySet()) {
-          String localName = injectedLocalName.getValue().orElse(injectedLocalName.getKey().name);
+          String localName = injectedLocalName.getValue().orElse(injectedLocalName.getKey().getName());
           if (!uniqueInjectedLocalNames.add(localName)) {
             // We ended up finding some conflicting local names.
             duplicateInjectedLocalNames.add(localName);
@@ -440,8 +441,8 @@ public class ProcedureDefinitionStmt extends Stmt {
                   keysToAliasMap.entrySet().stream()
                       .collect(
                           ImmutableMap.toImmutableMap(
-                              entry -> entry.getValue().orElse(entry.getKey().name),
-                              entry -> entry.getKey().type
+                              entry -> entry.getValue().orElse(entry.getKey().getName()),
+                              entry -> entry.getKey().getType()
                           )))
           .ifPresent(observeAndInitializeIdentifiers);
 
@@ -732,8 +733,8 @@ public class ProcedureDefinitionStmt extends Stmt {
                     isArgsMap
                     ? String.format("args[%s];\n", i)
                     : String.format(
-                        "Injector.bindings.get(new Key(\"%s\", %s));\n",
-                        optionalInjectedKeysToAliasMap.get().keySet().asList().get(i).name,
+                        "Injector.bindings.get(Key.create(\"%s\", %s));\n",
+                        optionalInjectedKeysToAliasMap.get().keySet().asList().get(i).getName(),
                         argsEntrySet.get(i).getValue().getJavaSourceClaroType()
                     )
                 )
@@ -757,8 +758,8 @@ public class ProcedureDefinitionStmt extends Stmt {
               optionalInjectedKeysToAliasMap.get().entrySet().stream()
                   .collect(
                       ImmutableMap.toImmutableMap(
-                          entry -> entry.getValue().orElse(entry.getKey().name),
-                          entry -> entry.getKey().type
+                          entry -> entry.getValue().orElse(entry.getKey().getName()),
+                          entry -> entry.getKey().getType()
                       ))
           );
       if (optionalJavaSourceBodyBuilder.isPresent()) {
@@ -887,9 +888,11 @@ public class ProcedureDefinitionStmt extends Stmt {
                 injectedKeysTypesMap -> {
                   defineIdentifiersConsumerFn.apply(
                       injectedKeysTypesMap.keySet().stream()
-                          .collect(ImmutableMap.toImmutableMap(k -> k.name, k -> k.type)),
+                          .collect(ImmutableMap.toImmutableMap(k -> k.getName(), k -> k.getType())),
                       injectedKeysTypesMap.entrySet().stream()
-                          .map(keyEntry -> (Expr) Injector.bindings.get(new Key(keyEntry.getKey().name, keyEntry.getKey().type)))
+                          .map(keyEntry -> (Expr) Injector.bindings.get(Key.create(keyEntry.getKey()
+                                                                                       .getName(), keyEntry.getKey()
+                                                                                       .getType())))
                           .collect(ImmutableList.toImmutableList())
                   ).accept(callTimeScopedHeap);
                 }

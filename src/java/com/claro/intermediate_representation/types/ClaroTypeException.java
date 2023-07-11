@@ -591,7 +591,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             DUPLICATE_KEY_BINDINGS,
             duplicatedKeyBindingsSet.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );
@@ -602,7 +602,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             REBINDING_KEYS_FROM_OUTER_USING_BLOCK,
             reboundKeys.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );
@@ -634,7 +634,7 @@ public class ClaroTypeException extends Exception {
             procedureName,
             procedureType,
             missingBindings.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );

@@ -51,7 +51,6 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//:guava",
-        "//:lombok",
         "@jflex_rules//third_party/cup",  # the runtime would be sufficient
     ],
 )

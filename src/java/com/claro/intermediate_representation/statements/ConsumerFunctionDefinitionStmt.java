@@ -48,7 +48,7 @@ public class ConsumerFunctionDefinitionStmt extends ProcedureDefinitionStmt {
                                 injectedKeysTypes.stream()
                                     .map(
                                         injectedKey ->
-                                            new Key(injectedKey.getName(), injectedKey.getTypeProvider()
+                                            Key.create(injectedKey.getName(), injectedKey.getTypeProvider()
                                                 .resolveType(scopedHeap)))
                                     .collect(Collectors.toSet())
                         )

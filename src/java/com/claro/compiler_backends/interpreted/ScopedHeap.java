@@ -7,7 +7,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import lombok.ToString;
 
 import java.util.*;
 import java.util.function.Function;
@@ -363,7 +362,6 @@ public class ScopedHeap {
     }
   }
 
-  @ToString
   public static class IdentifierData {
     public Type type;
     // This value is only meaningful in interpreted modes where values are tracked.
@@ -389,6 +387,19 @@ public class ScopedHeap {
       shallowCopy.used = this.used;
       shallowCopy.isTypeDefinition = this.isTypeDefinition;
       return shallowCopy;
+    }
+
+    @Override
+    public String toString() {
+      StringBuilder res = new StringBuilder("IdentifierData(");
+
+      res.append("type = ").append(this.type).append(", ");
+      res.append("interpretedValue = ").append(this.interpretedValue).append(", ");
+      res.append("used = ").append(this.used).append(", ");
+      res.append("declared = ").append(this.declared).append(", ");
+      res.append("isTypeDefinition = ").append(this.isTypeDefinition);
+
+      return res.append(")").toString();
     }
   }
 
