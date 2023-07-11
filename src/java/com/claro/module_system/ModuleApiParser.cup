@@ -178,7 +178,7 @@ precedence left LPAR, RPAR, LBRACKET, RBRACKET;
 module ::=
     contract_signature_defs_list:exported_procedures
     {:
-       RESULT = new ModuleNode(exported_procedures.build().reverse(), package_string, generatedClassName);
+       RESULT = new ModuleNode(exported_procedures.build().reverse(), generatedClassName, package_string);
     :}
   ;
 

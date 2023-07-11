@@ -15,6 +15,7 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
+import java.util.Optional;
 import java.util.Stack;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -24,6 +25,7 @@ public class ProgramNode {
   private StmtListNode stmtListNode;
   public static final Stack<Runnable> miscErrorsFound = new Stack<>();
   public static ImmutableList<ProgramNode> nonMainFiles = ImmutableList.of();
+  public static Optional<ModuleNode> moduleApiDef = Optional.empty();
 
   // By default, don't support any StdLib.
   private Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn = s -> ImmutableList.of();
@@ -172,6 +174,21 @@ public class ProgramNode {
       }
     }
 
+    // MODULE API VALIDATION PHASE:
+    // Here, in the case that this program is being compiled as a Module, then I must validate that the Module API is
+    // actually being correctly satisfied by the given implementation files that were just validated.
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      try {
+        ProgramNode.moduleApiDef.get().assertExpectedProceduresActuallyExported(scopedHeap);
+      } catch (ClaroTypeException e) {
+        miscErrorsFound.push(() -> System.err.println(e.getMessage()));
+      } finally {
+        ProgramNode.moduleApiDef.get().errorMessages.forEach(
+            errMsg -> miscErrorsFound.push(() -> System.err.println(errMsg))
+        );
+      }
+    }
+
     // CODE GEN PHASE:
     // Refuse to do code-gen phase if there were any type validation errors.
     StringBuilder res = null; // I hate null but am also too lazy right now to refactor to Optional<StringBuilder>
@@ -189,6 +206,11 @@ public class ProgramNode {
       // on this main src file as this is the actual "program" that the programmer wants to be able to run.
       programJavaSource =
           programJavaSource.createMerged(stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName));
+      // Just before committing to this codegen result, in the case that this is actually a Module definition being
+      // compiled, the "main" file is actually a dummy file, so drop its main stmts.
+      if (ProgramNode.moduleApiDef.isPresent()) {
+        programJavaSource.javaSourceBody().setLength(0);
+      }
       // Finally, wrap up the GeneratedJavaSource as a Java src file.
       res = genJavaSource(programJavaSource);
     }
@@ -503,6 +525,33 @@ public class ProgramNode {
   // TODO(steving) specify code gen for different parts of the gen'd java file. This is just necessary for hacking
   // TODO(steving) java's nuances as our underlying VM.
   private StringBuilder genJavaSource(Node.GeneratedJavaSource stmtListJavaSource) {
+    String mainMethodCodegen;
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // In this case no main method whatsoever is desired. Instead we're simply compiling a static java library class.
+      mainMethodCodegen = "";
+    } else {
+      mainMethodCodegen = String.format(
+          "public static void main(String[] args) {\n" +
+          "    try {\n" +
+          "      // Setup the atom cache so that all atoms are singleton.\n" +
+          "      %s\n\n" +
+          "/**BEGIN USER CODE**/\n" +
+          "%s\n\n" +
+          "/**END USER CODE**/\n" +
+          "    } finally {\n" +
+          "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
+          "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
+          "      ClaroRuntimeUtilities.$shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
+          "\n\n" +
+          "      // Because Claro has native support for Http Requests sent asynchronously on a threadpool, I\n" +
+          "      // need to also ensure that the OkHttp3 client is shutdown.\n" +
+          "      $HttpUtil.shutdownOkHttpClient();\n" +
+          "    }\n" +
+          "  }\n\n",
+          AtomDefinitionStmt.codegenAtomCacheInit(),
+          stmtListJavaSource.javaSourceBody()
+      );
+    }
     return new StringBuilder(
         String.format(
             "/*******AUTO-GENERATED: DO NOT MODIFY*******/\n\n" +
@@ -561,30 +610,14 @@ public class ProgramNode {
             "%s\n\n" +
             "// Now the static definitions.\n" +
             "%s\n\n" +
-            "  public static void main(String[] args) {\n" +
-            "    try {\n" +
-            "      // Setup the atom cache so that all atoms are singleton.\n" +
-            "      %s\n\n" +
-            "/**BEGIN USER CODE**/\n" +
-            "%s\n\n" +
-            "/**END USER CODE**/\n" +
-            "    } finally {\n" +
-            "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
-            "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
-            "      ClaroRuntimeUtilities.$shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
-            "\n\n" +
-            "      // Because Claro has native support for Http Requests sent asynchronously on a threadpool, I\n" +
-            "      // need to also ensure that the OkHttp3 client is shutdown.\n" +
-            "      $HttpUtil.shutdownOkHttpClient();\n" +
-            "    }\n" +
-            "  }\n\n" +
+            "// Optionally the main method will be here if this is not a Module.\n" +
+            "%s" +
             "}",
             this.packageString,
             this.generatedClassName,
             stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
             stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
-            AtomDefinitionStmt.codegenAtomCacheInit(),
-            stmtListJavaSource.javaSourceBody()
+            mainMethodCodegen
         )
     );
   }

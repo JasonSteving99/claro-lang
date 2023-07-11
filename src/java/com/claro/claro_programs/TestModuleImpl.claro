@@ -1,0 +1,8 @@
+
+function intIdentity(i: int) -> int {
+  return i;
+}
+
+function add(lhs: int, rhs: int) -> int {
+  return lhs + rhs;
+}

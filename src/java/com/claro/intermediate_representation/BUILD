@@ -15,6 +15,7 @@ java_library(
     name = "program_node",
     srcs = ["ProgramNode.java"],
     deps = [
+        ":module_node",
         ":node",
         "//:guava",
         "//src/java/com/claro:claro_parser_exception",
@@ -37,7 +38,12 @@ java_library(
     srcs = ["ModuleNode.java"],
     deps = [
         "//:guava",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
+        "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/intermediate_representation/types",
+        "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/internal_static_state",
     ],
 )
 

@@ -2,19 +2,24 @@ package com.claro.compiler_backends.java_source;
 
 import com.claro.ClaroParser;
 import com.claro.ClaroParserException;
+import com.claro.ModuleApiParser;
 import com.claro.compiler_backends.CompilerBackend;
 import com.claro.compiler_backends.ParserUtil;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.ModuleNode;
 import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.module_system.ModuleApiParserUtil;
 import com.claro.stdlib.StdLibUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.CharSource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -26,6 +31,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final Optional<String> GENERATED_CLASSNAME;
   private final Optional<String> PACKAGE_STRING;
   private final ImmutableList<SrcFile> SRCS;
+  private final Optional<String> OPTIONAL_UNIQUE_MODULE_NAME;
 
   // TODO(steving) Migrate this file to use an actual cli library.
   // TODO(steving) Consider Apache Commons Cli 1.4 https://commons.apache.org/proper/commons-cli/download_cli.cgi
@@ -34,7 +40,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     // For now if you're gonna pass 2 args you gotta pass them all...
     if (args.length >= 2) {
       // args[1] holds the generated classname.
-      this.GENERATED_CLASSNAME = Optional.of(args[1].substring("--classname=" .length()));
+      this.GENERATED_CLASSNAME =
+          Optional.of(args[1].substring("--classname=" .length())).map(n -> n.equals("") ? null : n);
       // args[2] holds the flag for package...
       String packageArg = args[2].substring("--package=" .length());
       this.PACKAGE_STRING = Optional.of(packageArg.equals("") ? "" : "package " + packageArg + ";\n\n");
@@ -46,6 +53,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 .stream()
                 .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.lastIndexOf('.')), f))
                 .collect(ImmutableList.toImmutableList());
+        if (args.length >= 5) {
+          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.of(args[4].substring("--module_unique_prefix=" .length()));
+        } else {
+          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
+        }
       } else {
         // TODO(steving) This is getting overly complicated just b/c I don't want to fix Riju's config. Go update Riju
         //    so that this can all be simplified. Only need to continue supporting the single file case via stdin just
@@ -53,35 +65,70 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         StdLibUtil.setupBuiltinTypes = true;
         // Turns out there's going to just be a single file that'll be consumed on STDIN.
         this.SRCS = ImmutableList.of(SrcFile.create(this.GENERATED_CLASSNAME.get(), System.in));
+        this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
       }
     } else {
       this.GENERATED_CLASSNAME = Optional.empty();
       this.PACKAGE_STRING = Optional.empty();
       this.SRCS = ImmutableList.of(SrcFile.create("", System.in));
+      this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
     }
   }
 
+  // Note: This method is assuming that whatever script allowed you to invoke the compiler directly has already done
+  // validation that you have exactly 0 or 1 .claro_module_api files and, if 1, then --classname is set to "".
   @Override
   public void run() throws Exception {
     ScopedHeap scopedHeap = new ScopedHeap();
     scopedHeap.enterNewScope();
     if (this.SRCS.size() == 1) {
-      checkTypesAndGenJavaSourceForSrcFiles(this.SRCS.get(0), ImmutableList.of(), scopedHeap);
+      checkTypesAndGenJavaSourceForSrcFiles(this.SRCS.get(0), ImmutableList.of(), Optional.empty(), scopedHeap);
     } else {
+      // The main file will be required if this is not a module definition, otherwise a module api file is required.
       SrcFile mainSrcFile = null;
+      Optional<SrcFile> optionalModuleApiFile = Optional.empty();
       ImmutableList.Builder<SrcFile> nonMainSrcFiles = ImmutableList.builder();
       for (SrcFile srcFile : this.SRCS) {
-        if (srcFile.getFilename().equals(this.GENERATED_CLASSNAME.orElse(""))) {
+        if (!srcFile.getUsesClaroInternalFileSuffix()
+            && this.GENERATED_CLASSNAME.isPresent()
+            && srcFile.getFilename().equals(this.GENERATED_CLASSNAME.get())) {
           mainSrcFile = srcFile;
+        } else if (srcFile.getUsesClaroModuleApiFileSuffix()) {
+          // In this case we'll just assume that we're being asked to compile a module which should have no "main" as a
+          // module in itself is not an executable thing. Create a synthetic main though for the sake of having a logical
+          // unit around which to center compilation.
+          mainSrcFile = SrcFile.create(
+              // TODO(steving) In the future I think that I'll want to add some sort of hash of the input program that
+              //   produced this module, so that I can have increased confidence that the produced program is the one
+              //   we're expecting when we go to assemble the whole program.
+              this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
+              CharSource.wrap("_ = 1;").asByteSource(StandardCharsets.UTF_8).openStream()
+          );
+          optionalModuleApiFile = Optional.of(srcFile);
         } else {
           nonMainSrcFiles.add(srcFile);
         }
       }
-      checkTypesAndGenJavaSourceForSrcFiles(mainSrcFile, nonMainSrcFiles.build(), scopedHeap);
+      checkTypesAndGenJavaSourceForSrcFiles(mainSrcFile, nonMainSrcFiles.build(), optionalModuleApiFile, scopedHeap);
     }
   }
 
   private ClaroParser getParserForSrcFile(SrcFile srcFile) {
+    return ParserUtil.createParser(
+        readFile(srcFile),
+        srcFile.getFilename(),
+        srcFile.getUsesClaroInternalFileSuffix(),
+        /*escapeSpecialChars*/true
+    );
+  }
+
+  private ModuleApiParser getModuleApiParserForSrcFile(SrcFile srcFile) {
+    ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(readFile(srcFile), srcFile.getFilename());
+    moduleApiParser.generatedClassName = srcFile.getFilename();
+    return moduleApiParser;
+  }
+
+  private static String readFile(SrcFile srcFile) {
     Scanner scan = new Scanner(srcFile.getFileInputStream());
 
     StringBuilder inputProgram = new StringBuilder();
@@ -91,17 +138,14 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // source file, but who cares, the grammar will handle it.
       inputProgram.append("\n");
     }
-
-    return ParserUtil.createParser(
-        inputProgram.toString(),
-        srcFile.getFilename(),
-        srcFile.getUsesClaroInternalFileSuffix(),
-        /*escapeSpecialChars*/true
-    );
+    return inputProgram.toString();
   }
 
   private Node.GeneratedJavaSource checkTypesAndGenJavaSourceForSrcFiles(
-      SrcFile mainSrcFile, ImmutableList<SrcFile> nonMainSrcFiles, ScopedHeap scopedHeap) throws Exception {
+      SrcFile mainSrcFile,
+      ImmutableList<SrcFile> nonMainSrcFiles,
+      Optional<SrcFile> optionalModuleApiSrcFile,
+      ScopedHeap scopedHeap) throws Exception {
     ImmutableList<ClaroParser> nonMainSrcFileParsers =
         nonMainSrcFiles.stream()
             .map(f -> {
@@ -110,6 +154,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               return currNonMainSrcFileParser;
             })
             .collect(ImmutableList.toImmutableList());
+    Optional<ModuleApiParser> optionalModuleApiParser =
+        optionalModuleApiSrcFile.map(this::getModuleApiParserForSrcFile);
     ClaroParser mainSrcFileParser = getParserForSrcFile(mainSrcFile);
     this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s);
 
@@ -121,6 +167,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       }
       // Push these parsed non-main src programs to where they'll be found for type checking and codegen.
       ProgramNode.nonMainFiles = parsedNonMainSrcFilePrograms.build();
+      // Optionally push the module api file to where it'll be found during type checking to validate that the
+      // nonMainSrcFilePrograms actually do export the necessary bindings.
+      if (optionalModuleApiParser.isPresent()) {
+        ProgramNode.moduleApiDef = Optional.of((ModuleNode) optionalModuleApiParser.get().parse().value);
+      }
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
       // Here, type checking and codegen of ALL src files is happening at once.
@@ -184,12 +235,15 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     abstract boolean getUsesClaroInternalFileSuffix();
 
+    abstract boolean getUsesClaroModuleApiFileSuffix();
+
     static SrcFile forFilenameAndPath(String filename, String path) {
       try {
         return new AutoValue_JavaSourceCompilerBackend_SrcFile(
             filename,
             Files.newInputStream(FileSystems.getDefault().getPath(path), StandardOpenOption.READ),
-            path.endsWith(".claro_internal")
+            path.endsWith(".claro_internal"),
+            path.endsWith(".claro_module_api")
         );
       } catch (IOException e) {
         throw new RuntimeException("File not found:", e);
@@ -197,7 +251,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     }
 
     static SrcFile create(String filename, InputStream inputStream) {
-      return new AutoValue_JavaSourceCompilerBackend_SrcFile(filename, inputStream, false);
+      return new AutoValue_JavaSourceCompilerBackend_SrcFile(filename, inputStream, false, false);
     }
   }
 }

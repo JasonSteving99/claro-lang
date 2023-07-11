@@ -1,17 +1,35 @@
+package(
+    default_visibility = [
+        "//src/java/com/claro/compiler_backends:__subpackages__",
+    ]
+)
+
 load("@jflex_rules//jflex:jflex.bzl", "jflex")
 load("@jflex_rules//cup:cup.bzl", "cup")
+
 
 java_binary(
     name = "test_module_parser",
     srcs = ["TestModuleParser.java"],
     main_class = "com.claro.module_system.TestModuleParser",
     deps = [
-        ":module_api_parser",
+        ":module_api_parser_util",
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:module_node",
         "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
         "//src/java/com/claro/internal_static_state",
+    ],
+)
+
+java_library(
+    name = "module_api_parser_util",
+    srcs = ["ModuleApiParserUtil.java"],
+    exports = [
+        ":module_api_parser",
+    ],
+    deps = [
+        ":module_api_parser",
     ],
 )
 

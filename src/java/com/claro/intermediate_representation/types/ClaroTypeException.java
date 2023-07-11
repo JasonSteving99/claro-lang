@@ -419,6 +419,20 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s\n" +
       "\t\tPattern Type:\n" +
       "\t\t\t%s";
+  private static final String MODULE_EXPORTED_PROCEDURE_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Procedure Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported procedure to be defined:\n" +
+      "\tName:\n" +
+      "\t\t%s\n" +
+      "\tSignature:\n" +
+      "\t\t%s\n";
+  private static final String MODULE_EXPORTED_PROCEDURE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Procedure Name Bound To Incorrect Implementation Type: Exported procedure `%s` is bound to " +
+      "incorrect type in the given module implementation files.\n" +
+      "\tFound:\n" +
+      "\t\t%s\n" +
+      "\tExpected:\n" +
+      "\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1536,6 +1550,29 @@ public class ClaroTypeException extends Exception {
             INVALID_PATTERN_MATCHING_WRONG_TYPE,
             expectedExprType,
             actualType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedProcedureNotDefinedInModuleImplFiles(
+      String procedureName, Type procedureSignatureType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_PROCEDURE_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            procedureName,
+            procedureSignatureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedProcedureNameBoundToIncorrectImplementationType(
+      String exportedProcedureName, Type expectedExportedProcedureType, Type actualIdentifierType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_PROCEDURE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            exportedProcedureName,
+            actualIdentifierType,
+            expectedExportedProcedureType
         )
     );
   }

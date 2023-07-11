@@ -1,0 +1,7 @@
+# Just a simple test Module Api that I'll use to validate the ability to actually parse type signatures.
+
+function intIdentity(i: int) -> int;
+
+function add(lhs: int, rhs: int) -> int;
+
+function identity<T>(t: T) -> T;

@@ -66,10 +66,20 @@ def gen_claro_builtin_java_deps_jar():
         resources = CLARO_STDLIB_FILES
     )
 
-def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
+# TODO(steving) Once Modules are fully supported (including handling transitive deps) this should be renamed to
+# TODO(steving)   claro_module and should always assume a .claro_module_api file is supplied. Then the claro_binary
+# TODO(steving)   should be extended to also invoke the compiler over some main file and non-main files along with
+# TODO(steving)   Module deps.
+def claro_library(name, src, module_api_file = None, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
+    if module_api_file and java_name:
+        fail("claro_library: java_name must *not* be set when compiling a Module as signalled by providing a module_api_file.")
+    isModule = module_api_file != None
+    if isModule:
+        java_name = ""
     hasMultipleSrcs = str(type(src)) == "list"
+    # TODO(steving) TESTING!!! I NEED TO CHECK FOR A MODULE API FILE AND IF SO REQUIRE java_name = None
     if hasMultipleSrcs:
-        if not java_name:
+        if not isModule and not java_name:
             fail("claro_library: java_name must be set when providing multiple srcs")
         javaNameMatchesASrc = False
         for filename in src:
@@ -77,7 +87,7 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
                 fail("claro_library: Provided srcs must use .claro extension.")
             if filename[:-6] == java_name:
                 javaNameMatchesASrc = True
-        if not javaNameMatchesASrc:
+        if not isModule and not javaNameMatchesASrc:
             fail("claro_library: java_name must match one of the given srcs to indicate which one is the main file.")
     else:
         if not src.endswith(".claro"):
@@ -85,21 +95,24 @@ def claro_library(name, src, java_name = None, claro_compiler_name = DEFAULT_CLA
         if not java_name:
             java_name = src[:-6]
     # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
-    srcs = CLARO_STDLIB_FILES + (src if hasMultipleSrcs else [src])
+    srcs = ([module_api_file] if isModule else []) + CLARO_STDLIB_FILES + (src if hasMultipleSrcs else [src])
     native.genrule(
         name = name,
         srcs = srcs,
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --srcs=$$(echo $(SRCS) | tr ' ' ',') > $(OUTS)".format(
+        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --srcs=$$(echo $(SRCS) | tr ' ' ',') {4} > $(OUTS)".format(
             claro_compiler_name,
             "false" if debug else "true", # --silent
             java_name, # --classname
             DEFAULT_PACKAGE_PREFIX, # --package
+            # Here, construct a totally unique name for this particular module. Since we're using Bazel, I have the
+            # guarantee that this RULEDIR+target name is globally unique across the entire project.
+            "--unique_module_name=$$(echo $(RULEDIR) | cut -c $$(($$(echo $(GENDIR) | wc -c ) - 1))- | tr '/' '$$')\$$" + name if isModule else ""
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
         tools = [
             "//src/java/com/claro:claro_compiler_binary_deploy.jar",
         ],
-        outs = [java_name + ".java"]
+        outs = [(java_name if java_name else module_api_file[:-len(".claro_module_api")]) + ".java"]
     )
 
 def gen_claro_compiler(name = DEFAULT_CLARO_NAME):

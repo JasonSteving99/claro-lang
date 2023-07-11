@@ -427,3 +427,13 @@ claro_library(
     name = "while_test_compiled_claro",
     src = "while_test.claro",
 )
+
+# Test Claro's fledgling First-Class Module system.
+claro_library(
+    name = "module_test",
+    module_api_file = "TestModule.claro_module_api",
+    src = [
+        "TestModuleImpl.claro",
+        "TestModuleImpl2.claro",
+    ]
+)
