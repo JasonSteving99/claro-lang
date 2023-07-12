@@ -73,7 +73,12 @@ def gen_claro_builtin_java_deps_jar():
 def claro_library(name, src, module_api_file = None, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
     if module_api_file and java_name:
         fail("claro_library: java_name must *not* be set when compiling a Module as signalled by providing a module_api_file.")
-    isModule = module_api_file != None
+    if module_api_file:
+        if not module_api_file.endswith(".claro_module_api"):
+            fail("claro_library: Provided module_api_file must use .claro_module_api extension.")
+        isModule = True
+    else:
+        isModule = False
     if isModule:
         java_name = ""
     hasMultipleSrcs = str(type(src)) == "list"
@@ -103,6 +108,13 @@ def claro_library(name, src, module_api_file = None, java_name = None, claro_com
             claro_compiler_name,
             "false" if debug else "true", # --silent
             java_name, # --classname
+            # TODO(steving) Once this macro is migrated to being a full on Bazel "rule", swap this DEFAULT_PACKAGE w/
+            # TODO(steving)   ctx.workspace_name instead.
+            # TODO(steving)   All Bazel workspace names must be formatted as "Java-package-style" strings. This is a super convenient
+            # TODO(steving)   way for this macro to automatically determine a "project_package" that should already be intended to be
+            # TODO(steving)   globally (internet-wide) unique.
+            # TODO(steving)   See: https://bazel.build/rules/lib/globals/workspace#parameters_3
+            # ctx.workspace_name.replace('_', '.').replace('-', '.'), # --package
             DEFAULT_PACKAGE_PREFIX, # --package
             # Here, construct a totally unique name for this particular module. Since we're using Bazel, I have the
             # guarantee that this RULEDIR+target name is globally unique across the entire project.
@@ -112,7 +124,7 @@ def claro_library(name, src, module_api_file = None, java_name = None, claro_com
         tools = [
             "//src/java/com/claro:claro_compiler_binary_deploy.jar",
         ],
-        outs = [(java_name if java_name else module_api_file[:-len(".claro_module_api")]) + ".java"]
+        outs = [java_name + ".java" if java_name else module_api_file[:-len("_api")]]
     )
 
 def gen_claro_compiler(name = DEFAULT_CLARO_NAME):

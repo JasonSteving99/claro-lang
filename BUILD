@@ -5,6 +5,10 @@ alias(
     actual = "@maven//:com_google_guava_guava",
 )
 alias(
+    name = "protobuf",
+    actual = "@com_google_protobuf_protobuf_java//:com_google_protobuf_protobuf_java",
+)
+alias(
     name = "apache_commons_text",
     actual = "@maven//:org_apache_commons_commons_text",
 )

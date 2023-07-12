@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package claro.module_system.module_serialization;
+
+option java_multiple_files = true;
+option java_package = "com.claro.module_system.module_serialization.proto";
+
+// Perhaps this may change going forward, however, the fact is that this proto is used as the intermediate format for
+// incremental compilation, so I'd much prefer to prioritize (de)serialization time to have a positive effect on compile
+// times. I don't think any of the choices made here so far lend themselves to much in the way of great disk utilization
+// so I won't pretend that's the case here just yet. Remember that this affects dev machines not deploy binary sizes.
+option optimize_for = SPEED;
+
+message SerializedClaroModule {
+  message ClaroSourceFile {
+    string original_filename = 1;
+    bytes source_utf8 = 2;
+  }
+
+  message UniqueModuleDescriptor {
+    // Claro doesn't utilize a "package visibility" system like Java does, instead it assumes that you'll control code
+    // visibility using Bazel's builtin target visibility controls. However, it does need some mechanism for ensuring
+    // that cross-project .claro_modules do not produce artifacts that collide in the same Java namespace. So, Claro
+    // will utilize a concept of "project package" as a global (internet-wide) disambiguator. When building using
+    // Claro's Bazel rules, this string will be automatically derived from the Bazel workspace's name. This is in an
+    // effort towards utilizing Bazel's native Bazelmod as Claro's "package manager".
+    string project_package = 1;
+    // When building using Claro's Bazel rules, this string will be automatically formatted to be something like
+    // `src$java$com$claro$claro_programs$module_test` for a `claro_library(name = "module_test", ...)` located at the
+    // bazel path //src/java/com/claro/claro_programs:module_test. This ensures that this Module name is unique across
+    // the entire Bazel project in which this module is being compiled.
+    string unique_module_name = 2;
+  }
+
+  UniqueModuleDescriptor module_descriptor = 1;
+
+  // This field contains the actual source of the given .claro_module_api file. This will be necessary for dependents to
+  // be able to determine the bindings exported for them to make use of.
+  ClaroSourceFile module_api_file = 2;
+
+  // This field contains the codegen pertaining to any static definitions that are guaranteed to be provided by this
+  // module. In less opaque terms, this contains codegen for any non-generic procedure definitions that are exported by
+  // this module. This *does not* include any codegen for generic procedure monomorphizations (except for those
+  // monomorphizations that are explicitly called from exported procedures *within* this module). Later on, when this
+  // module is depended on in a Claro Binary, the concrete monomorphizations needed by the overall will be codegen'd at
+  // the last minute.
+  bytes static_java_codegen = 3;
+
+  // As Claro will need to postpone codegen of generic procedure monomorphizations until after the entire program is
+  // assembled into a Claro Binary, this serialized module actually needs to maintain the original Claro source files
+  // that contain all exported procedure implementations. This way, once all concrete monomorphizations are known, it's
+  // possible to re-parse the source file to find the necessary generic procedure defs to codegen monomorphizations for.
+  repeated ClaroSourceFile module_impl_files = 4;
+}

@@ -12,10 +12,13 @@ import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.module_system.ModuleApiParserUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.stdlib.StdLibUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.CharSource;
+import com.google.protobuf.ByteString;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,20 +44,20 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     if (args.length >= 2) {
       // args[1] holds the generated classname.
       this.GENERATED_CLASSNAME =
-          Optional.of(args[1].substring("--classname=" .length())).map(n -> n.equals("") ? null : n);
+          Optional.of(args[1].substring("--classname=".length())).map(n -> n.equals("") ? null : n);
       // args[2] holds the flag for package...
-      String packageArg = args[2].substring("--package=" .length());
-      this.PACKAGE_STRING = Optional.of(packageArg.equals("") ? "" : "package " + packageArg + ";\n\n");
+      String packageArg = args[2].substring("--package=".length());
+      this.PACKAGE_STRING = Optional.of(packageArg);
       // args[3] is an *OPTIONAL* flag holding the list of files in this Claro module that should be read in instead of
       // reading a single Claro file's contents from stdin.
       if (args.length >= 4) {
         this.SRCS =
-            ImmutableList.copyOf(args[3].substring("--srcs=" .length()).split(","))
+            ImmutableList.copyOf(args[3].substring("--srcs=".length()).split(","))
                 .stream()
                 .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.lastIndexOf('.')), f))
                 .collect(ImmutableList.toImmutableList());
         if (args.length >= 5) {
-          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.of(args[4].substring("--module_unique_prefix=" .length()));
+          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.of(args[4].substring("--module_unique_prefix=".length()));
         } else {
           this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
         }
@@ -150,14 +153,15 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         nonMainSrcFiles.stream()
             .map(f -> {
               ClaroParser currNonMainSrcFileParser = getParserForSrcFile(f);
-              this.PACKAGE_STRING.ifPresent(s -> currNonMainSrcFileParser.package_string = s);
+              this.PACKAGE_STRING.ifPresent(
+                  s -> currNonMainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
               return currNonMainSrcFileParser;
             })
             .collect(ImmutableList.toImmutableList());
     Optional<ModuleApiParser> optionalModuleApiParser =
         optionalModuleApiSrcFile.map(this::getModuleApiParserForSrcFile);
     ClaroParser mainSrcFileParser = getParserForSrcFile(mainSrcFile);
-    this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s);
+    this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
 
     try {
       // Parse the non-main src files first.
@@ -181,7 +185,22 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           mainSrcFileParser.errorsFound +
           nonMainSrcFileParsers.stream().map(p -> p.errorsFound).reduce(Integer::sum).orElse(0);
       if (totalParserErrorsFound == 0 && Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
-        System.out.println(generateTargetOutputRes);
+        if (optionalModuleApiParser.isPresent()) {
+          // Here, we were asked to compile a non-executable Claro Module, rather than an executable Claro program. So,
+          // we need to populate and emit a SerializedClaroModule proto that can be used as a dep for other Claro
+          // Modules/programs.
+          serializeClaroModule(
+              this.PACKAGE_STRING.get(),
+              this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
+              optionalModuleApiSrcFile.get(),
+              generateTargetOutputRes,
+              nonMainSrcFiles
+          );
+        } else {
+          // Here, we were simply asked to codegen an executable Claro program. Output the codegen'd Java source to
+          // stdout directly where it will be piped by Claro's Bazel rules into the appropriate .java file.
+          System.out.println(generateTargetOutputRes);
+        }
         System.exit(0);
       } else {
         ClaroParser.errorMessages.forEach(Runnable::run);
@@ -220,6 +239,40 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     // Should actually be unreachable.
     throw new RuntimeException(
         "Internal Compiler Error! Should be unreachable. JavaSourceCompilerBackend failed to exit with explicit error code.");
+  }
+
+  private static void serializeClaroModule(
+      String projectPackage,
+      String uniqueModuleName,
+      SrcFile moduleApiSrcFile,
+      StringBuilder moduleCodegen,
+      ImmutableList<SrcFile> moduleImplFiles) throws IOException {
+    SerializedClaroModule.Builder serializedClaroModuleBuilder =
+        SerializedClaroModule.newBuilder()
+            .setModuleDescriptor(
+                SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+                    .setProjectPackage(projectPackage)
+                    .setUniqueModuleName(uniqueModuleName))
+            .setModuleApiFile(
+                SerializedClaroModule.ClaroSourceFile.newBuilder()
+                    .setOriginalFilename(moduleApiSrcFile.getFilename())
+                    .setOriginalFilenameBytes(
+                        ByteString.copyFrom(ByteStreams.toByteArray(moduleApiSrcFile.getFileInputStream()))))
+            .setStaticJavaCodegen(
+                ByteString.copyFrom(moduleCodegen.toString().getBytes(StandardCharsets.UTF_8)));
+    for (SrcFile moduleImplFile : moduleImplFiles) {
+      serializedClaroModuleBuilder.addModuleImplFiles(
+          SerializedClaroModule.ClaroSourceFile.newBuilder()
+              .setOriginalFilename(moduleImplFile.getFilename())
+              .setOriginalFilenameBytes(
+                  ByteString.copyFrom(ByteStreams.toByteArray(moduleImplFile.getFileInputStream()))));
+    }
+
+    // Finally write the proto message to stdout where Claro's Bazel rules will pipe this output into the appropriate
+    // .claro_module output file.
+    serializedClaroModuleBuilder
+        .build()
+        .writeDelimitedTo(System.out);
   }
 
   private void warnNumErrorsFound(int totalParserErrorsFound) {
