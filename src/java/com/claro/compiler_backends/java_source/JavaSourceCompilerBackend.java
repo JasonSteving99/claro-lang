@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharSource;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 
 import java.io.IOException;
@@ -39,43 +40,31 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   // TODO(steving) Migrate this file to use an actual cli library.
   // TODO(steving) Consider Apache Commons Cli 1.4 https://commons.apache.org/proper/commons-cli/download_cli.cgi
   public JavaSourceCompilerBackend(String... args) {
-    this.SILENT = args.length >= 1 && args[0].equals("--silent=true");
-    // For now if you're gonna pass 2 args you gotta pass them all...
-    if (args.length >= 2) {
-      // args[1] holds the generated classname.
-      this.GENERATED_CLASSNAME =
-          Optional.of(args[1].substring("--classname=".length())).map(n -> n.equals("") ? null : n);
-      // args[2] holds the flag for package...
-      String packageArg = args[2].substring("--package=".length());
-      this.PACKAGE_STRING = Optional.of(packageArg);
-      // args[3] is an *OPTIONAL* flag holding the list of files in this Claro module that should be read in instead of
-      // reading a single Claro file's contents from stdin.
-      if (args.length >= 4) {
-        this.SRCS =
-            ImmutableList.copyOf(args[3].substring("--srcs=".length()).split(","))
-                .stream()
-                .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.lastIndexOf('.')), f))
-                .collect(ImmutableList.toImmutableList());
-        if (args.length >= 5) {
-          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.of(args[4].substring("--module_unique_prefix=".length()));
-        } else {
-          this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
-        }
-      } else {
-        // TODO(steving) This is getting overly complicated just b/c I don't want to fix Riju's config. Go update Riju
-        //    so that this can all be simplified. Only need to continue supporting the single file case via stdin just
-        //    in order to avoid breaking Riju config which I'm not going to touch now.
-        StdLibUtil.setupBuiltinTypes = true;
-        // Turns out there's going to just be a single file that'll be consumed on STDIN.
-        this.SRCS = ImmutableList.of(SrcFile.create(this.GENERATED_CLASSNAME.get(), System.in));
-        this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
-      }
-    } else {
-      this.GENERATED_CLASSNAME = Optional.empty();
-      this.PACKAGE_STRING = Optional.empty();
-      this.SRCS = ImmutableList.of(SrcFile.create("", System.in));
-      this.OPTIONAL_UNIQUE_MODULE_NAME = Optional.empty();
+    JavaSourceCompilerBackendCLIOptions options = parseCLIOptions(args);
+
+    if (options.java_package.isEmpty() || options.srcs.isEmpty()) {
+      System.err.println("Error: --java_package and [--src ...]+ are required args.");
     }
+    if (options.classname.isEmpty() == options.unique_module_name.isEmpty()) {
+      System.err.println("Error: Exactly one of --unique_module_name and --classname should be set.");
+    }
+
+    this.SILENT = options.silent;
+    this.GENERATED_CLASSNAME = Optional.ofNullable(options.classname.isEmpty() ? null : options.classname);
+    this.PACKAGE_STRING = Optional.of(options.java_package);
+    this.SRCS =
+        options.srcs
+            .stream()
+            .map(f -> SrcFile.forFilenameAndPath(f.substring(f.lastIndexOf('/') + 1, f.lastIndexOf('.')), f))
+            .collect(ImmutableList.toImmutableList());
+    this.OPTIONAL_UNIQUE_MODULE_NAME =
+        Optional.ofNullable(options.unique_module_name.isEmpty() ? null : options.unique_module_name);
+  }
+
+  private static JavaSourceCompilerBackendCLIOptions parseCLIOptions(String... args) {
+    OptionsParser parser = OptionsParser.newOptionsParser(JavaSourceCompilerBackendCLIOptions.class);
+    parser.parseAndExitUponError(args);
+    return parser.getOptions(JavaSourceCompilerBackendCLIOptions.class);
   }
 
   // Note: This method is assuming that whatever script allowed you to invoke the compiler directly has already done

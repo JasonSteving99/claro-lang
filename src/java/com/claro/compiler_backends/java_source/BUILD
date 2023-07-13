@@ -4,9 +4,13 @@ load("//src/java/com/claro:claro_build_rules.bzl", "DEFAULT_CLARO_NAME")
 
 java_library(
     name = "java_source",
-    srcs = ["JavaSourceCompilerBackend.java"],
+    srcs = [
+        "JavaSourceCompilerBackend.java",
+        "JavaSourceCompilerBackendCLIOptions.java",
+    ],
     deps = [
       "//:autovalue",
+      "//:google-options",
       "//:guava",
       "//:protobuf",
       "//src/java/com/claro:" + DEFAULT_CLARO_NAME + "_java_parser",

@@ -9,6 +9,7 @@ filegroup(
 load("//src/java/com/claro:claro_build_rules.bzl",
      "claro_library",
      "claro_binary",
+     "claro_binary_RULE", # TODO(steving) Start using the actual rule impl rather than the Macro once dev complete.
      "gen_claro_builtin_java_deps_jar")
 
 # Generate target for the builtin Java deps that'll be needed by the CLI to build w/o Bazel.
@@ -435,5 +436,15 @@ claro_library(
     src = [
         "TestModuleImpl.claro",
         "TestModuleImpl2.claro",
-    ]
+    ],
+    debug = True,
+)
+
+# Test Claro's in-dev `claro_binary_RULE` which is going to replace the `claro_binary` macro.
+claro_binary_RULE(
+    name = "test",
+    main_file = "TestModuleImpl.claro",
+    srcs = [
+        "TestModuleImpl2.claro",
+    ],
 )

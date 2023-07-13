@@ -50,6 +50,7 @@ maven_install(
         JFLEX_ARTIFACTS +
         THIRD_PARTY_ARTIFACTS +
         [
+            "com.github.pcj:google-options:jar:1.0.0",
             "com.google.auto.value:auto-value:1.5.3",
             "com.google.guava:guava:jar:23.5-jre",
             "com.googlecode.lanterna:lanterna:3.1.1",

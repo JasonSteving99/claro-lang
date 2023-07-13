@@ -14,7 +14,7 @@ function main() {
 
   IFS='.' read -r -a CLARO_MAIN_FILE_PARTS <<< "$1" # somehow this means to split the parts of the file foo.claro into (foo . claro)
   CLARO_MAIN_FILE=${CLARO_MAIN_FILE_PARTS[0]}
-  CLARO_FILE_NAMES=$(echo "$@" | tr ' ' ',')
+  CLARO_FILE_NAMES=$(echo "" "$@" | sed 's/ / --src /g')
   echo "Main file: $CLARO_MAIN_FILE"
   echo "Files: $CLARO_FILE_NAMES"
 
@@ -52,10 +52,10 @@ function main() {
   jar -xf "$CLARO_BUILTIN_DEPS_PATH" com/claro/stdlib/claro/
   # Dynamically lookup the .claro_internal files found packed in the jar so I don't need to keep updating this script.
   CLARO_STDLIB_SRCS=$(find com -type f -name "*.claro_internal")
-  CLARO_STDLIB_SRCS=$(echo "$CLARO_STDLIB_SRCS" | tr '\n' ',') # Has trailing comma...
+  CLARO_STDLIB_SRCS=$(echo -n " $CLARO_STDLIB_SRCS" | tr '\n' ' ' | sed 's/ / --src /g')
 
   echo "Compiling $CLARO_MAIN_FILE.claro..."
-  java -jar "$CLARO_COMPILER_PATH" --java_source --silent=true --classname="$CLARO_MAIN_FILE" --package=com.claro --srcs="$CLARO_STDLIB_SRCS""$CLARO_FILE_NAMES" > "$CLARO_MAIN_FILE".java || die
+  java -jar "$CLARO_COMPILER_PATH" --java_source --silent=true --classname="$CLARO_MAIN_FILE" --package=com.claro $CLARO_STDLIB_SRCS $CLARO_FILE_NAMES > "$CLARO_MAIN_FILE".java || die
 
   echo "Compiling $CLARO_MAIN_FILE.java..."
   javac -cp ".:$CLARO_BUILTIN_DEPS_PATH" "$CLARO_MAIN_FILE".java -d .
@@ -129,6 +129,7 @@ function check_env_var_and_set_default() {
 function die() {
   # Make sure to still cleanup the tmpdir
   if [[ -z "$TMP_DIR" ]]; then
+    echo "Error: Cleaning up tmpdir."
     rm -r "$TMP_DIR"
   fi
   exit 1

@@ -1,6 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
 alias(
+    name = "google-options",
+    actual = "@maven//:com_github_pcj_google_options",
+)
+alias(
     name = "guava",
     actual = "@maven//:com_google_guava_guava",
 )

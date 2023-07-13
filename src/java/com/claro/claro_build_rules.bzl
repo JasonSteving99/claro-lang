@@ -37,6 +37,56 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "//src/java/com/claro/stdlib/userinput",
 ]
 
+def _claro_binary_RULE_impl(ctx): # TODO(steving) Rename to _claro_binary_impl() once finished w/ dev.
+    # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
+    # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
+    srcs = [ctx.files.main_file[0]] + [f for f in ctx.files.srcs if f != ctx.file.main_file]
+    print("Srcs Paths:", [ctx.genfiles_dir.path + '/' + f.path for f in srcs])
+
+    # By deriving the project package from the workspace name, this rule's able to ensure that generated Java sources
+    # end up using unique Java packages so that it doesn't conflict with any downstream deps.
+    project_package = ctx.workspace_name.replace('-', '.').replace('_', '.')
+
+    codegend_java_source = ctx.actions.declare_file(ctx.label.name + ".java")
+    print("Declaring Action to run Claro compiler to generate:", codegend_java_source)
+    # Declare an Action to execute the Claro compiler binary over the given srcs.
+    # Constructing the args using ctx.actions.args() is Bazel's approach to performance optimization akin to Java's
+    # use of StringBuilder rather than immediate String concatenations.
+    args = ctx.actions.args()
+    args.add("--java_source")
+    args.add("--silent=" + ("false" if ctx.attr.debug else "true"))
+    args.add("--package=" + project_package)
+    args.add_joined("--srcs", srcs, join_with=',')
+    print("Args:", args)
+    ctx.actions.run(
+        inputs = srcs,
+        outputs = [codegend_java_source],
+        arguments = [args],
+        progress_message = "Compiling Claro Program: " + ctx.label.name,
+        executable = ctx.executable._claro_compiler,
+    )
+
+#    executable = ctx.actions.declare_file(ctx.label.name + "_deploy.jar")
+#    print("Claro executable: ", executable)
+
+claro_binary_RULE = rule( # TODO(steving) Rename to claro_binary() once finished w/ dev.
+    implementation = _claro_binary_RULE_impl,
+    attrs = {
+        "main_file": attr.label(
+            mandatory = True,
+            allow_single_file = [".claro"],
+        ),
+        "srcs": attr.label_list(allow_files = [".claro"]),
+        "debug": attr.bool(default = False),
+        "_claro_compiler": attr.label(
+            default = Label("//src/java/com/claro:claro_compiler_binary_deploy.jar"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+    },
+)
+
 def claro_binary(name, srcs, java_name):
     native.java_binary(
         name = name,
@@ -104,7 +154,7 @@ def claro_library(name, src, module_api_file = None, java_name = None, claro_com
     native.genrule(
         name = name,
         srcs = srcs,
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --srcs=$$(echo $(SRCS) | tr ' ' ',') {4} > $(OUTS)".format(
+        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --src $$(echo $(SRCS) | sed 's/ / --src /g') {4} > $(OUTS)".format(
             claro_compiler_name,
             "false" if debug else "true", # --silent
             java_name, # --classname
