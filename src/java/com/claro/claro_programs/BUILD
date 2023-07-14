@@ -1,450 +1,186 @@
 package(default_visibility = ["//visibility:public"])
 
-# TODO(steving) Eventually cleanup and move those build targets in here as well.
-filegroup(
-    name = "claro_programs",
-    srcs = ["first.claro", "second.claro"],
-)
-
 load("//src/java/com/claro:claro_build_rules.bzl",
      "claro_library",
      "claro_binary",
-     "claro_binary_RULE", # TODO(steving) Start using the actual rule impl rather than the Macro once dev complete.
      "gen_claro_builtin_java_deps_jar")
 
 # Generate target for the builtin Java deps that'll be needed by the CLI to build w/o Bazel.
 gen_claro_builtin_java_deps_jar()
 
 claro_binary(
-    name = "conditions_compiled_claro_image",
-    srcs = [":conditions_compiled_claro"],
-    java_name = "Conditions",
-)
-
-claro_library(
-    name = "conditions_compiled_claro",
-    # TODO(steving) Fix Riju configuration so that we don't always need to have this file named Conditions.
-    src = "Conditions.claro",
-)
-
-claro_binary(
     name = "atoms",
-    srcs = [":atoms_lib"],
-    java_name = "atoms",
-)
-
-claro_library(
-    name = "atoms_lib",
-    src = "atoms.claro",
+    main_file = "atoms.claro",
 )
 
 claro_binary(
     name = "collection_comprehensions",
-    srcs = [":collection_comprehensions_lib"],
-    java_name = "collection_comprehensions",
-)
-
-claro_library(
-    name = "collection_comprehensions_lib",
-    src = "collection_comprehensions.claro",
+    main_file = "collection_comprehensions.claro",
 )
 
 claro_binary(
-    name = "contracts_compiled_claro_image",
-    srcs = [":contracts_compiled_claro"],
-    java_name = "contracts",
-)
-
-claro_library(
-    name = "contracts_compiled_claro",
-    src = "contracts.claro",
+    name = "contracts",
+    main_file = "contracts.claro",
 )
 
 claro_binary(
     name = "contracts_implied_types",
-    srcs = [":contracts_implied_types_lib"],
-    java_name = "contracts_implied_types",
-)
-
-claro_library(
-    name = "contracts_implied_types_lib",
-    src = "contracts_implied_types.claro",
+    main_file = "contracts_implied_types.claro",
 )
 
 claro_binary(
     name = "copy",
-    srcs = [":copy_lib"],
-    java_name = "copy",
-)
-
-claro_library(
-    name = "copy_lib",
-    src = "copy.claro",
+    main_file = "copy.claro",
 )
 
 claro_binary(
-    name = "dynamic_dispatch_compiled_claro_image",
-    srcs = [":dynamic_dispatch_compiled_claro"],
-    java_name = "dynamic_dispatch",
-)
-
-claro_library(
-    name = "dynamic_dispatch_compiled_claro",
-    src = "dynamic_dispatch.claro",
+    name = "dynamic_dispatch",
+    main_file = "dynamic_dispatch.claro",
 )
 
 claro_binary(
     name = "error_handling_and_propagation",
-    srcs = [":error_handling_and_propagation_lib"],
-    java_name = "error_handling_and_propagation",
-)
-
-claro_library(
-    name = "error_handling_and_propagation_lib",
-    src = "error_handling_and_propagation.claro",
+    main_file = "error_handling_and_propagation.claro",
 )
 
 claro_binary(
-    name = "generics_compiled_claro_image",
-    srcs = [":generics_compiled_claro"],
-    java_name = "generics",
-)
-
-claro_library(
-    name = "generics_compiled_claro",
-    src = "generics.claro",
+    name = "generics",
+    main_file = "generics.claro",
 )
 
 claro_binary(
-    name = "generic_return_inference_experimentation_compiled_claro_image",
-    srcs = [":generic_return_inference_experimentation_compiled_claro"],
-    java_name = "generic_return_inference_experimentation",
-)
-
-claro_library(
-    name = "generic_return_inference_experimentation_compiled_claro",
-    src = "generic_return_inference_experimentation.claro",
+    name = "generic_return_inference_experimentation",
+    main_file = "generic_return_inference_experimentation.claro",
 )
 
 claro_binary(
-    name = "exec_compiled_claro_image",
-    srcs = [":exec_compiled_claro"],
-    java_name = "exec",
-)
-
-claro_library(
-    name = "exec_compiled_claro",
-    src = "exec.claro",
+    name = "exec",
+    main_file = "exec.claro",
 )
 
 claro_binary(
     name = "for_loops",
-    srcs = [":for_loops_lib"],
-    java_name = "for_loops",
-)
-
-claro_library(
-    name = "for_loops_lib",
-    src = "for_loops.claro",
-)
-claro_binary(
-    name = "format_strings_compiled_claro_image",
-    srcs = [":format_strings_compiled_claro"],
-    java_name = "format_strings",
-)
-
-claro_library(
-    name = "format_strings_compiled_claro",
-    src = "format_strings.claro",
+    main_file = "for_loops.claro",
 )
 
 claro_binary(
-    name = "graphs_compiled_claro_image",
-    srcs = [":graphs_compiled_claro"],
-    java_name = "graphs",
+    name = "format_strings",
+    main_file = "format_strings.claro",
 )
 
-claro_library(
-    name = "graphs_compiled_claro",
-    src = "graphs.claro",
+claro_binary(
+    name = "graphs",
+    main_file = "graphs.claro",
 )
 
 claro_binary(
     name = "http_requests",
-    srcs = [":http_requests_lib"],
-    java_name = "http_requests",
-)
-
-claro_library(
-    name = "http_requests_lib",
-    src = "http_requests.claro",
+    main_file = "http_requests.claro",
 )
 
 claro_binary(
     name = "http_server",
-    srcs = [":http_server_lib"],
-    java_name = "http_server",
-)
-
-claro_library(
-    name = "http_server_lib",
-    src = "http_server.claro",
+    main_file = "http_server.claro",
 )
 
 claro_binary(
-    name = "immutability_vs_mutability",
-    srcs = [":immutability_vs_mutability_lib"],
-    java_name = "immutability_vs_mutability",
-)
-
-claro_library(
-    name = "immutability_vs_mutability_lib",
-    src = "immutability_vs_mutability.claro",
+    name = "immutability",
+    main_file = "immutability_vs_mutability.claro",
 )
 
 claro_binary(
-    name = "json_parsing",
-    srcs = [":json_parsing_lib"],
-    java_name = "json_parsing",
-)
-
-claro_library(
-    name = "json_parsing_lib",
-    src = "json_parsing.claro",
+    name = "json",
+    main_file = "json_parsing.claro",
 )
 
 claro_binary(
-    name = "keyword_generics_compiled_claro_image",
-    srcs = [":keyword_generics_compiled_claro"],
-    java_name = "keyword_generics",
-)
-
-claro_library(
-    name = "keyword_generics_compiled_claro",
-    src = "keyword_generics.claro",
+    name = "keyword",
+    main_file = "keyword_generics.claro",
 )
 
 claro_binary(
-    name = "lambdas_compiled_claro_image",
-    srcs = [":lambdas_compiled_claro"],
-    java_name = "lambdas",
-)
-
-claro_library(
-    name = "lambdas_compiled_claro",
-    src = "lambdas.claro",
+    name = "lambdas",
+    main_file = "lambdas.claro",
 )
 
 claro_binary(
-    name = "list_compiled_claro_image",
-    srcs = [":list_compiled_claro"],
-    java_name = "list",
-)
-
-claro_library(
-    name = "list_compiled_claro",
-    src = "list.claro",
+    name = "list",
+    main_file = "list.claro",
 )
 
 claro_binary(
-    name = "maps_compiled_claro_image",
-    srcs = [":maps_compiled_claro"],
-    java_name = "maps",
-)
-
-claro_library(
-    name = "maps_compiled_claro",
-    src = "maps.claro",
+    name = "maps",
+    main_file = "maps.claro",
 )
 
 claro_binary(
     name = "match",
-    srcs = [":match_lib"],
-    java_name = "match",
-)
-
-claro_library(
-    name = "match_lib",
-    src = "match.claro",
+    main_file = "match.claro",
 )
 
 claro_binary(
-    name = "modules_compiled_claro_image",
-    srcs = [":modules_compiled_claro"],
-    java_name = "modules",
-)
-
-claro_library(
-    name = "modules_compiled_claro",
-    src = "modules.claro",
+    name = "modules",
+    main_file = "modules.claro",
 )
 
 claro_binary(
-    name = "multiple_files",
-    srcs = [":multiple_files_lib"],
-    java_name = "multiple_files_A",
-)
-
-claro_library(
-    name = "multiple_files_lib",
-    src = [
-        "multiple_files_A.claro",
-        "multiple_files_B.claro"
-    ],
-    java_name = "multiple_files_A",
+    name = "oneof",
+    main_file = "oneof.claro",
 )
 
 claro_binary(
-    name = "oneof_compiled_claro_image",
-    srcs = [":oneof_compiled_claro"],
-    java_name = "oneof",
-)
-
-claro_library(
-    name = "oneof_compiled_claro",
-    src = "oneof.claro",
-)
-
-
-claro_binary(
-    name = "piping_compiled_claro_image",
-    srcs = [":piping_compiled_claro"],
-    java_name = "piping",
-)
-
-claro_library(
-    name = "piping_compiled_claro",
-    src = "piping.claro",
+    name = "piping",
+    main_file = "piping.claro",
 )
 
 claro_binary(
-    name = "procedures_compiled_claro_image",
-    srcs = [":procedures_compiled_claro"],
-    java_name = "procedures",
-)
-
-claro_library(
-    name = "procedures_compiled_claro",
-    src = "procedures.claro",
+    name = "procedures",
+    main_file = "procedures.claro",
 )
 
 claro_binary(
-    name = "recursion_compiled_claro_image",
-    srcs = [":recursion_compiled_claro"],
-    java_name = "recursion",
-)
-
-claro_library(
-    name = "recursion_compiled_claro",
-    src = "recursion.claro",
+    name = "recursion",
+    main_file = "recursion.claro",
 )
 
 # TODO(steving) TESTING!!! DO NOT SUBMIT! THIS IS NOT ACTUALLY WORKING. GOT REVEALED ONCE APPEND WAS MADE INTO A PROPER
-# TODO(steving) TESTING!!!   FUNCTION INSTEAD OF A COMPILER BUILTIN.
+# TODO(steving) TESTING!!!   FUNCTION INSTEAD OF A COMPILER BUILTIN. NEED TO DEPRECATE SUPPORT FOR RECURSIVE ALIASES!
 claro_binary(
-    name = "recursive_aliases_compiled_claro_image",
-    srcs = [":recursive_aliases_compiled_claro"],
-    java_name = "recursive_aliases",
-)
-
-claro_library(
-    name = "recursive_aliases_compiled_claro",
-    src = "recursive_aliases.claro",
+    name = "recursive",
+    main_file = "recursive_aliases.claro",
 )
 
 claro_binary(
     name = "repeat",
-    srcs = [":repeat_lib"],
-    java_name = "repeat",
-)
-
-claro_library(
-    name = "repeat_lib",
-    src = "repeat.claro",
+    main_file = "repeat.claro",
 )
 
 claro_binary(
-    name = "sets_compiled_claro_image",
-    srcs = [":sets_compiled_claro"],
-    java_name = "sets",
-)
-
-claro_library(
-    name = "sets_compiled_claro",
-    src = "sets.claro",
+    name = "sets",
+    main_file = "sets.claro",
 )
 
 claro_binary(
-    name = "structs_compiled_claro_image",
-    srcs = [":structs_compiled_claro"],
-    java_name = "structs",
-)
-
-claro_library(
-    name = "structs_compiled_claro",
-    src = "structs.claro",
+    name = "structs",
+    main_file = "structs.claro",
 )
 
 claro_binary(
-    name = "tuples_compiled_claro_image",
-    srcs = [":tuples_compiled_claro"],
-    java_name = "tuples",
-)
-
-claro_library(
-    name = "tuples_compiled_claro",
-    src = "tuples.claro",
+    name = "tuples",
+    main_file = "tuples.claro",
 )
 
 claro_binary(
-    name = "types_compiled_claro_image",
-    srcs = [":types_compiled_claro"],
-    java_name = "types",
-)
-
-claro_library(
-    name = "types_compiled_claro",
-    src = "types.claro",
+    name = "types",
+    main_file = "types.claro",
 )
 
 claro_binary(
     name = "user_defined_types",
-    srcs = [":user_defined_types_lib"],
-    java_name = "user_defined_types",
-)
-
-claro_library(
-    name = "user_defined_types_lib",
-    src = "user_defined_types.claro",
+    main_file = "user_defined_types.claro",
 )
 
 claro_binary(
-    name = "while_test_compiled_claro_image",
-    srcs = [":while_test_compiled_claro"],
-    java_name = "while_test",
-)
-
-claro_library(
-    name = "while_test_compiled_claro",
-    src = "while_test.claro",
-)
-
-# Test Claro's fledgling First-Class Module system.
-claro_library(
-    name = "module_test",
-    module_api_file = "TestModule.claro_module_api",
-    src = [
-        "TestModuleImpl.claro",
-        "TestModuleImpl2.claro",
-    ],
-    debug = True,
-)
-
-# Test Claro's in-dev `claro_binary_RULE` which is going to replace the `claro_binary` macro.
-claro_binary_RULE(
-    name = "test",
-    main_file = "TestModuleImpl.claro",
-    srcs = [
-        "TestModuleImpl2.claro",
-    ],
+    name = "while",
+    main_file = "while_test.claro",
 )

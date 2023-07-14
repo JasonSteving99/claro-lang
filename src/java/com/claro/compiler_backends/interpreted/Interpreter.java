@@ -25,8 +25,8 @@ public class Interpreter implements CompilerBackend {
     if (!this.SILENT) {
       System.out.println("Enter your expression:");
     }
-    // TODO(steving) DO NOT SUBMIT until you fix this to figure out a way to take in these files within Bazel scope.
-    String inputFile = "com/claro/claro_programs/second.claro";
+    // TODO(steving) THERE'S NO SUCH FILE. THIS INTERPRETER BACKEND IS COMPLETELY ABANDONED FOR NOW...
+    String inputFile = "to_interpret.claro";
     Scanner scan = null;
     try {
       scan = new Scanner(new File(inputFile));

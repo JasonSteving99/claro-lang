@@ -6,3 +6,5 @@ function intIdentity(i: int) -> int {
 function add(lhs: int, rhs: int) -> int {
   return lhs + rhs;
 }
+
+print("Just validate that this works.");

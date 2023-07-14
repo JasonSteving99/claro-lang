@@ -21,6 +21,8 @@ import com.google.common.io.CharSource;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +38,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final Optional<String> PACKAGE_STRING;
   private final ImmutableList<SrcFile> SRCS;
   private final Optional<String> OPTIONAL_UNIQUE_MODULE_NAME;
+  private final Optional<String> OPTIONAL_OUTPUT_FILE_PATH;
 
   // TODO(steving) Migrate this file to use an actual cli library.
   // TODO(steving) Consider Apache Commons Cli 1.4 https://commons.apache.org/proper/commons-cli/download_cli.cgi
@@ -59,6 +62,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             .collect(ImmutableList.toImmutableList());
     this.OPTIONAL_UNIQUE_MODULE_NAME =
         Optional.ofNullable(options.unique_module_name.isEmpty() ? null : options.unique_module_name);
+    this.OPTIONAL_OUTPUT_FILE_PATH =
+        Optional.ofNullable(options.output_file_path.isEmpty() ? null : options.output_file_path);
   }
 
   private static JavaSourceCompilerBackendCLIOptions parseCLIOptions(String... args) {
@@ -186,9 +191,26 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               nonMainSrcFiles
           );
         } else {
-          // Here, we were simply asked to codegen an executable Claro program. Output the codegen'd Java source to
-          // stdout directly where it will be piped by Claro's Bazel rules into the appropriate .java file.
-          System.out.println(generateTargetOutputRes);
+          if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
+            // Here we've been asked to write the output to a particular file.
+            File outputFile = null;
+            try {
+              outputFile = new File(this.OPTIONAL_OUTPUT_FILE_PATH.get());
+              outputFile.createNewFile();
+            } catch (IOException e) {
+              System.err.println("An error occurred while trying to open/create the specified output file: " +
+                                 this.OPTIONAL_OUTPUT_FILE_PATH.get());
+              e.printStackTrace();
+              System.exit(1);
+            }
+            try (FileWriter outputFileWriter = new FileWriter(outputFile)) {
+              outputFileWriter.write(generateTargetOutputRes.toString());
+            }
+          } else {
+            // Here, we were simply asked to codegen an executable Claro program. Output the codegen'd Java source to
+            // stdout directly where it will be piped by Claro's Bazel rules into the appropriate .java file.
+            System.out.println(generateTargetOutputRes);
+          }
         }
         System.exit(0);
       } else {

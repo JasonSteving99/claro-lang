@@ -10,7 +10,7 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
       name = "silent",
       abbrev = 's',
       help = "Compiler will omit debug output.",
-      defaultValue = "true"
+      defaultValue = "false"
   )
   public boolean silent;
 
@@ -44,4 +44,11 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
       defaultValue = ""
   )
   public String unique_module_name;
+
+  @Option(
+      name = "output_file_path",
+      help = "The path to the output file to put the generated Java.",
+      defaultValue = ""
+  )
+  public String output_file_path;
 }
