@@ -193,17 +193,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         } else {
           if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
             // Here we've been asked to write the output to a particular file.
-            File outputFile = null;
-            try {
-              outputFile = new File(this.OPTIONAL_OUTPUT_FILE_PATH.get());
-              outputFile.createNewFile();
-            } catch (IOException e) {
-              System.err.println("An error occurred while trying to open/create the specified output file: " +
-                                 this.OPTIONAL_OUTPUT_FILE_PATH.get());
-              e.printStackTrace();
-              System.exit(1);
-            }
-            try (FileWriter outputFileWriter = new FileWriter(outputFile)) {
+            try (FileWriter outputFileWriter = new FileWriter(createOutputFile())) {
               outputFileWriter.write(generateTargetOutputRes.toString());
             }
           } else {
@@ -252,7 +242,21 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         "Internal Compiler Error! Should be unreachable. JavaSourceCompilerBackend failed to exit with explicit error code.");
   }
 
-  private static void serializeClaroModule(
+  private File createOutputFile() {
+    File outputFile = null;
+    try {
+      outputFile = new File(this.OPTIONAL_OUTPUT_FILE_PATH.get());
+      outputFile.createNewFile();
+    } catch (IOException e) {
+      System.err.println("An error occurred while trying to open/create the specified output file: " +
+                         this.OPTIONAL_OUTPUT_FILE_PATH.get());
+      e.printStackTrace();
+      System.exit(1);
+    }
+    return outputFile;
+  }
+
+  private void serializeClaroModule(
       String projectPackage,
       String uniqueModuleName,
       SrcFile moduleApiSrcFile,
@@ -279,11 +283,15 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                   ByteString.copyFrom(ByteStreams.toByteArray(moduleImplFile.getFileInputStream()))));
     }
 
-    // Finally write the proto message to stdout where Claro's Bazel rules will pipe this output into the appropriate
-    // .claro_module output file.
-    serializedClaroModuleBuilder
-        .build()
-        .writeDelimitedTo(System.out);
+    if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
+      serializedClaroModuleBuilder.build().writeDelimitedTo(Files.newOutputStream(createOutputFile().toPath()));
+    } else {
+      // Finally write the proto message to stdout where Claro's Bazel rules will pipe this output into the appropriate
+      // .claro_module output file.
+      serializedClaroModuleBuilder
+          .build()
+          .writeDelimitedTo(System.out);
+    }
   }
 
   private void warnNumErrorsFound(int totalParserErrorsFound) {

@@ -1,12 +1,11 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_library")
+load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
 
 # Test Claro's fledgling First-Class Module system.
-claro_library(
+claro_module(
     name = "module_test",
     module_api_file = "TestModule.claro_module_api",
-    src = [
+    srcs = [
         "TestModuleImpl.claro",
         "TestModuleImpl2.claro",
     ],
-    debug = True,
 )

@@ -37,10 +37,15 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "//src/java/com/claro/stdlib/userinput",
 ]
 
-def _claro_binary_impl(ctx): # TODO(steving) Rename to _claro_binary_impl() once finished w/ dev.
-    # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
-    # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
-    srcs = [ctx.file.main_file] + [f for f in ctx.files.srcs if f != ctx.file.main_file]
+def _invoke_claro_compiler_impl(ctx):
+    is_module = ctx.file.module_api_file != None
+    if is_module:
+        srcs = [ctx.file.module_api_file] + ctx.files._stdlib_srcs + ctx.files.srcs
+    else:
+        # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
+        # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
+        srcs = ctx.files._stdlib_srcs + [ctx.file.main_file] + [f for f in ctx.files.srcs if f != ctx.file.main_file]
+        classname = ctx.file.main_file.basename[:len(ctx.file.main_file.basename) - len(".claro")]
 
     # By deriving the project package from the workspace name, this rule's able to ensure that generated Java sources
     # end up using unique Java packages so that it doesn't conflict with any downstream deps.
@@ -51,51 +56,75 @@ def _claro_binary_impl(ctx): # TODO(steving) Rename to _claro_binary_impl() once
     # use of StringBuilder rather than immediate String concatenations.
     args = ctx.actions.args()
     args.add("--java_source")
-    classname = ctx.file.main_file.basename[:len(ctx.file.main_file.basename) - len(".claro")]
-    args.add("--classname", classname)
+    if is_module:
+        args.add("--unique_module_name", ctx.attr.unique_module_name)
+    else:
+        args.add("--classname", classname)
     if not ctx.attr.debug:
         args.add("--silent")
     args.add("--package", project_package)
-    for stdlib_src in ctx.files._stdlib_srcs:
-        args.add("--src", stdlib_src)
     for src in srcs:
         args.add("--src", src)
-    args.add("--output_file_path", ctx.outputs.compiled_java)
+    args.add("--output_file_path", ctx.outputs.compiler_out)
 
     ctx.actions.run(
-        inputs = ctx.files._stdlib_srcs + srcs,
-        outputs = [ctx.outputs.compiled_java],
+        inputs = srcs,
+        outputs = [ctx.outputs.compiler_out],
         arguments = [args],
-        progress_message = "Compiling Claro Program: " + ctx.outputs.compiled_java.short_path,
+        progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.short_path,
         executable = ctx.executable._claro_compiler,
     )
 
 
-def claro_binary(name, **kwargs):
-    main_file = kwargs['main_file']
+def claro_binary(name, main_file, srcs, debug = False):
     main_file_name = main_file[:len(main_file) - len(".claro")]
-    _claro_binary(
+    _invoke_claro_compiler(
         name = "{0}_compile".format(name),
-        compiled_java = "{0}.java".format(main_file_name),
-        **kwargs
+        main_file = main_file,
+        compiler_out = "{0}.java".format(main_file_name),
+        srcs = srcs,
+        debug = debug,
     )
-
     native.java_binary(
         name = name,
+        # TODO(steving) I need this package to be derived from the package computed in _invoke_claro_compiler().
         main_class = "claro.lang." + main_file_name,
         srcs = [":{0}_compile".format(name)],
         deps = CLARO_BUILTIN_JAVA_DEPS,
     )
 
 
-_claro_binary = rule( # TODO(steving) Rename to claro_binary() once finished w/ dev.
-    implementation = _claro_binary_impl,
+def claro_module(name, module_api_file, srcs, debug = False):
+    _invoke_claro_compiler(
+        name = "{0}".format(name),
+        compiler_out = "{0}.claro_module".format(name),
+        module_api_file = module_api_file,
+        srcs = srcs,
+        # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
+        # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
+        # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
+        unique_module_name = native.package_name().replace('/', '$') + '$' + name,
+        debug = debug,
+    )
+
+
+_invoke_claro_compiler = rule(
+    implementation = _invoke_claro_compiler_impl,
     attrs = {
         "main_file": attr.label(
-            mandatory = True,
+            doc = "The .claro file containing top-level statements to be executed as the program's main entrypoint.\n" +
+                  "module_api_file must not be set if this is set.",
             allow_single_file = [".claro"],
+            default = None,
+        ),
+        "module_api_file": attr.label(
+            doc = "The .claro_module_api file containing this Module's API.\n" +
+                  "main_file must not be set if this is set.",
+            allow_single_file = [".claro_module_api"],
+            default = None,
         ),
         "srcs": attr.label_list(allow_files = [".claro"]),
+        "unique_module_name": attr.string(),
         "debug": attr.bool(default = False),
         "_claro_compiler": attr.label(
             default = Label("//src/java/com/claro:claro_compiler_binary"),
@@ -107,7 +136,7 @@ _claro_binary = rule( # TODO(steving) Rename to claro_binary() once finished w/ 
             default = [Label(stdlib_file) for stdlib_file in CLARO_STDLIB_FILES],
             allow_files = [".claro_internal"],
         ),
-        "compiled_java": attr.output(
+        "compiler_out": attr.output(
             doc = "The .java source file codegen'd by the Claro compiler. This is an intermediate output produced by " +
                   "this rule, and manually inspecting it should not be necessary for most users.",
             mandatory = True,
@@ -137,66 +166,6 @@ def gen_claro_builtin_java_deps_jar():
         resources = CLARO_STDLIB_FILES
     )
 
-# TODO(steving) Once Modules are fully supported (including handling transitive deps) this should be renamed to
-# TODO(steving)   claro_module and should always assume a .claro_module_api file is supplied. Then the claro_binary
-# TODO(steving)   should be extended to also invoke the compiler over some main file and non-main files along with
-# TODO(steving)   Module deps.
-def claro_library(name, src, module_api_file = None, java_name = None, claro_compiler_name = DEFAULT_CLARO_NAME, debug = False):
-    if module_api_file and java_name:
-        fail("claro_library: java_name must *not* be set when compiling a Module as signalled by providing a module_api_file.")
-    if module_api_file:
-        if not module_api_file.endswith(".claro_module_api"):
-            fail("claro_library: Provided module_api_file must use .claro_module_api extension.")
-        isModule = True
-    else:
-        isModule = False
-    if isModule:
-        java_name = ""
-    hasMultipleSrcs = str(type(src)) == "list"
-    # TODO(steving) TESTING!!! I NEED TO CHECK FOR A MODULE API FILE AND IF SO REQUIRE java_name = None
-    if hasMultipleSrcs:
-        if not isModule and not java_name:
-            fail("claro_library: java_name must be set when providing multiple srcs")
-        javaNameMatchesASrc = False
-        for filename in src:
-            if not filename.endswith(".claro"):
-                fail("claro_library: Provided srcs must use .claro extension.")
-            if filename[:-6] == java_name:
-                javaNameMatchesASrc = True
-        if not isModule and not javaNameMatchesASrc:
-            fail("claro_library: java_name must match one of the given srcs to indicate which one is the main file.")
-    else:
-        if not src.endswith(".claro"):
-            fail("claro_library: Provided src must use .claro extension.")
-        if not java_name:
-            java_name = src[:-6]
-    # Every Claro program comes prepackaged with a "stdlib". Achieve this by prepending default Claro src files.
-    srcs = ([module_api_file] if isModule else []) + CLARO_STDLIB_FILES + (src if hasMultipleSrcs else [src])
-    native.genrule(
-        name = name,
-        srcs = srcs,
-        cmd = "$(JAVA) -jar $(location //src/java/com/claro:{0}_compiler_binary_deploy.jar) --java_source --silent={1} --classname={2} --package={3} --src $$(echo $(SRCS) | sed 's/ / --src /g') {4} > $(OUTS)".format(
-            claro_compiler_name,
-            "false" if debug else "true", # --silent
-            java_name, # --classname
-            # TODO(steving) Once this macro is migrated to being a full on Bazel "rule", swap this DEFAULT_PACKAGE w/
-            # TODO(steving)   ctx.workspace_name instead.
-            # TODO(steving)   All Bazel workspace names must be formatted as "Java-package-style" strings. This is a super convenient
-            # TODO(steving)   way for this macro to automatically determine a "project_package" that should already be intended to be
-            # TODO(steving)   globally (internet-wide) unique.
-            # TODO(steving)   See: https://bazel.build/rules/lib/globals/workspace#parameters_3
-            # ctx.workspace_name.replace('_', '.').replace('-', '.'), # --package
-            DEFAULT_PACKAGE_PREFIX, # --package
-            # Here, construct a totally unique name for this particular module. Since we're using Bazel, I have the
-            # guarantee that this RULEDIR+target name is globally unique across the entire project.
-            "--unique_module_name=$$(echo $(RULEDIR) | cut -c $$(($$(echo $(GENDIR) | wc -c ) - 1))- | tr '/' '$$')\\$$" + name if isModule else ""
-        ),
-        toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"], # Gives the above cmd access to $(JAVA).
-        tools = [
-            "//src/java/com/claro:claro_compiler_binary_deploy.jar",
-        ],
-        outs = [java_name + ".java" if java_name else module_api_file[:-len("_api")]]
-    )
 
 def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
     native.java_binary(
