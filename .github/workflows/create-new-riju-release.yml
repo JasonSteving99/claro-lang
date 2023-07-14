@@ -16,9 +16,6 @@ jobs:
         uses: actions/checkout@v3
      
       - name: Build Release Artifacts
-        # --incompatible_restrict_string_escapes=false because there's a bug in 
-        # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
-        # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
         run: |          
           # In order to be able to run the Claro CLIs users will need the compiler and builtin Java deps Jars.
           bazel build //src/java/com/claro:claro_compiler_binary_deploy.jar
@@ -34,29 +31,7 @@ jobs:
               claro_builtin_java_deps_deploy.jar \
               claroc.sh \
               claro.sh
-          
-          # TODO(steving) DELETE THE REST OF THIS RUN SCRIPT. THE REST OF THIS SETUP IS A LEGACY HACK JOB
-          
-          # We must build the Conditions.claro program so that the necessary build artifacts are available.
-          bazel build //src/java/com/claro/claro_programs:conditions_compiled_claro_image
-          cd bazel-bin/src/java/com/claro
 
-          # Copy the AutoValue jar dep to the location where Riju expects it to be.
-          cp ../../../../external/maven/v1/https/jcenter.bintray.com/com/google/auto/value/auto-value/1.5.3/auto-value-1.5.3.jar claro_programs
-
-          # Setup a dir where Riju generated code will be placed during Riju deployment.
-          mkdir claro_programs/com
-          mkdir claro_programs/com/claro
-
-          # Now bump the version number that the REPL will show to the user. Put CLARO_VERSION.txt file
-          # in the claro_programs dir because this is the only directory getting packaged up and released
-          # for Riju and it's where the Riju config should be running the code from, making this file
-          # available at runtime to the REPL since in Riju it's being run outside of the Bazel sandbox.
-          echo "v0.1.${{ github.run_number }}" > claro_programs/CLARO_VERSION.txt
-
-          # Now we finally just need to create our tarball release of the claro_programs/ dir.
-          tar --exclude='claro_programs/conditions_compiled_claro_image.runfiles/local_jdk' --exclude='claro_programs/conditions_compiled_claro_image.runfiles/claro-lang/external/local_jdk' -hczvf claro-lang-bazel-bin.tar.gz claro_programs/
-          
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1 
@@ -65,19 +40,13 @@ jobs:
           tag_name: v0.1.${{ github.run_number }}
           name: v0.1.${{ github.run_number }} Automated Riju Release
           body: |
-            # This is an automated relase of resources needed to deploy Claro as part of Riju.
-            Check it out online at [riju.codes/claro](https://riju.codes/claro)
-            
-            ## Riju may still be running an old version:
-            Keep in mind that the latest Claro Release is only picked up by Riju when it goes through a redeploy. However, Riju is a project externally developed and maintained, so it generally may take some time for new Claro Releases to reach Riju.
+            # This is an automated relase of resources needed to install and run Claro locally.
+            Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#try-it-out-locally) to get started!
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-          # TODO(steving) REMOVE claro-lang-bazel-bin.tar.gz. THIS IS PART OF THE LEGACY HACK JOB FOR SETTING UP RIJU.
           files: |
             claro-cli-install.tar.gz
-            bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
-            bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar
 
   Deploy-User-Docs-to-GH-Pages:
     runs-on: ubuntu-latest
