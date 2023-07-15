@@ -11,11 +11,13 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.types.Types;
 import com.claro.module_system.ModuleApiParserUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.stdlib.StdLibUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharSource;
 import com.google.devtools.common.options.OptionsParser;
@@ -29,10 +31,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 
 public class JavaSourceCompilerBackend implements CompilerBackend {
+  private final ImmutableMap<String, SrcFile> MODULE_DEPS;
   private final boolean SILENT;
   private final Optional<String> GENERATED_CLASSNAME;
   private final Optional<String> PACKAGE_STRING;
@@ -62,6 +66,17 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             .collect(ImmutableList.toImmutableList());
     this.OPTIONAL_UNIQUE_MODULE_NAME =
         Optional.ofNullable(options.unique_module_name.isEmpty() ? null : options.unique_module_name);
+    this.MODULE_DEPS =
+        options.deps.stream().collect(ImmutableMap.toImmutableMap(
+            s -> s.substring(0, s.indexOf(':')),
+            s -> {
+              String modulePath = s.substring(s.indexOf(':') + 1);
+              return SrcFile.forFilenameAndPath(
+                  modulePath.substring(modulePath.lastIndexOf('/') + 1, modulePath.lastIndexOf('.')),
+                  modulePath
+              );
+            }
+        ));
     this.OPTIONAL_OUTPUT_FILE_PATH =
         Optional.ofNullable(options.output_file_path.isEmpty() ? null : options.output_file_path);
   }
@@ -120,8 +135,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   }
 
   private ModuleApiParser getModuleApiParserForSrcFile(SrcFile srcFile) {
-    ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(readFile(srcFile), srcFile.getFilename());
-    moduleApiParser.generatedClassName = srcFile.getFilename();
+    return getModuleApiParserForFileContents(srcFile.getFilename(), readFile(srcFile));
+  }
+
+  private ModuleApiParser getModuleApiParserForFileContents(String filename, String moduleApiFileContents) {
+    ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(moduleApiFileContents, filename);
+    moduleApiParser.generatedClassName = filename;
     return moduleApiParser;
   }
 
@@ -172,6 +191,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       }
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
+
+      // Just before jumping into the type checking, I need to set up the ScopedHeap with all symbols exported by the
+      // direct module deps.
+      setupModuleDepBindings(scopedHeap, this.MODULE_DEPS);
+
       // Here, type checking and codegen of ALL src files is happening at once.
       StringBuilder generateTargetOutputRes =
           mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
@@ -242,6 +266,21 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         "Internal Compiler Error! Should be unreachable. JavaSourceCompilerBackend failed to exit with explicit error code.");
   }
 
+  private void setupModuleDepBindings(ScopedHeap scopedHeap, ImmutableMap<String, SrcFile> moduleDeps) throws Exception {
+    for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
+      SerializedClaroModule parsedModule =
+          SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
+      ModuleApiParser depModuleApiParser = getModuleApiParserForFileContents(
+          moduleDep.getKey(), parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8());
+      ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
+      for (Map.Entry<String, Types.ProcedureType> depExportedSig
+          : depModuleNode.getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
+        // TODO(steving) Need to update this method to actually setup namespacing required by dep modules.
+        scopedHeap.putIdentifierValue(depExportedSig.getKey(), depExportedSig.getValue());
+      }
+    }
+  }
+
   private File createOutputFile() {
     File outputFile = null;
     try {
@@ -271,7 +310,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             .setModuleApiFile(
                 SerializedClaroModule.ClaroSourceFile.newBuilder()
                     .setOriginalFilename(moduleApiSrcFile.getFilename())
-                    .setOriginalFilenameBytes(
+                    .setSourceUtf8(
                         ByteString.copyFrom(ByteStreams.toByteArray(moduleApiSrcFile.getFileInputStream()))))
             .setStaticJavaCodegen(
                 ByteString.copyFrom(moduleCodegen.toString().getBytes(StandardCharsets.UTF_8)));
@@ -279,7 +318,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       serializedClaroModuleBuilder.addModuleImplFiles(
           SerializedClaroModule.ClaroSourceFile.newBuilder()
               .setOriginalFilename(moduleImplFile.getFilename())
-              .setOriginalFilenameBytes(
+              .setSourceUtf8(
                   ByteString.copyFrom(ByteStreams.toByteArray(moduleImplFile.getFileInputStream()))));
     }
 
@@ -303,27 +342,41 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   static abstract class SrcFile {
     abstract String getFilename();
 
-    abstract InputStream getFileInputStream();
+    abstract String getPath();
+
+    abstract Optional<InputStream> getOptionalReadOnceInputStream();
 
     abstract boolean getUsesClaroInternalFileSuffix();
 
     abstract boolean getUsesClaroModuleApiFileSuffix();
 
+    abstract boolean getUsesClaroModuleFileSuffix();
+
     static SrcFile forFilenameAndPath(String filename, String path) {
-      try {
-        return new AutoValue_JavaSourceCompilerBackend_SrcFile(
-            filename,
-            Files.newInputStream(FileSystems.getDefault().getPath(path), StandardOpenOption.READ),
-            path.endsWith(".claro_internal"),
-            path.endsWith(".claro_module_api")
-        );
-      } catch (IOException e) {
-        throw new RuntimeException("File not found:", e);
-      }
+      return new AutoValue_JavaSourceCompilerBackend_SrcFile(
+          filename,
+          path,
+          Optional.empty(),
+          path.endsWith(".claro_internal"),
+          path.endsWith(".claro_module_api"),
+          path.endsWith(".claro_module")
+      );
     }
 
     static SrcFile create(String filename, InputStream inputStream) {
-      return new AutoValue_JavaSourceCompilerBackend_SrcFile(filename, inputStream, false, false);
+      return new AutoValue_JavaSourceCompilerBackend_SrcFile(
+          filename, "", Optional.of(inputStream), false, false, false);
+    }
+
+    public InputStream getFileInputStream() {
+      if (getOptionalReadOnceInputStream().isPresent()) {
+        return getOptionalReadOnceInputStream().get();
+      }
+      try {
+        return Files.newInputStream(FileSystems.getDefault().getPath(getPath()), StandardOpenOption.READ);
+      } catch (IOException e) {
+        throw new RuntimeException("File not found:", e);
+      }
     }
   }
 }

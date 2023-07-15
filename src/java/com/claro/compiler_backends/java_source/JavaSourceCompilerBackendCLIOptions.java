@@ -46,6 +46,15 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public String unique_module_name;
 
   @Option(
+      name = "dep",
+      help = "A string in the format '<module_name>:<claro_module_file_path>' representing the binding of a concrete " +
+             "Module dependency directly depended upon by the .claro srcs in this claro_binary() or claro_module().",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> deps;
+
+  @Option(
       name = "output_file_path",
       help = "The path to the output file to put the generated Java.",
       defaultValue = ""

@@ -65,24 +65,36 @@ def _invoke_claro_compiler_impl(ctx):
     args.add("--package", project_package)
     for src in srcs:
         args.add("--src", src)
+    dep_module_runfiles = []
+    for module_dep_label, module_dep_name in ctx.attr.deps.items():
+        dep_module_runfiles.append(module_dep_label[DefaultInfo].files.to_list()[0])
+        args.add("--dep", module_dep_label.files.to_list()[0], format = "{0}:%s".format(module_dep_name))
     args.add("--output_file_path", ctx.outputs.compiler_out)
 
+    # Add all of the .claro_module files from our module deps targets to the declared inputs that we require Bazel to
+    # place in the sandbox for this compilation action.
+    inputs = srcs + [t.files.to_list()[0] for t in ctx.attr.deps.keys()]
     ctx.actions.run(
-        inputs = srcs,
+        inputs = inputs,
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],
         progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.short_path,
         executable = ctx.executable._claro_compiler,
     )
 
+    return [
+        DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles))
+    ]
 
-def claro_binary(name, main_file, srcs, debug = False):
+
+def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
     main_file_name = main_file[:len(main_file) - len(".claro")]
     _invoke_claro_compiler(
         name = "{0}_compile".format(name),
         main_file = main_file,
-        compiler_out = "{0}.java".format(main_file_name),
         srcs = srcs,
+        deps = {label: module_name for module_name, label in deps.items()},
+        compiler_out = "{0}.java".format(main_file_name),
         debug = debug,
     )
     native.java_binary(
@@ -124,6 +136,11 @@ _invoke_claro_compiler = rule(
             default = None,
         ),
         "srcs": attr.label_list(allow_files = [".claro"]),
+        "deps": attr.label_keyed_string_dict(
+            doc = "An optional set of Modules that this binary's sources directly depend on.",
+            allow_files = [".claro_module"],
+            # providers = ... Figure out how to utilize this to get deps from claro_module.
+        ),
         "unique_module_name": attr.string(),
         "debug": attr.bool(default = False),
         "_claro_compiler": attr.label(

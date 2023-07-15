@@ -1,0 +1,5 @@
+
+print("Going to try calling a function defined in a dep Module.");
+
+# TODO(steving) There's currently no namespacing in the syntax itself, this'll be worked out.
+print(add(2, 2));
