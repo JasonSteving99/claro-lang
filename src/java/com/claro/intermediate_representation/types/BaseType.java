@@ -45,7 +45,7 @@ public enum BaseType {
   FUNCTION(
       "function<%s -> %s>%s",
       "ClaroFunction<%s>",
-      "private static final class $%s extends ClaroFunction<%s> {\n" +
+      "public static final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
       "  private final $%s %s = this;\n" +
       "  public %s apply(Object... args) {\n" +
@@ -98,7 +98,7 @@ public enum BaseType {
   CONSUMER_FUNCTION(
       "consumer<%s>",
       "ClaroConsumerFunction",
-      "private static final class $%s extends ClaroConsumerFunction {\n" +
+      "public static final class $%s extends ClaroConsumerFunction {\n" +
       "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public void apply(Object... args) {\n" +
@@ -152,7 +152,7 @@ public enum BaseType {
   PROVIDER_FUNCTION(
       "provider<%s>",
       "ClaroProviderFunction<%s>",
-      "private static final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "public static final class $%s extends ClaroProviderFunction<%s> {\n" +
       "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public %s apply() {\n" +

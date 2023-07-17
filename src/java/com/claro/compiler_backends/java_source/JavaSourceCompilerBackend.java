@@ -177,6 +177,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
 
     try {
+      // Before even parsing the given .claro files, handle the given dependencies by accounting for all dep modules.
+      // I need to set up the ScopedHeap with all symbols exported by the direct module deps. Additionally, this is
+      // where the parsers will get configured with the necessary state to enable parsing references to bindings
+      // exported by the dep modules (e.g. `MyDep::foo(...)`) as module references rather than contract references.
+      setupModuleDepBindings(scopedHeap, this.MODULE_DEPS);
+
       // Parse the non-main src files first.
       ImmutableList.Builder<ProgramNode> parsedNonMainSrcFilePrograms = ImmutableList.builder();
       for (ClaroParser nonMainSrcFileParser : nonMainSrcFileParsers) {
@@ -191,10 +197,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       }
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
-
-      // Just before jumping into the type checking, I need to set up the ScopedHeap with all symbols exported by the
-      // direct module deps.
-      setupModuleDepBindings(scopedHeap, this.MODULE_DEPS);
 
       // Here, type checking and codegen of ALL src files is happening at once.
       StringBuilder generateTargetOutputRes =
@@ -270,13 +272,22 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
       SerializedClaroModule parsedModule =
           SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
+
+      // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
+      ScopedHeap.currProgramDepModules.put(moduleDep.getKey(), /*isUsed=*/false, parsedModule.getModuleDescriptor());
+
+      // Parse the .claro_module_api.
       ModuleApiParser depModuleApiParser = getModuleApiParserForFileContents(
           moduleDep.getKey(), parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8());
       ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
+
+      // Setup the symbol table to contain definitions for the bindings exported by this dep module.
       for (Map.Entry<String, Types.ProcedureType> depExportedSig
           : depModuleNode.getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
-        // TODO(steving) Need to update this method to actually setup namespacing required by dep modules.
-        scopedHeap.putIdentifierValue(depExportedSig.getKey(), depExportedSig.getValue());
+        // Use a disambiguation prefix for namespacing required by dep modules.
+        String disambiguatedProcedureName =
+            String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());
+        scopedHeap.putIdentifierValue(disambiguatedProcedureName, depExportedSig.getValue());
       }
     }
   }

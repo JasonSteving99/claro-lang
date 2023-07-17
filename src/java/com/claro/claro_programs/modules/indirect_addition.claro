@@ -1,0 +1,9 @@
+
+function intIdentity(i: int) -> int {
+  return i;
+}
+
+function add(lhs: int, rhs: int) -> int {
+  print("Deferring to dep module `Addition::add({lhs}, {rhs})`");
+  return Addition::add(lhs, rhs);
+}

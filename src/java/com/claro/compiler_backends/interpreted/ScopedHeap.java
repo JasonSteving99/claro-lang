@@ -3,10 +3,13 @@ package com.claro.compiler_backends.interpreted;
 import com.claro.ClaroParserException;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import java.util.*;
 import java.util.function.Function;
@@ -19,6 +22,9 @@ public class ScopedHeap {
   @VisibleForTesting
   public final Stack<Scope> scopeStack = new Stack<>();
   public boolean checkUnused = true;
+  // A table<depModuleName, isUsed, descriptor> of dep module descriptors and whether or not they have been referenced.
+  public static HashBasedTable<String, Boolean, SerializedClaroModule.UniqueModuleDescriptor> currProgramDepModules =
+      HashBasedTable.create();
 
   public void disableCheckUnused() {
     this.checkUnused = false;
@@ -145,6 +151,13 @@ public class ScopedHeap {
         )
     );
     scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
+  }
+
+  public static void markDepModuleUsed(String depModule) {
+    Map<Boolean, SerializedClaroModule.UniqueModuleDescriptor> depModuleRowMap =
+        ScopedHeap.currProgramDepModules.rowMap().get(depModule);
+    depModuleRowMap.put(/*isUsed=*/true, depModuleRowMap.get(/*isUsed=*/false));
+    depModuleRowMap.remove(/*isUsed=*/false);
   }
 
   public void deleteIdentifierValue(String identifier) {
@@ -350,7 +363,8 @@ public class ScopedHeap {
   }
 
   public void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
-    HashSet<String> unusedSymbolSet = new HashSet<>();
+    HashSet<String> unusedSymbolSet = Sets.newHashSet();
+    // First, I'll check for any unused variables.
     for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedSymbolTable.entrySet()) {
       if (!identifierEntry.getValue().used) {
         unusedSymbolSet.add(identifierEntry.getKey());
@@ -359,6 +373,23 @@ public class ScopedHeap {
     if (!unusedSymbolSet.isEmpty()) {
       throw new ClaroParserException(
           String.format("Warning! The following declared symbols are unused! %s", unusedSymbolSet));
+    }
+
+    // Then, I'll check for unused declared module dependencies, as this is technically just going to make the build
+    // less performant for no reason.
+    unusedSymbolSet = Sets.newHashSet();
+    for (String depModuleName : ScopedHeap.currProgramDepModules.rowKeySet()) {
+      if (ScopedHeap.currProgramDepModules.contains(depModuleName, /*isUsed=*/false)) {
+        unusedSymbolSet.add(depModuleName);
+      }
+    }
+    if (!unusedSymbolSet.isEmpty()) {
+      throw new ClaroParserException(
+          String.format(
+              "The following declared Module dependencies are unused! These build deps provide no value, and would " +
+              "reduce your build performance. Remove them from your build target, or use them.\n\t- %s",
+              String.join("\n\t- ", unusedSymbolSet)
+          ));
     }
   }
 

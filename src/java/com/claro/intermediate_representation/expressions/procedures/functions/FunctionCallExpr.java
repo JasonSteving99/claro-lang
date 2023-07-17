@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
@@ -23,6 +24,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class FunctionCallExpr extends Expr {
+  public Optional<String> optionalOriginatingDepModuleName;
   public String name;
   public boolean hashNameForCodegen = false;
   public boolean staticDispatchCodegen = false;
@@ -35,8 +37,21 @@ public class FunctionCallExpr extends Expr {
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.name = name;
     this.originalName = name;
+    this.argExprs = args;
+  }
+
+  public FunctionCallExpr(String depModuleName, String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, name);
+    this.name = disambiguatedName;
+    this.originalName = disambiguatedName;
     this.argExprs = args;
   }
 
@@ -691,8 +706,21 @@ public class FunctionCallExpr extends Expr {
       functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
           new StringBuilder(
               String.format(
-                  this.staticDispatchCodegen ? "%s(%s%s)" : "%s.apply(%s%s)",
-                  this.name,
+                  this.staticDispatchCodegen ? "%s%s(%s%s)" : "%s%s.apply(%s%s)",
+                  this.optionalOriginatingDepModuleName
+                      // Turns out I need to codegen the Java namespace of the dep module.
+                      .map(depMod -> {
+                        SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                            ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+                        return String.format(
+                            "%s.%s.",
+                            depModDescriptor.getProjectPackage(),
+                            depModDescriptor.getUniqueModuleName()
+                        );
+                      }).orElse(""),
+                  this.optionalOriginatingDepModuleName
+                      .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                      .orElse(this.name),
                   exprsJavaSourceBodyCodegen,
                   this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
                   ? ", " + this.optionalExtraArgsCodegen.get()

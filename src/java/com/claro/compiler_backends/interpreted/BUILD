@@ -27,5 +27,6 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:type",
+        "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
     ],
 )

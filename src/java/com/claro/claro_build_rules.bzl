@@ -66,9 +66,10 @@ def _invoke_claro_compiler_impl(ctx):
     for src in srcs:
         args.add("--src", src)
     dep_module_runfiles = []
-    for module_dep_label, module_dep_name in ctx.attr.deps.items():
-        dep_module_runfiles.append(module_dep_label[DefaultInfo].files.to_list()[0])
-        args.add("--dep", module_dep_label.files.to_list()[0], format = "{0}:%s".format(module_dep_name))
+    for module_dep_label, concatenated_module_dep_names in ctx.attr.deps.items():
+        for module_dep_name in concatenated_module_dep_names.split('$'):
+            dep_module_runfiles.append(module_dep_label[DefaultInfo].files.to_list()[0])
+            args.add("--dep", module_dep_label.files.to_list()[0], format = "{0}:%s".format(module_dep_name))
     args.add("--output_file_path", ctx.outputs.compiler_out)
 
     # Add all of the .claro_module files from our module deps targets to the declared inputs that we require Bazel to
@@ -82,6 +83,23 @@ def _invoke_claro_compiler_impl(ctx):
         executable = ctx.executable._claro_compiler,
     )
 
+    if is_module:
+        # I actually want to immediately unpack the .claro_module and produce a .java file for the static java codegen of
+        # this module. This is *solely* for the sake of this Bazel build being incremental. It's a bit strange for this rule
+        # to have just packed this into the .claro_module and then immediately extract it, but for now, my thought process
+        # is that this helps to ensure that this .java file is *actually* coming from this compiled module, and not from
+        # some external Bazel shenanigans... TODO(steving) This decision should be revisited in the future.
+        args = ctx.actions.args()
+        args.add("--claro_module_file", ctx.outputs.compiler_out)
+        args.add("--static_java_out", ctx.outputs.module_static_java_out)
+        ctx.actions.run(
+            inputs = [ctx.outputs.compiler_out],
+            outputs = [ctx.outputs.module_static_java_out],
+            arguments = [args],
+            progress_message = "Extracting Module Static Java Codegen: " + ctx.outputs.module_static_java_out.short_path,
+            executable = ctx.executable._module_deserialization_util,
+        )
+
     return [
         DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles))
     ]
@@ -93,7 +111,7 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
         name = "{0}_compile".format(name),
         main_file = main_file,
         srcs = srcs,
-        deps = {label: module_name for module_name, label in deps.items()},
+        deps = _transpose_module_deps_dict(deps),
         compiler_out = "{0}.java".format(main_file_name),
         debug = debug,
     )
@@ -101,24 +119,47 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
         name = name,
         # TODO(steving) I need this package to be derived from the package computed in _invoke_claro_compiler().
         main_class = "claro.lang." + main_file_name,
-        srcs = [":{0}_compile".format(name)],
-        deps = CLARO_BUILTIN_JAVA_DEPS,
+        srcs = [":{0}.java".format(main_file_name)],
+        deps = CLARO_BUILTIN_JAVA_DEPS +
+            ["{0}_compiled_claro_module_java_lib".format(dep) for dep in deps.values()],
     )
 
 
-def claro_module(name, module_api_file, srcs, debug = False):
+def claro_module(name, module_api_file, srcs, deps = {}, debug = False):
+    # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
+    # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
+    # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
+    unique_module_name = native.package_name().replace('/', '$') + '$' + name
+
     _invoke_claro_compiler(
         name = "{0}".format(name),
-        compiler_out = "{0}.claro_module".format(name),
         module_api_file = module_api_file,
         srcs = srcs,
-        # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
-        # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
-        # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
-        unique_module_name = native.package_name().replace('/', '$') + '$' + name,
+        deps = _transpose_module_deps_dict(deps),
+        unique_module_name = unique_module_name,
+        compiler_out = "{0}.claro_module".format(name),
+        module_static_java_out = "{0}.java".format(unique_module_name),
         debug = debug,
     )
+    native.java_library(
+        name = "{0}_compiled_claro_module_java_lib".format(name),
+        srcs = [":{0}.java".format(unique_module_name)],
+        deps = CLARO_BUILTIN_JAVA_DEPS +
+            # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
+            # dep more than once for different dep module impls in a claro_* rule.
+            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
+    )
 
+def _transpose_module_deps_dict(deps):
+    res = {}
+    for module_name, target in deps.items():
+        if target in res:
+            # Here, in order to allow a claro_*() rule to use the same impl target for multiple different dep modules,
+            # I'll use the scheme of concatenating the module names using '$', which is an invalid identifier char in Claro.
+            res[target] += "$" + module_name
+        else:
+            res[target] = module_name
+    return res
 
 _invoke_claro_compiler = rule(
     implementation = _invoke_claro_compiler_impl,
@@ -149,6 +190,12 @@ _invoke_claro_compiler = rule(
             executable = True,
             cfg = "host",
         ),
+        "_module_deserialization_util": attr.label(
+            default = Label("//src/java/com/claro/compiler_backends/java_source/deserialization:claro_module_deserialization_util"),
+            allow_files = True,
+            executable = True,
+            cfg = "host",
+        ),
         "_stdlib_srcs": attr.label_list(
             default = [Label(stdlib_file) for stdlib_file in CLARO_STDLIB_FILES],
             allow_files = [".claro_internal"],
@@ -158,6 +205,12 @@ _invoke_claro_compiler = rule(
                   "this rule, and manually inspecting it should not be necessary for most users.",
             mandatory = True,
         ),
+        "module_static_java_out": attr.output(
+            doc = "The .java source file that will contain the static java codegen extracted from the .claro_module " +
+                  "produced by this rule in order for dependent claro_binary() targets to access it directly for the " +
+                  "sake of incrementality.",
+            mandatory = False,
+        )
     },
 )
 

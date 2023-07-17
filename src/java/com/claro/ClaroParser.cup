@@ -3494,14 +3494,26 @@ function_call_expr ::=
        Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.getCurrentInputLine(), cright), new Line(function_name), new Line(l.getCurrentInputLine(), lright), new Line(args), new Line(r.getCurrentInputLine(), rright));
        int startCol = min(contract_name.startCol, cleft, function_name.startCol, lleft, args.left, rleft);
        int endCol = max(contract_name.endCol, cleft + c.getLen(), function_name.endCol, lleft + l.getLen(), args.left + ((LexedValue)args.value).getLen(), rleft + r.getLen());
-       RESULT =
-        new ContractFunctionCallExpr(
-          ((IdentifierReferenceTerm) contract_name).identifier,
-          contract_name,
-          ((IdentifierReferenceTerm) function_name).identifier,
-          function_name,
-          ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(),
-          currentLinesSupplier, rright, startCol, endCol);
+
+       // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
+       // the name of a dep module or not.
+       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(contractNameStr);
+         // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
+         RESULT = new FunctionCallExpr(contractNameStr, ((IdentifierReferenceTerm) function_name).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+       } else {
+         // This is in fact a contract procedure call, referencing a contract defined w/in this current compilation unit.
+         RESULT =
+          new ContractFunctionCallExpr(
+            contractNameStr,
+            contract_name,
+            ((IdentifierReferenceTerm) function_name).identifier,
+            function_name,
+            ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(),
+            currentLinesSupplier, rright, startCol, endCol);
+       }
     :}
   ;
 
