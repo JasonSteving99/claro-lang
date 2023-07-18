@@ -1,0 +1,11 @@
+
+# This encodes the public API of the Buggy-Buggies site available at https://buggy-buggies.gigalixirapp.com/.
+# Claro will generate a non-blocking RPC client for you via the following:
+#   `var myClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");`
+HttpService BuggyBuggies {
+  hostGame: "/api/host/{handle}",
+  friendsJoin: "/api/game/{gameId}/join/{handle}",
+  move: "/api/game/{gameId}/player/{secret}/move/{direction}",
+  worldInfo: "/api/game/{gameId}/player/{secret}/info",
+  reset: "/api/game/{gameId}/player/{secret}/reset"
+}

@@ -1,0 +1,88 @@
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# BEGIN Dijkstra.claro
+####################################################################################################
+
+alias DistanceVia : struct {dist: int, via: oneof<Position, Nothing>}
+alias BestPath : [Position]
+
+function dijkstra(world: {Position: string}, start: Position) -> BestPath {
+  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  defaultDictPut(distances, start, {dist = 0, via = start});
+  var pq = getHeap();
+  insert(pq, {dist = 0, pos = start});
+  var visited: mut {Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
+
+  while (not heapIsEmpty(pq)) {
+    var currPos = extract_min(pq);
+    if (currPos instanceof Position) {
+      if (currPos in visited) {
+        continue;
+      }
+      visited[currPos] = true;
+      for (weightedNeighbor in getWeightedNeighbors(world, currPos)) {
+        var neighbor = weightedNeighbor.neighbor;
+        var weight = weightedNeighbor.weight;
+        if ((defaultDictGet(distances, currPos).dist + weight) < defaultDictGet(distances, neighbor).dist) {
+          defaultDictPut(distances, neighbor, {dist = defaultDictGet(distances, currPos).dist + weight, via = currPos});
+          insert(pq, {dist = defaultDictGet(distances, neighbor).dist, pos = neighbor});
+        }
+      }
+    }
+  }
+
+  return rebuildBestPath(world, asMap(distances));
+}
+
+function rebuildBestPath(world: {Position: string}, distances: {Position: DistanceVia}) -> BestPath {
+  var route: mut [Position] = mut [];
+  var currPos = findCoinWithLowestScore(world, distances);
+  while (true) {
+    append(route, currPos);
+    var via = distances[currPos].via;
+    if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
+      break;
+    } else if (via instanceof Position) {
+      # I know for a fact it's a Position, but this is the only way to convince Claro of that.
+      currPos = via;
+    }
+  }
+  return copy(route);
+}
+
+function findCoinWithLowestScore(world: {Position: string}, distances: {Position: DistanceVia}) -> Position {
+  var currBest: tuple<Position, DistanceVia> = (Position({x = -1, y = -1}), {dist = 999999, via = Position({x = -1, y = -1})}); # TODO(steving) Need some representation of INFINITY in stdlib.
+  for (distEntry in distances) {
+    if ((distEntry[0] in world) and (world[distEntry[0]] == "coin") and (distEntry[1].dist < currBest[1].dist)) {
+      currBest = distEntry;
+    }
+  }
+  return currBest[0];
+}
+
+function getWeightedNeighbors(world: {Position: string}, pos: Position) -> [struct {neighbor: Position, weight: int}] {
+  var neighbors: mut [struct {neighbor: Position, weight: int}] = mut [];
+  var updatePos: function<|int, int| -> Position> =
+    lambda (dx, dy) -> Position({x = unwrap(pos).x + dx, y = unwrap(pos).y + dy});
+  var validateMove: consumer<mut [struct {neighbor: Position, weight: int}], int, int> =
+    lambda (l, dx, dy) -> {
+      var n = updatePos(dx, dy);
+      if ((not (n in world)) or (world[n] == "coin")) {
+        # TODO(steving) Making every neighbor have equal weight means Dijkstra's is just an extremely complicated BFS...
+        # TODO(steving) Soon, update this implementation to actually evaluate a score for moving into this position.
+        append(l, {neighbor = n, weight = 1});
+      }
+    };
+
+  for (dir in [(-1, 0), (1, 0), (0, -1), (0, 1)]) { # [LEFT, RIGHT, DOWN, UP]
+    validateMove(neighbors, dir[0], dir[1]);
+  }
+
+  return copy(neighbors);
+}
+
+####################################################################################################
+# TODO(steving) Claro badly needs a module system!
+# END Dijkstra.claro
+####################################################################################################

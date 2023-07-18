@@ -1,0 +1,50 @@
+
+function movesFromBestPath(bestPath: BestPath) -> [string] {
+  var moves: mut [string] = mut [];
+  var getDelta: function<int -> tuple<int, int>> =
+    i -> {
+      var dx = unwrap(bestPath[i]).x - unwrap(bestPath[i + 1]).x;
+      var dy = unwrap(bestPath[i]).y - unwrap(bestPath[i + 1]).y;
+      return (dx, dy);
+    };
+
+  var i = len(bestPath) - 2;
+  while (i >= 0) {
+    var delta = getDelta(i--);
+    # TODO(steving) Exhaustive match would be so nice.
+    if (delta == (1, 0)) {
+      append(moves, "E");
+    } else if (delta == (-1, 0)) {
+      append(moves, "W");
+    } else if (delta == (0, 1)) {
+      append(moves, "S");
+    } else {
+      append(moves, "N");
+    }
+  }
+  return copy(moves);
+}
+
+function parseWorldMap(world: {string: string}) -> {Position: string} {
+  var parsePos: function<string -> Position> = rawPos -> {
+    var xstring = rawPos[0];
+    var i = 1;
+    while (rawPos[i] != ",") {
+      xstring = "{xstring}{rawPos[i++]}";
+    }
+    var ystring = rawPos[i + 1];
+    i = i + 2;
+    while (i < len(rawPos)) {
+      ystring = "{ystring}{rawPos[i++]}";
+    }
+    # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
+    var x: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(xstring))).result;
+    var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
+    # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
+    if ((x instanceof int) and (y instanceof int)) {
+      return Position({x = x, y = y});
+    }
+    return Position({x = -1, y = -1});
+  };
+  return {parsePos(e[0]) : e[1] | e in world};
+}

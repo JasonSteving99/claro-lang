@@ -1,0 +1,7 @@
+
+function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, Error<string>>) -> [string] {
+  match (buggyResponse) {
+    case _:string        -> return [buggyResponse];
+    case _:Error<string> -> return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
+  }
+}

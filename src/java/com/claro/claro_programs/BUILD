@@ -76,11 +76,6 @@ claro_binary(
 )
 
 claro_binary(
-    name = "http_server",
-    main_file = "http_server.claro",
-)
-
-claro_binary(
     name = "immutability",
     main_file = "immutability_vs_mutability.claro",
 )
