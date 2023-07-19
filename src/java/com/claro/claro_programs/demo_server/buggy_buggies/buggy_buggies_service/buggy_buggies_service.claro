@@ -9,3 +9,7 @@ HttpService BuggyBuggies {
   worldInfo: "/api/game/{gameId}/player/{secret}/info",
   reset: "/api/game/{gameId}/player/{secret}/reset"
 }
+
+function getClient(url: string) -> HttpClient<BuggyBuggies> {
+  return getHttpClient(url);
+}

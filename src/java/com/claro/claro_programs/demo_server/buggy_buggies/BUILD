@@ -14,22 +14,13 @@ load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary")
 claro_binary(
     name = "buggy_buggies_http_server",
     main_file = "buggy_buggies_http_server.claro",
-    # TODO(steving) These should be extracted into claro_module() dep targets for proper namespacing once possible.
     srcs = [
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:agent.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:dijkstra.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_move_response.claro",
+        # TODO(steving) This should be extracted into a claro_module() dep target for proper namespacing once possible.
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_service.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:heap.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:game_move_handler.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:game_page_handler.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:get_best_moves_handler.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:start_new_game_handler.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:handle_buggy_response.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:reduce.claro",
     ],
     deps = {
+        "EndpointHandlers": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:endpoint_handlers",
+        "Utils": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:utils",
         # ... TODO(steving) Populate with real module deps.
     },
 )

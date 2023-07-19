@@ -3535,12 +3535,22 @@ provider_function_call_expr ::=
        Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.getCurrentInputLine(), cright), new Line(provider_name), new Line(l.getCurrentInputLine(), lright), new Line(r.getCurrentInputLine(), rright));
        int startCol = min(contract_name.startCol, cleft, provider_name.startCol, lleft, rleft);
        int endCol = max(contract_name.endCol, cleft + c.getLen(), provider_name.endCol, lleft + l.getLen(), rleft + r.getLen());
-       RESULT = new ContractProviderFunctionCallExpr(
-         contract_name.identifier,
-         contract_name,
-         provider_name.identifier,
-         provider_name,
-         currentLinesSupplier, rright, startCol, endCol);
+       // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
+       // the name of a dep module or not.
+       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(contractNameStr);
+         // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
+         RESULT = new ProviderFunctionCallExpr(contractNameStr, ((IdentifierReferenceTerm) provider_name).identifier, currentLinesSupplier, rright, startCol, endCol);
+       } else {
+         RESULT = new ContractProviderFunctionCallExpr(
+           contract_name.identifier,
+           contract_name,
+           provider_name.identifier,
+           provider_name,
+           currentLinesSupplier, rright, startCol, endCol);
+       }
     :}
   ;
 
@@ -3556,12 +3566,22 @@ consumer_function_call_stmt ::=
     :}
   | identifier:contract_name COLON_COLON identifier:consumer_name LPAR:l args_list:args RPAR:r SEMICOLON
     {:
-       RESULT = new ContractConsumerFunctionCallStmt(
-         ((IdentifierReferenceTerm) contract_name).identifier,
-         contract_name,
-         ((IdentifierReferenceTerm) consumer_name).identifier,
-         consumer_name,
-         ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
+       // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
+       // the name of a dep module or not.
+       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(contractNameStr);
+         // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
+         RESULT = new ConsumerFunctionCallStmt(contractNameStr, ((IdentifierReferenceTerm) consumer_name).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
+       } else {
+         RESULT = new ContractConsumerFunctionCallStmt(
+           ((IdentifierReferenceTerm) contract_name).identifier,
+           contract_name,
+           ((IdentifierReferenceTerm) consumer_name).identifier,
+           consumer_name,
+           ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
+       }
     :}
   ;
 

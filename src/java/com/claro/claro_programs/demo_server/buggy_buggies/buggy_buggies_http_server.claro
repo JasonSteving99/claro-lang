@@ -24,19 +24,19 @@ HttpService MyDemoService {
 endpoint_handlers MyDemoService {
   graph provider gamePage() -> future<HttpResponse> {
     root res <- getOk200HttpResponseForHtml(@formattedHtml);
-    node formattedHtml <- gamePageHandler();
+    node formattedHtml <- EndpointHandlers::gamePageHandler();
   }
 
   graph provider startNewGame() -> future<HttpResponse> {
     root res <- getOk200HttpResponseForJson(@formattedJson);
-    node formattedJson <- startNewGameHandler("Jason");
+    node formattedJson <- EndpointHandlers::startNewGameHandler("Jason");
   }
 
   graph function joinGame(gameId: string, handle: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForHtml(@formattedHtml);
-    node formattedHtml <- handleBuggyResponseAsHtmlStrParts(@joinResponse)[0];
+    node formattedHtml <- Utils::handleBuggyResponseAsHtmlStrParts(@joinResponse)[0];
     node joinResponse <- friendsJoin(
-      cast(HttpClient<BuggyBuggies>, getHttpClient("https://buggy-buggies.gigalixirapp.com")),
+      getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       handle
     );
@@ -44,16 +44,16 @@ endpoint_handlers MyDemoService {
 
   graph function gameMove(gameId: string, playerSecret: string, dir: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForHtml(@formattedHtml);
-    node formattedHtml <- gameMoveHandler(gameId, playerSecret, @dirsMap[dir]);
+    node formattedHtml <- EndpointHandlers::gameMoveHandler(gameId, playerSecret, @dirsMap[dir]);
     node dirsMap <- {"up": "N", "down": "S", "right": "E", "left": "W"};
   }
 
   graph function getBestMoves(gameId: string, playerSecret: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForJson(@formattedJson);
-    node formattedJson <- getBestMovesHandler(@parsedWorld);
+    node formattedJson <- EndpointHandlers::getBestMovesHandler(@parsedWorld);
     # TODO(steving) Figure out how to use just a singleton client.
     node parsedWorld <- worldInfo(
-      cast(HttpClient<BuggyBuggies>, getHttpClient("https://buggy-buggies.gigalixirapp.com")),
+      getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret
     );
@@ -61,9 +61,9 @@ endpoint_handlers MyDemoService {
 
   graph function resetGame(gameId: string, playerSecret: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForJson(@formattedJson);
-    node formattedJson <- handleBuggyResponseAsHtmlStrParts(@resetResponse)[0];
+    node formattedJson <- Utils::handleBuggyResponseAsHtmlStrParts(@resetResponse)[0];
     node resetResponse <- reset(
-      cast(HttpClient<BuggyBuggies>, getHttpClient("https://buggy-buggies.gigalixirapp.com")),
+      getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret
     );

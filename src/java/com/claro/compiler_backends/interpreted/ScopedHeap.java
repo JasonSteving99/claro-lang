@@ -154,10 +154,13 @@ public class ScopedHeap {
   }
 
   public static void markDepModuleUsed(String depModule) {
-    Map<Boolean, SerializedClaroModule.UniqueModuleDescriptor> depModuleRowMap =
-        ScopedHeap.currProgramDepModules.rowMap().get(depModule);
-    depModuleRowMap.put(/*isUsed=*/true, depModuleRowMap.get(/*isUsed=*/false));
-    depModuleRowMap.remove(/*isUsed=*/false);
+    // Don't need to do anything if this module's already been marked used.
+    if (ScopedHeap.currProgramDepModules.contains(depModule, /*isUsed=*/false)) {
+      Map<Boolean, SerializedClaroModule.UniqueModuleDescriptor> depModuleRowMap =
+          ScopedHeap.currProgramDepModules.rowMap().get(depModule);
+      depModuleRowMap.put(/*isUsed=*/true, depModuleRowMap.get(/*isUsed=*/false));
+      depModuleRowMap.remove(/*isUsed=*/false);
+    }
   }
 
   public void deleteIdentifierValue(String identifier) {

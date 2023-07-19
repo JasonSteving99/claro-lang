@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class ProviderFunctionCallExpr extends Expr {
+  private final Optional<String> optionalOriginatingDepModuleName;
   protected String functionName;
   private final String originalName;
   protected boolean hashNameForCodegen;
@@ -26,8 +28,20 @@ public class ProviderFunctionCallExpr extends Expr {
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.functionName = functionName;
     this.originalName = functionName;
+  }
+
+  public ProviderFunctionCallExpr(String depModuleName, String name, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, name);
+    this.functionName = disambiguatedName;
+    this.originalName = disambiguatedName;
   }
 
   @Override
@@ -170,7 +184,24 @@ public class ProviderFunctionCallExpr extends Expr {
           );
     }
 
-    StringBuilder res = new StringBuilder(String.format("%s.apply()", this.functionName));
+    StringBuilder res =
+        new StringBuilder(String.format(
+            "%s%s.apply()",
+            this.optionalOriginatingDepModuleName
+                // Turns out I need to codegen the Java namespace of the dep module.
+                .map(depMod -> {
+                  SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                      ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+                  return String.format(
+                      "%s.%s.",
+                      depModDescriptor.getProjectPackage(),
+                      depModDescriptor.getUniqueModuleName()
+                  );
+                }).orElse(""),
+            this.optionalOriginatingDepModuleName
+                .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                .orElse(this.functionName)
+        ));
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset

@@ -1,10 +1,10 @@
 
 graph function startNewGameHandler(handle: string) -> future<string> {
-  root joinRes <- handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse)[0];
+  root joinRes <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse)[0];
   # TODO(steving) Figure out how to use just a singleton client.
   node moveBuggyResponse <-
     hostGame(
-      cast(HttpClient<BuggyBuggies>, getHttpClient("https://buggy-buggies.gigalixirapp.com")),
+      getClient("https://buggy-buggies.gigalixirapp.com"),
       handle
     );
 }

@@ -125,7 +125,7 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
     )
 
 
-def claro_module(name, module_api_file, srcs, deps = {}, debug = False):
+def claro_module(name, module_api_file, srcs, deps = {}, debug = False, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
     # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
@@ -140,6 +140,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, debug = False):
         compiler_out = "{0}.claro_module".format(name),
         module_static_java_out = "{0}.java".format(unique_module_name),
         debug = debug,
+        **kwargs # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
     )
     native.java_library(
         name = "{0}_compiled_claro_module_java_lib".format(name),
@@ -148,6 +149,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, debug = False):
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.
             {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
+        **kwargs # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
     )
 
 def _transpose_module_deps_dict(deps):

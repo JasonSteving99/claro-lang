@@ -1,8 +1,29 @@
+load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
+
 package(default_visibility = ["//src/java/com/claro/claro_programs/demo_server/buggy_buggies:__pkg__"])
 
-# TODO(steving) This is only temporary. Long term, once Claro's Module system supports exporting newtype defs and
-# TODO(steving)   initializers/unwrappers, then these .claro files should be properly exposed via modules.
-exports_files(glob(["*.claro"]))
+claro_module(
+    name = "endpoint_handlers",
+    module_api_file = "endpoint_handlers.claro_module_api",
+    srcs = [
+        ":gen_game_page_handler", # Notice this is a Bazel-generated file. Macros anyone? :)
+        "game_move_handler.claro",
+        "get_best_moves_handler.claro",
+        "start_new_game_handler.claro",
+        # TODO(steving) These should be Module deps rather than included sources once Modules are supported.
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:agent.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:dijkstra.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:heap.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:reduce.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_service.claro",
+        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_move_response.claro",
+    ],
+    deps = {
+        "Utils": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:utils",
+        # ... TODO(steving) Populate with real module deps.
+    },
+)
 
 # All of this is obviously some seriously over-complicated nonsense, but I've intentionally done this as a demonstration
 # of Claro's integration w/ Bazel being a great enabler for building dynamic code generation solutions in a safe and

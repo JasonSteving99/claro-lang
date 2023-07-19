@@ -1,11 +1,11 @@
 
 graph function gameMoveHandler(gameId: string, playerSecret: string, dir: string) -> future<string> {
   root formattedHtml <- reduce(@htmlStrParts, "", lambda (accum, curr) -> { return "{accum}{curr}"; });
-  node htmlStrParts <- handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse);
+  node htmlStrParts <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse);
   # TODO(steving) Figure out how to use just a singleton client.
   node moveBuggyResponse <-
     move(
-      cast(HttpClient<BuggyBuggies>, getHttpClient("https://buggy-buggies.gigalixirapp.com")),
+      getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret,
       dir

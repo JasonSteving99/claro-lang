@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
+  private final Optional<String> optionalOriginatingDepModuleName;
   protected String consumerName;
   public boolean hashNameForCodegen = false;
   public boolean staticDispatchCodegen = false;
@@ -29,8 +31,21 @@ public class ConsumerFunctionCallStmt extends Stmt {
 
   public ConsumerFunctionCallStmt(String consumerName, ImmutableList<Expr> args) {
     super(ImmutableList.of());
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.consumerName = consumerName;
     this.originalName = consumerName;
+    this.argExprs = args;
+  }
+
+  public ConsumerFunctionCallStmt(String depModuleName, String consumerName, ImmutableList<Expr> args) {
+    super(ImmutableList.of());
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, consumerName);
+    this.consumerName = disambiguatedName;
+    this.originalName = disambiguatedName;
     this.argExprs = args;
   }
 
@@ -249,8 +264,21 @@ public class ConsumerFunctionCallStmt extends Stmt {
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
                 String.format(
-                    this.staticDispatchCodegen ? "%s(%s%s);\n" : "%s.apply(%s%s);\n",
-                    this.consumerName,
+                    this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
+                    this.optionalOriginatingDepModuleName
+                        // Turns out I need to codegen the Java namespace of the dep module.
+                        .map(depMod -> {
+                          SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                              ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+                          return String.format(
+                              "%s.%s.",
+                              depModDescriptor.getProjectPackage(),
+                              depModDescriptor.getUniqueModuleName()
+                          );
+                        }).orElse(""),
+                    this.optionalOriginatingDepModuleName
+                        .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                        .orElse(this.consumerName),
                     this.argExprs
                         .stream()
                         .map(expr -> {

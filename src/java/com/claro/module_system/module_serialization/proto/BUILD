@@ -7,6 +7,7 @@ java_proto_library(
         "//src/java/com/claro/compiler_backends:__subpackages__",
         "//src/java/com/claro/compiler_backends/interpreted:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
+        "//src/java/com/claro/intermediate_representation/statements:__pkg__",
     ]
 )
 

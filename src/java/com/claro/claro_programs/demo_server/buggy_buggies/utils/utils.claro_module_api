@@ -1,0 +1,3 @@
+# This module is simply a dumping ground of uncategorized utility functions.
+
+function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, Error<string>>) -> [string];
