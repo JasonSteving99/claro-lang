@@ -30,7 +30,7 @@ public class ModuleApiParserUtil {
     ModuleApiLexer lexer = createLexer(input);
     lexer.moduleFilename = srcFilename;
     ModuleApiParser parser = new ModuleApiParser(lexer);
-    parser.generatedClassName = srcFilename;
+    parser.moduleName = srcFilename;
     return parser;
   }
 }

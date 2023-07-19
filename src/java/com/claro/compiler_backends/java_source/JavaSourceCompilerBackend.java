@@ -11,6 +11,7 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.module_system.ModuleApiParserUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
@@ -138,9 +139,9 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     return getModuleApiParserForFileContents(srcFile.getFilename(), readFile(srcFile));
   }
 
-  private ModuleApiParser getModuleApiParserForFileContents(String filename, String moduleApiFileContents) {
-    ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(moduleApiFileContents, filename);
-    moduleApiParser.generatedClassName = filename;
+  private ModuleApiParser getModuleApiParserForFileContents(String moduleName, String moduleApiFileContents) {
+    ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(moduleApiFileContents, moduleName);
+    moduleApiParser.moduleName = moduleName;
     return moduleApiParser;
   }
 
@@ -172,7 +173,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             })
             .collect(ImmutableList.toImmutableList());
     Optional<ModuleApiParser> optionalModuleApiParser =
-        optionalModuleApiSrcFile.map(this::getModuleApiParserForSrcFile);
+        optionalModuleApiSrcFile
+            .map(moduleApiSrcFile -> {
+              ModuleApiParser res = getModuleApiParserForSrcFile(moduleApiSrcFile);
+              res.isModuleApiForCurrentCompilationUnit = true;
+              return res;
+            });
     ClaroParser mainSrcFileParser = getParserForSrcFile(mainSrcFile);
     this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
 
@@ -269,6 +275,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   }
 
   private void setupModuleDepBindings(ScopedHeap scopedHeap, ImmutableMap<String, SrcFile> moduleDeps) throws Exception {
+    ImmutableMap.Builder<String, ModuleNode> moduleDepNodes = ImmutableMap.builder();
     for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
       SerializedClaroModule parsedModule =
           SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
@@ -280,10 +287,20 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       ModuleApiParser depModuleApiParser = getModuleApiParserForFileContents(
           moduleDep.getKey(), parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8());
       ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
+      moduleDepNodes.put(moduleDep.getKey(), depModuleNode);
 
-      // Setup the symbol table to contain definitions for the bindings exported by this dep module.
+      // Register any newtype defs found in the module.
+      for (NewTypeDefStmt newTypeDefStmt : depModuleNode.exportedNewTypeDefs) {
+        newTypeDefStmt.registerTypeProvider(scopedHeap);
+        newTypeDefStmt.registerConstructorTypeProvider(scopedHeap);
+      }
+    }
+
+    // After having successfully parsed all dep module files and registered all of their exported types, it's time to
+    // finally register all of their exported procedure signatures.
+    for (Map.Entry<String, ModuleNode> moduleDep : moduleDepNodes.build().entrySet()) {
       for (Map.Entry<String, Types.ProcedureType> depExportedSig
-          : depModuleNode.getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
+          : moduleDep.getValue().getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
         // Use a disambiguation prefix for namespacing required by dep modules.
         String disambiguatedProcedureName =
             String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());

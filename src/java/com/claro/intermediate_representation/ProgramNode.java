@@ -104,9 +104,23 @@ public class ProgramNode {
     // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
     // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
     // TYPE DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+      // defs exported by the module that should also be accessible w/in its implementation sources.
+      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
+        exportedNewTypeDef.registerTypeProvider(scopedHeap);
+      }
+    }
     runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // PROCEDURE DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+      // defs exported by the module whose constructors should also be accessible w/in its implementation sources.
+      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
+        exportedNewTypeDef.registerConstructorTypeProvider(scopedHeap);
+      }
+    }
     runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // CONTRACT DISCOVERY PHASE:
@@ -142,6 +156,17 @@ public class ProgramNode {
 
     // NON-PROCEDURE/MODULE STATEMENT TYPE VALIDATION PHASE:
     // Validate all types in the entire remaining AST before execution.
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+      // defs exported by the module whose constructors require type checking.
+      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
+        try {
+          exportedNewTypeDef.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
     runPhaseOverAllProgramFiles(
         p -> {
           try {
@@ -193,6 +218,13 @@ public class ProgramNode {
     // Refuse to do code-gen phase if there were any type validation errors.
     StringBuilder res = null; // I hate null but am also too lazy right now to refactor to Optional<StringBuilder>
     if (Expr.typeErrorsFound.isEmpty() && miscErrorsFound.isEmpty()) {
+      if (ProgramNode.moduleApiDef.isPresent()) {
+        // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+        // defs exported by the module whose constructors require codegen.
+        for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
+          exportedNewTypeDef.generateJavaSourceOutput(scopedHeap);
+        }
+      }
       // Begin codegen on all non-main src files.
       Node.GeneratedJavaSource programJavaSource = Node.GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
       for (ProgramNode currNonMainProgramNode : ProgramNode.nonMainFiles) {

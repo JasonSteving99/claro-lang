@@ -120,6 +120,9 @@ WhiteSpace     = [ \t\f]
     "consumer"         { return symbol(Tokens.CONSUMER_FUNCTION_TYPE, 0, 8, "consumer"); }
     "provider"         { return symbol(Tokens.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
 
+    "alias"            { return symbol(Tokens.ALIAS, 0, 5, "alias"); }
+    "newtype"          { return symbol(Tokens.NEWTYPE, 0, 7, "newtype"); }
+
     // Modifiers go here.
     "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }
 

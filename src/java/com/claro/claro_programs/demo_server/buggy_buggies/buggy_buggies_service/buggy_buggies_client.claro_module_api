@@ -1,0 +1,19 @@
+# Claro-generated non-blocking HttpClient for the BuggyBuggies HttpService.
+
+function getClient(url: string) -> HttpClient<BuggyBuggies>;
+
+function hostGame(buggyBuggiesClient: HttpClient<BuggyBuggies>, handle: string)
+  -> future<oneof<string, Error<string>>>;
+
+function friendsJoin(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, handle: string)
+  -> future<oneof<string, Error<string>>>;
+
+function move(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string, direction: string)
+  -> future<oneof<string, Error<string>>>;
+
+function worldInfo(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
+  -> future<oneof<string, Error<string>>>;
+
+function reset(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
+  -> future<oneof<string, Error<string>>>;
+

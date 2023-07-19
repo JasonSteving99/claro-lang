@@ -2,6 +2,7 @@ package com.claro;
 
 import com.claro.intermediate_representation.*;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.SupportsMutableVariant;
@@ -38,10 +39,21 @@ action code {:
         endCol - startCol)
       );
   }
+
+  public String getDisambiguatedExportedIdentifierName(String originalName) {
+    if (isModuleApiForCurrentCompilationUnit) {
+      // In this case, there's actually no disambiguation needed. This module is defining its own type in its module api
+      // definition file, so its impl srcs should be able to reference this type directly w/o any explicit namespacing.
+      return originalName;
+    }
+    // Use a disambiguation prefix for namespacing required by dep modules.
+    return String.format("$DEP_MODULE$%s$%s", moduleName, originalName);
+  }
 :}
 
 parser code {:
-  public String generatedClassName = "module";  // default to be overridden.
+  public boolean isModuleApiForCurrentCompilationUnit = false; // default to be overridden.
+  public String moduleName = "module";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
 
   public int errorsFound = 0;
@@ -59,7 +71,7 @@ parser code {:
         if (lexedValue == null) {
           return;
         }
-        System.err.print(String.format("%s.claro_module_api:%s: ", generatedClassName, currSymbol.right + 1));
+        System.err.print(String.format("%s.claro_module_api:%s: ", moduleName, currSymbol.right + 1));
         System.err.println("Unexpected token <" + lexedValue.getVal() + ">");
         String currentInputLineString = lexedValue.getCurrentInputLine().get();
         if (Character.isWhitespace(currentInputLineString.charAt(currentInputLineString.length() - 1))) {
@@ -144,9 +156,12 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVER;
+terminal LexedValue<String>  ALIAS;
+terminal LexedValue<String>  NEWTYPE, INITIALIZERS, UNWRAPPERS;
 
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ModuleNode                         module;
+nonterminal ModuleNode.ModuleApiStmtsBuilder   module_api_defs;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ImmutableList<String>              generic_blocking_on;
@@ -155,8 +170,7 @@ nonterminal TypeProvider                       maybe_blocking_procedure_types;
 nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
 nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
-// Unfortunately IntelliJ is starting to take a dump on this file since it's gotten massive, so it will no longer
-// correctly parse this type even though JCup and Java are handling the file like a champ.
+nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal Symbol/*TypeProvider*/             builtin_type;
 nonterminal Symbol/*TypeProvider*/             base_builtin_type_without_mutability_modifier;
 nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
@@ -174,9 +188,40 @@ precedence left LPAR, RPAR, LBRACKET, RBRACKET;
 
 // This is where the grammar starts.
 module ::=
-    contract_signature_defs_list:exported_procedures
+    module_api_defs:module_api_defs
     {:
-       RESULT = new ModuleNode(exported_procedures.build().reverse(), generatedClassName, package_string);
+       RESULT = new ModuleNode(
+         module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
+         module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
+         moduleName,
+         package_string
+       );
+    :}
+  ;
+
+module_api_defs ::=
+    contract_procedure_signature_definition_stmt:exported_procedure module_api_defs:tail
+    {:
+       tail.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = tail;
+    :}
+  | newtype_def_stmt:newtype_def_stmt module_api_defs:tail
+    {:
+       tail.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = tail;
+    :}
+
+  | contract_procedure_signature_definition_stmt:exported_procedure
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = res;
+    :}
+  | newtype_def_stmt:newtype_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = res;
     :}
   ;
 
@@ -518,12 +563,14 @@ base_builtin_type_without_mutability_modifier ::=
     :}
   | IDENTIFIER:type_name
     {:
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       String disambiguatedTypeName = getDisambiguatedExportedIdentifierName(type_name.getVal());
        RESULT = new Symbol(
           -1,
           type_nameleft,
           type_nameright, // line number
           LexedValue.create(
-            TypeProvider.Util.getTypeByName(type_name.getVal(), /*isTypeDefinition=*/true),
+            TypeProvider.Util.getTypeByName(disambiguatedTypeName, /*isTypeDefinition=*/true),
             type_name.getCurrentInputLine(),
             type_name.getLen())
        );
@@ -740,24 +787,28 @@ identifier_list ::=
           joinExprLines(new Line(arg_name.getCurrentInputLine(), arg_nameright), new Line(c.getCurrentInputLine(), cright), new Line(((LexedValue)tail.value).getCurrentInputLine(), tail.right));
        int startCol = min(arg_nameleft, cleft);
        int endCol = max(arg_nameleft + arg_name.getLen(), cleft + c.getLen());
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       String disambiguatedArgName = getDisambiguatedExportedIdentifierName(arg_name.getVal());
        RESULT = new Symbol(
           -1,
           startCol,
           tail.right, // line number
           LexedValue.create(
-            ((LexedValue<ImmutableList.Builder<String>>)tail.value).getVal().add(arg_name.getVal()),
+            ((LexedValue<ImmutableList.Builder<String>>)tail.value).getVal().add(disambiguatedArgName),
             currentLinesSupplier,
             endCol - startCol)
        );
     :}
   | IDENTIFIER:arg_name
     {:
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       String disambiguatedArgName = getDisambiguatedExportedIdentifierName(arg_name.getVal());
        RESULT = new Symbol(
           -1,
           arg_nameleft,
           arg_nameright, // line number
           LexedValue.create(
-            ImmutableList.<String>builder().add(arg_name.getVal()),
+            ImmutableList.<String>builder().add(disambiguatedArgName),
             arg_name.getCurrentInputLine(),
             arg_name.getLen())
        );
@@ -819,17 +870,6 @@ procedure_args_w_generic_blocking ::=
   | IDENTIFIER:arg_name COLON builtin_type:t
     {:
       RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name.getVal(), ((LexedValue<TypeProvider>) t.value).getVal());
-    :}
-  ;
-
-contract_signature_defs_list ::=
-    contract_procedure_signature_definition_stmt:signature contract_signature_defs_list:tail
-    {:
-      RESULT = tail.add(signature);
-    :}
-  | contract_procedure_signature_definition_stmt:signature
-    {:
-      RESULT = ImmutableList.<ContractProcedureSignatureDefinitionStmt>builder().add(signature);
     :}
   ;
 
@@ -951,4 +991,19 @@ contract_procedure_signature_definition_stmt ::=
      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
      RESULT = new ContractProcedureSignatureDefinitionStmt(name.getVal(), Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
    :}
+  ;
+
+newtype_def_stmt ::=
+    NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), baseTypeLexedVal.getVal());
+    :}
+  | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+    :}
   ;

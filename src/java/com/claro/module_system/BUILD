@@ -40,18 +40,19 @@ java_library(
         ":gen_module_api_parser",
     ],
     deps = [
+        "@jflex_rules//third_party/cup",  # the runtime would be sufficient
+        "//:guava",
         "//src/java/com/claro:lexed_value",
         "//src/java/com/claro/intermediate_representation:module_node",
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
+        "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts:user_defined_type_def_stmts",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
         "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:types",
-        "//:guava",
-        "@jflex_rules//third_party/cup",  # the runtime would be sufficient
     ],
 )
 

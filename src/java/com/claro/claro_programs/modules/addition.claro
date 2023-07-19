@@ -1,4 +1,4 @@
 
-function add(lhs: int, rhs: int) -> int {
-  return lhs + rhs;
+function add(lhs: FancyInt, rhs: FancyInt) -> int {
+  return unwrap(lhs) + unwrap(rhs);
 }

@@ -1,2 +1,4 @@
 
-function add(lhs: int, rhs: int) -> int;
+newtype FancyInt : int
+
+function add(lhs: FancyInt, rhs: FancyInt) -> int;
