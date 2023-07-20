@@ -110,6 +110,10 @@ public class ProgramNode {
       for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
         exportedNewTypeDef.registerTypeProvider(scopedHeap);
       }
+      // Now, since all the types defined by this and dep modules are all known, time to validate that the initializers
+      // and unwrappers are only defined for valid user-defined types exported by *this* module.
+      ProgramNode.moduleApiDef.get()
+          .assertInitializersAndUnwrappersBlocksAreDefinedOnTypesExportedByThisModule(scopedHeap);
     }
     runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
 

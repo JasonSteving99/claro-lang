@@ -1,4 +1,17 @@
 
+# This function happens to be exported by the associated addition.claro_module_api file as an "initializer" for the
+# exported type FancyInt. This is an organizational choice that's only important from the perspective of Module api
+# design. This isn't relevant w/in this .claro source file as declaring this w/in an initializers block here would only
+# be unnnecessarily restrictive. I'm doing this to demonstrate the design flexibility enabled by this separation between
+# .claro and .claro_module_api files.
+function getFancyInt(i: int) -> FancyInt {
+  return FancyInt(i);
+}
+
+function unwrapFancyInt(f: FancyInt) -> int {
+  return unwrap(f);
+}
+
 function add(lhs: FancyInt, rhs: FancyInt) -> int {
   return unwrap(lhs) + unwrap(rhs);
 }

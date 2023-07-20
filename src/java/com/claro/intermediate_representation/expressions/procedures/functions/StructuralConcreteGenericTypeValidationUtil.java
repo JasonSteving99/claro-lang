@@ -327,7 +327,13 @@ public class StructuralConcreteGenericTypeValidationUtil {
             case HTTP_SERVER:
               return Types.HttpServerType.forHttpService(validatedParameterizedArgTypes.get(0));
             case USER_DEFINED_TYPE:
-              return Types.UserDefinedType.forTypeNameAndParameterizedTypes(((Types.UserDefinedType) functionExpectedArgType).getTypeName(), validatedParameterizedArgTypes);
+              Types.UserDefinedType functionExpectedArgUserDefinedType =
+                  ((Types.UserDefinedType) functionExpectedArgType);
+              return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                  functionExpectedArgUserDefinedType.getTypeName(),
+                  functionExpectedArgUserDefinedType.getDefiningModuleDisambiguator(),
+                  validatedParameterizedArgTypes
+              );
           }
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");

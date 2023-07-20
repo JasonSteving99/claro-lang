@@ -44,7 +44,11 @@ public class HttpServiceDefStmt extends Stmt {
                                 ImmutableList.of(
                                     Types.STRING,
                                     Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                                        "Error", ImmutableList.of(Types.STRING))
+                                        "Error",
+                                        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                                        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                                        ImmutableList.of(Types.STRING)
+                                    )
                                 )));
                       }
 
@@ -83,7 +87,11 @@ public class HttpServiceDefStmt extends Stmt {
                                     ImmutableList.of(
                                         Types.STRING,
                                         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                                            "Error", ImmutableList.of(Types.STRING))
+                                            "Error",
+                                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                                            ImmutableList.of(Types.STRING)
+                                        )
                                     )))))
                 ));
 
@@ -146,7 +154,11 @@ public class HttpServiceDefStmt extends Stmt {
                       ImmutableList.of(
                           Types.STRING,
                           Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                              "Error", ImmutableList.of(Types.STRING))
+                              "Error",
+                              // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                              /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                              ImmutableList.of(Types.STRING)
+                          )
                       )))),
           syntheticHttpProcStmtList.apply(
               endpoint.getValue() instanceof FormatStringExpr

@@ -26,6 +26,20 @@ public class ScopedHeap {
   public static HashBasedTable<String, Boolean, SerializedClaroModule.UniqueModuleDescriptor> currProgramDepModules =
       HashBasedTable.create();
 
+  public static String getDefiningModuleDisambiguator(Optional<String> optionalOriginatingDepModuleName) {
+    if (optionalOriginatingDepModuleName.isPresent()) {
+      return ScopedHeap.currProgramDepModules.get(optionalOriginatingDepModuleName.get(), /*isUsed=*/true)
+          .getUniqueModuleName();
+    }
+    SerializedClaroModule.UniqueModuleDescriptor thisModuleDesc;
+    if ((thisModuleDesc = ScopedHeap.currProgramDepModules.get("$THIS_MODULE$", /*isUsed=*/true)) != null) {
+      return thisModuleDesc.getUniqueModuleName();
+    }
+    // Turns out this is not defined within a module (it's just a top-level src in a claro_binary()) so since nobody
+    // else can depend on this, we don't need any disambiguator.
+    return "";
+  }
+
   public void disableCheckUnused() {
     this.checkUnused = false;
   }

@@ -44,13 +44,13 @@ public class UnwrappersBlockStmt extends Stmt {
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     if (!scopedHeap.isIdentifierDeclared(this.unwrappedTypeName)) {
-      throw ClaroTypeException.forIllegalInitializersBlockReferencingUndeclaredInitializedType(this.unwrappedTypeName);
+      throw ClaroTypeException.forIllegalInitializersBlockReferencingUndeclaredInitializedType(this.unwrappedTypeName, /*initializers=*/false);
     }
     Type validatedInitializedType =
         TypeProvider.Util.getTypeByName(this.unwrappedTypeName, true).resolveType(scopedHeap);
     if (!validatedInitializedType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
       throw ClaroTypeException.forIllegalInitializersBlockReferencingNonUserDefinedType(
-          this.unwrappedTypeName, validatedInitializedType);
+          this.unwrappedTypeName, validatedInitializedType, /*initializers=*/false);
     }
 
     // Do type validation of all the initializer procedures. Note, that these procedures will be uniquely allowed to

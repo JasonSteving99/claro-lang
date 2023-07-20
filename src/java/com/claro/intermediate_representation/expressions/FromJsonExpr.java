@@ -43,6 +43,8 @@ public class FromJsonExpr extends Expr {
 
     Type expectedResultType = Types.UserDefinedType.forTypeNameAndParameterizedTypes(
         "ParsedJson",
+        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
         ImmutableList.of(Types.$GenericTypeParam.forTypeParamName("T"))
     );
     HashMap<Type, Type> targetConcreteTypeMap = Maps.newHashMap();

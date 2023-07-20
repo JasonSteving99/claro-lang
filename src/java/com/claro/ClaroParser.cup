@@ -23,6 +23,7 @@ import com.claro.runtime_utilities.injector.InjectedKeyIdentifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.base.Strings;
 import java_cup.runtime.Symbol;
 import java.lang.Math;
@@ -144,6 +145,7 @@ action code {:
 parser code {:
   public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
+  public Optional<String> optionalUniqueModuleName = Optional.empty(); // default to be overridden. Something like "src$com$foo$module".
   public Consumer<String> printerDelegate = System.out::println;
 
   public int errorsFound = 0;
@@ -1140,6 +1142,11 @@ base_builtin_type_without_mutability_modifier ::=
           LexedValue.create(
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
+              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+              ImmutableSet.of("Error", "ParsedJson").contains(type_name.getVal())
+              ? ""
+              : optionalUniqueModuleName.orElse(""),
               concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
             ),
             currentLinesSupplier,

@@ -1,6 +1,7 @@
 package com.claro;
 
 import com.claro.intermediate_representation.*;
+import com.claro.intermediate_representation.expressions.term.*;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.BaseType;
@@ -13,6 +14,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.base.Strings;
 import java_cup.runtime.Symbol;
 import java.util.Map;
@@ -54,7 +56,7 @@ action code {:
 parser code {:
   public boolean isModuleApiForCurrentCompilationUnit = false; // default to be overridden.
   public String moduleName = "module";  // default to be overridden.
-  public String package_string = "";  // default to be overridden.
+  public String uniqueModuleName = "";  // default to be overridden. Something like "src$com$foo$module".
 
   public int errorsFound = 0;
   public static Stack<Runnable> errorMessages = new Stack<>();
@@ -168,13 +170,16 @@ nonterminal ImmutableList<String>              generic_blocking_on;
 nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
 nonterminal TypeProvider                       maybe_blocking_procedure_types;
 nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
-nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
+nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ initializers_block_stmt;
+nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ unwrappers_block_stmt;
+nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
 nonterminal Symbol/*TypeProvider*/             builtin_type;
 nonterminal Symbol/*TypeProvider*/             base_builtin_type_without_mutability_modifier;
 nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
 nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
+nonterminal IdentifierReferenceTerm            identifier;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -193,8 +198,10 @@ module ::=
        RESULT = new ModuleNode(
          module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
          module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
+         module_api_defs.getInitializersBlocksByTypeName().build(),
+         module_api_defs.getUnwrappersBlocksByTypeName().build(),
          moduleName,
-         package_string
+         uniqueModuleName
        );
     :}
   ;
@@ -210,6 +217,16 @@ module_api_defs ::=
        tail.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
        RESULT = tail;
     :}
+  | initializers_block_stmt:initializers_block module_api_defs:tail
+    {:
+       tail.getInitializersBlocksByTypeName().putAll(initializers_block);
+       RESULT = tail;
+    :}
+  | unwrappers_block_stmt:unwrappers_block module_api_defs:tail
+    {:
+       tail.getUnwrappersBlocksByTypeName().putAll(unwrappers_block);
+       RESULT = tail;
+    :}
 
   | contract_procedure_signature_definition_stmt:exported_procedure
     {:
@@ -221,6 +238,18 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = res;
+    :}
+  | initializers_block_stmt:initializers_block
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getInitializersBlocksByTypeName().putAll(initializers_block);
+       RESULT = res;
+    :}
+  | unwrappers_block_stmt:unwrappers_block
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getUnwrappersBlocksByTypeName().putAll(unwrappers_block);
        RESULT = res;
     :}
   ;
@@ -590,6 +619,12 @@ base_builtin_type_without_mutability_modifier ::=
           LexedValue.create(
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
+              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+              ImmutableSet.of("Error", "ParsedJson").contains(type_name.getVal())
+              ? ""
+              // There's no leading `Foo::` so this must've been defined in this module.
+              : uniqueModuleName,
               concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
             ),
             currentLinesSupplier,
@@ -1007,3 +1042,39 @@ newtype_def_stmt ::=
        RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
     :}
   ;
+
+initializers_block_stmt ::=
+    INITIALIZERS:i identifier:initialized_type LCURLY:lc contract_signature_defs_list:initializer_defs RCURLY:rc
+    {:
+       RESULT = ImmutableMap.of(initialized_type, initializer_defs.build().reverse());
+    :}
+  ;
+
+unwrappers_block_stmt ::=
+    UNWRAPPERS:u identifier:unwrapped_type LCURLY:lc contract_signature_defs_list:unwrapper_defs RCURLY:rc
+    {:
+       RESULT = ImmutableMap.of(unwrapped_type, unwrapper_defs.build().reverse());
+    :}
+  ;
+
+
+contract_signature_defs_list ::=
+    contract_procedure_signature_definition_stmt:signature contract_signature_defs_list:tail
+    {:
+      RESULT = tail.add(signature);
+    :}
+  | contract_procedure_signature_definition_stmt:signature
+    {:
+      RESULT = ImmutableList.<ContractProcedureSignatureDefinitionStmt>builder().add(signature);
+    :}
+  ;
+
+identifier ::=
+    IDENTIFIER:identifier
+    {:
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(identifier.getVal());
+       RESULT = new IdentifierReferenceTerm(disambiguatedIdentifierName, identifier.getCurrentInputLine(), identifierright, identifierleft, identifierleft + identifier.getLen());
+    :}
+  ;
+

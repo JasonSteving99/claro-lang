@@ -122,6 +122,8 @@ WhiteSpace     = [ \t\f]
 
     "alias"            { return symbol(Tokens.ALIAS, 0, 5, "alias"); }
     "newtype"          { return symbol(Tokens.NEWTYPE, 0, 7, "newtype"); }
+    "initializers"     { return symbol(Tokens.INITIALIZERS, 0, 12, "initializers"); }
+    "unwrappers"       { return symbol(Tokens.UNWRAPPERS, 0, 10, "unwrappers"); }
 
     // Modifiers go here.
     "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }

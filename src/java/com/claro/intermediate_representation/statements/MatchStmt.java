@@ -1278,8 +1278,12 @@ public class MatchStmt extends Stmt {
           // Turns out there's no way that the pattern can be anything other than a wildcard anyways so this doesn't matter.
           invertedOneofFlattenedPatternTypes_OUT_PARAM.set(
               ImmutableList.of(ImmutableSet.of(Types.UNKNOWABLE)));
+          Types.UserDefinedType userDefinedTypeVariant = ((Types.UserDefinedType) variantsToInvert.get(0));
           return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-              ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(), ImmutableList.of(Types.UNKNOWABLE));
+              userDefinedTypeVariant.getTypeName(),
+              userDefinedTypeVariant.getDefiningModuleDisambiguator(),
+              ImmutableList.of(Types.UNKNOWABLE)
+          );
         }
 
         int parameterizedTypesCount = variantsToInvert.get(0).parameterizedTypeArgs().size();
@@ -1293,8 +1297,10 @@ public class MatchStmt extends Stmt {
             parameterizedTypeVariantsBuilders.get(i).add(userDefinedTypeParameterizedTypesList.get(i));
           }
         }
+        Types.UserDefinedType variantUserDefinedType = ((Types.UserDefinedType) variantsToInvert.get(0));
         Types.UserDefinedType invertedUserDefinedType = Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-            ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(),
+            variantUserDefinedType.getTypeName(),
+            variantUserDefinedType.getDefiningModuleDisambiguator(),
             parameterizedTypeVariantsBuilders.stream()
                 .map(sb -> {
                   ImmutableList<Type> types = sb.build().asList();
@@ -1336,8 +1342,10 @@ public class MatchStmt extends Stmt {
           throw new RuntimeException("Internal Compiler Error: Should be unreachable.", e);
         }
         invertedOneofFlattenedPatternTypes_OUT_PARAM.set(ImmutableList.of(ImmutableSet.of(validatedWrappedType)));
+        variantUserDefinedType = ((Types.UserDefinedType) variantsToInvert.get(0));
         return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-            ((Types.UserDefinedType) variantsToInvert.get(0)).getTypeName(),
+            variantUserDefinedType.getTypeName(),
+            variantUserDefinedType.getDefiningModuleDisambiguator(),
             parameterizedTypeVariantsBuilders.stream()
                 .map(e -> {
                   ImmutableSet<Type> structElemVariants = e.build();

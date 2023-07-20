@@ -156,7 +156,12 @@ public class ClaroRuntimeUtilities {
                 Types.OneofType.forVariantTypes(
                     ImmutableList.of(
                         targetType,
-                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                            ImmutableList.of(Types.STRING)
+                        )
                     )
                 ),
                 Types.STRING
@@ -166,12 +171,16 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
+        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(
             parsedJsonStructType,
             new $UserDefinedType<>(
                 "Error",
+                // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
                 ImmutableList.of(Types.STRING),
                 Types.STRING,
                 String.format(
@@ -198,7 +207,12 @@ public class ClaroRuntimeUtilities {
                 Types.OneofType.forVariantTypes(
                     ImmutableList.of(
                         targetType,
-                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                            ImmutableList.of(Types.STRING)
+                        )
                     )
                 ),
                 Types.STRING
@@ -208,6 +222,7 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
+        /*definingModuleDisambiguator=*/"",
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(parsedJsonStructType, parsedRes, jsonString)

@@ -5,6 +5,8 @@
 
 atom Nothing
 
+# TODO(steving) Once this gets wrapped in a first-class Module, remember to go through all manual instantiations of this
+# TODO(steving)   type w/in runtime utilities or codegen to ensure that the correct module disambiguator is used.
 newtype Error<T> : T
 
 newtype ParsedJson<T> : struct {

@@ -1234,17 +1234,22 @@ public final class Types {
 
     public abstract String getTypeName();
 
-    public static UserDefinedType forTypeName(String typeName) {
-      return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(), typeName);
+    // This disambiguator is necessary in order for two same-named types defined in separate Modules to have types
+    // correctly considered to be distinct.
+    public abstract String getDefiningModuleDisambiguator();
+
+    public static UserDefinedType forTypeNameAndDisambiguator(String typeName, String definingModuleDisambiguator) {
+      return new AutoValue_Types_UserDefinedType(BaseType.USER_DEFINED_TYPE, ImmutableMap.of(), typeName, definingModuleDisambiguator);
     }
 
     public static UserDefinedType forTypeNameAndParameterizedTypes(
-        String typeName, ImmutableList<Type> parameterizedTypes) {
+        String typeName, String definingModuleDisambiguator, ImmutableList<Type> parameterizedTypes) {
       return new AutoValue_Types_UserDefinedType(
           BaseType.USER_DEFINED_TYPE,
           IntStream.range(0, parameterizedTypes.size()).boxed()
               .collect(ImmutableMap.<Integer, String, Type>toImmutableMap(Object::toString, parameterizedTypes::get)),
-          typeName
+          typeName,
+          definingModuleDisambiguator
       );
     }
 
@@ -1252,13 +1257,15 @@ public final class Types {
     public String getJavaSourceClaroType() {
       if (this.parameterizedTypeArgs().isEmpty()) {
         return String.format(
-            "Types.UserDefinedType.forTypeName(\"%s\")",
-            this.getTypeName()
+            "Types.UserDefinedType.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
+            this.getTypeName(),
+            this.getDefiningModuleDisambiguator()
         );
       }
       return String.format(
-          "Types.UserDefinedType.forTypeNameAndParameterizedTypes(\"%s\", ImmutableList.of(%s))",
+          "Types.UserDefinedType.forTypeNameAndParameterizedTypes(\"%s\", \"%s\", ImmutableList.of(%s))",
           this.getTypeName(),
+          this.getDefiningModuleDisambiguator(),
           this.parameterizedTypeArgs()
               .values()
               .stream()
@@ -1343,7 +1350,8 @@ public final class Types {
           new AutoValue_Types_UserDefinedType(
               BaseType.USER_DEFINED_TYPE,
               deeplyImmutableParameterizedTypeVariantsBuilder.build(),
-              this.getTypeName()
+              this.getTypeName(),
+              this.getDefiningModuleDisambiguator()
           ));
     }
 

@@ -692,8 +692,9 @@ public class FunctionCallExpr extends Expr {
       functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
           new StringBuilder(
               String.format(
-                  "new $UserDefinedType(\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
+                  "new $UserDefinedType(\"%s\", /*definingModuleDisambiguator=*/\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
                   this.originalName,
+                  ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName),
                   this.optionalConcreteGenericTypeParams.orElse(ImmutableList.of()).stream()
                       .map(Type::getJavaSourceClaroType)
                       .collect(Collectors.joining(", ", "ImmutableList.of(", ")")),

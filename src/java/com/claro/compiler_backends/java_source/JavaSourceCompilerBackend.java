@@ -11,8 +11,11 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.ModuleApiParserUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.stdlib.StdLibUtil;
@@ -135,13 +138,14 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     );
   }
 
-  private ModuleApiParser getModuleApiParserForSrcFile(SrcFile srcFile) {
-    return getModuleApiParserForFileContents(srcFile.getFilename(), readFile(srcFile));
+  private ModuleApiParser getModuleApiParserForSrcFile(SrcFile srcFile, String uniqueModuleName) {
+    return getModuleApiParserForFileContents(srcFile.getFilename(), uniqueModuleName, readFile(srcFile));
   }
 
-  private ModuleApiParser getModuleApiParserForFileContents(String moduleName, String moduleApiFileContents) {
+  private ModuleApiParser getModuleApiParserForFileContents(String moduleName, String uniqueModuleName, String moduleApiFileContents) {
     ModuleApiParser moduleApiParser = ModuleApiParserUtil.createParser(moduleApiFileContents, moduleName);
     moduleApiParser.moduleName = moduleName;
+    moduleApiParser.uniqueModuleName = uniqueModuleName;
     return moduleApiParser;
   }
 
@@ -169,13 +173,15 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               ClaroParser currNonMainSrcFileParser = getParserForSrcFile(f);
               this.PACKAGE_STRING.ifPresent(
                   s -> currNonMainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
+              currNonMainSrcFileParser.optionalUniqueModuleName = this.OPTIONAL_UNIQUE_MODULE_NAME;
               return currNonMainSrcFileParser;
             })
             .collect(ImmutableList.toImmutableList());
     Optional<ModuleApiParser> optionalModuleApiParser =
         optionalModuleApiSrcFile
             .map(moduleApiSrcFile -> {
-              ModuleApiParser res = getModuleApiParserForSrcFile(moduleApiSrcFile);
+              ModuleApiParser res =
+                  getModuleApiParserForSrcFile(moduleApiSrcFile, this.OPTIONAL_UNIQUE_MODULE_NAME.get());
               res.isModuleApiForCurrentCompilationUnit = true;
               return res;
             });
@@ -200,6 +206,16 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // nonMainSrcFilePrograms actually do export the necessary bindings.
       if (optionalModuleApiParser.isPresent()) {
         ProgramNode.moduleApiDef = Optional.of((ModuleNode) optionalModuleApiParser.get().parse().value);
+        // If this is compiled as a module, then to be safe to disambiguate types defined in other modules from this one
+        // I'll need to save the unique module name of this module under the special name $THIS_MODULE$.
+        ScopedHeap.currProgramDepModules.put(
+            "$THIS_MODULE$",
+            /*isUsed=*/true,
+            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+                .setProjectPackage(this.PACKAGE_STRING.get())
+                .setUniqueModuleName(this.OPTIONAL_UNIQUE_MODULE_NAME.get())
+                .build()
+        );
       }
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
@@ -285,7 +301,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
       // Parse the .claro_module_api.
       ModuleApiParser depModuleApiParser = getModuleApiParserForFileContents(
-          moduleDep.getKey(), parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8());
+          moduleDep.getKey(),
+          parsedModule.getModuleDescriptor().getUniqueModuleName(),
+          parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8()
+      );
       ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
       moduleDepNodes.put(moduleDep.getKey(), depModuleNode);
 
@@ -299,12 +318,40 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
     // finally register all of their exported procedure signatures.
     for (Map.Entry<String, ModuleNode> moduleDep : moduleDepNodes.build().entrySet()) {
+      // Setup the regular exported procedures.
       for (Map.Entry<String, Types.ProcedureType> depExportedSig
           : moduleDep.getValue().getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
         // Use a disambiguation prefix for namespacing required by dep modules.
         String disambiguatedProcedureName =
             String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());
         scopedHeap.putIdentifierValue(disambiguatedProcedureName, depExportedSig.getValue());
+      }
+
+      // Make note of any initializers exported by this dep module.
+      for (Map.Entry<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializerEntry
+          : moduleDep.getValue().initializersBlocks.entrySet()) {
+        initializerEntry.getValue().forEach(
+            sig -> {
+              String disambiguatedDefaultTypeConstructorProcedureName =
+                  // These are actually only used for error-reporting, so I'll use a user-friendly string here.
+                  String.format("%s::%s", moduleDep.getKey(), sig.procedureName);
+              InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
+                  .put(initializerEntry.getKey().identifier, disambiguatedDefaultTypeConstructorProcedureName);
+            }
+        );
+      }
+      // Make note of any unwrappers exported by this dep module.
+      for (Map.Entry<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrapperEntry
+          : moduleDep.getValue().unwrappersBlocks.entrySet()) {
+        unwrapperEntry.getValue().forEach(
+            sig -> {
+              String disambiguatedDefaultTypeConstructorProcedureName =
+                  // These are actually only used for error-reporting, so I'll use a user-friendly string here.
+                  String.format("%s::%s", moduleDep.getKey(), sig.procedureName);
+              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
+                  .put(unwrapperEntry.getKey().identifier, disambiguatedDefaultTypeConstructorProcedureName);
+            }
+        );
       }
     }
   }

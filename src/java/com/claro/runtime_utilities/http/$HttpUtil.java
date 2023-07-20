@@ -78,13 +78,17 @@ public class $HttpUtil {
             ImmutableList.of(
                 Types.STRING,
                 Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                    "Error", ImmutableList.of(Types.STRING))
+                    "Error",
+                    // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
+                    /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                    ImmutableList.of(Types.STRING)
+                )
             )),
         settableFuture
     );
   }
 
   private static <T> $UserDefinedType<T> getSimpleErrorType(Type wrappedType, T wrappedValue) {
-    return new $UserDefinedType<>("Error", ImmutableList.of(wrappedType), wrappedType, wrappedValue);
+    return new $UserDefinedType<>("Error", /*definingModuleDisambiguator=*/"", ImmutableList.of(wrappedType), wrappedType, wrappedValue);
   }
 }

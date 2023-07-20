@@ -214,11 +214,15 @@ public class ClaroTypeException extends Exception {
       "\t\tFound:\n" +
       "\t\t\t%s";
   private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE =
-      "Illegal Initializers Block for Undeclared Type: No custom type named `%s` declared within the current scope!";
+      "Illegal %s Block for Undeclared Type: No custom type named `%s` declared within the current scope!";
   private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE =
-      "Illegal Initializers Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
+      "Illegal %s Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
       "\t\tFound:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_EXPORTED_INITIALIZERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE =
+      "Illegally Exporting an %s Block for a Type Defined in a Dep Module: In order for Claro's incremental compilation scheme to function properly, a Module may only export %s blocks for their own explicitly exported type definitions.";
+  private static final String ILLEGAL_EXPORTED_UNWRAPPERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE =
+      "Illegally Exporting an Unwrappers Block for a Type Defined in a Dep Module: In order for Claro's incremental compilation scheme to function properly, a Module may only export unwrappers blocks for their own explicitly exported type definitions.";
   private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES =
       "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
       "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
@@ -1165,19 +1169,23 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static ClaroTypeException forIllegalInitializersBlockReferencingUndeclaredInitializedType(String initializedTypeName) {
+  public static ClaroTypeException forIllegalInitializersBlockReferencingUndeclaredInitializedType(
+      String initializedTypeName, boolean initializers) {
     return new ClaroTypeException(
         String.format(
             ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE,
+            initializers ? "Initializers" : "Unwrappers",
             initializedTypeName
         )
     );
   }
 
-  public static ClaroTypeException forIllegalInitializersBlockReferencingNonUserDefinedType(String identifier, Type type) {
+  public static ClaroTypeException forIllegalInitializersBlockReferencingNonUserDefinedType(
+      String identifier, Type type, boolean initializers) {
     return new ClaroTypeException(
         String.format(
             ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE,
+            initializers ? "Initializers" : "Unwrappers",
             identifier,
             type
         )
@@ -1575,5 +1583,14 @@ public class ClaroTypeException extends Exception {
             expectedExportedProcedureType
         )
     );
+  }
+
+  public static ClaroTypeException forIllegalExportedInitializersBlockReferencingTypeFromDepModule(boolean initializers) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_EXPORTED_INITIALIZERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE,
+            initializers ? "Initializers" : "Unwrappers",
+            initializers ? "initializers" : "unwrappers"
+        ));
   }
 }

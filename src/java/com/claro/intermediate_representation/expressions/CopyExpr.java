@@ -342,6 +342,8 @@ public class CopyExpr extends Expr {
                       generatedJavaSource -> GeneratedJavaSource.forJavaSourceBody(
                           new StringBuilder("new $UserDefinedType(\"")
                               .append(copiedExprUserDefinedType.getTypeName())
+                              .append("\", \"")
+                              .append(copiedExprUserDefinedType.getDefiningModuleDisambiguator())
                               .append("\", ")
                               .append(copiedExprUserDefinedType.parameterizedTypeArgs().values().stream()
                                           .map(Type::getJavaSourceClaroType)

@@ -1,4 +1,11 @@
 
 newtype FancyInt : int
 
+initializers FancyInt {
+  function getFancyInt(i: int) -> FancyInt;
+}
+unwrappers FancyInt {
+  function unwrapFancyInt(f: FancyInt) -> int;
+}
+
 function add(lhs: FancyInt, rhs: FancyInt) -> int;
