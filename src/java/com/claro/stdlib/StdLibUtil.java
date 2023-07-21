@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
 
 import java.util.Map;
+import java.util.Optional;
 
 public class StdLibUtil {
 
@@ -37,9 +38,14 @@ public class StdLibUtil {
     if (StdLibUtil.setupBuiltinTypes) {
       // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
       return ImmutableList.of(
-          new NewTypeDefStmt("Error", TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")),
+          new NewTypeDefStmt(
+              "Error",
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(""),
+              TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")
+          ),
           new NewTypeDefStmt(
               "ParsedJson",
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(""),
               (TypeProvider) (scopedHeap1) ->
                   Types.StructType.forFieldTypes(
                       ImmutableList.of("result", "rawJson"),

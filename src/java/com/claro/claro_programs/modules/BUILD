@@ -8,7 +8,6 @@ claro_binary(
         "TestDep": ":module_test",
         "TestDep2": ":module_test2",
     },
-    debug = True
 )
 
 # Test Claro's fledgling First-Class Module system.
@@ -32,7 +31,6 @@ claro_module(
     deps = {
         "Addition": ":addition",
     },
-    debug = True
 )
 
 claro_module(

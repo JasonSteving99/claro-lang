@@ -1,0 +1,9 @@
+
+# TODO(steving) There's currently an issue with types from a Module's transitive deps being passed through in its API.
+# TODO(steving)   This Module shouldn't be redefining `Position` here. It should be passing through `Heaps::Position`.
+newtype Position : struct {x: int, y: int}
+alias BestPath : [Position]
+
+function parseWorldMap(world: {string: string}) -> {Position: string};
+function dijkstra(world: {Position: string}, start: Position) -> BestPath;
+function movesFromBestPath(bestPath: BestPath) -> [string];

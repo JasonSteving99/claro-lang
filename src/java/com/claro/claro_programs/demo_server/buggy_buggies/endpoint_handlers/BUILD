@@ -11,15 +11,12 @@ claro_module(
         "get_best_moves_handler.claro",
         "start_new_game_handler.claro",
         # TODO(steving) These should be Module deps rather than included sources once Modules are supported.
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:agent.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:dijkstra.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:heap.claro",
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:reduce.claro",
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_service.claro",
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_move_response.claro",
     ],
     deps = {
+        "Agent": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:buggy_agent",
+        "BuggyBuggiesClient": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_client",
         "Utils": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:utils",
         # ... TODO(steving) Populate with real module deps.
     },

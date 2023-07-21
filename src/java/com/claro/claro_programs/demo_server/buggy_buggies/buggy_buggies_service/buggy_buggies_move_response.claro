@@ -1,26 +1,4 @@
 
-# This type models the JSON response from the Buggy-Buggies service as a Claro type to enable parsing the response into
-# something that you can work with programmatically with strict type validation on the edge.
-alias MoveResponse : struct {
-  reason: oneof<string, Nothing>,
-  result: struct {
-    players: { string : struct { x: int, y: int } },
-    dimensions: struct {
-      height: int,
-      width: int
-    },
-    world: { string: string }, # E.g. ("0,6": "wall")
-    you: struct {
-      handle: string,
-      purse: int,
-      boom: boolean,
-      x: int,
-      y: int
-    }
-  },
-  success: boolean
-}
-
 function getParsedMoveResponse(buggyResponse: string) -> ParsedJson<MoveResponse> {
   return fromJson(buggyResponse);
 }

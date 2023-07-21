@@ -1,19 +1,44 @@
-# Claro-generated non-blocking HttpClient for the BuggyBuggies HttpService.
+#
+## Claro-generated non-blocking HttpClient for the BuggyBuggies HttpService.
+#
+#function getClient(url: string) -> HttpClient<BuggyBuggies>;
+#
+#function hostGame(buggyBuggiesClient: HttpClient<BuggyBuggies>, handle: string)
+#  -> future<oneof<string, Error<string>>>;
+#
+#function friendsJoin(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, handle: string)
+#  -> future<oneof<string, Error<string>>>;
+#
+#function move(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string, direction: string)
+#  -> future<oneof<string, Error<string>>>;
+#
+#function worldInfo(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
+#  -> future<oneof<string, Error<string>>>;
+#
+#function reset(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
+#  -> future<oneof<string, Error<string>>>;
 
-function getClient(url: string) -> HttpClient<BuggyBuggies>;
 
-function hostGame(buggyBuggiesClient: HttpClient<BuggyBuggies>, handle: string)
-  -> future<oneof<string, Error<string>>>;
+# This type models the JSON response from the Buggy-Buggies service as a Claro type to enable parsing the response into
+# something that you can work with programmatically with strict type validation on the edge.
+alias MoveResponse : struct {
+  reason: oneof<string, Nothing>,
+  result: struct {
+    players: { string : struct { x: int, y: int } },
+    dimensions: struct {
+      height: int,
+      width: int
+    },
+    world: { string: string }, # E.g. ("0,6": "wall")
+    you: struct {
+      handle: string,
+      purse: int,
+      boom: boolean,
+      x: int,
+      y: int
+    }
+  },
+  success: boolean
+}
 
-function friendsJoin(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, handle: string)
-  -> future<oneof<string, Error<string>>>;
-
-function move(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string, direction: string)
-  -> future<oneof<string, Error<string>>>;
-
-function worldInfo(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
-  -> future<oneof<string, Error<string>>>;
-
-function reset(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
-  -> future<oneof<string, Error<string>>>;
-
+function getParsedMoveResponse(buggyResponse: string) -> ParsedJson<MoveResponse>;

@@ -689,11 +689,16 @@ public class FunctionCallExpr extends Expr {
             .collect(Collectors.joining(", "));
     GeneratedJavaSource functionCallJavaSourceBody;
     if (this.representsUserDefinedTypeConstructor.isPresent()) {
+      // Depending on whether this type def was parsed from a dep module, this may have been named with a
+      // disambiguating prefix like "$DEP_MODULE$module$". For the sake of codegen'd values containing consistent
+      // names everywhere, I need to strip any prefixing here so that instances of this type created ANYWHERE will
+      // definitely evaluate as having the same type.
+      String canonicalizedTypeName = this.originalName.substring(this.originalName.lastIndexOf("$") + 1);
       functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
           new StringBuilder(
               String.format(
                   "new $UserDefinedType(\"%s\", /*definingModuleDisambiguator=*/\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
-                  this.originalName,
+                  canonicalizedTypeName,
                   ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName),
                   this.optionalConcreteGenericTypeParams.orElse(ImmutableList.of()).stream()
                       .map(Type::getJavaSourceClaroType)

@@ -45,6 +45,11 @@ action code {:
 
   int indentationLevel = 1;
 
+  public String getDisambiguatedExportedIdentifierName(String depModuleName, String originalName) {
+    // Use a disambiguation prefix for namespacing required by dep modules.
+    return String.format("$DEP_MODULE$%s$%s", depModuleName, originalName);
+  }
+
   private String getIndents(int level) {
     StringBuilder res = new StringBuilder();
     for(int i = 0; i < level; i++) {
@@ -145,6 +150,7 @@ action code {:
 parser code {:
   public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
+  public Optional<String> optionalModuleName = Optional.empty(); // default to be overridden. Something like "DepModule".
   public Optional<String> optionalUniqueModuleName = Optional.empty(); // default to be overridden. Something like "src$com$foo$module".
   public Consumer<String> printerDelegate = System.out::println;
 
@@ -720,12 +726,12 @@ newtype_def_stmt ::=
     NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
-       RESULT = new NewTypeDefStmt(type_name.getVal(), baseTypeLexedVal.getVal());
+       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalModuleName, baseTypeLexedVal.getVal());
     :}
   | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
-       RESULT = new NewTypeDefStmt(type_name.getVal(), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalModuleName, baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
     :}
   ;
 
@@ -1127,6 +1133,27 @@ base_builtin_type_without_mutability_modifier ::=
             type_name.getLen())
        );
     :}
+  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name
+    {:
+       // TODO(steving) Long term I'll want to support first-class procedure references to contract procedures, so this
+       // TODO(steving)     would actually need to be updated to check whether the given dep_module_name is in fact a
+       // TODO(steving)     declared module dep and if not then it would be parsed as a contract procedure reference.
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright));
+       int startCol = min(dep_module_nameleft, cleft, type_nameleft);
+       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen());
+
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol,
+          LexedValue.create(
+            TypeProvider.Util.getTypeByName(disambiguatedDepModuleTypeName, /*isTypeDefinition=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
   | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
     {:
        LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
@@ -1140,6 +1167,9 @@ base_builtin_type_without_mutability_modifier ::=
           startCol,
           endCol, // line number
           LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
               // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin

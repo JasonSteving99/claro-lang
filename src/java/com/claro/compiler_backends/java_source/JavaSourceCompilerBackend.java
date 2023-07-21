@@ -13,6 +13,7 @@ import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -139,7 +140,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   }
 
   private ModuleApiParser getModuleApiParserForSrcFile(SrcFile srcFile, String uniqueModuleName) {
-    return getModuleApiParserForFileContents(srcFile.getFilename(), uniqueModuleName, readFile(srcFile));
+    return getModuleApiParserForFileContents("$THIS_MODULE$", uniqueModuleName, readFile(srcFile));
   }
 
   private ModuleApiParser getModuleApiParserForFileContents(String moduleName, String uniqueModuleName, String moduleApiFileContents) {
@@ -173,6 +174,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               ClaroParser currNonMainSrcFileParser = getParserForSrcFile(f);
               this.PACKAGE_STRING.ifPresent(
                   s -> currNonMainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
+              currNonMainSrcFileParser.optionalModuleName = Optional.of("$THIS_MODULE$");
               currNonMainSrcFileParser.optionalUniqueModuleName = this.OPTIONAL_UNIQUE_MODULE_NAME;
               return currNonMainSrcFileParser;
             })
@@ -308,6 +310,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
       moduleDepNodes.put(moduleDep.getKey(), depModuleNode);
 
+      // Register any alias defs found in the module.
+      for (AliasStmt alias : depModuleNode.exportedAliasDefs) {
+        alias.registerTypeProvider(scopedHeap);
+      }
       // Register any newtype defs found in the module.
       for (NewTypeDefStmt newTypeDefStmt : depModuleNode.exportedNewTypeDefs) {
         newTypeDefStmt.registerTypeProvider(scopedHeap);

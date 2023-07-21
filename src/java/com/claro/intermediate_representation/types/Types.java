@@ -1255,16 +1255,21 @@ public final class Types {
 
     @Override
     public String getJavaSourceClaroType() {
+      // Depending on whether this type def was parsed from a dep module, this may have been named with a
+      // disambiguating prefix like "$DEP_MODULE$module$". For the sake of codegen'd values containing consistent
+      // names everywhere, I need to strip any prefixing here so that instances of this type created ANYWHERE will
+      // definitely evaluate as having the same type.
+      String canonicalizedTypeName = this.getTypeName().substring(this.getTypeName().lastIndexOf("$") + 1);
       if (this.parameterizedTypeArgs().isEmpty()) {
         return String.format(
             "Types.UserDefinedType.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
-            this.getTypeName(),
+            canonicalizedTypeName,
             this.getDefiningModuleDisambiguator()
         );
       }
       return String.format(
           "Types.UserDefinedType.forTypeNameAndParameterizedTypes(\"%s\", \"%s\", ImmutableList.of(%s))",
-          this.getTypeName(),
+          canonicalizedTypeName,
           this.getDefiningModuleDisambiguator(),
           this.parameterizedTypeArgs()
               .values()

@@ -4,19 +4,25 @@
 # BEGIN Dijkstra.claro
 ####################################################################################################
 
-alias DistanceVia : struct {dist: int, via: oneof<Position, Nothing>}
-alias BestPath : [Position]
+# This is an internal-only alias, as no procedure exported by the module actually references this there's no need to
+# expose this detail in the public api.
+alias DistanceVia : struct {dist: int, via: oneof<Heaps::Position, Nothing>}
 
-function dijkstra(world: {Position: string}, start: Position) -> BestPath {
-  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+function dijkstra(internalWorld: {Position: string}, internalStart: Position) -> BestPath {
+  # TODO(steving) For now, since I can't export the transitive dep type Heaps::Position in this module, I'll need to
+  # TODO(steving)   do some ugly hacking to coerce this from the transitive dep type to this module's custom type.
+  var world: {Heaps::Position: string} = {Heaps::Position({x = unwrap(e[0]).x, y = unwrap(e[0]).y}) : e[1] | e in internalWorld};
+  var start: Heaps::Position = Heaps::Position({x = unwrap(internalStart).x, y = unwrap(internalStart).y});
+
+  var distances: DefaultDict<Heaps::Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
   defaultDictPut(distances, start, {dist = 0, via = start});
-  var pq = getHeap();
-  insert(pq, {dist = 0, pos = start});
-  var visited: mut {Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
+  var pq = Heaps::getHeap();
+  Heaps::insert(pq, {dist = 0, pos = start});
+  var visited: mut {Heaps::Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
 
-  while (not heapIsEmpty(pq)) {
-    var currPos = extract_min(pq);
-    if (currPos instanceof Position) {
+  while (not Heaps::heapIsEmpty(pq)) {
+    var currPos = Heaps::extract_min(pq);
+    if (currPos instanceof Heaps::Position) {
       if (currPos in visited) {
         continue;
       }
@@ -26,7 +32,7 @@ function dijkstra(world: {Position: string}, start: Position) -> BestPath {
         var weight = weightedNeighbor.weight;
         if ((defaultDictGet(distances, currPos).dist + weight) < defaultDictGet(distances, neighbor).dist) {
           defaultDictPut(distances, neighbor, {dist = defaultDictGet(distances, currPos).dist + weight, via = currPos});
-          insert(pq, {dist = defaultDictGet(distances, neighbor).dist, pos = neighbor});
+          Heaps::insert(pq, {dist = defaultDictGet(distances, neighbor).dist, pos = neighbor});
         }
       }
     }
@@ -35,24 +41,27 @@ function dijkstra(world: {Position: string}, start: Position) -> BestPath {
   return rebuildBestPath(world, asMap(distances));
 }
 
-function rebuildBestPath(world: {Position: string}, distances: {Position: DistanceVia}) -> BestPath {
-  var route: mut [Position] = mut [];
+function rebuildBestPath(world: {Heaps::Position: string}, distances: {Heaps::Position: DistanceVia}) -> BestPath {
+  var route: mut [Heaps::Position] = mut [];
   var currPos = findCoinWithLowestScore(world, distances);
   while (true) {
     append(route, currPos);
     var via = distances[currPos].via;
     if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
       break;
-    } else if (via instanceof Position) {
-      # I know for a fact it's a Position, but this is the only way to convince Claro of that.
+    } else if (via instanceof Heaps::Position) {
+      # I know for a fact it's a Heaps::Position, but this is the only way to convince Claro of that.
       currPos = via;
     }
   }
-  return copy(route);
+  # TODO(steving) For now, since I can't export the transitive dep type Heaps::Position in this module, I'll need to
+  # TODO(steving)   do some ugly hacking to coerce this from the transitive dep type to this module's custom type.
+#  return copy(route); # TODO(steving) Revert to a simple copy when possible.
+  return [Position({x = unwrap(p).x, y = unwrap(p).y}) | p in route];
 }
 
-function findCoinWithLowestScore(world: {Position: string}, distances: {Position: DistanceVia}) -> Position {
-  var currBest: tuple<Position, DistanceVia> = (Position({x = -1, y = -1}), {dist = 999999, via = Position({x = -1, y = -1})}); # TODO(steving) Need some representation of INFINITY in stdlib.
+function findCoinWithLowestScore(world: {Heaps::Position: string}, distances: {Heaps::Position: DistanceVia}) -> Heaps::Position {
+  var currBest: tuple<Heaps::Position, DistanceVia> = (Heaps::Position({x = -1, y = -1}), {dist = 999999, via = Heaps::Position({x = -1, y = -1})}); # TODO(steving) Need some representation of INFINITY in stdlib.
   for (distEntry in distances) {
     if ((distEntry[0] in world) and (world[distEntry[0]] == "coin") and (distEntry[1].dist < currBest[1].dist)) {
       currBest = distEntry;
@@ -61,11 +70,11 @@ function findCoinWithLowestScore(world: {Position: string}, distances: {Position
   return currBest[0];
 }
 
-function getWeightedNeighbors(world: {Position: string}, pos: Position) -> [struct {neighbor: Position, weight: int}] {
-  var neighbors: mut [struct {neighbor: Position, weight: int}] = mut [];
-  var updatePos: function<|int, int| -> Position> =
-    lambda (dx, dy) -> Position({x = unwrap(pos).x + dx, y = unwrap(pos).y + dy});
-  var validateMove: consumer<mut [struct {neighbor: Position, weight: int}], int, int> =
+function getWeightedNeighbors(world: {Heaps::Position: string}, pos: Heaps::Position) -> [struct {neighbor: Heaps::Position, weight: int}] {
+  var neighbors: mut [struct {neighbor: Heaps::Position, weight: int}] = mut [];
+  var updatePos: function<|int, int| -> Heaps::Position> =
+    lambda (dx, dy) -> Heaps::Position({x = unwrap(pos).x + dx, y = unwrap(pos).y + dy});
+  var validateMove: consumer<mut [struct {neighbor: Heaps::Position, weight: int}], int, int> =
     lambda (l, dx, dy) -> {
       var n = updatePos(dx, dy);
       if ((not (n in world)) or (world[n] == "coin")) {

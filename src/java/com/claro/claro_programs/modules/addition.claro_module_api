@@ -1,11 +1,12 @@
 
 newtype FancyInt : int
+alias IntAlias : int
 
 initializers FancyInt {
-  function getFancyInt(i: int) -> FancyInt;
+  function getFancyInt(i: IntAlias) -> FancyInt;
 }
 unwrappers FancyInt {
-  function unwrapFancyInt(f: FancyInt) -> int;
+  function unwrapFancyInt(f: FancyInt) -> IntAlias;
 }
 
-function add(lhs: FancyInt, rhs: FancyInt) -> int;
+function add(lhs: FancyInt, rhs: FancyInt) -> IntAlias;

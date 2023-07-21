@@ -16,22 +16,25 @@ import java.util.concurrent.atomic.AtomicReference;
 public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   private static final String CURR_TYPE_DEF_NAME = "$CURR_TYPE_DEF_NAME";
   private final String typeName;
+  private final Optional<String> optionalOriginatingModuleDisambiguator;
   private final TypeProvider wrappedTypeProvider;
   private final ImmutableList<String> parameterizedTypeNames;
   private Type resolvedType;
   private Type resolvedDefaultConstructorType;
   private Stmt constructorFuncDefStmt;
 
-  public NewTypeDefStmt(String typeName, TypeProvider wrappedTypeProvider) {
+  public NewTypeDefStmt(String typeName, Optional<String> optionalOriginatingModuleDisambiguator, TypeProvider wrappedTypeProvider) {
     super(ImmutableList.of());
     this.typeName = typeName;
+    this.optionalOriginatingModuleDisambiguator = optionalOriginatingModuleDisambiguator;
     this.wrappedTypeProvider = wrappedTypeProvider;
     this.parameterizedTypeNames = ImmutableList.of();
   }
 
-  public NewTypeDefStmt(String typeName, TypeProvider wrappedTypeProvider, ImmutableList<String> parameterizedTypeNames) {
+  public NewTypeDefStmt(String typeName, Optional<String> optionalOriginatingModuleDisambiguator, TypeProvider wrappedTypeProvider, ImmutableList<String> parameterizedTypeNames) {
     super(ImmutableList.of());
     this.typeName = typeName;
+    this.optionalOriginatingModuleDisambiguator = optionalOriginatingModuleDisambiguator;
     this.wrappedTypeProvider = wrappedTypeProvider;
     this.parameterizedTypeNames = parameterizedTypeNames;
   }
@@ -54,7 +57,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
             //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
             ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
             ? ""
-            : ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
+            : ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingModuleDisambiguator),
             this.parameterizedTypeNames.stream()
                 .map(Types.$GenericTypeParam::forTypeParamName).collect(ImmutableList.toImmutableList())
         ),

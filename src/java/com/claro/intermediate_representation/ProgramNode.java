@@ -6,10 +6,7 @@ import com.claro.intermediate_representation.expressions.procedures.functions.St
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.InitializersBlockStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UnwrappersBlockStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UserDefinedTypeDefinitionStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
@@ -110,6 +107,9 @@ public class ProgramNode {
       for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
         exportedNewTypeDef.registerTypeProvider(scopedHeap);
       }
+      for (AliasStmt exportedAliasDef : ProgramNode.moduleApiDef.get().exportedAliasDefs) {
+        exportedAliasDef.registerTypeProvider(scopedHeap);
+      }
       // Now, since all the types defined by this and dep modules are all known, time to validate that the initializers
       // and unwrappers are only defined for valid user-defined types exported by *this* module.
       ProgramNode.moduleApiDef.get()
@@ -166,6 +166,13 @@ public class ProgramNode {
       for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
         try {
           exportedNewTypeDef.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      for (AliasStmt exportedAliasDef : ProgramNode.moduleApiDef.get().exportedAliasDefs) {
+        try {
+          exportedAliasDef.assertExpectedExprTypes(scopedHeap);
         } catch (ClaroTypeException e) {
           throw new RuntimeException(e);
         }

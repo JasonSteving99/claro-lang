@@ -145,7 +145,7 @@ parser code {:
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  SEMICOLON;
-terminal LexedValue<String>  COLON;
+terminal LexedValue<String>  COLON, COLON_COLON;
 terminal LexedValue<String>  COMMA;
 terminal LexedValue<String>  BAR;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET;
@@ -171,6 +171,7 @@ nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
 nonterminal TypeProvider                       maybe_blocking_procedure_types;
 nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
+nonterminal AliasStmt                          alias_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ initializers_block_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ unwrappers_block_stmt;
@@ -197,6 +198,7 @@ module ::=
     {:
        RESULT = new ModuleNode(
          module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
+         module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
          module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
          module_api_defs.getInitializersBlocksByTypeName().build(),
          module_api_defs.getUnwrappersBlocksByTypeName().build(),
@@ -210,6 +212,11 @@ module_api_defs ::=
     contract_procedure_signature_definition_stmt:exported_procedure module_api_defs:tail
     {:
        tail.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = tail;
+    :}
+  | alias_stmt:alias_stmt module_api_defs:tail
+    {:
+       tail.getAliasDefStmtsBuilder().add(alias_stmt);
        RESULT = tail;
     :}
   | newtype_def_stmt:newtype_def_stmt module_api_defs:tail
@@ -232,6 +239,12 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = res;
+    :}
+  | alias_stmt:alias_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getAliasDefStmtsBuilder().add(alias_stmt);
        RESULT = res;
     :}
   | newtype_def_stmt:newtype_def_stmt
@@ -593,13 +606,18 @@ base_builtin_type_without_mutability_modifier ::=
   | IDENTIFIER:type_name
     {:
        // Use a disambiguation prefix for namespacing required by dep modules.
-       String disambiguatedTypeName = getDisambiguatedExportedIdentifierName(type_name.getVal());
+       TypeProvider disambiguatedTypeProvider =
+         // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+         //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+         type_name.getVal().equals("Nothing")
+         ? TypeProvider.ImmediateTypeProvider.of(Types.AtomType.forName("Nothing"))
+         : TypeProvider.Util.getTypeByName(getDisambiguatedExportedIdentifierName(type_name.getVal()), /*isTypeDefinition=*/true);
        RESULT = new Symbol(
           -1,
           type_nameleft,
           type_nameright, // line number
           LexedValue.create(
-            TypeProvider.Util.getTypeByName(disambiguatedTypeName, /*isTypeDefinition=*/true),
+            disambiguatedTypeProvider,
             type_name.getCurrentInputLine(),
             type_name.getLen())
        );
@@ -617,6 +635,9 @@ base_builtin_type_without_mutability_modifier ::=
           startCol,
           endCol, // line number
           LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
               // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
@@ -1028,18 +1049,27 @@ contract_procedure_signature_definition_stmt ::=
    :}
   ;
 
+alias_stmt ::=
+    ALIAS IDENTIFIER:alias COLON builtin_type:aliased_type
+    {:
+       LexedValue<TypeProvider> aliasedTypeLexedVal = (LexedValue<TypeProvider>) aliased_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new AliasStmt(getDisambiguatedExportedIdentifierName(alias.getVal()), aliasedTypeLexedVal.getVal());
+    :}
+  ;
+
 newtype_def_stmt ::=
     NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        // Use a disambiguation prefix for namespacing required by dep modules.
-       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), baseTypeLexedVal.getVal());
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(moduleName), baseTypeLexedVal.getVal());
     :}
   | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        // Use a disambiguation prefix for namespacing required by dep modules.
-       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(moduleName), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
     :}
   ;
 
@@ -1056,7 +1086,6 @@ unwrappers_block_stmt ::=
        RESULT = ImmutableMap.of(unwrapped_type, unwrapper_defs.build().reverse());
     :}
   ;
-
 
 contract_signature_defs_list ::=
     contract_procedure_signature_definition_stmt:signature contract_signature_defs_list:tail

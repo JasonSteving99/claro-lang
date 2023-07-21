@@ -27,17 +27,22 @@ public class ScopedHeap {
       HashBasedTable.create();
 
   public static String getDefiningModuleDisambiguator(Optional<String> optionalOriginatingDepModuleName) {
+    String res;
     if (optionalOriginatingDepModuleName.isPresent()) {
-      return ScopedHeap.currProgramDepModules.get(optionalOriginatingDepModuleName.get(), /*isUsed=*/true)
-          .getUniqueModuleName();
+      // Just assume that the dep module was correctly registered but may or may not be marked used yet.
+      res = ScopedHeap.currProgramDepModules.rowMap().get(optionalOriginatingDepModuleName.get())
+          .values().stream().findFirst().get().getUniqueModuleName();
+    } else {
+      SerializedClaroModule.UniqueModuleDescriptor thisModuleDesc;
+      if ((thisModuleDesc = ScopedHeap.currProgramDepModules.get("$THIS_MODULE$", /*isUsed=*/true)) != null) {
+        res = thisModuleDesc.getUniqueModuleName();
+      } else {
+        // Turns out this is not defined within a module (it's just a top-level src in a claro_binary()) so since nobody
+        // else can depend on this, we don't need any disambiguator.
+        res = "";
+      }
     }
-    SerializedClaroModule.UniqueModuleDescriptor thisModuleDesc;
-    if ((thisModuleDesc = ScopedHeap.currProgramDepModules.get("$THIS_MODULE$", /*isUsed=*/true)) != null) {
-      return thisModuleDesc.getUniqueModuleName();
-    }
-    // Turns out this is not defined within a module (it's just a top-level src in a claro_binary()) so since nobody
-    // else can depend on this, we don't need any disambiguator.
-    return "";
+    return res;
   }
 
   public void disableCheckUnused() {

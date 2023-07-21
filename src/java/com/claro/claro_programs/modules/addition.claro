@@ -4,14 +4,14 @@
 # design. This isn't relevant w/in this .claro source file as declaring this w/in an initializers block here would only
 # be unnnecessarily restrictive. I'm doing this to demonstrate the design flexibility enabled by this separation between
 # .claro and .claro_module_api files.
-function getFancyInt(i: int) -> FancyInt {
+function getFancyInt(i: IntAlias) -> FancyInt {
   return FancyInt(i);
 }
 
-function unwrapFancyInt(f: FancyInt) -> int {
+function unwrapFancyInt(f: FancyInt) -> IntAlias {
   return unwrap(f);
 }
 
-function add(lhs: FancyInt, rhs: FancyInt) -> int {
+function add(lhs: FancyInt, rhs: FancyInt) -> IntAlias {
   return unwrap(lhs) + unwrap(rhs);
 }

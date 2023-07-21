@@ -3,6 +3,7 @@ package com.claro.intermediate_representation;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
@@ -15,6 +16,7 @@ import java.util.Stack;
 
 public class ModuleNode {
   public final ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures;
+  public final ImmutableList<AliasStmt> exportedAliasDefs;
   public final ImmutableList<NewTypeDefStmt> exportedNewTypeDefs;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       initializersBlocks;
@@ -28,10 +30,12 @@ public class ModuleNode {
 
   public ModuleNode(
       ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures,
+      ImmutableList<AliasStmt> exportedAliasDefs,
       ImmutableList<NewTypeDefStmt> exportedNewTypeDefs,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks, ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks, String moduleName,
       String uniqueModuleName) {
     this.exportedSignatures = exportedSignatures;
+    this.exportedAliasDefs = exportedAliasDefs;
     this.exportedNewTypeDefs = exportedNewTypeDefs;
     this.initializersBlocks = initializersBlocks;
     this.unwrappersBlocks = unwrappersBlocks;
@@ -161,6 +165,8 @@ public class ModuleNode {
   public static abstract class ModuleApiStmtsBuilder {
     public abstract ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> getProcedureSignaturesBuilder();
 
+    public abstract ImmutableList.Builder<AliasStmt> getAliasDefStmtsBuilder();
+
     public abstract ImmutableList.Builder<NewTypeDefStmt> getNewTypeDefStmtsBuilder();
 
     public abstract ImmutableMap.Builder<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
@@ -171,7 +177,7 @@ public class ModuleNode {
 
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder());
     }
   }
 }
