@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 
 import java_cup.runtime.Symbol;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.Stack;
 
 /**
  * A simple lexer/parser for basic arithmetic expressions.
@@ -24,6 +25,21 @@ import java.util.concurrent.atomic.AtomicReference;
 %{
     // Use this for more precise error messaging.
     public String moduleFilename = "module";  // default to be overridden.
+
+    // This will be used to accumulate all string characters during the STRING state.
+    StringBuffer string = new StringBuffer();
+    // Because we're going to support format strings over arbitrary expressions, that means we need to support
+    // nested format strings within the
+    Stack<AtomicReference<Integer>> fmtStrExprBracketCounterStack = new Stack<>();
+    // Differing from CLaroLexer.flex for now there's no need disable escaping special chars for now.
+    public boolean escapeSpecialChars = true;
+    private void appendSpecialCharToString(StringBuffer s, String escapedSpecialChar, char specialChar) {
+      if (escapeSpecialChars) {
+        s.append(escapedSpecialChar);
+      } else {
+        s.append(specialChar);
+      }
+    }
 
     // Until I find a more efficient way to do this, let's bring the entire file contents into memory in order to give
     // useful error messages that can point at the line. We'll only need to track one at a time because we'll hand off
@@ -82,6 +98,7 @@ LineTerminator = \r|\n|\r\n
 WhiteSpace     = [ \t\f]
 
 %state LINECOMMENT
+%state STRING
 %state IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR
 
 %%
@@ -96,8 +113,29 @@ WhiteSpace     = [ \t\f]
     /* Create a new parser symbol for the lexem. */
     "("                { return symbol(Tokens.LPAR, 0, 1, "("); }
     ")"                { return symbol(Tokens.RPAR, 0, 1, ")"); }
-    "{"                { return symbol(Tokens.LCURLY, 0, 1, "{"); }
-    "}"                { return symbol(Tokens.RCURLY, 0, 1, "}"); }
+    "{"                {
+                         if (!fmtStrExprBracketCounterStack.isEmpty()) {
+                           fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i+1);
+                         }
+                         return symbol(Tokens.LCURLY, 0, 1, "{");
+                       }
+    "}"                {
+                         if (!fmtStrExprBracketCounterStack.isEmpty()) {
+                           if (fmtStrExprBracketCounterStack.peek().get() == 0) {
+                             // Pop the stack because we just finished lexing the current fmt str expr.
+                             fmtStrExprBracketCounterStack.pop();
+                             // Resume the string lexing state since all we've done is finish grabbing a single format expr.
+                             yybegin(STRING);
+                             yycolumn++;
+                             addToLine("}");
+                           } else {
+                             fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i-1);
+                             return symbol(Tokens.RCURLY, 0, 1, "}");
+                           }
+                         } else {
+                           return symbol(Tokens.RCURLY, 0, 1, "}");
+                         }
+                       }
     "["                { return symbol(Tokens.LBRACKET, 0, 1, "["); }
     "]"                { return symbol(Tokens.RBRACKET, 0, 1, "]"); }
     "<"                { return symbol(Tokens.L_ANGLE_BRACKET, 0, 1, "<"); }
@@ -135,8 +173,18 @@ WhiteSpace     = [ \t\f]
     "blocking?"        { return symbol(Tokens.MAYBE_BLOCKING, 0, 9, "blocking?"); }
 
      // Symbols related to builtin HTTP support go here.
+     "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }
      "HttpClient"      { return symbol(Tokens.HTTP_CLIENT, 0, 10, "HttpClient"); }
      "HttpServer"      { return symbol(Tokens.HTTP_SERVER, 0, 10, "HttpServer"); }
+
+    \"                 {
+                         // There may have already been another string accumulated into this buffer.
+                         // In that case we need to clear the buffer to start processing this.
+                         string.setLength(0);
+                         yycolumn++;
+                         addToLine("\"");
+                         yybegin(STRING);
+                       }
 
     // If the line comment symbol is found, ignore the token and then switch to the LINECOMMENT lexer state.
     "#"                { yycolumn++; addToLine("#"); yybegin(LINECOMMENT); }
@@ -160,6 +208,48 @@ WhiteSpace     = [ \t\f]
 <LINECOMMENT> {
     {LineTerminator}   { yybegin(YYINITIAL); yyline++; yycolumn = 0; addToLine(yytext()); currentInputLine.set(new StringBuilder()); }
     .                  { addToLine(yytext()); /* Ignore everything in the rest of the commented line. */ }
+}
+
+// A String is a sequence of any printable characters between quotes.
+<STRING> {
+    \"                 {
+                          yybegin(YYINITIAL);
+                          String matchedString = string.toString();
+                          string.setLength(0);
+                          addToLine("\"");
+                          final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                          return new Symbol(Tokens.STRING, ++yycolumn - matchedString.length() - 2 , yyline, LexedValue.create(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
+                       }
+    [^\n\r\"\\{]+      {
+                         String parsed = yytext();
+                         yycolumn += parsed.length();
+                         string.append(parsed);
+                         addToLine(parsed);
+                       }
+    \\t                { appendSpecialCharToString(string, "\\t", '\t'); yycolumn += 2; addToLine(yytext()); }
+    \\n                { appendSpecialCharToString(string, "\\n", '\n'); yycolumn += 2; addToLine(yytext()); }
+
+    \\r                { appendSpecialCharToString(string, "\\r", '\r'); yycolumn += 2; addToLine(yytext()); }
+    \\\"               { appendSpecialCharToString(string, "\\\"", '\"'); yycolumn += 2; addToLine(yytext());}
+    \\                 { appendSpecialCharToString(string, "\\", '\\'); yycolumn += 2; addToLine(yytext()); }
+    \\\{               { string.append('{'); yycolumn += 2; addToLine(yytext()); }
+    "{"                {
+                         // We're now going to start lexing a (possibly nested) fmt str expr, so we push a 0 bracket
+                         // count onto the stack so that we can start tracking when we are done lexing the expr.
+                         fmtStrExprBracketCounterStack.push(new AtomicReference<>(0));
+                         // We now are going to start lexing for an arbitrary expr, which means that we need to move
+                         // JFlex back to the base lexing state. Lexing will return to this STRING state once the
+                         // closing '}' is found.
+                         yybegin(YYINITIAL);
+                         // Turns out that whatever we've currently seen so far was actually a FMT_STRING_PART rather
+                         // than a STRING, so we need to consume the StringBuilder and return the FMT_STRING_PART.
+                         String fmtStringPart = string.toString();
+                         string.setLength(0);
+                         yycolumn++;
+                         addToLine("{");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         return new Symbol(Tokens.FMT_STRING_PART, yycolumn, yyline, LexedValue.create(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
+                       }
 }
 
 // This lexing state is literally just a mimimum-effort approach to trying to give more useful errors. Instead of just

@@ -2,6 +2,7 @@ package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
@@ -23,6 +24,7 @@ public class ModuleNode {
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       unwrappersBlocks;
   private final String moduleName;
+  public final ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs;
   private final String uniqueModuleName;
   public final Stack<String> errorMessages = new Stack<>();
 
@@ -32,7 +34,10 @@ public class ModuleNode {
       ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures,
       ImmutableList<AliasStmt> exportedAliasDefs,
       ImmutableList<NewTypeDefStmt> exportedNewTypeDefs,
-      ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks, ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks, String moduleName,
+      ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks,
+      ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks,
+      ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs,
+      String moduleName,
       String uniqueModuleName) {
     this.exportedSignatures = exportedSignatures;
     this.exportedAliasDefs = exportedAliasDefs;
@@ -40,7 +45,20 @@ public class ModuleNode {
     this.initializersBlocks = initializersBlocks;
     this.unwrappersBlocks = unwrappersBlocks;
     this.moduleName = moduleName;
+    this.exportedHttpServiceDefs = exportedHttpServiceDefs;
     this.uniqueModuleName = uniqueModuleName;
+  }
+
+  public void registerExportedTypeDefs(ScopedHeap scopedHeap) {
+    for (NewTypeDefStmt exportedNewTypeDef : this.exportedNewTypeDefs) {
+      exportedNewTypeDef.registerTypeProvider(scopedHeap);
+    }
+    for (AliasStmt exportedAliasDef : this.exportedAliasDefs) {
+      exportedAliasDef.registerTypeProvider(scopedHeap);
+    }
+    for (HttpServiceDefStmt exportedHttpServiceDefStmt : this.exportedHttpServiceDefs) {
+      exportedHttpServiceDefStmt.registerTypeProvider(scopedHeap);
+    }
   }
 
   public ImmutableMap<String, Types.ProcedureType> getExportedProcedureSignatureTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
@@ -58,6 +76,8 @@ public class ModuleNode {
           ImmutableList.builder();
       // First validate all of the top-level exported procedures.
       for (ContractProcedureSignatureDefinitionStmt exportedSignature : this.exportedSignatures) {
+        // Make sure that the ContractProcedureSignatureDefinitionStmt knows not to go renaming this procedure.
+        exportedSignature.shouldNormalizeProcedureNameForContractDefinition = false;
         exportedSignature.assertExpectedExprTypes(scopedHeap);
         allExportedSignaturesBuilder.add(exportedSignature);
       }
@@ -75,15 +95,30 @@ public class ModuleNode {
           allExportedSignaturesBuilder.add(exportedSignature);
         }
       }
+      ImmutableMap.Builder<String, Types.ProcedureType> moduleExportedProcedureSignatureTypesBuilder =
+          ImmutableMap.builder();
+      // Then validate all synthetic procedures defined by HttpServiceDefs.
+      for (HttpServiceDefStmt httpServiceDefStmt : this.exportedHttpServiceDefs) {
+        httpServiceDefStmt.registerHttpProcedureTypeProviders(scopedHeap);
+        httpServiceDefStmt.assertExpectedExprTypes(scopedHeap);
+        moduleExportedProcedureSignatureTypesBuilder.putAll(
+            httpServiceDefStmt.syntheticEndpointProcedures.stream()
+                .collect(ImmutableMap.toImmutableMap(
+                    procedureDefinitionStmt -> procedureDefinitionStmt.procedureName,
+                    procedureDefinitionStmt -> procedureDefinitionStmt.resolvedProcedureType
+                )));
+      }
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractName = null;
       InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames = null;
 
-      this.moduleExportedProcedureSignatureTypes =
+      moduleExportedProcedureSignatureTypesBuilder.putAll(
           allExportedSignaturesBuilder.build().stream()
               .collect(ImmutableMap.toImmutableMap(
                   sig -> sig.procedureName,
                   sig -> sig.getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap.of())
-              ));
+              )));
+
+      this.moduleExportedProcedureSignatureTypes = moduleExportedProcedureSignatureTypesBuilder.build();
     }
     return this.moduleExportedProcedureSignatureTypes;
   }
@@ -128,8 +163,17 @@ public class ModuleNode {
 
   public boolean assertExpectedProceduresActuallyExported(ScopedHeap scopedHeap) throws ClaroTypeException {
     boolean errorsFound = false;
+
+    // We're going to use a fresh scoped heap when we get the exported procedures from this module because we don't want
+    // to worry about conflicting definitions of the signatures in the actual src files scoped heap. We only need this
+    //  as a temporary to allow the extraction of exported procedure type signatures.
+    ScopedHeap syntheticModuleAPIScopedHeap = new ScopedHeap();
+    syntheticModuleAPIScopedHeap.enterNewScope();
+    // Setup this synthetic scoped heap with the types that are declared in this module.
+    this.registerExportedTypeDefs(syntheticModuleAPIScopedHeap);
+
     for (Map.Entry<String, Types.ProcedureType> expectedExportedProcedureEntry :
-        getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
+        getExportedProcedureSignatureTypes(syntheticModuleAPIScopedHeap).entrySet()) {
       String exportedProcedureName = expectedExportedProcedureEntry.getKey();
       Types.ProcedureType expectedExportedProcedureType = expectedExportedProcedureEntry.getValue();
       if (!scopedHeap.isIdentifierDeclared(expectedExportedProcedureEntry.getKey())) {
@@ -175,9 +219,11 @@ public class ModuleNode {
     public abstract ImmutableMap.Builder<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
     getUnwrappersBlocksByTypeName();
 
+    public abstract ImmutableList.Builder<HttpServiceDefStmt> getHttpServiceDefsBuilder();
+
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder());
     }
   }
 }

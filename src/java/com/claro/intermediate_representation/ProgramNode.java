@@ -104,12 +104,7 @@ public class ProgramNode {
     if (ProgramNode.moduleApiDef.isPresent()) {
       // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
       // defs exported by the module that should also be accessible w/in its implementation sources.
-      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
-        exportedNewTypeDef.registerTypeProvider(scopedHeap);
-      }
-      for (AliasStmt exportedAliasDef : ProgramNode.moduleApiDef.get().exportedAliasDefs) {
-        exportedAliasDef.registerTypeProvider(scopedHeap);
-      }
+      ProgramNode.moduleApiDef.get().registerExportedTypeDefs(scopedHeap);
       // Now, since all the types defined by this and dep modules are all known, time to validate that the initializers
       // and unwrappers are only defined for valid user-defined types exported by *this* module.
       ProgramNode.moduleApiDef.get()
@@ -123,6 +118,10 @@ public class ProgramNode {
       // defs exported by the module whose constructors should also be accessible w/in its implementation sources.
       for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
         exportedNewTypeDef.registerConstructorTypeProvider(scopedHeap);
+      }
+      // HttpServiceDefStmts also register synthetic procedures for calling the defined service.
+      for (HttpServiceDefStmt exportedHttpServiceDefStmt : ProgramNode.moduleApiDef.get().exportedHttpServiceDefs) {
+        exportedHttpServiceDefStmt.registerHttpProcedureTypeProviders(scopedHeap);
       }
     }
     runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
@@ -205,6 +204,7 @@ public class ProgramNode {
       // definitions.
       try {
         scopedHeap.checkAllIdentifiersInCurrScopeUsed();
+        ScopedHeap.checkAllDepModulesUsed();
       } catch (Exception e) {
         miscErrorsFound.push(() -> System.err.println(e.getMessage()));
       }
@@ -229,15 +229,19 @@ public class ProgramNode {
     // Refuse to do code-gen phase if there were any type validation errors.
     StringBuilder res = null; // I hate null but am also too lazy right now to refactor to Optional<StringBuilder>
     if (Expr.typeErrorsFound.isEmpty() && miscErrorsFound.isEmpty()) {
+      // Begin codegen on all non-main src files.
+      Node.GeneratedJavaSource programJavaSource = Node.GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
       if (ProgramNode.moduleApiDef.isPresent()) {
         // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
         // defs exported by the module whose constructors require codegen.
         for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
-          exportedNewTypeDef.generateJavaSourceOutput(scopedHeap);
+          programJavaSource = programJavaSource.createMerged(exportedNewTypeDef.generateJavaSourceOutput(scopedHeap));
+        }
+        for (HttpServiceDefStmt exportedHttpServiceDefStmt : ProgramNode.moduleApiDef.get().exportedHttpServiceDefs) {
+          programJavaSource =
+              programJavaSource.createMerged(exportedHttpServiceDefStmt.generateJavaSourceOutput(scopedHeap));
         }
       }
-      // Begin codegen on all non-main src files.
-      Node.GeneratedJavaSource programJavaSource = Node.GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
       for (ProgramNode currNonMainProgramNode : ProgramNode.nonMainFiles) {
         programJavaSource = programJavaSource.createMerged(
             currNonMainProgramNode.stmtListNode.generateJavaSourceOutput(scopedHeap, this.generatedClassName));

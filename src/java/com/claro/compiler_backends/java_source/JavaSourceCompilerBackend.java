@@ -12,6 +12,7 @@ import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
@@ -319,6 +320,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         newTypeDefStmt.registerTypeProvider(scopedHeap);
         newTypeDefStmt.registerConstructorTypeProvider(scopedHeap);
       }
+      // Register any HttpServiceDefs found in the module.
+      for (HttpServiceDefStmt httpServiceDefStmt : depModuleNode.exportedHttpServiceDefs) {
+        httpServiceDefStmt.registerTypeProvider(scopedHeap);
+      }
     }
 
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
@@ -329,7 +334,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           : moduleDep.getValue().getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
         // Use a disambiguation prefix for namespacing required by dep modules.
         String disambiguatedProcedureName =
-            String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());
+            // It's possible that the procedure name has already been disambiguated (for now, particularly the case for
+            // synthetic procedures declared by the HttpServiceDef stmts).
+            // TODO(steving) make sure that all procs coming from getExportedProcedureSignatureTypes() are all prefixed same.
+            depExportedSig.getKey().startsWith("$DEP_MODULE$")
+            ? depExportedSig.getKey()
+            : String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());
         scopedHeap.putIdentifierValue(disambiguatedProcedureName, depExportedSig.getValue());
       }
 

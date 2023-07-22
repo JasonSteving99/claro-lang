@@ -396,10 +396,12 @@ public class ScopedHeap {
       throw new ClaroParserException(
           String.format("Warning! The following declared symbols are unused! %s", unusedSymbolSet));
     }
+  }
 
-    // Then, I'll check for unused declared module dependencies, as this is technically just going to make the build
+  public static void checkAllDepModulesUsed() {
+    // I'll check for unused declared module dependencies, as this is technically just going to make the build
     // less performant for no reason.
-    unusedSymbolSet = Sets.newHashSet();
+    HashSet<String> unusedSymbolSet = Sets.newHashSet();
     for (String depModuleName : ScopedHeap.currProgramDepModules.rowKeySet()) {
       if (ScopedHeap.currProgramDepModules.contains(depModuleName, /*isUsed=*/false)) {
         unusedSymbolSet.add(depModuleName);

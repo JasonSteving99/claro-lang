@@ -16,9 +16,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 public class HttpServiceDefStmt extends Stmt {
-  private final IdentifierReferenceTerm serviceName;
+  public final IdentifierReferenceTerm serviceName;
   private final ImmutableMap<IdentifierReferenceTerm, Object> endpoints;
-  private ArrayList<ProcedureDefinitionStmt> syntheticEndpointProcedures = new ArrayList<>();
+  public ArrayList<ProcedureDefinitionStmt> syntheticEndpointProcedures = new ArrayList<>();
 
   public HttpServiceDefStmt(IdentifierReferenceTerm serviceName, ImmutableMap<IdentifierReferenceTerm, Object> endpoints) {
     super(ImmutableList.of());
@@ -27,6 +27,9 @@ public class HttpServiceDefStmt extends Stmt {
   }
 
   public void registerHttpProcedureTypeProviders(ScopedHeap scopedHeap) {
+    // Make this function idempotent... Claro really needs a rearchitecting away from using Classes. God I hate the way
+    // that using Classes has led me to some horrible design choices regarding lacking idempotency.
+    this.syntheticEndpointProcedures = new ArrayList<>();
     BiFunction<ImmutableList<Expr>, String, StmtListNode> syntheticHttpProcStmtList =
         (argNames, endpointName) ->
             new StmtListNode(

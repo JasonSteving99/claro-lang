@@ -41,6 +41,7 @@ java_library(
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+        "//src/java/com/claro/intermediate_representation/statements:stmt_impls",
         "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
         "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
         "//src/java/com/claro/intermediate_representation/types:base_type",

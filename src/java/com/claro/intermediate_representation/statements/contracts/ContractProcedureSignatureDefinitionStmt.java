@@ -33,6 +33,11 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public Optional<ImmutableSet<Integer>> inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted;
   public ImmutableSet<String> requiredContextualOutputTypeAssertionTypeParamNames = ImmutableSet.of();
 
+  // This field exists to workaround the fact that these ContractProcedureSignatureDefinitionStmt's actually get used
+  // for both actual contract defs (as in `contract Foo<T> { function doFoo(t: T) -> Foo; }`) and also for top-level
+  // .claro_module_api exported procedure signatures (as in `function doFoo(t: SomeType) -> Foo;`).
+  public boolean shouldNormalizeProcedureNameForContractDefinition = true;
+
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
       Optional<ImmutableMap<String, TypeProvider>> optionalArgTypeProvidersByNameMap,
@@ -53,16 +58,24 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // First, validate that this procedure name isn't already in use in this contract definition.
     String normalizedProcedureName =
-        getFormattedInternalContractProcedureName(procedureName);
+        shouldNormalizeProcedureNameForContractDefinition
+        ? getFormattedInternalContractProcedureName(this.procedureName)
+        : this.procedureName;
     Preconditions.checkState(
         !scopedHeap.isIdentifierDeclared(normalizedProcedureName),
-        String.format(
+        shouldNormalizeProcedureNameForContractDefinition
+        ? String.format(
             "Unexpected redeclaration of contract procedure %s<%s>::%s.",
             InternalStaticStateUtil.ContractDefinitionStmt_currentContractName,
             String.join(", ", InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames),
             this.procedureName
         )
+        : String.format(
+            "Unexpected redeclaration of procedure %s.",
+            this.procedureName
+        )
     );
+
 
     // Now we just need to resolve the arg types for the non-generic param typed args. The generic param types will
     // be made concrete at contract implementation time.

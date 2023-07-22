@@ -2,10 +2,10 @@
 graph function gameMoveHandler(gameId: string, playerSecret: string, dir: string) -> future<string> {
   root formattedHtml <- reduce(@htmlStrParts, "", lambda (accum, curr) -> { return "{accum}{curr}"; });
   node htmlStrParts <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse);
-  # TODO(steving) Figure out how to use just a singleton client.
   node moveBuggyResponse <-
-    move(
-      getClient("https://buggy-buggies.gigalixirapp.com"),
+    BuggyBuggiesClient::move(
+      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
+      BuggyBuggiesClient::getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret,
       dir

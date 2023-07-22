@@ -1,10 +1,10 @@
 
 graph function startNewGameHandler(handle: string) -> future<string> {
   root joinRes <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse)[0];
-  # TODO(steving) Figure out how to use just a singleton client.
   node moveBuggyResponse <-
-    hostGame(
-      getClient("https://buggy-buggies.gigalixirapp.com"),
+    BuggyBuggiesClient::hostGame(
+      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
+      BuggyBuggiesClient::getClient("https://buggy-buggies.gigalixirapp.com"),
       handle
     );
 }

@@ -13,6 +13,7 @@ claro_module(
     srcs = [
         "agent.claro",
         "dijkstra.claro",
+        # TODO(steving) This should be a Module dep rather than an included src once Modules can support it.
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict.claro",
     ],
     deps = {

@@ -1,9 +1,5 @@
-# TODO(steving) Notice to anyone reading this file before Claro's First-Class Module System is fully functional:
-# TODO(steving)   It's a known problem that currently the lack of namespacing with so many source files scattered around
-# TODO(steving)   has resulted in it being hard to trace the implementation of procedures coming from other .claro files.
-# TODO(steving)   For now this state of things is somewhat intentional as this is being used as a motivating example
-# TODO(steving)   for fleshing out the module system to fully compose this service out of Modules.
 
+# This is the HttpService definition that we are going to serve responses for.
 HttpService MyDemoService {
   gamePage: "/",
   startNewGame: "/startNewGame",
@@ -35,8 +31,9 @@ endpoint_handlers MyDemoService {
   graph function joinGame(gameId: string, handle: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForHtml(@formattedHtml);
     node formattedHtml <- Utils::handleBuggyResponseAsHtmlStrParts(@joinResponse)[0];
-    node joinResponse <- friendsJoin(
-      getClient("https://buggy-buggies.gigalixirapp.com"),
+    node joinResponse <- BuggyBuggies::friendsJoin(
+      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
+      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       handle
     );
@@ -51,9 +48,9 @@ endpoint_handlers MyDemoService {
   graph function getBestMoves(gameId: string, playerSecret: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForJson(@formattedJson);
     node formattedJson <- EndpointHandlers::getBestMovesHandler(@parsedWorld);
-    # TODO(steving) Figure out how to use just a singleton client.
-    node parsedWorld <- worldInfo(
-      getClient("https://buggy-buggies.gigalixirapp.com"),
+    node parsedWorld <- BuggyBuggies::worldInfo(
+      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
+      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret
     );
@@ -62,8 +59,9 @@ endpoint_handlers MyDemoService {
   graph function resetGame(gameId: string, playerSecret: string) -> future<HttpResponse> {
     root res <- getOk200HttpResponseForJson(@formattedJson);
     node formattedJson <- Utils::handleBuggyResponseAsHtmlStrParts(@resetResponse)[0];
-    node resetResponse <- reset(
-      getClient("https://buggy-buggies.gigalixirapp.com"),
+    node resetResponse <- BuggyBuggies::reset(
+      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
+      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
       gameId,
       playerSecret
     );

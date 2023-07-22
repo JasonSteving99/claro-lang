@@ -1,23 +1,16 @@
-#
-## Claro-generated non-blocking HttpClient for the BuggyBuggies HttpService.
-#
-#function getClient(url: string) -> HttpClient<BuggyBuggies>;
-#
-#function hostGame(buggyBuggiesClient: HttpClient<BuggyBuggies>, handle: string)
-#  -> future<oneof<string, Error<string>>>;
-#
-#function friendsJoin(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, handle: string)
-#  -> future<oneof<string, Error<string>>>;
-#
-#function move(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string, direction: string)
-#  -> future<oneof<string, Error<string>>>;
-#
-#function worldInfo(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
-#  -> future<oneof<string, Error<string>>>;
-#
-#function reset(buggyBuggiesClient: HttpClient<BuggyBuggies>, gameId: string, secret: string)
-#  -> future<oneof<string, Error<string>>>;
 
+# This encodes the public API of the Buggy-Buggies site available at https://buggy-buggies.gigalixirapp.com/.
+# Claro will generate a non-blocking RPC client for you via the following:
+#   `var myClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");`
+HttpService BuggyBuggies {
+  hostGame: "/api/host/{handle}",
+  friendsJoin: "/api/game/{gameId}/join/{handle}",
+  move: "/api/game/{gameId}/player/{secret}/move/{direction}",
+  worldInfo: "/api/game/{gameId}/player/{secret}/info",
+  reset: "/api/game/{gameId}/player/{secret}/reset"
+}
+
+function getClient(url: string) -> HttpClient<BuggyBuggies>;
 
 # This type models the JSON response from the Buggy-Buggies service as a Claro type to enable parsing the response into
 # something that you can work with programmatically with strict type validation on the edge.
