@@ -93,17 +93,20 @@ public class FunctionCallExpr extends Expr {
         this.name
     );
     if (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
-      if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.containsKey(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+      Types.UserDefinedType referencedUserDefinedType = (Types.UserDefinedType) referencedIdentifierType;
+      if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+              .contains(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
           &&
           !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
-            && (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                    .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+            && (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                    .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
                     .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName)
                 ||
                 (((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
                      .procedureName.contains("$$MONOMORPHIZATION")
-                 && InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                     .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                 &&
+                 InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                     .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
                      .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
                                    .procedureName
                                    // Monomorphization names are formatted like "$$MONOMORPHIZATION::<TypeParam>___FooFunc";
@@ -119,14 +122,28 @@ public class FunctionCallExpr extends Expr {
         this.logTypeError(
             ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultConstructorOutsideOfInitializerProcedures(
                 referencedIdentifierType,
-                InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                    .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
             ));
       }
       // Swap out a synthetic constructor function.
       this.representsUserDefinedTypeConstructor =
-          Optional.of(
-              scopedHeap.getValidatedIdentifierType(
-                  ((Types.UserDefinedType) referencedIdentifierType).getTypeName() + "$wrappedType"));
+          Optional.of(scopedHeap.getValidatedIdentifierType(
+              (this.name.startsWith("$DEP_MODULE$")
+               ? this.name.substring(this.name.lastIndexOf('$') + 1)
+                 + "$"
+                 + ScopedHeap.getDefiningModuleDisambiguator(
+                  Optional.of(this.name.substring("$DEP_MODULE$".length(), this.name.lastIndexOf('$'))))
+               : String.format(
+                   "%s$%s",
+                   this.name,
+                   // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+                   //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+                   ImmutableSet.of("Error", "ParsedJson").contains(this.name)
+                   ? ""
+                   : ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)
+               ))
+              + "$wrappedType"));
       this.name = this.name + "$constructor";
       referencedIdentifierType =
           TypeProvider.Util.getTypeByName(this.name, /*isTypeDefinition=*/false).resolveType(scopedHeap);

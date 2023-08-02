@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -19,13 +20,19 @@ import java.util.function.Supplier;
 public class IdentifierReferenceTerm extends Term {
 
   public final String identifier;
+  private final Optional<String> optionalDefiningModuleDisambiguator;
   private Optional<Supplier<String>> alternateCodegenString = Optional.empty();
   private boolean contextualTypeAsserted = false;
 
   public IdentifierReferenceTerm(String identifier, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    this(identifier, Optional.empty(), currentLine, currentLineNumber, startCol, endCol);
+  }
+
+  public IdentifierReferenceTerm(String identifier, Optional<String> optionalDefiningModuleDisambiguator, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(currentLine, currentLineNumber, startCol, endCol);
     // Hold onto the relevant data for code-gen later.
     this.identifier = identifier;
+    this.optionalDefiningModuleDisambiguator = optionalDefiningModuleDisambiguator;
   }
 
   public String getIdentifier() {
@@ -217,9 +224,28 @@ public class IdentifierReferenceTerm extends Term {
               if (scopedHeap.getValidatedIdentifierType(this.identifier).baseType().equals(BaseType.ATOM)
                   && scopedHeap.getIdentifierData(this.identifier).isTypeDefinition) {
                 // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE.
+                Optional<SerializedClaroModule.UniqueModuleDescriptor> uniqueModuleDescriptor =
+                    ScopedHeap.getModuleNameFromDisambiguator(
+                            this.optionalDefiningModuleDisambiguator.orElse("$THIS_MODULE$"))
+                        .map(moduleName ->
+                                 ScopedHeap.currProgramDepModules.rowMap().get(moduleName)
+                                     .values().stream().findFirst().get());
                 return String.format(
-                    "$ClaroAtom.forCacheIndex(%s)",
-                    InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.build().get(this.identifier)
+                    "%s%sATOM_CACHE[%s]",
+                    uniqueModuleDescriptor.map(m -> m.getProjectPackage() + '$').orElse(""),
+                    this.optionalDefiningModuleDisambiguator.map(s -> s + '.').orElseGet(
+                        () -> {
+                          String definingModuleDisambiguator =
+                              ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
+                          if (definingModuleDisambiguator.isEmpty()) {
+                            return definingModuleDisambiguator;
+                          }
+                          return definingModuleDisambiguator + '.';
+                        }),
+                    InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                        ScopedHeap.getDefiningModuleDisambiguator(this.optionalDefiningModuleDisambiguator),
+                        this.identifier
+                    )
                 );
               } else if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
                 // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to

@@ -1,8 +1,10 @@
 package com.claro;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.*;
 import com.claro.intermediate_representation.expressions.*;
 import com.claro.intermediate_representation.expressions.term.*;
+import com.claro.intermediate_representation.statements.AtomDefinitionStmt;
 import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
@@ -45,13 +47,20 @@ action code {:
   }
 
   public String getDisambiguatedExportedIdentifierName(String originalName) {
+    // TODO(steving) I should be switching entirely over to parsing protos for dep modules instead of reparsing the
+    // TODO(steving)    api files themselves all over again. Once that's done, this disambiguating logic will be unused.
     if (isModuleApiForCurrentCompilationUnit) {
       // In this case, there's actually no disambiguation needed. This module is defining its own type in its module api
       // definition file, so its impl srcs should be able to reference this type directly w/o any explicit namespacing.
       return originalName;
     }
     // Use a disambiguation prefix for namespacing required by dep modules.
-    return String.format("$DEP_MODULE$%s$%s", moduleName, originalName);
+    return getDisambiguatedExportedIdentifierName(moduleName, originalName);
+  }
+
+  public String getDisambiguatedExportedIdentifierName(String moduleName, String originalName) {
+    // Use a disambiguation prefix for namespacing required by dep modules.
+    return String.format("%s$%s", originalName, ScopedHeap.getDefiningModuleDisambiguator(Optional.of(moduleName)));
   }
 :}
 
@@ -59,6 +68,10 @@ parser code {:
   public boolean isModuleApiForCurrentCompilationUnit = false; // default to be overridden.
   public String moduleName = "module";  // default to be overridden.
   public String uniqueModuleName = "";  // default to be overridden. Something like "src$com$foo$module".
+  // Here we're just going to detect all occurrences of syntax like `DepModule::DepType` and register that the DepModule
+  // must be exported by this module so that dependents get access to the definitions of the transitive types that are
+  // being used in this module's public api.
+  public ImmutableSet.Builder<String> depModuleTransitiveTypeExports = ImmutableSet.builder();
 
   public int errorsFound = 0;
   public static Stack<Runnable> errorMessages = new Stack<>();
@@ -160,7 +173,7 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
-terminal LexedValue<String>  NEWTYPE, INITIALIZERS, UNWRAPPERS;
+terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER;
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
 
@@ -175,6 +188,7 @@ nonterminal TypeProvider                       maybe_blocking_procedure_types;
 nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
 nonterminal AliasStmt                          alias_stmt;
+nonterminal AtomDefinitionStmt                 atom_def_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ initializers_block_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ unwrappers_block_stmt;
@@ -206,10 +220,12 @@ module ::=
        RESULT = new ModuleNode(
          module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
          module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
+         module_api_defs.getAtomDefStmtsBuilder().build().reverse(),
          module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
          module_api_defs.getInitializersBlocksByTypeName().build(),
          module_api_defs.getUnwrappersBlocksByTypeName().build(),
          module_api_defs.getHttpServiceDefsBuilder().build().reverse(),
+         depModuleTransitiveTypeExports.build(),
          moduleName,
          uniqueModuleName
        );
@@ -225,6 +241,11 @@ module_api_defs ::=
   | alias_stmt:alias_stmt module_api_defs:tail
     {:
        tail.getAliasDefStmtsBuilder().add(alias_stmt);
+       RESULT = tail;
+    :}
+  | atom_def_stmt:atom_def_stmt module_api_defs:tail
+    {:
+       tail.getAtomDefStmtsBuilder().add(atom_def_stmt);
        RESULT = tail;
     :}
   | newtype_def_stmt:newtype_def_stmt module_api_defs:tail
@@ -258,6 +279,12 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getAliasDefStmtsBuilder().add(alias_stmt);
+       RESULT = res;
+    :}
+  | atom_def_stmt:atom_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getAtomDefStmtsBuilder().add(atom_def_stmt);
        RESULT = res;
     :}
   | newtype_def_stmt:newtype_def_stmt
@@ -624,21 +651,36 @@ base_builtin_type_without_mutability_modifier ::=
     :}
   | IDENTIFIER:type_name
     {:
-       // Use a disambiguation prefix for namespacing required by dep modules.
-       TypeProvider disambiguatedTypeProvider =
-         // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-         //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-         type_name.getVal().equals("Nothing")
-         ? TypeProvider.ImmediateTypeProvider.of(Types.AtomType.forName("Nothing"))
-         : TypeProvider.Util.getTypeByName(getDisambiguatedExportedIdentifierName(type_name.getVal()), /*isTypeDefinition=*/true);
        RESULT = new Symbol(
           -1,
           type_nameleft,
           type_nameright, // line number
           LexedValue.create(
-            disambiguatedTypeProvider,
+            TypeProvider.Util.getTypeByName(type_name.getVal(), /*isTypeDefinition=*/true),
             type_name.getCurrentInputLine(),
             type_name.getLen())
+       );
+    :}
+  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright));
+       int startCol = min(dep_module_nameleft, cleft, type_nameleft);
+       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen());
+
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       depModuleTransitiveTypeExports.add(dep_module_name.getVal());
+
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol,
+          LexedValue.create(
+            TypeProvider.Util.getTypeByName(disambiguatedDepModuleTypeName, /*isTypeDefinition=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
        );
     :}
   | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
@@ -862,28 +904,24 @@ identifier_list ::=
           joinExprLines(new Line(arg_name.getCurrentInputLine(), arg_nameright), new Line(c.getCurrentInputLine(), cright), new Line(((LexedValue)tail.value).getCurrentInputLine(), tail.right));
        int startCol = min(arg_nameleft, cleft);
        int endCol = max(arg_nameleft + arg_name.getLen(), cleft + c.getLen());
-       // Use a disambiguation prefix for namespacing required by dep modules.
-       String disambiguatedArgName = getDisambiguatedExportedIdentifierName(arg_name.getVal());
        RESULT = new Symbol(
           -1,
           startCol,
           tail.right, // line number
           LexedValue.create(
-            ((LexedValue<ImmutableList.Builder<String>>)tail.value).getVal().add(disambiguatedArgName),
+            ((LexedValue<ImmutableList.Builder<String>>)tail.value).getVal().add(arg_name.getVal()),
             currentLinesSupplier,
             endCol - startCol)
        );
     :}
   | IDENTIFIER:arg_name
     {:
-       // Use a disambiguation prefix for namespacing required by dep modules.
-       String disambiguatedArgName = getDisambiguatedExportedIdentifierName(arg_name.getVal());
        RESULT = new Symbol(
           -1,
           arg_nameleft,
           arg_nameright, // line number
           LexedValue.create(
-            ImmutableList.<String>builder().add(disambiguatedArgName),
+            ImmutableList.<String>builder().add(arg_name.getVal()),
             arg_name.getCurrentInputLine(),
             arg_name.getLen())
        );
@@ -1119,18 +1157,23 @@ alias_stmt ::=
     :}
   ;
 
+atom_def_stmt ::=
+    ATOM identifier:name
+    {: RESULT = new AtomDefinitionStmt(name); :}
+  ;
+
 newtype_def_stmt ::=
     NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        // Use a disambiguation prefix for namespacing required by dep modules.
-       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(moduleName), baseTypeLexedVal.getVal());
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(uniqueModuleName), baseTypeLexedVal.getVal());
     :}
   | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        // Use a disambiguation prefix for namespacing required by dep modules.
-       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(moduleName), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(uniqueModuleName), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
     :}
   ;
 

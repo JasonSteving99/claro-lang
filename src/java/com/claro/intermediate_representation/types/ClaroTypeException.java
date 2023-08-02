@@ -437,6 +437,23 @@ public class ClaroTypeException extends Exception {
       "\t\t%s\n" +
       "\tExpected:\n" +
       "\t\t%s";
+  private static final String MODULE_API_REFERENCES_TYPE_FROM_TRANSITIVE_DEP_MODULE_NOT_EXPLICITLY_EXPORTED =
+      "Module API References Type Declared in non-Exported Dep Module: In order for a .claro_module_api to reference a" +
+      " type defined in a dep Module, that dep Module must be explicitly included in the " +
+      "`claro_module(..., exports = [...])` so that consumers of this Module are able to access the type's definition.\n" +
+      "\tEither drop all references to types defined in these dep Modules, or update your module build target as follows:\n" +
+      "\t\tclaro_module(\n" +
+      "\t\t\t...,\n" +
+      "\t\t\texports = [\n" +
+      "\t\t\t\t%s\n" +
+      "\t\t\t],\n" +
+      "\t\t)";
+  private static final String MODULE_UNNECESSARILY_EXPORTS_DEP_MODULES_THAT_ARE_NOT_REFERENCED_IN_MODULE_API =
+      "Module Exports Dep Modules Unnecessarily: This Module should only list a transitive dep Module in " +
+      "`claro_module(..., exports = [...])` if types from that dep Module are explicitly referenced in the " +
+      ".claro_module_api file declaring this Modules public interface.\n" +
+      "\tDrop the following Modules from the Module's exports list:\n" +
+      "\t\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1592,5 +1609,24 @@ public class ClaroTypeException extends Exception {
             initializers ? "Initializers" : "Unwrappers",
             initializers ? "initializers" : "unwrappers"
         ));
+  }
+
+  public static ClaroTypeException forModuleAPIReferencesTypeFromTransitiveDepModuleNotExplicitlyExplicitlyExported(
+      Set<String> nonExportedDeps) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_API_REFERENCES_TYPE_FROM_TRANSITIVE_DEP_MODULE_NOT_EXPLICITLY_EXPORTED,
+            nonExportedDeps.stream().map(d -> String.format("\"%s\"", d)).collect(Collectors.joining(",\n\t\t\t\t"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forUnnecessaryExportedDepModule(Set<String> unnecessarilyExportedDeps) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_UNNECESSARILY_EXPORTS_DEP_MODULES_THAT_ARE_NOT_REFERENCED_IN_MODULE_API,
+            Joiner.on("\n\t\t- ").join(unnecessarilyExportedDeps)
+        )
+    );
   }
 }

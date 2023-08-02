@@ -6,10 +6,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 
 import java.util.*;
 import java.util.function.Function;
@@ -25,6 +22,11 @@ public class ScopedHeap {
   // A table<depModuleName, isUsed, descriptor> of dep module descriptors and whether or not they have been referenced.
   public static HashBasedTable<String, Boolean, SerializedClaroModule.UniqueModuleDescriptor> currProgramDepModules =
       HashBasedTable.create();
+  // The set of Dep Modules that are listed as transitive exports of this module. Dep Modules are required to be
+  // explicitly placed here via claro_module(..., exports = ["Foo"], deps = {"Foo": "//..."}) if the
+  // .claro_module_api file is going to explicitly reference any types declared in a dep Module (e.g. `Foo::FooType`).
+  // This ensures that the consumers of this Module are actually able to read the definition of the transitive dep types.
+  public static ImmutableSet<String> transitiveExportedDepModules = ImmutableSet.of();
 
   public static String getDefiningModuleDisambiguator(Optional<String> optionalOriginatingDepModuleName) {
     String res;
@@ -33,9 +35,11 @@ public class ScopedHeap {
       res = ScopedHeap.currProgramDepModules.rowMap().get(optionalOriginatingDepModuleName.get())
           .values().stream().findFirst().get().getUniqueModuleName();
     } else {
-      SerializedClaroModule.UniqueModuleDescriptor thisModuleDesc;
-      if ((thisModuleDesc = ScopedHeap.currProgramDepModules.get("$THIS_MODULE$", /*isUsed=*/true)) != null) {
-        res = thisModuleDesc.getUniqueModuleName();
+      Optional<SerializedClaroModule.UniqueModuleDescriptor> thisModuleDesc;
+      if ((thisModuleDesc =
+               Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+                   .map(m -> m.values().stream().findFirst().get())).isPresent()) {
+        res = thisModuleDesc.get().getUniqueModuleName();
       } else {
         // Turns out this is not defined within a module (it's just a top-level src in a claro_binary()) so since nobody
         // else can depend on this, we don't need any disambiguator.
@@ -43,6 +47,16 @@ public class ScopedHeap {
       }
     }
     return res;
+  }
+
+  public static Optional<String> getModuleNameFromDisambiguator(String disambiguator) {
+    if (disambiguator.isEmpty()) {
+      return Optional.empty();
+    }
+    return ScopedHeap.currProgramDepModules.cellSet().stream()
+        .filter(c -> c.getValue().getUniqueModuleName().equals(disambiguator))
+        .findFirst()
+        .map(Table.Cell::getRowKey);
   }
 
   public void disableCheckUnused() {

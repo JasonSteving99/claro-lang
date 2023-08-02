@@ -46,10 +46,19 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
       this.logTypeError(
           ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
               validatedUserDefinedType,
-              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.get(validatedUserDefinedType.getTypeName())
+              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator.get(
+                  validatedUserDefinedType.getTypeName(),
+                  validatedUserDefinedType.getDefiningModuleDisambiguator()
+              )
           ));
     }
 
+    String wrappedTypeIdentifier =
+        String.format(
+            "%s$%s$wrappedType",
+            ((Types.UserDefinedType) validatedExprType).getTypeName(),
+            ((Types.UserDefinedType) validatedExprType).getDefiningModuleDisambiguator()
+        );
     if (!validatedUserDefinedType.parameterizedTypeArgs().isEmpty()) {
       // In this case we actually should be parameterizing the wrapped type with this instance's concrete type params.
       HashMap<Type, Type> genericTypeParamMap = Maps.newHashMap();
@@ -59,11 +68,16 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
               i ->
                   genericTypeParamMap.put(
                       Types.$GenericTypeParam.forTypeParamName(
-                          Types.UserDefinedType.$typeParamNames.get(validatedUserDefinedType.getTypeName()).get(i)),
+                          Types.UserDefinedType.$typeParamNames.get(
+                                  String.format(
+                                      "%s$%s",
+                                      validatedUserDefinedType.getTypeName(),
+                                      validatedUserDefinedType.getDefiningModuleDisambiguator()
+                                  ))
+                              .get(i)),
                       validatedUserDefinedType.parameterizedTypeArgs().get(i.toString())
                   ));
-      Type genericWrappedType = scopedHeap.getValidatedIdentifierType(
-          ((Types.UserDefinedType) validatedExprType).getTypeName() + "$wrappedType");
+      Type genericWrappedType = scopedHeap.getValidatedIdentifierType(wrappedTypeIdentifier);
       this.validatedUnwrappedType =
           StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
               genericTypeParamMap,
@@ -74,18 +88,18 @@ public class UnwrapUserDefinedTypeExpr extends Expr {
       return this.validatedUnwrappedType;
     }
 
-    this.validatedUnwrappedType = scopedHeap.getValidatedIdentifierType(
-        ((Types.UserDefinedType) validatedExprType).getTypeName() + "$wrappedType");
+    this.validatedUnwrappedType = scopedHeap.getValidatedIdentifierType(wrappedTypeIdentifier);
     return this.validatedUnwrappedType;
   }
 
   public static boolean validateUnwrapIsLegal(Types.UserDefinedType validatedUserDefinedType) {
-    if (InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType.containsKey(validatedUserDefinedType.getTypeName())
+    if (InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
+            .contains(validatedUserDefinedType.getTypeName(), validatedUserDefinedType.getDefiningModuleDisambiguator())
         && (!InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
             ||
             (!((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName.contains("$$MONOMORPHIZATION")
-             && !InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
-                .get(validatedUserDefinedType.getTypeName())
+             && !InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
+                .get(validatedUserDefinedType.getTypeName(), validatedUserDefinedType.getDefiningModuleDisambiguator())
                 .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName)))) {
       // Actually, it turns out this is an illegal reference to the auto-generated default constructor outside of one
       // of the procedures defined within the `initializers` block.

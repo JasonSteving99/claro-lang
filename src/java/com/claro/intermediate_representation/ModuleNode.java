@@ -2,6 +2,7 @@ package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
+import com.claro.intermediate_representation.statements.AtomDefinitionStmt;
 import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
@@ -11,18 +12,23 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 public class ModuleNode {
   public final ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures;
   public final ImmutableList<AliasStmt> exportedAliasDefs;
+  public final ImmutableList<AtomDefinitionStmt> exportedAtomDefs;
   public final ImmutableList<NewTypeDefStmt> exportedNewTypeDefs;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       initializersBlocks;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       unwrappersBlocks;
+  public final ImmutableSet<String> depModulesTransitiveTypeExports;
   private final String moduleName;
   public final ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs;
   private final String uniqueModuleName;
@@ -33,23 +39,30 @@ public class ModuleNode {
   public ModuleNode(
       ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures,
       ImmutableList<AliasStmt> exportedAliasDefs,
+      ImmutableList<AtomDefinitionStmt> exportedAtomDefs,
       ImmutableList<NewTypeDefStmt> exportedNewTypeDefs,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks,
       ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs,
+      ImmutableSet<String> depModulesTransitiveTypeExports,
       String moduleName,
       String uniqueModuleName) {
     this.exportedSignatures = exportedSignatures;
     this.exportedAliasDefs = exportedAliasDefs;
+    this.exportedAtomDefs = exportedAtomDefs;
     this.exportedNewTypeDefs = exportedNewTypeDefs;
     this.initializersBlocks = initializersBlocks;
     this.unwrappersBlocks = unwrappersBlocks;
+    this.depModulesTransitiveTypeExports = depModulesTransitiveTypeExports;
     this.moduleName = moduleName;
     this.exportedHttpServiceDefs = exportedHttpServiceDefs;
     this.uniqueModuleName = uniqueModuleName;
   }
 
   public void registerExportedTypeDefs(ScopedHeap scopedHeap) {
+    for (AtomDefinitionStmt exportedAtomDef : this.exportedAtomDefs) {
+      exportedAtomDef.registerType(scopedHeap);
+    }
     for (NewTypeDefStmt exportedNewTypeDef : this.exportedNewTypeDefs) {
       exportedNewTypeDef.registerTypeProvider(scopedHeap);
     }
@@ -171,6 +184,34 @@ public class ModuleNode {
     syntheticModuleAPIScopedHeap.enterNewScope();
     // Setup this synthetic scoped heap with the types that are declared in this module.
     this.registerExportedTypeDefs(syntheticModuleAPIScopedHeap);
+    // TODO(steving) This should actually be pulling in the EXPORTED dep module type defs.
+    // Filter level 0 of the given program's ScopedHeap to only the type defs gotten from dep modules and add those type
+    // definitions to this synthetic scoped heap so that the procedure signatures may reference dep module exported types.
+    scopedHeap.scopeStack.get(0).scopedSymbolTable.entrySet().stream()
+        .filter(e -> e.getKey().startsWith("$DEP_MODULE$") && e.getValue().isTypeDefinition)
+        .forEach(
+            depModuleExportedType ->
+                syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+                    depModuleExportedType.getKey(),
+                    depModuleExportedType.getValue().type,
+                    depModuleExportedType.getValue().interpretedValue
+                ));
+    // TODO(steving) UNTIL STDLIB IS MIGRATED TO MODULES, I'LL NEED TO MANUALLY ALLOW NOTHING/ERROR/PARSEDJSON.
+    scopedHeap.scopeStack.get(0).scopedSymbolTable.entrySet().stream()
+        .filter(e ->
+                    e.getValue().isTypeDefinition
+                    && (e.getValue().type.baseType().equals(BaseType.USER_DEFINED_TYPE)
+                        && ((Types.UserDefinedType) e.getValue().type).getDefiningModuleDisambiguator().equals("")
+                        && (ImmutableSet.of("Error", "ParsedJson").contains(e.getKey())))
+                    || (e.getValue().type.baseType().equals(BaseType.ATOM)
+                        && e.getValue().type.equals(Types.AtomType.forNameAndDisambiguator("Nothing", ""))))
+        .forEach(
+            depModuleExportedType ->
+                syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+                    depModuleExportedType.getKey(),
+                    depModuleExportedType.getValue().type,
+                    depModuleExportedType.getValue().interpretedValue
+                ));
 
     for (Map.Entry<String, Types.ProcedureType> expectedExportedProcedureEntry :
         getExportedProcedureSignatureTypes(syntheticModuleAPIScopedHeap).entrySet()) {
@@ -205,11 +246,26 @@ public class ModuleNode {
     this.errorMessages.push(String.format("%s.claro_module: %s", this.moduleName, e.getMessage()));
   }
 
+  public void assertDepModulesTransitiveTypeExportsActuallyExported() {
+    Set<String> nonExportedDeps =
+        Sets.difference(this.depModulesTransitiveTypeExports, ScopedHeap.transitiveExportedDepModules);
+    if (!nonExportedDeps.isEmpty()) {
+      logError(ClaroTypeException.forModuleAPIReferencesTypeFromTransitiveDepModuleNotExplicitlyExplicitlyExported(nonExportedDeps));
+    }
+    Set<String> unnecessarilyExportedDeps =
+        Sets.difference(ScopedHeap.transitiveExportedDepModules, this.depModulesTransitiveTypeExports);
+    if (!unnecessarilyExportedDeps.isEmpty()) {
+      logError(ClaroTypeException.forUnnecessaryExportedDepModule(unnecessarilyExportedDeps));
+    }
+  }
+
   @AutoValue
   public static abstract class ModuleApiStmtsBuilder {
     public abstract ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> getProcedureSignaturesBuilder();
 
     public abstract ImmutableList.Builder<AliasStmt> getAliasDefStmtsBuilder();
+
+    public abstract ImmutableList.Builder<AtomDefinitionStmt> getAtomDefStmtsBuilder();
 
     public abstract ImmutableList.Builder<NewTypeDefStmt> getNewTypeDefStmtsBuilder();
 
@@ -223,7 +279,7 @@ public class ModuleNode {
 
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder());
     }
   }
 }

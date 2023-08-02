@@ -1,6 +1,7 @@
 package com.claro.intermediate_representation.types;
 
 import com.claro.ClaroParserException;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos.TypeProto;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -64,4 +65,9 @@ public abstract class Type {
     throw new ClaroParserException("Internal Compiler Error: This method is unsupported.");
   }
 
+  // Every type needs to be able to convert itself to a serializable Proto representation.
+  public TypeProto toProto() {
+    throw new RuntimeException("Internal Compiler Error: This type <" + this +
+                               "> should not be serialized as it should be an internal only type.");
+  }
 }

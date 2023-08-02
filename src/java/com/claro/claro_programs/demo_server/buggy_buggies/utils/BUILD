@@ -10,4 +10,5 @@ claro_module(
     module_api_file = "utils.claro_module_api",
     srcs = ["handle_buggy_response.claro"],
     visibility = ["//src/java/com/claro/claro_programs/demo_server/buggy_buggies:__subpackages__"],
+    debug = True
 )

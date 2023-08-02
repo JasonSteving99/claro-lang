@@ -717,7 +717,12 @@ public class MatchStmt extends Stmt {
         HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();
         ImmutableList<Type> matchedExprConcreteTypeParams = matchedExprType.parameterizedTypeArgs().values().asList();
         ImmutableList<String> matchedExprTypeParamNames =
-            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+            Types.UserDefinedType.$typeParamNames.get(
+                String.format(
+                    "%s$%s",
+                    ((Types.UserDefinedType) matchedExprType).getTypeName(),
+                    ((Types.UserDefinedType) matchedExprType).getDefiningModuleDisambiguator()
+                ));
         for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
           userDefinedConcreteTypeParamsMap.put(
               Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
@@ -725,7 +730,12 @@ public class MatchStmt extends Stmt {
           );
         }
         Type potentiallyGenericWrappedType =
-            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+            Types.UserDefinedType.$resolvedWrappedTypes.get(
+                String.format(
+                    "%s$%s",
+                    ((Types.UserDefinedType) matchedExprType).getTypeName(),
+                    ((Types.UserDefinedType) matchedExprType).getDefiningModuleDisambiguator()
+                ));
         Type validatedWrappedType;
         try {
           validatedWrappedType =
@@ -875,7 +885,12 @@ public class MatchStmt extends Stmt {
         HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();
         ImmutableList<Type> matchedExprConcreteTypeParams = matchedExprType.parameterizedTypeArgs().values().asList();
         ImmutableList<String> matchedExprTypeParamNames =
-            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+            Types.UserDefinedType.$typeParamNames.get(
+                String.format(
+                    "%s$%s",
+                    ((Types.UserDefinedType) matchedExprType).getTypeName(),
+                    ((Types.UserDefinedType) matchedExprType).getDefiningModuleDisambiguator()
+                ));
         for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
           userDefinedConcreteTypeParamsMap.put(
               Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
@@ -883,7 +898,12 @@ public class MatchStmt extends Stmt {
           );
         }
         Type potentiallyGenericWrappedType =
-            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) matchedExprType).getTypeName());
+            Types.UserDefinedType.$resolvedWrappedTypes.get(
+                String.format(
+                    "%s$%s",
+                    ((Types.UserDefinedType) matchedExprType).getTypeName(),
+                    ((Types.UserDefinedType) matchedExprType).getDefiningModuleDisambiguator()
+                ));
         Type validatedWrappedType;
         try {
           validatedWrappedType =
@@ -1320,7 +1340,12 @@ public class MatchStmt extends Stmt {
         ImmutableList<Type> matchedExprConcreteTypeParams =
             invertedUserDefinedType.parameterizedTypeArgs().values().asList();
         ImmutableList<String> matchedExprTypeParamNames =
-            Types.UserDefinedType.$typeParamNames.get(((Types.UserDefinedType) invertedUserDefinedType).getTypeName());
+            Types.UserDefinedType.$typeParamNames.get(
+                String.format(
+                    "%s$%s",
+                    invertedUserDefinedType.getTypeName(),
+                    invertedUserDefinedType.getDefiningModuleDisambiguator()
+                ));
         for (int i = 0; i < matchedExprConcreteTypeParams.size(); i++) {
           userDefinedConcreteTypeParamsMap.put(
               Types.$GenericTypeParam.forTypeParamName(matchedExprTypeParamNames.get(i)),
@@ -1328,7 +1353,12 @@ public class MatchStmt extends Stmt {
           );
         }
         Type potentiallyGenericWrappedType =
-            Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) invertedUserDefinedType).getTypeName());
+            Types.UserDefinedType.$resolvedWrappedTypes.get(
+                String.format(
+                    "%s$%s",
+                    invertedUserDefinedType.getTypeName(),
+                    invertedUserDefinedType.getDefiningModuleDisambiguator()
+                ));
         Type validatedWrappedType;
         try {
           validatedWrappedType =

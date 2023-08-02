@@ -216,6 +216,9 @@ public class ProgramNode {
     if (ProgramNode.moduleApiDef.isPresent()) {
       try {
         ProgramNode.moduleApiDef.get().assertExpectedProceduresActuallyExported(scopedHeap);
+        // Here we validate that if this module api actually references any types from dep modules that the dep module
+        // is *actually* listed as an `exports` dep.
+        ProgramNode.moduleApiDef.get().assertDepModulesTransitiveTypeExportsActuallyExported();
       } catch (ClaroTypeException e) {
         miscErrorsFound.push(() -> System.err.println(e.getMessage()));
       } finally {
@@ -580,8 +583,6 @@ public class ProgramNode {
       mainMethodCodegen = String.format(
           "public static void main(String[] args) {\n" +
           "    try {\n" +
-          "      // Setup the atom cache so that all atoms are singleton.\n" +
-          "      %s\n\n" +
           "/**BEGIN USER CODE**/\n" +
           "%s\n\n" +
           "/**END USER CODE**/\n" +
@@ -595,7 +596,6 @@ public class ProgramNode {
           "      $HttpUtil.shutdownOkHttpClient();\n" +
           "    }\n" +
           "  }\n\n",
-          AtomDefinitionStmt.codegenAtomCacheInit(),
           stmtListJavaSource.javaSourceBody()
       );
     }
@@ -653,6 +653,8 @@ public class ProgramNode {
             "\n\n" +
             "@SuppressWarnings(\"unchecked\")\n" +
             "public class %s {\n" +
+            "// Setup the atom cache so that all atoms are singleton.\n" +
+            "public static final $ClaroAtom[] ATOM_CACHE = new $ClaroAtom[]{%s};\n\n" +
             "// Static preamble statements first thing.\n" +
             "%s\n\n" +
             "// Now the static definitions.\n" +
@@ -662,6 +664,7 @@ public class ProgramNode {
             "}",
             this.packageString,
             this.generatedClassName,
+            AtomDefinitionStmt.codegenAtomCacheInit(),
             stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
             stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
             mainMethodCodegen

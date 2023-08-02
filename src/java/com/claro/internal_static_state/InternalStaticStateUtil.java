@@ -16,8 +16,9 @@ import java.util.function.BiFunction;
 // minimal dependencies, specifically none that go into the intermediate_representation/(expressions|statements)
 // packages to avoid all circular deps.
 public class InternalStaticStateUtil {
-  public static final ImmutableMap.Builder<String, Integer> AtomDefinition_CACHE_INDEX_BY_ATOM_NAME =
-      ImmutableMap.builder();
+  public static final ImmutableTable.Builder<String, String, Integer>
+      AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME =
+      ImmutableTable.builder();
   public static ImmutableMap<String, TypeProvider> GraphProcedureDefinitionStmt_graphFunctionArgs;
   public static Optional<ImmutableMap<String, TypeProvider>>
       GraphProcedureDefinitionStmt_graphFunctionOptionalInjectedKeys;
@@ -66,10 +67,10 @@ public class InternalStaticStateUtil {
   public static Optional<ArrayListMultimap/*<String, ImmutableList<Types.$GenericTypeParam>>*/>
       LambdaExpr_optionalActiveGenericProcedureDefRequiredContractNamesToGenericArgs = Optional.empty();
   public static boolean IfStmt_withinConditionTypeValidation = false;
-  public static HashMultimap<String, String> InitializersBlockStmt_initializersByInitializedType
-      = HashMultimap.create();
-  public static HashMultimap<String, String> UnwrappersBlockStmt_unwrappersByUnwrappedType
-      = HashMultimap.create();
+  public static HashBasedTable<String, String, ImmutableSet<String>>
+      InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator = HashBasedTable.create();
+  public static HashBasedTable<String, String, ImmutableSet<String>>
+      UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator = HashBasedTable.create();
 
   // We'll use these nestedComprehension* variables to track the nesting level, and the names of any identifiers that
   // get referenced from within nested comprehensions (as these will need special handling to avoid non-final var
@@ -78,10 +79,6 @@ public class InternalStaticStateUtil {
   public static String ComprehensionExpr_nestedComprehensionMappedItemName;
   public static HashSet<String> ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
   public static boolean LoopingConstructs_withinLoopingConstructBody = false;
-  public static final HashBasedTable<String, String, Type> HttpServiceDef_endpointProcedureSignatures =
-      HashBasedTable.create();
-  public static HashSet<String> HttpServiceDef_servicesWithValidEndpointHandlersDefined = Sets.newHashSet();
-  public static HashBasedTable<String, String, String> HttpServiceDef_endpointPaths = HashBasedTable.create();
 
   // This function allows IdentifierReferenceterm to add any referenced vars so that the codegen for the outermost
   // collection can create a class that collects the referenced variables in order to workaround Java's effectively
@@ -91,4 +88,9 @@ public class InternalStaticStateUtil {
       ComprehensionExpr_nestedComprehensionIdentifierReferences.add(identifier);
     }
   }
+
+  public static final HashBasedTable<String, String, Type> HttpServiceDef_endpointProcedureSignatures =
+      HashBasedTable.create();
+  public static HashSet<String> HttpServiceDef_servicesWithValidEndpointHandlersDefined = Sets.newHashSet();
+  public static HashBasedTable<String, String, String> HttpServiceDef_endpointPaths = HashBasedTable.create();
 }

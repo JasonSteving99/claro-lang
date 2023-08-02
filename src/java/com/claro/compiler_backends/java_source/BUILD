@@ -27,9 +27,11 @@ java_library(
       "//src/java/com/claro/intermediate_representation/statements/contracts:contract_procedure_signature",
       "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
       "//src/java/com/claro/intermediate_representation/types",
+      "//src/java/com/claro/intermediate_representation/types:type",
       "//src/java/com/claro/internal_static_state",
       "//src/java/com/claro/module_system:module_api_parser_util",
       "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
+      "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
       "//src/java/com/claro/stdlib",
     ],
 )

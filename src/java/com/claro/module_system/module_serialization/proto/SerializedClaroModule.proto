@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package claro.module_system.module_serialization;
 
+import "src/java/com/claro/module_system/module_serialization/proto/claro_types/ClaroTypes.proto";
+
 option java_multiple_files = true;
 option java_package = "com.claro.module_system.module_serialization.proto";
 
@@ -32,11 +34,76 @@ message SerializedClaroModule {
     string unique_module_name = 2;
   }
 
+  // This message breaks down an exported transitive dep type as follows:
+  // For the type reference `FooDep::SomeType` in a .claro_module_api file:
+  //   - module_name = "FooDep"
+  //   - unique_module_name = "src$com$some$concrete$dep$module"
+  //      - this is assuming tha the concrete claro_module() dep implementing FooDep::SomeType is located at the bazel
+  //      - path "//src/com/some/concrete/dep:module".
+  message ExportedTransitiveDepModule {
+    string module_name = 1;
+    string unique_module_name = 2;
+  }
+
+  message NewTypeDef {
+    claro.module_system.module_serialization.claro_types.UserDefinedType user_defined_type = 1;
+    claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
+    repeated string type_param_names = 3;
+    Procedure constructor = 4;
+  }
+
+  message Procedure {
+    string name = 1;
+    oneof procedure_type {
+      claro.module_system.module_serialization.claro_types.FunctionType function = 2;
+      claro.module_system.module_serialization.claro_types.ConsumerType consumer = 3;
+      claro.module_system.module_serialization.claro_types.ProviderType provider = 4;
+    }
+  }
+
+  message ExportedTypeDefinitions {
+    // Literally just a simple wrapper type in order to have a map with list values.
+    message ProcedureList {
+      repeated Procedure procedures = 1;
+    }
+    map<string, claro.module_system.module_serialization.claro_types.TypeProto> exported_alias_defs_by_name = 1;
+    map<string, NewTypeDef> exported_newtype_defs_by_name = 2;
+    map<string, ProcedureList> initializers_by_type_name = 3;
+    map<string, ProcedureList> unwrappers_by_type_name = 4;
+  }
+
+  message ExportedHttpServiceDefinition {
+    message Endpoint {
+      string endpoint_name = 1;
+      string path = 2;
+      Procedure procedure = 3;
+    }
+    string http_service_name = 1;
+    repeated Endpoint endpoints = 2;
+  }
+
   UniqueModuleDescriptor module_descriptor = 1;
 
   // This field contains the actual source of the given .claro_module_api file. This will be necessary for dependents to
   // be able to determine the bindings exported for them to make use of.
+  // TODO(steving) Drop this from this proto once all the type defs/initializers/aliases/procedure signatures are handled as protos.
   ClaroSourceFile module_api_file = 2;
+
+  // This is essentially a serialized symbol table containing just the newtypes and aliases exported by this module.
+  ExportedTypeDefinitions exported_type_definitions = 3;
+
+  repeated string exported_atom_definitions = 4;
+
+  repeated Procedure exported_procedure_definitions = 5;
+
+  repeated ExportedHttpServiceDefinition exported_http_service_definitions = 6;
+
+  // Exported transitive types are types that are actually defined by this Module's deps but referenced in the exported
+  // procedures/types of this Module's api. This is necessary to communicate explicitly what types are being talked
+  // about here, as this is technically ambiguous from looking at the api file alone as readers couldn't know what
+  // concrete deps the module was compiled against. This field resolves that ambiguity by specifying the concrete
+  // disambiguator for each exported transitive type.
+  repeated ExportedTransitiveDepModule exported_transitive_dep_modules = 7;
 
   // This field contains the codegen pertaining to any static definitions that are guaranteed to be provided by this
   // module. In less opaque terms, this contains codegen for any non-generic procedure definitions that are exported by
@@ -44,11 +111,11 @@ message SerializedClaroModule {
   // monomorphizations that are explicitly called from exported procedures *within* this module). Later on, when this
   // module is depended on in a Claro Binary, the concrete monomorphizations needed by the overall will be codegen'd at
   // the last minute.
-  bytes static_java_codegen = 3;
+  bytes static_java_codegen = 8;
 
   // As Claro will need to postpone codegen of generic procedure monomorphizations until after the entire program is
   // assembled into a Claro Binary, this serialized module actually needs to maintain the original Claro source files
   // that contain all exported procedure implementations. This way, once all concrete monomorphizations are known, it's
   // possible to re-parse the source file to find the necessary generic procedure defs to codegen monomorphizations for.
-  repeated ClaroSourceFile module_impl_files = 4;
+  repeated ClaroSourceFile module_impl_files = 9;
 }

@@ -11,19 +11,19 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
-import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
-import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
-import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.ModuleApiParserUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.claro.stdlib.StdLibUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharSource;
 import com.google.devtools.common.options.OptionsParser;
@@ -43,6 +43,7 @@ import java.util.Scanner;
 
 public class JavaSourceCompilerBackend implements CompilerBackend {
   private final ImmutableMap<String, SrcFile> MODULE_DEPS;
+  private final ImmutableSet<String> EXPORTS;
   private final boolean SILENT;
   private final Optional<String> GENERATED_CLASSNAME;
   private final Optional<String> PACKAGE_STRING;
@@ -83,6 +84,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               );
             }
         ));
+    this.EXPORTS = options.exports.stream().collect(ImmutableSet.toImmutableSet());
     this.OPTIONAL_OUTPUT_FILE_PATH =
         Optional.ofNullable(options.output_file_path.isEmpty() ? null : options.output_file_path);
   }
@@ -175,7 +177,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               ClaroParser currNonMainSrcFileParser = getParserForSrcFile(f);
               this.PACKAGE_STRING.ifPresent(
                   s -> currNonMainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
-              currNonMainSrcFileParser.optionalModuleName = Optional.of("$THIS_MODULE$");
+              currNonMainSrcFileParser.optionalModuleName = optionalModuleApiSrcFile.map(unused -> "$THIS_MODULE$");
               currNonMainSrcFileParser.optionalUniqueModuleName = this.OPTIONAL_UNIQUE_MODULE_NAME;
               return currNonMainSrcFileParser;
             })
@@ -198,6 +200,19 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // exported by the dep modules (e.g. `MyDep::foo(...)`) as module references rather than contract references.
       setupModuleDepBindings(scopedHeap, this.MODULE_DEPS);
 
+      // If this is compiled as a module, then to be safe to disambiguate types defined in other modules from this one
+      // I'll need to save the unique module name of this module under the special name $THIS_MODULE$.
+      if (optionalModuleApiParser.isPresent()) {
+        ScopedHeap.currProgramDepModules.put(
+            "$THIS_MODULE$",
+            /*isUsed=*/true,
+            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+                .setProjectPackage(this.PACKAGE_STRING.get())
+                .setUniqueModuleName(this.OPTIONAL_UNIQUE_MODULE_NAME.get())
+                .build()
+        );
+      }
+
       // Parse the non-main src files first.
       ImmutableList.Builder<ProgramNode> parsedNonMainSrcFilePrograms = ImmutableList.builder();
       for (ClaroParser nonMainSrcFileParser : nonMainSrcFileParsers) {
@@ -209,16 +224,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // nonMainSrcFilePrograms actually do export the necessary bindings.
       if (optionalModuleApiParser.isPresent()) {
         ProgramNode.moduleApiDef = Optional.of((ModuleNode) optionalModuleApiParser.get().parse().value);
-        // If this is compiled as a module, then to be safe to disambiguate types defined in other modules from this one
-        // I'll need to save the unique module name of this module under the special name $THIS_MODULE$.
-        ScopedHeap.currProgramDepModules.put(
-            "$THIS_MODULE$",
-            /*isUsed=*/true,
-            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
-                .setProjectPackage(this.PACKAGE_STRING.get())
-                .setUniqueModuleName(this.OPTIONAL_UNIQUE_MODULE_NAME.get())
-                .build()
-        );
+        ScopedHeap.transitiveExportedDepModules = this.EXPORTS;
       }
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
@@ -239,7 +245,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
               optionalModuleApiSrcFile.get(),
               generateTargetOutputRes,
-              nonMainSrcFiles
+              nonMainSrcFiles,
+              scopedHeap
           );
         } else {
           if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
@@ -294,10 +301,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   }
 
   private void setupModuleDepBindings(ScopedHeap scopedHeap, ImmutableMap<String, SrcFile> moduleDeps) throws Exception {
-    ImmutableMap.Builder<String, ModuleNode> moduleDepNodes = ImmutableMap.builder();
+    ImmutableMap.Builder<String, SerializedClaroModule> parsedClaroModuleProtosBuilder = ImmutableMap.builder();
     for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
       SerializedClaroModule parsedModule =
           SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
+      parsedClaroModuleProtosBuilder.put(moduleDep.getKey(), parsedModule);
 
       // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
       ScopedHeap.currProgramDepModules.put(moduleDep.getKey(), /*isUsed=*/false, parsedModule.getModuleDescriptor());
@@ -308,68 +316,172 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           parsedModule.getModuleDescriptor().getUniqueModuleName(),
           parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8()
       );
-      ModuleNode depModuleNode = (ModuleNode) depModuleApiParser.parse().value;
-      moduleDepNodes.put(moduleDep.getKey(), depModuleNode);
 
       // Register any alias defs found in the module.
-      for (AliasStmt alias : depModuleNode.exportedAliasDefs) {
-        alias.registerTypeProvider(scopedHeap);
+      for (Map.Entry<String, TypeProtos.TypeProto> exportedAliasDef :
+          parsedModule.getExportedTypeDefinitions().getExportedAliasDefsByNameMap().entrySet()) {
+        String disambiguatedIdentifier =
+            String.format("%s$%s", exportedAliasDef.getKey(), depModuleApiParser.uniqueModuleName);
+        scopedHeap.putIdentifierValueAsTypeDef(disambiguatedIdentifier, Types.parseTypeProto(exportedAliasDef.getValue()), null);
       }
+
       // Register any newtype defs found in the module.
-      for (NewTypeDefStmt newTypeDefStmt : depModuleNode.exportedNewTypeDefs) {
-        newTypeDefStmt.registerTypeProvider(scopedHeap);
-        newTypeDefStmt.registerConstructorTypeProvider(scopedHeap);
+      for (Map.Entry<String, SerializedClaroModule.NewTypeDef> exportedNewTypedef :
+          parsedModule.getExportedTypeDefinitions().getExportedNewtypeDefsByNameMap().entrySet()) {
+        String disambiguatedIdentifier =
+            String.format("%s$%s", exportedNewTypedef.getKey(), depModuleApiParser.uniqueModuleName);
+        // Register the user-defined-type itself.
+        Type newType =
+            Types.parseTypeProto(
+                TypeProtos.TypeProto.newBuilder()
+                    .setUserDefinedType(exportedNewTypedef.getValue().getUserDefinedType())
+                    .build());
+        // Declare the dep type twice just for the sake of the constructor being easily found by the FunctionCallExpr
+        // where the naming convention is different.
+        scopedHeap.putIdentifierValueAsTypeDef(disambiguatedIdentifier, newType, null);
+        scopedHeap.putIdentifierValueAsTypeDef(
+            String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), exportedNewTypedef.getKey()),
+            newType,
+            null
+        );
+        // Register any type param names.
+        if (!newType.parameterizedTypeArgs().isEmpty()) {
+          Types.UserDefinedType.$typeParamNames.put(
+              disambiguatedIdentifier, ImmutableList.copyOf(exportedNewTypedef.getValue().getTypeParamNamesList()));
+        }
+        // Register the wrapped type.
+        Type wrappedType = Types.parseTypeProto(exportedNewTypedef.getValue().getWrappedType());
+        scopedHeap.putIdentifierValueAsTypeDef(
+            String.format("%s$wrappedType", disambiguatedIdentifier), wrappedType, null);
+        Types.UserDefinedType.$resolvedWrappedTypes.put(disambiguatedIdentifier, wrappedType);
+        // Register its constructor.
+        scopedHeap.putIdentifierValue(
+            String.format("$DEP_MODULE$%s$%s$constructor", moduleDep.getKey(), exportedNewTypedef.getKey()),
+            getProcedureTypeFromProto(exportedNewTypedef.getValue().getConstructor())
+        );
       }
+
+      // Register any AtomDefinitionStmts found in the module.
+      for (int i = 0; i < parsedModule.getExportedAtomDefinitionsList().size(); i++) {
+        String atomName = parsedModule.getExportedAtomDefinitions(i);
+        String disambiguatedAtomIdentifier =
+            String.format("%s$%s", atomName, depModuleApiParser.uniqueModuleName);
+        scopedHeap.putIdentifierValueAsTypeDef(
+            disambiguatedAtomIdentifier,
+            Types.AtomType.forNameAndDisambiguator(atomName, depModuleApiParser.uniqueModuleName),
+            null
+        );
+        scopedHeap.initializeIdentifier(disambiguatedAtomIdentifier);
+        // Now I need to cache this atom.
+        InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.put(
+            depModuleApiParser.uniqueModuleName, disambiguatedAtomIdentifier, i);
+      }
+
       // Register any HttpServiceDefs found in the module.
-      for (HttpServiceDefStmt httpServiceDefStmt : depModuleNode.exportedHttpServiceDefs) {
-        httpServiceDefStmt.registerTypeProvider(scopedHeap);
-      }
+      parsedModule.getExportedHttpServiceDefinitionsList().forEach(
+          httpServiceDef -> {
+            String disambiguatedServiceName =
+                String.format("%s$%s", httpServiceDef, depModuleApiParser.uniqueModuleName);
+            scopedHeap.putIdentifierValueAsTypeDef(
+                disambiguatedServiceName,
+                Types.HttpServiceType.forServiceNameAndDisambiguator(
+                    httpServiceDef.getHttpServiceName(), depModuleApiParser.uniqueModuleName),
+                null
+            );
+            // Register any endpoint_handlers registered for HttpServiceDefs in this module.
+            if (httpServiceDef.getEndpointsCount() > 0) {
+              InternalStaticStateUtil.HttpServiceDef_servicesWithValidEndpointHandlersDefined.add(disambiguatedServiceName);
+              InternalStaticStateUtil.HttpServiceDef_endpointProcedureSignatures.putAll(
+                  httpServiceDef.getEndpointsList().stream().collect(ImmutableTable.toImmutableTable(
+                      e -> httpServiceDef.getHttpServiceName(),
+                      e -> e.getEndpointName(),
+                      e -> getProcedureTypeFromProto(e.getProcedure())
+                  ))
+              );
+              InternalStaticStateUtil.HttpServiceDef_endpointPaths.putAll(
+                  httpServiceDef.getEndpointsList().stream().collect(ImmutableTable.toImmutableTable(
+                      e -> httpServiceDef.getHttpServiceName(),
+                      e -> e.getEndpointName(),
+                      e -> e.getPath()
+                  ))
+              );
+            }
+          });
     }
 
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
     // finally register all of their exported procedure signatures.
-    for (Map.Entry<String, ModuleNode> moduleDep : moduleDepNodes.build().entrySet()) {
+    for (Map.Entry<String, SerializedClaroModule> moduleDep : parsedClaroModuleProtosBuilder.build().entrySet()) {
       // Setup the regular exported procedures.
-      for (Map.Entry<String, Types.ProcedureType> depExportedSig
-          : moduleDep.getValue().getExportedProcedureSignatureTypes(scopedHeap).entrySet()) {
-        // Use a disambiguation prefix for namespacing required by dep modules.
-        String disambiguatedProcedureName =
-            // It's possible that the procedure name has already been disambiguated (for now, particularly the case for
-            // synthetic procedures declared by the HttpServiceDef stmts).
-            // TODO(steving) make sure that all procs coming from getExportedProcedureSignatureTypes() are all prefixed same.
-            depExportedSig.getKey().startsWith("$DEP_MODULE$")
-            ? depExportedSig.getKey()
-            : String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedSig.getKey());
-        scopedHeap.putIdentifierValue(disambiguatedProcedureName, depExportedSig.getValue());
-      }
-
-      // Make note of any initializers exported by this dep module.
-      for (Map.Entry<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializerEntry
-          : moduleDep.getValue().initializersBlocks.entrySet()) {
-        initializerEntry.getValue().forEach(
-            sig -> {
-              String disambiguatedDefaultTypeConstructorProcedureName =
-                  // These are actually only used for error-reporting, so I'll use a user-friendly string here.
-                  String.format("%s::%s", moduleDep.getKey(), sig.procedureName);
-              InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                  .put(initializerEntry.getKey().identifier, disambiguatedDefaultTypeConstructorProcedureName);
-            }
+      for (SerializedClaroModule.Procedure depExportedProc :
+          moduleDep.getValue().getExportedProcedureDefinitionsList()) {
+        scopedHeap.putIdentifierValue(
+            String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedProc.getName()),
+            getProcedureTypeFromProto(depExportedProc)
         );
+      }
+      // Make note of any initializers exported by this dep module.
+      for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions.ProcedureList> initializerEntry :
+          moduleDep.getValue().getExportedTypeDefinitions().getInitializersByTypeNameMap().entrySet()) {
+        initializerEntry.getValue().getProceduresList().forEach(
+            p -> scopedHeap.putIdentifierValue(
+                String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), p.getName()), getProcedureTypeFromProto(p)));
+        InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+            .put(
+                initializerEntry.getKey(),
+                moduleDep.getValue().getModuleDescriptor().getUniqueModuleName(),
+                initializerEntry.getValue().getProceduresList().stream()
+                    .map(
+                        // These are actually only used for error-reporting, so I'll use a user-friendly string here.
+                        initializer -> String.format("%s::%s", moduleDep.getKey(), initializer.getName()))
+                    .collect(ImmutableSet.toImmutableSet())
+            );
       }
       // Make note of any unwrappers exported by this dep module.
-      for (Map.Entry<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrapperEntry
-          : moduleDep.getValue().unwrappersBlocks.entrySet()) {
-        unwrapperEntry.getValue().forEach(
-            sig -> {
-              String disambiguatedDefaultTypeConstructorProcedureName =
-                  // These are actually only used for error-reporting, so I'll use a user-friendly string here.
-                  String.format("%s::%s", moduleDep.getKey(), sig.procedureName);
-              InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
-                  .put(unwrapperEntry.getKey().identifier, disambiguatedDefaultTypeConstructorProcedureName);
-            }
-        );
+      for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions.ProcedureList> unwrapperEntry :
+          moduleDep.getValue().getExportedTypeDefinitions().getUnwrappersByTypeNameMap().entrySet()) {
+        unwrapperEntry.getValue().getProceduresList().forEach(
+            p -> scopedHeap.putIdentifierValue(
+                String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), p.getName()), getProcedureTypeFromProto(p)));
+        InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
+            .put(
+                unwrapperEntry.getKey(),
+                moduleDep.getValue().getModuleDescriptor().getUniqueModuleName(),
+                unwrapperEntry.getValue().getProceduresList().stream()
+                    .map(
+                        // These are actually only used for error-reporting, so I'll use a user-friendly string here.
+                        initializer -> String.format("%s::%s", moduleDep.getKey(), initializer.getName()))
+                    .collect(ImmutableSet.toImmutableSet())
+            );
       }
+      // Make note of any synthetic procedures generated by any HttpServiceDefStmts.
+      moduleDep.getValue().getExportedHttpServiceDefinitionsList().forEach(
+          syntheticHttpServiceDef ->
+              syntheticHttpServiceDef.getEndpointsList().forEach(
+                  endpoint ->
+                      scopedHeap.putIdentifierValue(
+                          String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), endpoint.getEndpointName()),
+                          getProcedureTypeFromProto(endpoint.getProcedure())
+                      )));
     }
+  }
+
+  private static Types.ProcedureType getProcedureTypeFromProto(SerializedClaroModule.Procedure procedureProto) {
+    TypeProtos.TypeProto procedureTypeProto;
+    switch (procedureProto.getProcedureTypeCase()) {
+      case FUNCTION:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setFunction(procedureProto.getFunction()).build();
+        break;
+      case CONSUMER:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setConsumer(procedureProto.getConsumer()).build();
+        break;
+      case PROVIDER:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setProvider(procedureProto.getProvider()).build();
+        break;
+      default:
+        throw new RuntimeException("Internal Compiler Error! Encountered unexpected procedure type while parsing newtype definition from .claro_module.");
+    }
+    return (Types.ProcedureType) Types.parseTypeProto(procedureTypeProto);
   }
 
   private File createOutputFile() {
@@ -391,7 +503,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       String uniqueModuleName,
       SrcFile moduleApiSrcFile,
       StringBuilder moduleCodegen,
-      ImmutableList<SrcFile> moduleImplFiles) throws IOException {
+      ImmutableList<SrcFile> moduleImplFiles,
+      ScopedHeap scopedHeap) throws IOException {
     SerializedClaroModule.Builder serializedClaroModuleBuilder =
         SerializedClaroModule.newBuilder()
             .setModuleDescriptor(
@@ -403,6 +516,98 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                     .setOriginalFilename(moduleApiSrcFile.getFilename())
                     .setSourceUtf8(
                         ByteString.copyFrom(ByteStreams.toByteArray(moduleApiSrcFile.getFileInputStream()))))
+            .setExportedTypeDefinitions(
+                SerializedClaroModule.ExportedTypeDefinitions.newBuilder()
+                    .putAllExportedAliasDefsByName(
+                        ProgramNode.moduleApiDef.get().exportedAliasDefs.stream()
+                            .collect(ImmutableMap.toImmutableMap(
+                                alias -> alias.alias,
+                                alias -> alias.resolvedType.toProto()
+                            )))
+                    .putAllExportedNewtypeDefsByName(
+                        ProgramNode.moduleApiDef.get().exportedNewTypeDefs.stream()
+                            .collect(
+                                ImmutableMap.toImmutableMap(
+                                    newtypeDef -> newtypeDef.typeName,
+                                    newtypeDef ->
+                                        SerializedClaroModule.NewTypeDef.newBuilder()
+                                            .setUserDefinedType(newtypeDef.resolvedType.toProto().getUserDefinedType())
+                                            .setWrappedType(
+                                                scopedHeap.getValidatedIdentifierType(newtypeDef.getWrappedTypeIdentifier())
+                                                    .toProto())
+                                            .addAllTypeParamNames(
+                                                Optional.ofNullable(Types.UserDefinedType.$typeParamNames.get(
+                                                        String.format("%s$%s", newtypeDef.typeName, uniqueModuleName)))
+                                                    .orElse(ImmutableList.of()))
+                                            .setConstructor(
+                                                getProcedureProtoFromProcedureType(
+                                                    newtypeDef.typeName,
+                                                    (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(
+                                                        String.format("%s$constructor", newtypeDef.typeName))
+                                                ))
+                                            .build()
+                                )))
+                    .putAllInitializersByTypeName(
+                        ProgramNode.moduleApiDef.get().initializersBlocks.entrySet().stream()
+                            .collect(ImmutableMap.toImmutableMap(
+                                e -> e.getKey().identifier,
+                                e -> SerializedClaroModule.ExportedTypeDefinitions.ProcedureList.newBuilder()
+                                    .addAllProcedures(
+                                        e.getValue().stream()
+                                            .map(JavaSourceCompilerBackend::serializeProcedureSignature)
+                                            .collect(ImmutableList.toImmutableList()))
+                                    .build()
+                            )))
+                    .putAllUnwrappersByTypeName(
+                        ProgramNode.moduleApiDef.get().unwrappersBlocks.entrySet().stream()
+                            .collect(ImmutableMap.toImmutableMap(
+                                e -> e.getKey().identifier,
+                                e -> SerializedClaroModule.ExportedTypeDefinitions.ProcedureList.newBuilder()
+                                    .addAllProcedures(
+                                        e.getValue().stream()
+                                            .map(JavaSourceCompilerBackend::serializeProcedureSignature)
+                                            .collect(ImmutableList.toImmutableList()))
+                                    .build()
+                            ))))
+            .addAllExportedAtomDefinitions(
+                ProgramNode.moduleApiDef.get().exportedAtomDefs.stream()
+                    .map(atomDefinitionStmt -> atomDefinitionStmt.name.identifier)
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllExportedProcedureDefinitions(
+                ProgramNode.moduleApiDef.get().exportedSignatures.stream()
+                    .map(JavaSourceCompilerBackend::serializeProcedureSignature)
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllExportedHttpServiceDefinitions(
+                ProgramNode.moduleApiDef.get().exportedHttpServiceDefs.stream()
+                    .map(
+                        e ->
+                            SerializedClaroModule.ExportedHttpServiceDefinition.newBuilder()
+                                .setHttpServiceName(e.serviceName.identifier)
+                                .addAllEndpoints(
+                                    e.syntheticEndpointProcedures.stream()
+                                        .map(
+                                            p ->
+                                                SerializedClaroModule.ExportedHttpServiceDefinition.Endpoint.newBuilder()
+                                                    .setEndpointName(p.procedureName)
+                                                    .setPath(InternalStaticStateUtil.HttpServiceDef_endpointPaths.get(e.serviceName.identifier, p.procedureName))
+                                                    .setProcedure(getProcedureProtoFromProcedureType(p.procedureName, p.resolvedProcedureType))
+                                                    .build()
+                                        )
+                                        .collect(ImmutableList.toImmutableList())
+                                )
+                                .build()
+                    )
+                    .collect(ImmutableList.toImmutableList())
+            )
+            .addAllExportedTransitiveDepModules(
+                this.EXPORTS.stream().map(
+                        exportedModule ->
+                            SerializedClaroModule.ExportedTransitiveDepModule.newBuilder()
+                                .setModuleName(exportedModule)
+                                .setUniqueModuleName(ScopedHeap.getDefiningModuleDisambiguator(Optional.of(exportedModule)))
+                                .build())
+                    .collect(ImmutableList.toImmutableList())
+            )
             .setStaticJavaCodegen(
                 ByteString.copyFrom(moduleCodegen.toString().getBytes(StandardCharsets.UTF_8)));
     for (SrcFile moduleImplFile : moduleImplFiles) {
@@ -422,6 +627,34 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           .build()
           .writeDelimitedTo(System.out);
     }
+  }
+
+  private static SerializedClaroModule.Procedure serializeProcedureSignature(ContractProcedureSignatureDefinitionStmt sig) {
+    Types.ProcedureType sigType =
+        sig.getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap.of());
+    return getProcedureProtoFromProcedureType(sig.procedureName, sigType);
+  }
+
+  private static SerializedClaroModule.Procedure getProcedureProtoFromProcedureType(String procedureName, Types.ProcedureType sigType) {
+    SerializedClaroModule.Procedure.Builder res =
+        SerializedClaroModule.Procedure.newBuilder()
+            .setName(procedureName);
+    switch (sigType.baseType()) {
+      case FUNCTION:
+        res.setFunction(sigType.toProto().getFunction());
+        break;
+      case CONSUMER_FUNCTION:
+        res.setConsumer(sigType.toProto().getConsumer());
+        break;
+      case PROVIDER_FUNCTION:
+        res.setProvider(sigType.toProto().getProvider());
+        break;
+      default:
+        throw new RuntimeException(
+            "Internal Compiler Error! Encountered unexpected procedure type while serializing .claro_module file: " +
+            sigType);
+    }
+    return res.build();
   }
 
   private void warnNumErrorsFound(int totalParserErrorsFound) {

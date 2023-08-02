@@ -23,14 +23,14 @@ claro_module(
 # Here's a module with a transitive dep.
 claro_module(
     name = "module_test2",
-    module_api_file = "TestModule.claro_module_api",
+    module_api_file = "TestIndirection.claro_module_api",
     srcs = [
         "indirect_addition.claro",
-        "TestModuleImpl2.claro",
     ],
     deps = {
         "Addition": ":addition",
     },
+    exports = ["Addition"],
 )
 
 claro_module(

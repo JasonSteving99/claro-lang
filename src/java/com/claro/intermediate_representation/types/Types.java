@@ -4,6 +4,8 @@ import com.claro.ClaroParserException;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos.TypeProto;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
@@ -17,23 +19,14 @@ import java.util.stream.IntStream;
 
 // TODO(steving) This class needs refactoring into a standalone package.
 public final class Types {
-  public static final Type INTEGER = ConcreteType.create(BaseType.INTEGER);
-  public static final Type FLOAT = ConcreteType.create(BaseType.FLOAT);
-  public static final Type STRING = ConcreteType.create(BaseType.STRING);
-  public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
-  public static final Type MODULE = ConcreteType.create(BaseType.MODULE);
-
-  public static final Type HTTP_RESPONSE = ConcreteType.create(BaseType.HTTP_RESPONSE);
-
-  // Special type that indicates that the compiler won't be able to determine this type answer until runtime at which
-  // point it will potentially fail other runtime type checking. Anywhere where an "UNDECIDED" type is emitted by the
-  // compiler we'll require a cast on the expr causing the indecision for the programmer to assert they know what's up.
-  public static final Type UNDECIDED = ConcreteType.create(BaseType.UNDECIDED);
-
-  // Special type that indicates that the compiler will *NEVER* be possibly able to determine this type at compile-time
-  // specifically because *THERE WAS SOME SORT OF COMPILATION ERROR* caused by the user writing a bug. This will allow
-  // compilation to continue after reaching some illegal user code by returning this "UNKNOWABLE" type.
-  public static final Type UNKNOWABLE = ConcreteType.create(BaseType.UNKNOWABLE);
+  public static final Type INTEGER = ConcreteTypes.INTEGER;
+  public static final Type FLOAT = ConcreteTypes.FLOAT;
+  public static final Type STRING = ConcreteTypes.STRING;
+  public static final Type BOOLEAN = ConcreteTypes.BOOLEAN;
+  public static final Type MODULE = ConcreteTypes.MODULE;
+  public static final Type HTTP_RESPONSE = ConcreteTypes.HTTP_RESPONSE;
+  public static final Type UNDECIDED = ConcreteTypes.UNDECIDED;
+  public static final Type UNKNOWABLE = ConcreteTypes.UNKNOWABLE;
 
   public interface Collection {
     Type getElementType();
@@ -43,8 +36,10 @@ public final class Types {
   public abstract static class AtomType extends Type {
     public abstract String getName();
 
-    public static AtomType forName(String name) {
-      return new AutoValue_Types_AtomType(BaseType.ATOM, ImmutableMap.of(), name);
+    public abstract String getDefiningModuleDisambiguator();
+
+    public static AtomType forNameAndDisambiguator(String name, String definingModuleDisambiguator) {
+      return new AutoValue_Types_AtomType(BaseType.ATOM, ImmutableMap.of(), name, definingModuleDisambiguator);
     }
 
     @Override
@@ -54,7 +49,16 @@ public final class Types {
 
     @Override
     public String getJavaSourceClaroType() {
-      return String.format("Types.AtomType.forName(\"%s\")", this.getName());
+      return String.format(
+          "Types.AtomType.forNameAndDisambiguator(\"%s\", \"%s\")",
+          this.getName(),
+          this.getDefiningModuleDisambiguator()
+      );
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder().setAtom(TypeProtos.AtomType.newBuilder().setName(this.getName())).build();
     }
   }
 
@@ -121,6 +125,16 @@ public final class Types {
     @Override
     public boolean isMutable() {
       return this.getIsMutable();
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setList(
+              TypeProtos.ListType.newBuilder()
+                  .setElementType(this.getElementType().toProto())
+                  .setIsMutable(this.isMutable()))
+          .build();
     }
   }
 
@@ -203,6 +217,18 @@ public final class Types {
     public boolean isMutable() {
       return this.getIsMutable();
     }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setMap(
+              TypeProtos.MapType.newBuilder()
+                  .setKeyType(this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEYS).toProto())
+                  .setValueType(this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_VALUES).toProto())
+                  .setIsMutable(this.isMutable()))
+          .build();
+
+    }
   }
 
   @AutoValue
@@ -271,6 +297,16 @@ public final class Types {
     @Override
     public boolean isMutable() {
       return this.getIsMutable();
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setSet(
+              TypeProtos.SetType.newBuilder()
+                  .setElementType(this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE).toProto())
+                  .setIsMutable(this.isMutable()))
+          .build();
     }
   }
 
@@ -369,6 +405,19 @@ public final class Types {
     public boolean isMutable() {
       return this.getIsMutable();
     }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setTuple(
+              TypeProtos.TupleType.newBuilder()
+                  .addAllElementTypes(
+                      this.parameterizedTypeArgs().values().stream()
+                          .map(Type::toProto)
+                          .collect(ImmutableList.toImmutableList()))
+                  .setIsMutable(this.isMutable()))
+          .build();
+    }
   }
 
   @AutoValue
@@ -399,6 +448,18 @@ public final class Types {
           "Types.OneofType.forVariantTypes(ImmutableList.of(%s))",
           this.getVariantTypes().stream().map(Type::getJavaSourceClaroType).collect(Collectors.joining(","))
       );
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setOneof(
+              TypeProtos.OneofType.newBuilder()
+                  .addAllVariantTypes(
+                      this.getVariantTypes().stream()
+                          .map(Type::toProto)
+                          .collect(ImmutableList.toImmutableList())))
+          .build();
     }
   }
 
@@ -482,6 +543,20 @@ public final class Types {
     @Override
     public boolean isMutable() {
       return this.getIsMutable();
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setStruct(
+              TypeProtos.StructType.newBuilder()
+                  .addAllFieldNames(this.getFieldNames())
+                  .addAllFieldTypes(
+                      this.getFieldTypes().stream()
+                          .map(Type::toProto)
+                          .collect(ImmutableList.toImmutableList()))
+                  .setIsMutable(this.isMutable()))
+          .build();
     }
   }
 
@@ -829,6 +904,26 @@ public final class Types {
             this.getIsBlocking().get()
         );
       }
+
+      @Override
+      public TypeProto toProto() {
+        TypeProtos.FunctionType.Builder functionTypeBuilder =
+            TypeProtos.FunctionType.newBuilder()
+                .addAllArgTypes(this.getArgTypes()
+                                    .stream()
+                                    .map(Type::toProto)
+                                    .collect(ImmutableList.toImmutableList()))
+                .setOutputType(this.getReturnType().toProto())
+                .setAnnotatedBlocking(this.getAnnotatedBlocking());
+        if (this.getAnnotatedBlockingGenericOverArgs().isPresent()) {
+          functionTypeBuilder.addAllOptionalAnnotatedBlockingGenericOverArgs(
+              this.getAnnotatedBlockingGenericOverArgs().get());
+        }
+        if (this.getGenericProcedureArgNames().isPresent()) {
+          functionTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
+        }
+        return TypeProto.newBuilder().setFunction(functionTypeBuilder).build();
+      }
     }
 
     @AutoValue
@@ -990,6 +1085,16 @@ public final class Types {
             this.getReturnType().getJavaSourceClaroType(),
             this.getIsBlocking().get()
         );
+      }
+
+      @Override
+      public TypeProto toProto() {
+        return TypeProto.newBuilder()
+            .setProvider(
+                TypeProtos.ProviderType.newBuilder()
+                    .setOutputType(this.getReturnType().toProto())
+                    .setAnnotatedBlocking(this.getAnnotatedBlocking()))
+            .build();
       }
     }
 
@@ -1189,6 +1294,23 @@ public final class Types {
             this.getIsBlocking().get()
         );
       }
+
+      @Override
+      public TypeProto toProto() {
+        TypeProtos.ConsumerType.Builder consumerTypeBuilder =
+            TypeProtos.ConsumerType.newBuilder()
+                .addAllArgTypes(
+                    this.getArgTypes().stream().map(Type::toProto).collect(ImmutableList.toImmutableList()))
+                .setAnnotatedBlocking(this.getAnnotatedBlocking());
+        if (this.getAnnotatedBlockingGenericOverArgs().isPresent()) {
+          consumerTypeBuilder.addAllOptionalAnnotatedBlockingGenericOverArgs(
+              this.getAnnotatedBlockingGenericOverArgs().get());
+        }
+        if (this.getGenericProcedureArgNames().isPresent()) {
+          consumerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
+        }
+        return TypeProto.newBuilder().setConsumer(consumerTypeBuilder).build();
+      }
     }
 
     public abstract class ProcedureWrapper {
@@ -1225,6 +1347,15 @@ public final class Types {
           this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).getJavaSourceClaroType()
       );
     }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setFuture(
+              TypeProtos.FutureType.newBuilder()
+                  .setWrappedType(this.parameterizedTypeArgs().get(PARAMETERIZED_TYPE_KEY).toProto()))
+          .build();
+    }
   }
 
   @AutoValue
@@ -1255,21 +1386,16 @@ public final class Types {
 
     @Override
     public String getJavaSourceClaroType() {
-      // Depending on whether this type def was parsed from a dep module, this may have been named with a
-      // disambiguating prefix like "$DEP_MODULE$module$". For the sake of codegen'd values containing consistent
-      // names everywhere, I need to strip any prefixing here so that instances of this type created ANYWHERE will
-      // definitely evaluate as having the same type.
-      String canonicalizedTypeName = this.getTypeName().substring(this.getTypeName().lastIndexOf("$") + 1);
       if (this.parameterizedTypeArgs().isEmpty()) {
         return String.format(
             "Types.UserDefinedType.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
-            canonicalizedTypeName,
+            this.getTypeName(),
             this.getDefiningModuleDisambiguator()
         );
       }
       return String.format(
           "Types.UserDefinedType.forTypeNameAndParameterizedTypes(\"%s\", \"%s\", ImmutableList.of(%s))",
-          canonicalizedTypeName,
+          this.getTypeName(),
           this.getDefiningModuleDisambiguator(),
           this.parameterizedTypeArgs()
               .values()
@@ -1285,7 +1411,8 @@ public final class Types {
       Optional<Map<Type, Type>> originalGenTypeCodegenMappings
           = $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen;
       if (!this.parameterizedTypeArgs().isEmpty()) {
-        ImmutableList<String> typeParamNames = UserDefinedType.$typeParamNames.get(this.getTypeName());
+        ImmutableList<String> typeParamNames = UserDefinedType.$typeParamNames.get(
+            String.format("%s$%s", this.getTypeName(), this.getDefiningModuleDisambiguator()));
         $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
             Optional.of(
                 IntStream.range(0, this.parameterizedTypeArgs().size()).boxed()
@@ -1298,7 +1425,9 @@ public final class Types {
       // Actual codegen.
       String res = String.format(
           this.baseType().getJavaSourceFmtStr(),
-          UserDefinedType.$resolvedWrappedTypes.get(this.getTypeName()).getJavaSourceType()
+          UserDefinedType.$resolvedWrappedTypes.get(
+                  String.format("%s$%s", this.getTypeName(), this.getDefiningModuleDisambiguator()))
+              .getJavaSourceType()
       );
 
       // Reset state.
@@ -1324,7 +1453,9 @@ public final class Types {
     // particular, if the wrapped type itself already contains an explicit `mut` annotation, then it's impossible
     // to construct any instance of this type that is deeply-immutable.
     public Optional<UserDefinedType> toDeeplyImmutableVariant() {
-      if (!Types.isDeeplyImmutable(UserDefinedType.$resolvedWrappedTypes.get(getTypeName()))) {
+      if (!Types.isDeeplyImmutable(
+          UserDefinedType.$resolvedWrappedTypes
+              .get(String.format("%s$%s", getTypeName(), getDefiningModuleDisambiguator())))) {
         return Optional.empty();
       }
       // If any of the parameterized types can't be coerced to a deeply-immutable variant then this overall type
@@ -1360,6 +1491,19 @@ public final class Types {
           ));
     }
 
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setUserDefinedType(
+              TypeProtos.UserDefinedType.newBuilder()
+                  .setTypeName(this.getTypeName())
+                  .setDefiningModuleDisambiguator(this.getDefiningModuleDisambiguator())
+                  .addAllParameterizedTypes(
+                      this.parameterizedTypeArgs().values().stream()
+                          .map(Type::toProto)
+                          .collect(ImmutableList.toImmutableList())))
+          .build();
+    }
   }
 
   // This is really a meta-type which exists primarily to allow some mechanism of holding the name of a generic
@@ -1412,6 +1556,13 @@ public final class Types {
               .orElse(this.getTypeParamName())
       );
     }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder().setGenericTypeParam(
+              TypeProtos.GenericTypeParam.newBuilder().setName(this.getTypeParamName()))
+          .build();
+    }
   }
 
   // This is really a meta-type which exists primarily to allow some mechanism of holding the name of a generic
@@ -1443,6 +1594,12 @@ public final class Types {
           String.join(", ", getTypeParamNames())
       );
     }
+
+    @Override
+    public TypeProto toProto() {
+      throw new RuntimeException("Internal Compiler Error: This type <" + this +
+                                 "> should not be serialized as it should be an internal only type.");
+    }
   }
 
   @AutoValue
@@ -1461,6 +1618,12 @@ public final class Types {
     public String getJavaSourceClaroType() {
       throw new ClaroParserException("Internal Compiler Error: This type should be unreachable in Claro programs.");
     }
+
+    @Override
+    public TypeProto toProto() {
+      throw new RuntimeException("Internal Compiler Error: This type <" + this +
+                                 "> should not be serialized as it should be an internal only type.");
+    }
   }
 
   // This type is interesting in the sense that there's actually no way to manually initialize an instance of this type
@@ -1469,18 +1632,36 @@ public final class Types {
   public abstract static class HttpServiceType extends Type {
     public abstract String getServiceName();
 
-    public static HttpServiceType forServiceName(String name) {
-      return new AutoValue_Types_HttpServiceType(BaseType.HTTP_SERVICE, ImmutableMap.of(), name);
+    // This disambiguator is necessary in order for two same-named services defined in separate Modules to have types
+    // correctly considered to be distinct.
+    public abstract String getDefiningModuleDisambiguator();
+
+    public static HttpServiceType forServiceNameAndDisambiguator(String name, String definingModuleDisambiguator) {
+      return new AutoValue_Types_HttpServiceType(BaseType.HTTP_SERVICE, ImmutableMap.of(), name, definingModuleDisambiguator);
     }
 
     @Override
     public String getJavaSourceClaroType() {
-      return String.format("Types.HttpServiceType.forServiceName(\"%s\")", this.getServiceName());
+      return String.format(
+          "Types.HttpServiceType.forServiceNameAndDisambiguator(\"%s\", \"%s\")",
+          this.getServiceName(),
+          this.getDefiningModuleDisambiguator()
+      );
     }
 
     @Override
     public String toString() {
       return String.format(baseType().getClaroCanonicalTypeNameFmtStr(), getServiceName());
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setHttpService(
+              TypeProtos.HttpServiceType.newBuilder()
+                  .setServiceName(this.getServiceName())
+                  .setDefiningModuleDisambiguator(this.getDefiningModuleDisambiguator()))
+          .build();
     }
   }
 
@@ -1514,6 +1695,13 @@ public final class Types {
     public String toString() {
       return String.format(this.baseType().getClaroCanonicalTypeNameFmtStr(), this.getServiceName());
     }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setHttpClient(TypeProtos.HttpClientType.newBuilder().setServiceName(this.getServiceName()))
+          .build();
+    }
   }
 
   @AutoValue
@@ -1535,6 +1723,15 @@ public final class Types {
     @Override
     public String getJavaSourceType() {
       return this.baseType().getJavaSourceFmtStr();
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setHttpServer(
+              TypeProtos.HttpServerType.newBuilder()
+                  .setService(this.parameterizedTypeArgs().get(HTTP_SERVICE_TYPE).toProto().getHttpService()))
+          .build();
     }
   }
 
@@ -1574,7 +1771,12 @@ public final class Types {
       // recursing into the wrapped type. If the wrapped type is deeply-immutable, then it also depends on the
       // mutability of any parameterized types.
       return isDeeplyImmutable(
-          UserDefinedType.$resolvedWrappedTypes.get(((UserDefinedType) type).getTypeName()))
+          UserDefinedType.$resolvedWrappedTypes.get(
+              String.format(
+                  "%s$%s",
+                  ((UserDefinedType) type).getTypeName(),
+                  ((UserDefinedType) type).getDefiningModuleDisambiguator()
+              )))
              && type.parameterizedTypeArgs().values().stream().allMatch(Types::isDeeplyImmutable);
     } else if (type.baseType().equals(BaseType.FUTURE)) {
       // Futures are inherently shallow-ly immutable, so whether they're deeply-immutable simply depends on recursing
@@ -1608,6 +1810,135 @@ public final class Types {
         return Optional.of(FutureType.wrapping(optionalWrappedDeeplyImmutableVariantType.get()));
       default: // Everything else should already be inherently immutable.
         return Optional.of(type);
+    }
+  }
+
+  public static Type parseTypeProto(TypeProto typeProto) {
+    switch (typeProto.getTypeCase()) {
+      case PRIMITIVE:
+        switch (typeProto.getPrimitive().name()) {
+          case "UNKNOWN_PRIMITIVE_TYPE":
+            throw new RuntimeException("Internal Compiler Error: Parsed TypeProto containing unknown primitive type: " +
+                                       typeProto.getPrimitive().getValueDescriptor());
+          case "INTEGER":
+            return INTEGER;
+          case "FLOAT":
+            return FLOAT;
+          case "STRING":
+            return STRING;
+          case "BOOLEAN":
+            return BOOLEAN;
+          case "HTTP_RESPONSE":
+            return HTTP_RESPONSE;
+        }
+      case ATOM:
+        TypeProtos.AtomType atomTypeProto = typeProto.getAtom();
+        return AtomType.forNameAndDisambiguator(atomTypeProto.getName(), atomTypeProto.getDefiningModuleDisambiguator());
+      case LIST:
+        TypeProtos.ListType listTypeProto = typeProto.getList();
+        return ListType.forValueType(parseTypeProto(listTypeProto.getElementType()), listTypeProto.getIsMutable());
+      case MAP:
+        TypeProtos.MapType mapTypeProto = typeProto.getMap();
+        return MapType.forKeyValueTypes(
+            parseTypeProto(mapTypeProto.getKeyType()),
+            parseTypeProto(mapTypeProto.getValueType()),
+            mapTypeProto.getIsMutable()
+        );
+      case SET:
+        TypeProtos.SetType setTypeProto = typeProto.getSet();
+        return SetType.forValueType(parseTypeProto(setTypeProto.getElementType()), setTypeProto.getIsMutable());
+      case TUPLE:
+        TypeProtos.TupleType tupleTypeProto = typeProto.getTuple();
+        return TupleType.forValueTypes(
+            tupleTypeProto.getElementTypesList().stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            tupleTypeProto.getIsMutable()
+        );
+      case ONEOF:
+        return OneofType.forVariantTypes(
+            typeProto.getOneof().getVariantTypesList().stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()));
+      case STRUCT:
+        TypeProtos.StructType structTypeProto = typeProto.getStruct();
+        return StructType.forFieldTypes(
+            ImmutableList.copyOf(structTypeProto.getFieldNamesList()),
+            structTypeProto.getFieldTypesList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            structTypeProto.getIsMutable()
+        );
+      case FUTURE:
+        return FutureType.wrapping(parseTypeProto(typeProto.getFuture().getWrappedType()));
+      case FUNCTION:
+        TypeProtos.FunctionType functionTypeProto = typeProto.getFunction();
+        return ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+            functionTypeProto.getArgTypesList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            parseTypeProto(functionTypeProto.getOutputType()),
+            functionTypeProto.getAnnotatedBlocking(),
+            functionTypeProto.getOptionalAnnotatedBlockingGenericOverArgsCount() == 0
+            ? Optional.empty()
+            : Optional.of(ImmutableSet.copyOf(functionTypeProto.getOptionalAnnotatedBlockingGenericOverArgsList())),
+            functionTypeProto.getOptionalGenericTypeParamNamesCount() == 0
+            ? Optional.empty()
+            : Optional.of(ImmutableList.copyOf(functionTypeProto.getOptionalGenericTypeParamNamesList()))
+        );
+      case CONSUMER:
+        TypeProtos.ConsumerType consumerTypeProto = typeProto.getConsumer();
+        return ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+            consumerTypeProto.getArgTypesList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            consumerTypeProto.getAnnotatedBlocking(),
+            consumerTypeProto.getOptionalAnnotatedBlockingGenericOverArgsCount() == 0
+            ? Optional.empty()
+            : Optional.of(ImmutableSet.copyOf(consumerTypeProto.getOptionalAnnotatedBlockingGenericOverArgsList())),
+            consumerTypeProto.getOptionalGenericTypeParamNamesCount() == 0
+            ? Optional.empty()
+            : Optional.of(ImmutableList.copyOf(consumerTypeProto.getOptionalGenericTypeParamNamesList()))
+        );
+      case PROVIDER:
+        TypeProtos.ProviderType providerTypeProto = typeProto.getProvider();
+        return ProcedureType.ProviderType.typeLiteralForReturnType(
+            parseTypeProto(providerTypeProto.getOutputType()),
+            providerTypeProto.getAnnotatedBlocking()
+        );
+      case USER_DEFINED_TYPE:
+        TypeProtos.UserDefinedType userDefinedTypeProto = typeProto.getUserDefinedType();
+        return UserDefinedType.forTypeNameAndParameterizedTypes(
+            userDefinedTypeProto.getTypeName(),
+            userDefinedTypeProto.getDefiningModuleDisambiguator(),
+            userDefinedTypeProto.getParameterizedTypesList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList())
+        );
+      case GENERIC_TYPE_PARAM:
+        return $GenericTypeParam.forTypeParamName(typeProto.getGenericTypeParam().getName());
+      case HTTP_SERVICE:
+        TypeProtos.HttpServiceType httpServiceTypeProto = typeProto.getHttpService();
+        return HttpServiceType.forServiceNameAndDisambiguator(
+            httpServiceTypeProto.getServiceName(),
+            httpServiceTypeProto.getDefiningModuleDisambiguator()
+        );
+      case HTTP_CLIENT:
+        return HttpClientType.forServiceName(typeProto.getHttpClient().getServiceName());
+      case HTTP_SERVER:
+        httpServiceTypeProto = typeProto.getHttpServer().getService();
+        return HttpServerType.forHttpService(
+            HttpServiceType.forServiceNameAndDisambiguator(
+                httpServiceTypeProto.getServiceName(),
+                httpServiceTypeProto.getDefiningModuleDisambiguator()
+            ));
+      default:
+        throw new RuntimeException("Internal Compiler Error: This unknown proto type <" + typeProto.getTypeCase() +
+                                   "> could not be deserialized.");
     }
   }
 }

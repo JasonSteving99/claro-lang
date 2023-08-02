@@ -86,6 +86,14 @@ public interface TypeProvider {
             scopedHeap.putIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND", null, true);
           }
 
+          // If this is a type from a dep module, then this is a worthwhile use of the dep to mark it used and prevent
+          // warnings that the dep is unnecessary. Don't need to mark used for both the user-defined type and its
+          // wrapped type, they're both from the same module.
+          if (typeName.contains("$") && !typeName.endsWith("$wrappedType")) {
+            ScopedHeap.getModuleNameFromDisambiguator(typeName.substring(typeName.indexOf('$') + 1))
+                .ifPresent(ScopedHeap::markDepModuleUsed);
+          }
+
           return res;
         }
       };

@@ -10,6 +10,9 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Optional;
 
 public class UnwrappersBlockStmt extends Stmt {
   private final String unwrappedTypeName;
@@ -22,6 +25,7 @@ public class UnwrappersBlockStmt extends Stmt {
   }
 
   public void registerProcedureTypeProviders(ScopedHeap scopedHeap) {
+    ImmutableSet.Builder<String> unwrapperProcedureNames = ImmutableSet.builder();
     for (Stmt proc : this.unwrapperProcedureDefs) {
       String procedureName;
       if (proc instanceof ProcedureDefinitionStmt) {
@@ -36,9 +40,15 @@ public class UnwrappersBlockStmt extends Stmt {
         }
         procedureName = ((GenericFunctionDefinitionStmt) proc).functionName;
       }
-      InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
-          .put(this.unwrappedTypeName, procedureName);
+      unwrapperProcedureNames.add(procedureName);
     }
+    InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
+        .put(
+            this.unwrappedTypeName,
+            // We know for a fact that unwrappers can only be defined in the same Module in which the type was defined.
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
+            unwrapperProcedureNames.build()
+        );
   }
 
   @Override

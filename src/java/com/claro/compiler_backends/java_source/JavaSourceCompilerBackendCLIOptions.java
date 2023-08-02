@@ -55,6 +55,15 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public List<String> deps;
 
   @Option(
+      name = "export",
+      help = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
+             "module actually have access to the definitions of types defined in this module's deps.",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> exports;
+
+  @Option(
       name = "output_file_path",
       help = "The path to the output file to put the generated Java.",
       defaultValue = ""

@@ -15,13 +15,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   private static final String CURR_TYPE_DEF_NAME = "$CURR_TYPE_DEF_NAME";
-  private final String typeName;
+  public final String typeName;
   private final Optional<String> optionalOriginatingModuleDisambiguator;
   private final TypeProvider wrappedTypeProvider;
   private final ImmutableList<String> parameterizedTypeNames;
-  private Type resolvedType;
+  public Type resolvedType;
   private Type resolvedDefaultConstructorType;
   private Stmt constructorFuncDefStmt;
+  private String wrappedTypeIdentifier = null;
+  private String constructorIdentifier = null;
 
   public NewTypeDefStmt(String typeName, Optional<String> optionalOriginatingModuleDisambiguator, TypeProvider wrappedTypeProvider) {
     super(ImmutableList.of());
@@ -57,7 +59,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
             //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
             ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
             ? ""
-            : ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingModuleDisambiguator),
+            : this.optionalOriginatingModuleDisambiguator.orElse(""),
             this.parameterizedTypeNames.stream()
                 .map(Types.$GenericTypeParam::forTypeParamName).collect(ImmutableList.toImmutableList())
         ),
@@ -66,13 +68,24 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
     scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
     // Just so that the codegen later on has access, let's immediately register the type param names.
     if (!this.parameterizedTypeNames.isEmpty()) {
-      Types.UserDefinedType.$typeParamNames.put(this.typeName, this.parameterizedTypeNames);
+      Types.UserDefinedType.$typeParamNames.put(
+          String.format(
+              "%s$%s",
+              this.typeName,
+              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+              ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
+              ? ""
+              : this.optionalOriginatingModuleDisambiguator.orElse("")
+          ),
+          this.parameterizedTypeNames
+      );
     }
 
     // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
     // TypeProvider that will be used for type-resolution in the later phase. Mimicking the AliasStmt approach.
     scopedHeap.putIdentifierValue(
-        this.typeName + "$wrappedType",
+        getWrappedTypeIdentifier(),
         null,
         (TypeProvider) (scopedHeap1) -> {
           // In order to identify and reject impossible recursive type definitions, we need to be able to track whether
@@ -123,7 +136,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
           return res;
         }
     );
-    scopedHeap.markIdentifierAsTypeDefinition(this.typeName + "$wrappedType");
+    scopedHeap.markIdentifierAsTypeDefinition(getWrappedTypeIdentifier());
   }
 
   public void registerConstructorTypeProvider(ScopedHeap scopedHeap) {
@@ -134,7 +147,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                   @Override
                   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
                     scopedHeap.markIdentifierUsed("$baseType");
-                    return TypeProvider.Util.getTypeByName(NewTypeDefStmt.this.typeName + "$wrappedType", true)
+                    return TypeProvider.Util.getTypeByName(getWrappedTypeIdentifier(), true)
                         .resolveType(scopedHeap);
                   }
 
@@ -149,20 +162,31 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                   }
                 },
                 new AtomicReference<>(
-                    (scopedHeap1) -> TypeProvider.Util.getTypeByName(
-                        NewTypeDefStmt.this.typeName + "$wrappedType", true).resolveType(scopedHeap1))
+                    (scopedHeap1) ->
+                        TypeProvider.Util.getTypeByName(getWrappedTypeIdentifier(), true).resolveType(scopedHeap1))
             ));
 
     if (this.parameterizedTypeNames.isEmpty()) {
       this.constructorFuncDefStmt = new FunctionDefinitionStmt(
-          this.typeName + "$constructor",
+          getConstructorIdentifier(),
           BaseType.FUNCTION,
           ImmutableMap.of(
               "$baseType",
               (scopedHeap1) -> {
                 Type wrappedType =
-                    TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
-                Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
+                    TypeProvider.Util.getTypeByName(getWrappedTypeIdentifier(), true).resolveType(scopedHeap1);
+                Types.UserDefinedType.$resolvedWrappedTypes.put(
+                    String.format(
+                        "%s$%s",
+                        this.typeName,
+                        // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+                        //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+                        ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
+                        ? ""
+                        : this.optionalOriginatingModuleDisambiguator.orElse("")
+                    ),
+                    wrappedType
+                );
                 return wrappedType;
               }
           ),
@@ -172,15 +196,27 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       ((FunctionDefinitionStmt) this.constructorFuncDefStmt).registerProcedureTypeProvider(scopedHeap);
     } else {
       this.constructorFuncDefStmt = new GenericFunctionDefinitionStmt(
-          this.typeName + "$constructor",
+          getConstructorIdentifier(),
           ImmutableListMultimap.of(),
           this.parameterizedTypeNames,
           ImmutableMap.of(
               "$baseType",
               (scopedHeap1) -> {
+                String wrappedTypeIdentifier = getWrappedTypeIdentifier();
                 Type wrappedType =
-                    TypeProvider.Util.getTypeByName(this.typeName + "$wrappedType", true).resolveType(scopedHeap1);
-                Types.UserDefinedType.$resolvedWrappedTypes.put(this.typeName, wrappedType);
+                    TypeProvider.Util.getTypeByName(wrappedTypeIdentifier, true).resolveType(scopedHeap1);
+                Types.UserDefinedType.$resolvedWrappedTypes.put(
+                    String.format(
+                        "%s$%s",
+                        this.typeName,
+                        // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+                        //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+                        ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
+                        ? ""
+                        : this.optionalOriginatingModuleDisambiguator.orElse("")
+                    ),
+                    wrappedType
+                );
                 return wrappedType;
               }
           ),
@@ -218,7 +254,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
 
     // Do type assertion on this synthetic constructor function so that the type can be
     this.constructorFuncDefStmt.assertExpectedExprTypes(scopedHeap);
-    this.resolvedDefaultConstructorType = scopedHeap.getValidatedIdentifierType(this.typeName + "$constructor");
+    this.resolvedDefaultConstructorType = scopedHeap.getValidatedIdentifierType(getConstructorIdentifier());
   }
 
   @Override
@@ -230,8 +266,9 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       scopedHeap.markIdentifierUsed(this.typeName);
       scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
 
-      scopedHeap.putIdentifierValue(this.typeName + "$constructor", this.resolvedDefaultConstructorType);
-      scopedHeap.markIdentifierUsed(this.typeName + "$constructor");
+      String constructorIdentifier = getConstructorIdentifier();
+      scopedHeap.putIdentifierValue(constructorIdentifier, this.resolvedDefaultConstructorType);
+      scopedHeap.markIdentifierUsed(constructorIdentifier);
     }
 
     // There's no code to generate for this statement, this is merely a statement giving Claro more
@@ -248,13 +285,36 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       scopedHeap.markIdentifierUsed(this.typeName);
       scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
 
-      scopedHeap.putIdentifierValue(this.typeName + "$constructor", this.resolvedType);
-      scopedHeap.markIdentifierUsed(this.typeName + "$constructor");
-      scopedHeap.markIdentifierAsTypeDefinition(this.typeName + "$constructor");
+      String constructorIdentifier = getConstructorIdentifier();
+      scopedHeap.putIdentifierValue(constructorIdentifier, this.resolvedType);
+      scopedHeap.markIdentifierUsed(constructorIdentifier);
+      scopedHeap.markIdentifierAsTypeDefinition(constructorIdentifier);
     }
     // There's nothing to do for this statement, this is merely a statement giving Claro more
     // information to work with.
     return null;
+  }
+
+  public String getWrappedTypeIdentifier() {
+    if (this.wrappedTypeIdentifier == null) {
+      this.wrappedTypeIdentifier = String.format(
+          "%s$%s$wrappedType",
+          this.typeName,
+          // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+          //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+          ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
+          ? ""
+          : this.optionalOriginatingModuleDisambiguator.orElse("")
+      );
+    }
+    return this.wrappedTypeIdentifier;
+  }
+
+  public String getConstructorIdentifier() {
+    if (this.constructorIdentifier == null) {
+      this.constructorIdentifier = String.format("%s$constructor", this.typeName);
+    }
+    return this.constructorIdentifier;
   }
 
 }

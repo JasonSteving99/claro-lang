@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -226,11 +227,17 @@ public class FromJsonExpr extends Expr {
               .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
               .append(type.getJavaSourceClaroType())
               .append(", ")
-              .append(
-                  String.format(
-                      "$ClaroAtom.forCacheIndex(%s)",
-                      InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.build().get("Nothing")
-                  ))
+              .append(String.format(
+                  "%s%sATOM_CACHE[%s]",
+                  // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+                  //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+                  "",
+                  "",
+                  InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                      ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
+                      "Nothing"
+                  )
+              ))
               .append(", $jsonString);");
           if (!alreadyPeekedType) {
             res.append("} ");

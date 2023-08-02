@@ -1,0 +1,8 @@
+
+# TODO(steving) TESTING!!! Drop this MyInt alias and go back to the commented out func def to test transitive exported types.
+alias MyInt : Addition::IntAlias
+#function add(lhs: int, rhs: int) -> Addition::IntAlias;
+function add(lhs: int, rhs: int) -> int;
+
+
+newtype List<T> : [T]

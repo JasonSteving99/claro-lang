@@ -1,4 +1,5 @@
 
+newtype TESTING : int
 newtype FancyInt : int
 alias IntAlias : int
 

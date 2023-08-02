@@ -21,12 +21,12 @@ public class GetHttpServerExpr extends Expr {
           ImmutableList.of(Types.INTEGER),
           Types.HttpServerType.forHttpService(
               // Hack. No need to actually model the generic type param here.
-              Types.HttpServiceType.forServiceName("T")),
+              Types.HttpServiceType.forServiceNameAndDisambiguator("T", "")),
           /*explicitlyAnnotatedBlocking=*/false,
           /*optionalAnnotatedBlockingGenericOverArgs=*/Optional.empty(),
           /*optionalGenericProcedureArgNames=*/Optional.of(ImmutableList.of("T"))
       );
-  private Optional<String> assertedHttpServiceName = Optional.empty();
+  private Optional<Types.HttpServiceType> assertedHttpService = Optional.empty();
 
   public GetHttpServerExpr(Expr portNumber, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -36,11 +36,11 @@ public class GetHttpServerExpr extends Expr {
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
     if (expectedExprType.baseType().equals(BaseType.HTTP_SERVER)) {
-      this.assertedHttpServiceName = Optional.of(
-          ((Types.HttpServiceType) expectedExprType.parameterizedTypeArgs().get(Types.HttpServerType.HTTP_SERVICE_TYPE))
-              .getServiceName());
+      this.assertedHttpService = Optional.of(
+          ((Types.HttpServiceType) expectedExprType.parameterizedTypeArgs()
+              .get(Types.HttpServerType.HTTP_SERVICE_TYPE)));
     } else {
-      this.assertedHttpServiceName = null;
+      this.assertedHttpService = null;
     }
 
     super.assertExpectedExprType(scopedHeap, expectedExprType);
@@ -48,10 +48,10 @@ public class GetHttpServerExpr extends Expr {
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    if (this.assertedHttpServiceName == null) {
+    if (this.assertedHttpService == null) {
       // Some type was asserted but it's not an HttpServer<T> so I can't infer the service to generate a server for.
       return Types.HttpServerType.forHttpService(Types.$GenericTypeParam.forTypeParamName("T"));
-    } else if (!this.assertedHttpServiceName.isPresent()) {
+    } else if (!this.assertedHttpService.isPresent()) {
       this.logTypeError(
           ClaroTypeException.forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(
               "getBasicHttpServerForPort", GetHttpServerExpr.GENERIC_PROCEDURE_TYPE));
@@ -62,12 +62,16 @@ public class GetHttpServerExpr extends Expr {
 
     // Now I need to finally assert that the requested HttpService has actually had endpoint handlers configured.
     if (!InternalStaticStateUtil.HttpServiceDef_servicesWithValidEndpointHandlersDefined
-        .contains(this.assertedHttpServiceName.get())) {
+        .contains(String.format(
+            "%s$%s",
+            this.assertedHttpService.get().getServiceName(),
+            this.assertedHttpService.get().getDefiningModuleDisambiguator()
+        ))) {
       this.logTypeError(
           ClaroTypeException.forInvalidHttpServerGenerationRequestedWithNoHttpServiceEndpointHandlersDefined(
-              this.assertedHttpServiceName.get(),
+              this.assertedHttpService.get().getServiceName(),
               InternalStaticStateUtil.HttpServiceDef_endpointProcedureSignatures.row(
-                      this.assertedHttpServiceName.get())
+                      this.assertedHttpService.get().getServiceName())
                   .entrySet().stream()
                   .collect(ImmutableMap.toImmutableMap(
                       Map.Entry::getKey,
@@ -77,7 +81,10 @@ public class GetHttpServerExpr extends Expr {
     }
 
     return Types.HttpServerType.forHttpService(
-        Types.HttpServiceType.forServiceName(this.assertedHttpServiceName.get()));
+        Types.HttpServiceType.forServiceNameAndDisambiguator(
+            this.assertedHttpService.get().getServiceName(),
+            this.assertedHttpService.get().getDefiningModuleDisambiguator()
+        ));
   }
 
   @Override
@@ -87,7 +94,7 @@ public class GetHttpServerExpr extends Expr {
             .append("\n\tnew $ClaroHttpServer(\n\t\t$ClaroHttpServer.getRoutingServlet()"));
 
 
-    InternalStaticStateUtil.HttpServiceDef_endpointPaths.row(this.assertedHttpServiceName.get())
+    InternalStaticStateUtil.HttpServiceDef_endpointPaths.row(this.assertedHttpService.get().getServiceName())
         .entrySet().stream()
         .map(
             e ->

@@ -7,17 +7,25 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Comparator;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class AtomDefinitionStmt extends Stmt {
-  private final IdentifierReferenceTerm name;
+  public final IdentifierReferenceTerm name;
   private final int atomId;
   private static int globalAtomCount = 0;
+  private boolean alreadyRegisteredAtom = false;
 
   public AtomDefinitionStmt(IdentifierReferenceTerm name) {
     super(ImmutableList.of());
     this.name = name;
-    this.atomId = AtomDefinitionStmt.globalAtomCount++;
+    this.atomId = AtomDefinitionStmt.getNextGlobalAtomId();
+  }
+
+  public static int getNextGlobalAtomId() {
+    return globalAtomCount++;
   }
 
   public void registerType(ScopedHeap scopedHeap) {
@@ -27,11 +35,27 @@ public class AtomDefinitionStmt extends Stmt {
     } else {
       // Simply place the type in the symbol table. Any references to this atom as a value, will need to have some
       // simple special handling to allow the reference.
+      String thisModuleDisambiguator =
+          ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
       scopedHeap.putIdentifierValueAsTypeDef(
-          this.name.identifier, Types.AtomType.forName(this.name.identifier), null);
+          this.name.identifier,
+          Types.AtomType.forNameAndDisambiguator(
+              this.name.identifier,
+              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+              this.name.identifier.equals("Nothing") ? "" : thisModuleDisambiguator
+          ),
+          null
+      );
       scopedHeap.initializeIdentifier(this.name.identifier);
-      // Now I need to cache this atom.
-      InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.put(this.name.identifier, this.atomId);
+      // Now I need to cache this atom. This codepath will be accessed more than once when compiling a module in order
+      // to setup a synthetic symbol table for validating that exported procedures are actually defined in .claro files
+      // so avoid adding this to the atom cache more than once here.
+      if (!alreadyRegisteredAtom) {
+        InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.put(
+            thisModuleDisambiguator, this.name.identifier, this.atomId);
+        alreadyRegisteredAtom = true;
+      }
     }
   }
 
@@ -48,12 +72,20 @@ public class AtomDefinitionStmt extends Stmt {
   }
 
   public static String codegenAtomCacheInit() {
-    return String.format(
-        "$ClaroAtom.initializeCache(ImmutableList.of(%s));\n",
-        InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_ATOM_NAME.build().keySet().stream()
-            .map(n -> String.format("\"%s\"", n))
-            .collect(Collectors.joining(", "))
-    );
+    String definingModuleDisambiguator = ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
+    return InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build()
+        .rowMap()
+        // Only want the atoms defined in this current module.
+        .get(definingModuleDisambiguator)
+        .entrySet().stream().sorted(Comparator.comparingInt(Map.Entry::getValue))
+        .map(entry -> String.format(
+            "$ClaroAtom.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
+            entry.getKey(),
+            // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
+            //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
+            entry.getKey().equals("Nothing") ? "" : definingModuleDisambiguator
+        ))
+        .collect(Collectors.joining(", "));
   }
 
   @Override

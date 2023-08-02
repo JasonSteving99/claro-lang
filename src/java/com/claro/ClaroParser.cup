@@ -45,9 +45,13 @@ action code {:
 
   int indentationLevel = 1;
 
+  public String getDisambiguatedExportedIdentifierName(String originalName) {
+    return getDisambiguatedExportedIdentifierName(optionalModuleName.orElse(""), originalName);
+  }
+
   public String getDisambiguatedExportedIdentifierName(String depModuleName, String originalName) {
     // Use a disambiguation prefix for namespacing required by dep modules.
-    return String.format("$DEP_MODULE$%s$%s", depModuleName, originalName);
+    return String.format("%s$%s", originalName, ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleName)));
   }
 
   private String getIndents(int level) {
@@ -726,12 +730,12 @@ newtype_def_stmt ::=
     NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
-       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalModuleName, baseTypeLexedVal.getVal());
+       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalUniqueModuleName, baseTypeLexedVal.getVal());
     :}
   | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
     {:
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
-       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalModuleName, baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+       RESULT = new NewTypeDefStmt(type_name.getVal(), optionalUniqueModuleName, baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
     :}
   ;
 

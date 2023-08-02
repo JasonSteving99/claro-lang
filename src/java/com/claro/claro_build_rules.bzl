@@ -37,10 +37,21 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "//src/java/com/claro/stdlib/userinput",
 ]
 
+
+ClaroModuleInfo = provider(
+    "Info needed to compile/link Claro Modules.",
+    fields={
+        "info": "A struct containing metadata about this module",
+        "deps_with_exports": "A depset representing transitive dep module dependencies.",
+    })
+
 def _invoke_claro_compiler_impl(ctx):
     is_module = ctx.file.module_api_file != None
     if is_module:
         srcs = [ctx.file.module_api_file] + ctx.files._stdlib_srcs + ctx.files.srcs
+        print("BUILD:", ctx.label.name)
+        for dep in ctx.attr.deps:
+            print("ClaroModuleInfo!", dep[ClaroModuleInfo])
     else:
         # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
         # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
@@ -70,6 +81,8 @@ def _invoke_claro_compiler_impl(ctx):
         for module_dep_name in concatenated_module_dep_names.split('$'):
             dep_module_runfiles.append(module_dep_label[DefaultInfo].files.to_list()[0])
             args.add("--dep", module_dep_label.files.to_list()[0], format = "{0}:%s".format(module_dep_name))
+    for export in ctx.attr.exports:
+        args.add("--export", export)
     args.add("--output_file_path", ctx.outputs.compiler_out)
 
     # Add all of the .claro_module files from our module deps targets to the declared inputs that we require Bazel to
@@ -100,9 +113,26 @@ def _invoke_claro_compiler_impl(ctx):
             executable = ctx.executable._module_deserialization_util,
         )
 
-    return [
-        DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles))
-    ]
+    if is_module:
+        return [
+            DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles)),
+            ClaroModuleInfo(
+                info = struct(
+                    unique_module_name = ctx.attr.unique_module_name,
+                    exports = ctx.attr.exports,
+                    path_to_claro_module_file = ctx.outputs.compiler_out,
+                ),
+                deps_with_exports = depset(
+                    # Here I preemptively prune any direct deps that don't actually export anything.
+                    direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps if len(dep[ClaroModuleInfo].info.exports) > 0],
+                    transitive = [dep[ClaroModuleInfo].deps_with_exports for dep in ctx.attr.deps]
+                ),
+            )
+        ]
+    else:
+        return [
+            DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles)),
+        ]
 
 
 def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
@@ -125,17 +155,25 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
     )
 
 
-def claro_module(name, module_api_file, srcs, deps = {}, debug = False, **kwargs):
+def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = False, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
     # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
     unique_module_name = native.package_name().replace('/', '$') + '$' + name
+
+    # Validate that all `exports` strings must be present as dep module names.
+    invalid_exports = [export for export in exports if export not in deps]
+    if len(invalid_exports) > 0:
+        fail("claro_module: The following declared exports are not valid dep modules.\n\t- {0}".format(
+            "\n\t- ".join(invalid_exports),
+        ))
 
     _invoke_claro_compiler(
         name = "{0}".format(name),
         module_api_file = module_api_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
+        exports = exports,
         unique_module_name = unique_module_name,
         compiler_out = "{0}.claro_module".format(name),
         module_static_java_out = "{0}.java".format(unique_module_name),
@@ -149,6 +187,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, debug = False, **kwargs
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.
             {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
+        exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports],
         **kwargs # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
     )
 
@@ -181,11 +220,17 @@ _invoke_claro_compiler = rule(
         "srcs": attr.label_list(allow_files = [".claro"]),
         "deps": attr.label_keyed_string_dict(
             doc = "An optional set of Modules that this binary's sources directly depend on.",
-            allow_files = [".claro_module"],
-            # providers = ... Figure out how to utilize this to get deps from claro_module.
+            providers = [ClaroModuleInfo],
         ),
-        "unique_module_name": attr.string(),
+        "exports": attr.string_list(
+            doc = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
+                  "module actually have access to the definitions of types defined in this module's deps."
+        ),
         "debug": attr.bool(default = False),
+
+        # Args below this point are intended primarily for internal use only.
+
+        "unique_module_name": attr.string(),
         "_claro_compiler": attr.label(
             default = Label("//src/java/com/claro:claro_compiler_binary"),
             allow_files = True,

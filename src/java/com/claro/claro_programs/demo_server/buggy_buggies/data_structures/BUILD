@@ -12,4 +12,5 @@ claro_module(
     visibility = [
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:__pkg__"
     ],
+    debug = True,
 )

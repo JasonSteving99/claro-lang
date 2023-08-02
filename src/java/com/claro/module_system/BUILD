@@ -43,6 +43,7 @@ java_library(
         "@jflex_rules//third_party/cup",  # the runtime would be sufficient
         "//:guava",
         "//src/java/com/claro:lexed_value",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:module_node",
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",

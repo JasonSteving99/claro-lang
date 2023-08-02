@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package claro.module_system.module_serialization.claro_types;
+
+option java_multiple_files = false;
+option java_outer_classname = "TypeProtos";
+option java_package = "com.claro.module_system.module_serialization.proto.claro_types";
+
+message TypeProto {
+  oneof type {
+    PrimitiveType primitive = 1;
+    AtomType atom = 2;
+    ListType list = 3;
+    MapType map = 4;
+    SetType set = 5;
+    TupleType tuple = 6;
+    OneofType oneof = 7;
+    StructType struct = 8;
+    FutureType future = 9;
+    FunctionType function = 10;
+    ConsumerType consumer = 11;
+    ProviderType provider = 12;
+    UserDefinedType user_defined_type = 13;
+    GenericTypeParam generic_type_param = 14;
+    HttpServiceType http_service = 15;
+    HttpClientType http_client = 16;
+    HttpServerType http_server = 17;
+  }
+}
+
+enum PrimitiveType {
+  UNKNOWN_PRIMITIVE_TYPE = 0;
+  INTEGER = 1;
+  FLOAT = 2;
+  STRING = 3;
+  BOOLEAN = 4;
+  HTTP_RESPONSE = 5;
+}
+message AtomType {
+  string name = 1;
+  string defining_module_disambiguator = 2;
+}
+message ListType {
+  TypeProto elementType = 1;
+  bool is_mutable = 2;
+}
+message MapType {
+  TypeProto key_type = 1;
+  TypeProto value_type = 2;
+  bool is_mutable = 3;
+}
+message SetType {
+  TypeProto element_type = 1;
+  bool is_mutable = 2;
+}
+message TupleType {
+  repeated TypeProto element_types = 1;
+  bool is_mutable = 2;
+}
+message OneofType {
+  repeated TypeProto variant_types = 1;
+}
+message StructType {
+  repeated string field_names = 1;
+  repeated TypeProto field_types = 2;
+  bool is_mutable = 3;
+}
+message FutureType {
+  TypeProto wrapped_type = 1;
+}
+message FunctionType {
+  repeated TypeProto arg_types = 1;
+  TypeProto output_type = 2;
+  bool annotated_blocking = 3;
+  repeated int32 optional_annotated_blocking_generic_over_args = 4;
+  repeated string optional_generic_type_param_names = 5;
+}
+message ConsumerType {
+  repeated TypeProto arg_types = 1;
+  bool annotated_blocking = 2;
+  repeated int32 optional_annotated_blocking_generic_over_args = 3;
+  repeated string optional_generic_type_param_names = 4;
+}
+message ProviderType {
+  TypeProto output_type = 1;
+  bool annotated_blocking = 3;
+}
+message UserDefinedType {
+  string type_name = 1;
+  string defining_module_disambiguator = 2;
+  repeated TypeProto parameterized_types = 3;
+}
+message GenericTypeParam {
+  string name = 1;
+}
+message HttpClientType {
+  string service_name = 1;
+}
+message HttpServiceType {
+  string service_name = 1;
+  string defining_module_disambiguator = 2;
+}
+message HttpServerType {
+  HttpServiceType service = 1;
+}

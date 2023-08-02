@@ -12,6 +12,7 @@ import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -185,7 +186,13 @@ public class HttpServiceDefStmt extends Stmt {
     }
 
     // Now place this in the symbol table so that nothing else can shadow this name.
-    scopedHeap.putIdentifierValue(this.serviceName.identifier, Types.HttpServiceType.forServiceName(this.serviceName.identifier));
+    scopedHeap.putIdentifierValue(
+        this.serviceName.identifier,
+        Types.HttpServiceType.forServiceNameAndDisambiguator(
+            this.serviceName.identifier,
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+        )
+    );
     scopedHeap.markIdentifierAsTypeDefinition(this.serviceName.identifier);
     scopedHeap.markIdentifierUsed(this.serviceName.identifier);
   }
