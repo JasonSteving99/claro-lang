@@ -310,26 +310,20 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
       ScopedHeap.currProgramDepModules.put(moduleDep.getKey(), /*isUsed=*/false, parsedModule.getModuleDescriptor());
 
-      // Parse the .claro_module_api.
-      ModuleApiParser depModuleApiParser = getModuleApiParserForFileContents(
-          moduleDep.getKey(),
-          parsedModule.getModuleDescriptor().getUniqueModuleName(),
-          parsedModule.getModuleApiFile().getSourceUtf8().toStringUtf8()
-      );
-
       // Register any alias defs found in the module.
       for (Map.Entry<String, TypeProtos.TypeProto> exportedAliasDef :
           parsedModule.getExportedTypeDefinitions().getExportedAliasDefsByNameMap().entrySet()) {
         String disambiguatedIdentifier =
-            String.format("%s$%s", exportedAliasDef.getKey(), depModuleApiParser.uniqueModuleName);
+            String.format("%s$%s", exportedAliasDef.getKey(), parsedModule.getModuleDescriptor().getUniqueModuleName());
         scopedHeap.putIdentifierValueAsTypeDef(disambiguatedIdentifier, Types.parseTypeProto(exportedAliasDef.getValue()), null);
       }
 
       // Register any newtype defs found in the module.
-      for (Map.Entry<String, SerializedClaroModule.NewTypeDef> exportedNewTypedef :
+      for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef> exportedNewTypedef :
           parsedModule.getExportedTypeDefinitions().getExportedNewtypeDefsByNameMap().entrySet()) {
         String disambiguatedIdentifier =
-            String.format("%s$%s", exportedNewTypedef.getKey(), depModuleApiParser.uniqueModuleName);
+            String.format("%s$%s", exportedNewTypedef.getKey(), parsedModule.getModuleDescriptor()
+                .getUniqueModuleName());
         // Register the user-defined-type itself.
         Type newType =
             Types.parseTypeProto(
@@ -365,27 +359,27 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       for (int i = 0; i < parsedModule.getExportedAtomDefinitionsList().size(); i++) {
         String atomName = parsedModule.getExportedAtomDefinitions(i);
         String disambiguatedAtomIdentifier =
-            String.format("%s$%s", atomName, depModuleApiParser.uniqueModuleName);
+            String.format("%s$%s", atomName, parsedModule.getModuleDescriptor().getUniqueModuleName());
         scopedHeap.putIdentifierValueAsTypeDef(
             disambiguatedAtomIdentifier,
-            Types.AtomType.forNameAndDisambiguator(atomName, depModuleApiParser.uniqueModuleName),
+            Types.AtomType.forNameAndDisambiguator(atomName, parsedModule.getModuleDescriptor().getUniqueModuleName()),
             null
         );
         scopedHeap.initializeIdentifier(disambiguatedAtomIdentifier);
         // Now I need to cache this atom.
         InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.put(
-            depModuleApiParser.uniqueModuleName, disambiguatedAtomIdentifier, i);
+            parsedModule.getModuleDescriptor().getUniqueModuleName(), disambiguatedAtomIdentifier, i);
       }
 
       // Register any HttpServiceDefs found in the module.
       parsedModule.getExportedHttpServiceDefinitionsList().forEach(
           httpServiceDef -> {
             String disambiguatedServiceName =
-                String.format("%s$%s", httpServiceDef, depModuleApiParser.uniqueModuleName);
+                String.format("%s$%s", httpServiceDef, parsedModule.getModuleDescriptor().getUniqueModuleName());
             scopedHeap.putIdentifierValueAsTypeDef(
                 disambiguatedServiceName,
                 Types.HttpServiceType.forServiceNameAndDisambiguator(
-                    httpServiceDef.getHttpServiceName(), depModuleApiParser.uniqueModuleName),
+                    httpServiceDef.getHttpServiceName(), parsedModule.getModuleDescriptor().getUniqueModuleName()),
                 null
             );
             // Register any endpoint_handlers registered for HttpServiceDefs in this module.
@@ -511,11 +505,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
                     .setProjectPackage(projectPackage)
                     .setUniqueModuleName(uniqueModuleName))
-            .setModuleApiFile(
-                SerializedClaroModule.ClaroSourceFile.newBuilder()
-                    .setOriginalFilename(moduleApiSrcFile.getFilename())
-                    .setSourceUtf8(
-                        ByteString.copyFrom(ByteStreams.toByteArray(moduleApiSrcFile.getFileInputStream()))))
             .setExportedTypeDefinitions(
                 SerializedClaroModule.ExportedTypeDefinitions.newBuilder()
                     .putAllExportedAliasDefsByName(
@@ -530,7 +519,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                 ImmutableMap.toImmutableMap(
                                     newtypeDef -> newtypeDef.typeName,
                                     newtypeDef ->
-                                        SerializedClaroModule.NewTypeDef.newBuilder()
+                                        SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef.newBuilder()
                                             .setUserDefinedType(newtypeDef.resolvedType.toProto().getUserDefinedType())
                                             .setWrappedType(
                                                 scopedHeap.getValidatedIdentifierType(newtypeDef.getWrappedTypeIdentifier())

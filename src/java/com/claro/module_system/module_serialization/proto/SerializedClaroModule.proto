@@ -45,13 +45,6 @@ message SerializedClaroModule {
     string unique_module_name = 2;
   }
 
-  message NewTypeDef {
-    claro.module_system.module_serialization.claro_types.UserDefinedType user_defined_type = 1;
-    claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
-    repeated string type_param_names = 3;
-    Procedure constructor = 4;
-  }
-
   message Procedure {
     string name = 1;
     oneof procedure_type {
@@ -62,6 +55,12 @@ message SerializedClaroModule {
   }
 
   message ExportedTypeDefinitions {
+    message NewTypeDef {
+      claro.module_system.module_serialization.claro_types.UserDefinedType user_defined_type = 1;
+      claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
+      repeated string type_param_names = 3;
+      Procedure constructor = 4;
+    }
     // Literally just a simple wrapper type in order to have a map with list values.
     message ProcedureList {
       repeated Procedure procedures = 1;
@@ -84,26 +83,21 @@ message SerializedClaroModule {
 
   UniqueModuleDescriptor module_descriptor = 1;
 
-  // This field contains the actual source of the given .claro_module_api file. This will be necessary for dependents to
-  // be able to determine the bindings exported for them to make use of.
-  // TODO(steving) Drop this from this proto once all the type defs/initializers/aliases/procedure signatures are handled as protos.
-  ClaroSourceFile module_api_file = 2;
-
   // This is essentially a serialized symbol table containing just the newtypes and aliases exported by this module.
-  ExportedTypeDefinitions exported_type_definitions = 3;
+  ExportedTypeDefinitions exported_type_definitions = 2;
 
-  repeated string exported_atom_definitions = 4;
+  repeated string exported_atom_definitions = 3;
 
-  repeated Procedure exported_procedure_definitions = 5;
+  repeated Procedure exported_procedure_definitions = 4;
 
-  repeated ExportedHttpServiceDefinition exported_http_service_definitions = 6;
+  repeated ExportedHttpServiceDefinition exported_http_service_definitions = 5;
 
   // Exported transitive types are types that are actually defined by this Module's deps but referenced in the exported
   // procedures/types of this Module's api. This is necessary to communicate explicitly what types are being talked
   // about here, as this is technically ambiguous from looking at the api file alone as readers couldn't know what
   // concrete deps the module was compiled against. This field resolves that ambiguity by specifying the concrete
   // disambiguator for each exported transitive type.
-  repeated ExportedTransitiveDepModule exported_transitive_dep_modules = 7;
+  repeated ExportedTransitiveDepModule exported_transitive_dep_modules = 6;
 
   // This field contains the codegen pertaining to any static definitions that are guaranteed to be provided by this
   // module. In less opaque terms, this contains codegen for any non-generic procedure definitions that are exported by
@@ -111,11 +105,11 @@ message SerializedClaroModule {
   // monomorphizations that are explicitly called from exported procedures *within* this module). Later on, when this
   // module is depended on in a Claro Binary, the concrete monomorphizations needed by the overall will be codegen'd at
   // the last minute.
-  bytes static_java_codegen = 8;
+  bytes static_java_codegen = 7;
 
   // As Claro will need to postpone codegen of generic procedure monomorphizations until after the entire program is
   // assembled into a Claro Binary, this serialized module actually needs to maintain the original Claro source files
   // that contain all exported procedure implementations. This way, once all concrete monomorphizations are known, it's
   // possible to re-parse the source file to find the necessary generic procedure defs to codegen monomorphizations for.
-  repeated ClaroSourceFile module_impl_files = 9;
+  repeated ClaroSourceFile module_impl_files = 8;
 }
