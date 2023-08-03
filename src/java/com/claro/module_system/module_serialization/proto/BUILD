@@ -6,6 +6,7 @@ java_proto_library(
     visibility = [
         "//src/java/com/claro/compiler_backends:__subpackages__",
         "//src/java/com/claro/compiler_backends/interpreted:__pkg__",
+        "//src/java/com/claro/intermediate_representation:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions/term:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",

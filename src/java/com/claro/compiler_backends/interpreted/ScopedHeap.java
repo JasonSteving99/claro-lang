@@ -22,6 +22,8 @@ public class ScopedHeap {
   // A table<depModuleName, isUsed, descriptor> of dep module descriptors and whether or not they have been referenced.
   public static HashBasedTable<String, Boolean, SerializedClaroModule.UniqueModuleDescriptor> currProgramDepModules =
       HashBasedTable.create();
+  public static ImmutableMap<String, SerializedClaroModule.ExportedTypeDefinitions> currProgramDepModuleExportedTypes =
+      ImmutableMap.of();
   // The set of Dep Modules that are listed as transitive exports of this module. Dep Modules are required to be
   // explicitly placed here via claro_module(..., exports = ["Foo"], deps = {"Foo": "//..."}) if the
   // .claro_module_api file is going to explicitly reference any types declared in a dep Module (e.g. `Foo::FooType`).

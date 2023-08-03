@@ -5,13 +5,13 @@
 # be unnnecessarily restrictive. I'm doing this to demonstrate the design flexibility enabled by this separation between
 # .claro and .claro_module_api files.
 function getFancyInt(i: IntAlias) -> FancyInt {
-  return FancyInt(i);
+  return FancyInt(MultiHopDep::MultiHopInt(i));
 }
 
 function unwrapFancyInt(f: FancyInt) -> IntAlias {
-  return unwrap(f);
+  return unwrap(unwrap(f));
 }
 
 function add(lhs: FancyInt, rhs: FancyInt) -> IntAlias {
-  return unwrap(lhs) + unwrap(rhs);
+  return unwrap(unwrap(lhs)) + unwrap(unwrap(rhs));
 }

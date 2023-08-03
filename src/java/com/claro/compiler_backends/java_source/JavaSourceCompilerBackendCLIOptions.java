@@ -55,6 +55,16 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public List<String> deps;
 
   @Option(
+      name = "transitive_exported_dep_module",
+      help =
+          "A path to a .claro_module file that is declared 'exported' by one of the direct dep modules in order to " +
+          "provide the definition of any types that are referenced in the dep module's .claro_module_api file.",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> transitive_deps;
+
+  @Option(
       name = "export",
       help = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
              "module actually have access to the definitions of types defined in this module's deps.",

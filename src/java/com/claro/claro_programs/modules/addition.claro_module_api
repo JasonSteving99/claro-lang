@@ -1,5 +1,5 @@
 
-newtype FancyInt : int
+newtype FancyInt : MultiHopDep::MultiHopInt
 alias IntAlias : int
 
 initializers FancyInt {

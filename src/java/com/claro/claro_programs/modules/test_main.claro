@@ -7,3 +7,21 @@ consumer myPrint(i: int, depName: string) {
 
 myPrint(TestDep::add(2, 2), "TestDep");
 myPrint(TestDep2::add(2, 2), "TestDep2");
+
+# This is a demonstration that dep modules may export transitive dep module types, that the current module doesn't
+# necessarily know the definition of via a direct module dep. As Claro automatically resolves types defined in
+# transitive dep modules exported by direct deps, you may still pass around values of these types, and do basic things
+# like check equality, store in data structures, and pass along to procedures, but you can't actually *reference the
+# type by name* w/o placing a direct dep on the module exporting the type's definition.
+var fancyInt = TestDep2::addFancyInt(2, 3);
+# The dep on `Addition` is necessary in order to unwrap this `Addition::FancyInt` type as `Addition` restricted the
+# unwrapping of `FancyInt` via the definition of unwrappers in its .claro_module_api file.
+var multiHopModuleInt = Addition::unwrapFancyInt(fancyInt);
+myPrint(multiHopModuleInt, ":multi_hop_module_api via Addition via TestDep2");
+
+# Here's a simple rewrite of the above logic that hopefully demonstrates that this approach doesn't just hinge on
+# Claro's type inference on variable defs. The need to access transitive exported type defs from modules not directly
+# depended on by the current module is generally necessary when handling structured data derived from some other module.
+TestDep2::addFancyInt(2, 3)
+|> Addition::unwrapFancyInt(^)
+|> myPrint(^, ":multi_hop_module_api via Addition via TestDep2");

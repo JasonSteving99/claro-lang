@@ -49,9 +49,6 @@ def _invoke_claro_compiler_impl(ctx):
     is_module = ctx.file.module_api_file != None
     if is_module:
         srcs = [ctx.file.module_api_file] + ctx.files._stdlib_srcs + ctx.files.srcs
-        print("BUILD:", ctx.label.name)
-        for dep in ctx.attr.deps:
-            print("ClaroModuleInfo!", dep[ClaroModuleInfo])
     else:
         # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
         # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
@@ -77,19 +74,27 @@ def _invoke_claro_compiler_impl(ctx):
     for src in srcs:
         args.add("--src", src)
     dep_module_runfiles = []
+    dep_module_targets_by_dep_name = {}
     for module_dep_label, concatenated_module_dep_names in ctx.attr.deps.items():
+        # Add args for this direct dep.
         for module_dep_name in concatenated_module_dep_names.split('$'):
-            dep_module_runfiles.append(module_dep_label[DefaultInfo].files.to_list()[0])
-            args.add("--dep", module_dep_label.files.to_list()[0], format = "{0}:%s".format(module_dep_name))
+            dep_claro_module_file = module_dep_label[ClaroModuleInfo].info.path_to_claro_module_file
+            dep_module_runfiles.append(dep_claro_module_file)
+            dep_module_targets_by_dep_name[module_dep_name] = module_dep_label
+            args.add("--dep", dep_claro_module_file, format = "{0}:%s".format(module_dep_name))
+        # Add args for all the exported transitive deps exported by this dep.
+        for transitive_dep_module_file in module_dep_label[DefaultInfo].files.to_list():
+            args.add("--transitive_exported_dep_module", transitive_dep_module_file)
+
     for export in ctx.attr.exports:
         args.add("--export", export)
     args.add("--output_file_path", ctx.outputs.compiler_out)
 
-    # Add all of the .claro_module files from our module deps targets to the declared inputs that we require Bazel to
-    # place in the sandbox for this compilation action.
-    inputs = srcs + [t.files.to_list()[0] for t in ctx.attr.deps.keys()]
     ctx.actions.run(
-        inputs = inputs,
+        inputs = depset(
+            direct = srcs,
+            transitive = [dep.files for dep in ctx.attr.deps.keys()]
+        ),
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],
         progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.short_path,
@@ -115,11 +120,19 @@ def _invoke_claro_compiler_impl(ctx):
 
     if is_module:
         return [
-            DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles)),
+            DefaultInfo(
+                files = depset(
+                    direct = [ctx.outputs.compiler_out],
+                    # Make sure to include the exported dep modules output files in this depset so that the
+                    # .claro_module_api files for transitive dep modules are available to the compiler at build time.
+                    transitive = [dep_module_targets_by_dep_name[export][DefaultInfo].files for export in ctx.attr.exports]
+                ),
+                runfiles = ctx.runfiles(files = dep_module_runfiles),
+            ),
             ClaroModuleInfo(
                 info = struct(
                     unique_module_name = ctx.attr.unique_module_name,
-                    exports = ctx.attr.exports,
+                    exports = [dep_module_targets_by_dep_name[export] for export in ctx.attr.exports],
                     path_to_claro_module_file = ctx.outputs.compiler_out,
                 ),
                 deps_with_exports = depset(
@@ -151,7 +164,9 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
         main_class = "claro.lang." + main_file_name,
         srcs = [":{0}.java".format(main_file_name)],
         deps = CLARO_BUILTIN_JAVA_DEPS +
-            ["{0}_compiled_claro_module_java_lib".format(dep) for dep in deps.values()],
+            # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
+            # dep more than once for different dep module impls in a claro_* rule.
+            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
     )
 
 

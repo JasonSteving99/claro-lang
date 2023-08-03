@@ -9,6 +9,8 @@ import com.claro.intermediate_representation.statements.user_defined_type_def_st
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -16,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 
@@ -184,18 +187,34 @@ public class ModuleNode {
     syntheticModuleAPIScopedHeap.enterNewScope();
     // Setup this synthetic scoped heap with the types that are declared in this module.
     this.registerExportedTypeDefs(syntheticModuleAPIScopedHeap);
-    // TODO(steving) This should actually be pulling in the EXPORTED dep module type defs.
-    // Filter level 0 of the given program's ScopedHeap to only the type defs gotten from dep modules and add those type
-    // definitions to this synthetic scoped heap so that the procedure signatures may reference dep module exported types.
-    scopedHeap.scopeStack.get(0).scopedSymbolTable.entrySet().stream()
-        .filter(e -> e.getKey().startsWith("$DEP_MODULE$") && e.getValue().isTypeDefinition)
-        .forEach(
-            depModuleExportedType ->
-                syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
-                    depModuleExportedType.getKey(),
-                    depModuleExportedType.getValue().type,
-                    depModuleExportedType.getValue().interpretedValue
-                ));
+    // Register all user-defined-types exported by all the dep modules in the synthetic scoped heap so that the
+    // procedure signatures may reference dep module exported types.
+    for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions> depModuleExportedTypes :
+        ScopedHeap.currProgramDepModuleExportedTypes.entrySet()) {
+      String depUniqueModuleName =
+          ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleExportedTypes.getKey()));
+      // Register all alias defs.
+      for (Map.Entry<String, TypeProtos.TypeProto> exportedAliasDef :
+          depModuleExportedTypes.getValue().getExportedAliasDefsByNameMap().entrySet()) {
+        syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+            String.format("%s$%s", exportedAliasDef.getKey(), depUniqueModuleName),
+            Types.parseTypeProto(exportedAliasDef.getValue()),
+            null
+        );
+      }
+      // Register all newtype defs.
+      for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef> exportedType :
+          depModuleExportedTypes.getValue().getExportedNewtypeDefsByNameMap().entrySet()) {
+        syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+            String.format("%s$%s", exportedType.getKey(), depUniqueModuleName),
+            Types.parseTypeProto(
+                TypeProtos.TypeProto.newBuilder()
+                    .setUserDefinedType(exportedType.getValue().getUserDefinedType())
+                    .build()),
+            null
+        );
+      }
+    }
     // TODO(steving) UNTIL STDLIB IS MIGRATED TO MODULES, I'LL NEED TO MANUALLY ALLOW NOTHING/ERROR/PARSEDJSON.
     scopedHeap.scopeStack.get(0).scopedSymbolTable.entrySet().stream()
         .filter(e ->
