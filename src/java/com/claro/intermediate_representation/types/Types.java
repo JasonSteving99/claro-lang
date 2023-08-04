@@ -914,7 +914,7 @@ public final class Types {
                                     .map(Type::toProto)
                                     .collect(ImmutableList.toImmutableList()))
                 .setOutputType(this.getReturnType().toProto())
-                .setAnnotatedBlocking(this.getAnnotatedBlocking());
+                .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking()));
         if (this.getAnnotatedBlockingGenericOverArgs().isPresent()) {
           functionTypeBuilder.addAllOptionalAnnotatedBlockingGenericOverArgs(
               this.getAnnotatedBlockingGenericOverArgs().get());
@@ -1093,7 +1093,7 @@ public final class Types {
             .setProvider(
                 TypeProtos.ProviderType.newBuilder()
                     .setOutputType(this.getReturnType().toProto())
-                    .setAnnotatedBlocking(this.getAnnotatedBlocking()))
+                    .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking())))
             .build();
       }
     }
@@ -1301,7 +1301,7 @@ public final class Types {
             TypeProtos.ConsumerType.newBuilder()
                 .addAllArgTypes(
                     this.getArgTypes().stream().map(Type::toProto).collect(ImmutableList.toImmutableList()))
-                .setAnnotatedBlocking(this.getAnnotatedBlocking());
+                .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking()));
         if (this.getAnnotatedBlockingGenericOverArgs().isPresent()) {
           consumerTypeBuilder.addAllOptionalAnnotatedBlockingGenericOverArgs(
               this.getAnnotatedBlockingGenericOverArgs().get());
@@ -1330,6 +1330,30 @@ public final class Types {
       }
     }
 
+    static TypeProtos.ProcedureBlockingAnnotation getProtoBlockingAnnotation(Boolean blockingAnnotation) {
+      if (blockingAnnotation == null) {
+        return TypeProtos.ProcedureBlockingAnnotation.BLOCKING_GENERIC;
+      } else if (blockingAnnotation) {
+        return TypeProtos.ProcedureBlockingAnnotation.BLOCKING;
+      } else {
+        return TypeProtos.ProcedureBlockingAnnotation.NON_BLOCKING;
+      }
+    }
+
+    static Boolean getBlockingAnnotationFromProto(TypeProtos.ProcedureBlockingAnnotation blockingAnnotation) {
+      switch (blockingAnnotation) {
+        case NON_BLOCKING:
+          return false;
+        case BLOCKING:
+          return true;
+        case BLOCKING_GENERIC:
+          return null;
+        default:
+          throw new RuntimeException(
+              "Internal Compiler Error! Encountered unknown procedure blocking annotation while parsing from proto: " +
+              blockingAnnotation);
+      }
+    }
   }
 
   @AutoValue
@@ -1874,40 +1898,76 @@ public final class Types {
         return FutureType.wrapping(parseTypeProto(typeProto.getFuture().getWrappedType()));
       case FUNCTION:
         TypeProtos.FunctionType functionTypeProto = typeProto.getFunction();
-        return ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+        return ProcedureType.FunctionType.forArgsAndReturnTypes(
             functionTypeProto.getArgTypesList()
                 .stream()
                 .map(Types::parseTypeProto)
                 .collect(ImmutableList.toImmutableList()),
             parseTypeProto(functionTypeProto.getOutputType()),
-            functionTypeProto.getAnnotatedBlocking(),
+            BaseType.FUNCTION,
+            // TODO(steving) DROP SUPPORT FOR INJECTED KEYS NOW THAT THE MODULE SYSTEM IS IN PLACE TO SUPERSEDE IT.
+            /*directUsedInjectedKeys=*/ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/null,
+            ProcedureType.getBlockingAnnotationFromProto(functionTypeProto.getAnnotatedBlocking()),
             functionTypeProto.getOptionalAnnotatedBlockingGenericOverArgsCount() == 0
             ? Optional.empty()
             : Optional.of(ImmutableSet.copyOf(functionTypeProto.getOptionalAnnotatedBlockingGenericOverArgsList())),
             functionTypeProto.getOptionalGenericTypeParamNamesCount() == 0
             ? Optional.empty()
-            : Optional.of(ImmutableList.copyOf(functionTypeProto.getOptionalGenericTypeParamNamesList()))
+            : Optional.of(ImmutableList.copyOf(functionTypeProto.getOptionalGenericTypeParamNamesList())),
+            Optional.of(
+                functionTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                    .collect(ImmutableListMultimap.toImmutableListMultimap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                            .collect(ImmutableList.toImmutableList())
+                    )))
         );
       case CONSUMER:
         TypeProtos.ConsumerType consumerTypeProto = typeProto.getConsumer();
-        return ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+        return ProcedureType.ConsumerType.forConsumerArgTypes(
             consumerTypeProto.getArgTypesList()
                 .stream()
                 .map(Types::parseTypeProto)
                 .collect(ImmutableList.toImmutableList()),
-            consumerTypeProto.getAnnotatedBlocking(),
+            BaseType.CONSUMER_FUNCTION,
+            // TODO(steving) DROP SUPPORT FOR INJECTED KEYS NOW THAT THE MODULE SYSTEM IS IN PLACE TO SUPERSEDE IT.
+            /*directUsedInjectedKeys=*/ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/null,
+            ProcedureType.getBlockingAnnotationFromProto(consumerTypeProto.getAnnotatedBlocking()),
             consumerTypeProto.getOptionalAnnotatedBlockingGenericOverArgsCount() == 0
             ? Optional.empty()
             : Optional.of(ImmutableSet.copyOf(consumerTypeProto.getOptionalAnnotatedBlockingGenericOverArgsList())),
             consumerTypeProto.getOptionalGenericTypeParamNamesCount() == 0
             ? Optional.empty()
-            : Optional.of(ImmutableList.copyOf(consumerTypeProto.getOptionalGenericTypeParamNamesList()))
+            : Optional.of(ImmutableList.copyOf(consumerTypeProto.getOptionalGenericTypeParamNamesList())),
+            Optional.of(
+                consumerTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                    .collect(ImmutableListMultimap.toImmutableListMultimap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                            .collect(ImmutableList.toImmutableList())
+                    )))
         );
       case PROVIDER:
         TypeProtos.ProviderType providerTypeProto = typeProto.getProvider();
-        return ProcedureType.ProviderType.typeLiteralForReturnType(
+        return ProcedureType.ProviderType.forReturnType(
             parseTypeProto(providerTypeProto.getOutputType()),
-            providerTypeProto.getAnnotatedBlocking()
+            /*overrideBaseType=*/BaseType.PROVIDER_FUNCTION,
+            // TODO(steving) DROP SUPPORT FOR INJECTED KEYS NOW THAT THE MODULE SYSTEM IS IN PLACE TO SUPERSEDE IT.
+            /*directUsedInjectedKeys=*/ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/null,
+            ProcedureType.getBlockingAnnotationFromProto(providerTypeProto.getAnnotatedBlocking()),
+            providerTypeProto.getOptionalGenericTypeParamNamesCount() > 0
+            ? Optional.of(ImmutableList.copyOf(providerTypeProto.getOptionalGenericTypeParamNamesList()))
+            : Optional.empty(),
+            Optional.of(
+                providerTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                    .collect(ImmutableListMultimap.toImmutableListMultimap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                            .collect(ImmutableList.toImmutableList())
+                    )))
         );
       case USER_DEFINED_TYPE:
         TypeProtos.UserDefinedType userDefinedTypeProto = typeProto.getUserDefinedType();

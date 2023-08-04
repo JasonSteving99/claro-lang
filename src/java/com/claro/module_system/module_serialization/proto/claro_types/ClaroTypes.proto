@@ -71,19 +71,23 @@ message FutureType {
 message FunctionType {
   repeated TypeProto arg_types = 1;
   TypeProto output_type = 2;
-  bool annotated_blocking = 3;
+  ProcedureBlockingAnnotation annotated_blocking = 3;
   repeated int32 optional_annotated_blocking_generic_over_args = 4;
   repeated string optional_generic_type_param_names = 5;
+  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 6;
 }
 message ConsumerType {
   repeated TypeProto arg_types = 1;
-  bool annotated_blocking = 2;
+  ProcedureBlockingAnnotation annotated_blocking = 2;
   repeated int32 optional_annotated_blocking_generic_over_args = 3;
   repeated string optional_generic_type_param_names = 4;
+  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 5;
 }
 message ProviderType {
   TypeProto output_type = 1;
-  bool annotated_blocking = 3;
+  ProcedureBlockingAnnotation annotated_blocking = 2;
+  repeated string optional_generic_type_param_names = 3;
+  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 4;
 }
 message UserDefinedType {
   string type_name = 1;
@@ -102,4 +106,20 @@ message HttpServiceType {
 }
 message HttpServerType {
   HttpServiceType service = 1;
+}
+
+// Placing any utility protos that aren't directly types themselves below this line in order to keep top-level Types
+// organized together.
+
+message GenericTypeParamNamesList {
+  repeated string generic_type_params = 1;
+}
+enum ProcedureBlockingAnnotation {
+  UNKNOWN_PROCEDURE_BLOCKING_ANNOTATION = 0;
+  // E.g. `function foo(...) -> ...;`
+  NON_BLOCKING = 1;
+  // E.g. `blocking function foo(...) -> ...;`
+  BLOCKING = 2;
+  // E.g. `blocking:arg1|arg2 function foo(arg1: blocking? provider<...>, arg2: blocking? function<...>, ...) -> ...;`
+  BLOCKING_GENERIC = 3;
 }

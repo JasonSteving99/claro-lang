@@ -25,3 +25,6 @@ myPrint(multiHopModuleInt, ":multi_hop_module_api via Addition via TestDep2");
 TestDep2::addFancyInt(2, 3)
 |> Addition::unwrapFancyInt(^)
 |> myPrint(^, ":multi_hop_module_api via Addition via TestDep2");
+
+# Demonstrate that dep module types with generic type params can actually be instantiated.
+print(TestDep2::List([1]));
