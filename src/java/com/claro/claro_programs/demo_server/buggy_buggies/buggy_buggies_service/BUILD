@@ -12,5 +12,4 @@ claro_module(
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies:__pkg__",
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:__pkg__",
     ],
-    debug = True
 )

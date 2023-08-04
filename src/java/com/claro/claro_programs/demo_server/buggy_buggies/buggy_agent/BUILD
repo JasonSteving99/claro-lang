@@ -18,9 +18,10 @@ claro_module(
     ],
     deps = {
         "Heaps": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:heap",
+        "Pos": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:position",
     },
+    exports = ["Pos"],
     # Claro doesn't need to include any Java-like visibility controls at the language level as Bazel provides even finer
     # grained functionality out of the box.
     visibility = ["//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:__pkg__"],
-    debug = True
 )

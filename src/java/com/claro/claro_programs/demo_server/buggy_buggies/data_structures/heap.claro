@@ -11,7 +11,7 @@ initializers Heap {
 # Notice that just because this implementation has many unwrappers doesn't mean that they all need to be exported by the
 # public Module providing this functionality to dependents.
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Position, Error<Nothing>> {
+  function extract_min(heap: Heap) -> oneof<Pos::Position, Error<Nothing>> {
       if (len(unwrap(heap)) == 0) {
           return Error(Nothing);
       }
@@ -42,7 +42,7 @@ unwrappers Heap {
   }
 
 
-  consumer insert(heap: Heap, value: struct {dist: int, pos: Position}) {
+  consumer insert(heap: Heap, value: struct {dist: int, pos: Pos::Position}) {
       append(unwrap(heap), value);
       heapify_up(heap, len(unwrap(heap)) - 1);
   }

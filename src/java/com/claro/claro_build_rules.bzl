@@ -151,7 +151,7 @@ def _invoke_claro_compiler_impl(ctx):
 def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
     main_file_name = main_file[:len(main_file) - len(".claro")]
     _invoke_claro_compiler(
-        name = "{0}_compile".format(name),
+        name = "{0}_bin".format(name),
         main_file = main_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
@@ -184,7 +184,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = F
         ))
 
     _invoke_claro_compiler(
-        name = "{0}".format(name),
+        name = name,
         module_api_file = module_api_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),

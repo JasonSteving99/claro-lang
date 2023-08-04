@@ -25,8 +25,8 @@ function movesFromBestPath(bestPath: BestPath) -> [string] {
   return copy(moves);
 }
 
-function parseWorldMap(world: {string: string}) -> {Position: string} {
-  var parsePos: function<string -> Position> = rawPos -> {
+function parseWorldMap(world: {string: string}) -> {Pos::Position: string} {
+  var parsePos: function<string -> Pos::Position> = rawPos -> {
     var xstring = rawPos[0];
     var i = 1;
     while (rawPos[i] != ",") {
@@ -42,9 +42,9 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
     var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
     # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
     if ((x instanceof int) and (y instanceof int)) {
-      return Position({x = x, y = y});
+      return Pos::Position({x = x, y = y});
     }
-    return Position({x = -1, y = -1});
+    return Pos::Position({x = -1, y = -1});
   };
   return {parsePos(e[0]) : e[1] | e in world};
 }

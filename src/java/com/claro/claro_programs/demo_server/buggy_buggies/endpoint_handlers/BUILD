@@ -17,6 +17,7 @@ claro_module(
         "Agent": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:buggy_agent",
         "BuggyBuggiesClient": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_buggies_service:buggy_buggies_client",
         "Utils": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:utils",
+        "Pos": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:position",
     },
 )
 

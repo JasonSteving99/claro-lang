@@ -1,0 +1,2 @@
+
+newtype Position : struct {x: int, y: int}

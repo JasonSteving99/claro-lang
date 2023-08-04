@@ -5,9 +5,9 @@ function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> str
       var moveResponse = unwrap(BuggyBuggiesClient::getParsedMoveResponse(buggyResponse)).result;
       match (moveResponse) {
         case _:BuggyBuggiesClient::MoveResponse ->
-          var parsedWorld = Agent::parseWorldMap(moveResponse.result.world);
-          var computedBestPath = Agent::dijkstra(parsedWorld, Agent::Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}));
-          var computedMoves = ["\"{dir}\"" | dir in Agent::movesFromBestPath(computedBestPath)];
+          Agent::parseWorldMap(moveResponse.result.world)
+          |> Agent::dijkstra(^, Pos::Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}))
+          |> var computedMoves = ["\"{dir}\"" | dir in Agent::movesFromBestPath(^)];
           return "{computedMoves}";
         case _:Error<string> ->
           return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
