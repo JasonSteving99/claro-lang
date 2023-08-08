@@ -1,5 +1,5 @@
 
-function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> string {
+function getBestMovesHandler(buggyResponse: oneof<string, std::Error<string>>) -> string {
   match (buggyResponse) {
     case _:string ->
       var moveResponse = unwrap(BuggyBuggiesClient::getParsedMoveResponse(buggyResponse)).result;
@@ -9,10 +9,10 @@ function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> str
           |> Agent::dijkstra(^, Pos::Position({x = moveResponse.result.you.x, y = moveResponse.result.you.y}))
           |> var computedMoves = ["\"{dir}\"" | dir in Agent::movesFromBestPath(^)];
           return "{computedMoves}";
-        case _:Error<string> ->
+        case _:std::Error<string> ->
           return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{moveResponse}";
       }
-    case _:Error<string> ->
+    case _:std::Error<string> ->
       return "FAILED TO PARSE CURRENT STATE OF THE WORLD:\n{buggyResponse}";
   }
 }

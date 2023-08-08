@@ -215,22 +215,19 @@ public class ModuleNode {
         );
       }
     }
-    // TODO(steving) UNTIL STDLIB IS MIGRATED TO MODULES, I'LL NEED TO MANUALLY ALLOW NOTHING/ERROR/PARSEDJSON.
-    scopedHeap.scopeStack.get(0).scopedSymbolTable.entrySet().stream()
-        .filter(e ->
-                    e.getValue().isTypeDefinition
-                    && (e.getValue().type.baseType().equals(BaseType.USER_DEFINED_TYPE)
-                        && ((Types.UserDefinedType) e.getValue().type).getDefiningModuleDisambiguator().equals("")
-                        && (ImmutableSet.of("Error", "ParsedJson").contains(e.getKey())))
-                    || (e.getValue().type.baseType().equals(BaseType.ATOM)
-                        && e.getValue().type.equals(Types.AtomType.forNameAndDisambiguator("Nothing", ""))))
-        .forEach(
-            depModuleExportedType ->
-                syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
-                    depModuleExportedType.getKey(),
-                    depModuleExportedType.getValue().type,
-                    depModuleExportedType.getValue().interpretedValue
-                ));
+
+    // Register any AtomDefinitionStmts found in the module.
+    InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().cellSet().stream()
+        .filter(c -> !c.getRowKey().equals(ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())))
+        .forEach(c -> {
+          String atomName = c.getColumnKey();
+          syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+              atomName,
+              scopedHeap.getValidatedIdentifierType(atomName),
+              null
+          );
+          syntheticModuleAPIScopedHeap.initializeIdentifier(atomName);
+        });
 
     for (Map.Entry<String, Types.ProcedureType> expectedExportedProcedureEntry :
         getExportedProcedureSignatureTypes(syntheticModuleAPIScopedHeap).entrySet()) {
@@ -268,6 +265,9 @@ public class ModuleNode {
   public void assertDepModulesTransitiveTypeExportsActuallyExported() {
     Set<String> nonExportedDeps =
         Sets.difference(this.depModulesTransitiveTypeExports, ScopedHeap.transitiveExportedDepModules);
+    // Stdlib modules are privileged to not require export based on the implication that the modules are
+    // all implicitly depended on by all claro_module() targets.
+    nonExportedDeps = Sets.difference(nonExportedDeps, ScopedHeap.stdlibDepModules);
     if (!nonExportedDeps.isEmpty()) {
       logError(ClaroTypeException.forModuleAPIReferencesTypeFromTransitiveDepModuleNotExplicitlyExplicitlyExported(nonExportedDeps));
     }

@@ -300,6 +300,7 @@ terminal LexedValue<Double>  FLOAT;
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
 // A variable identifier is just a sequence of chars.
 terminal LexedValue<String>  IDENTIFIER;
+terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
 // The prefix "log_", of the function log_x(y), is also a terminal.
 // This is good practice for figuring out how to handle functions
 // once I get to Claro, consider this a function hard-coded into the
@@ -337,7 +338,7 @@ terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  DOT;
 terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
-terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES, COLON_COLON;
+terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES;
 terminal LexedValue<String>  CAST;
 terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
 terminal LexedValue<String>  PRIVILEGED_INLINE_JAVA;
@@ -354,6 +355,7 @@ nonterminal Symbol/*ImmutableList<ImmutableList.Builder>*/  fmt_string;
 nonterminal Term                               term;
 nonterminal Term                               primitive;
 nonterminal IdentifierReferenceTerm            identifier;
+nonterminal ScopedIdentifier                   scoped_identifier;
 nonterminal FloatTerm                          float;
 nonterminal IntegerTerm                        integer;
 nonterminal Stmt                               stmt;
@@ -1137,25 +1139,21 @@ base_builtin_type_without_mutability_modifier ::=
             type_name.getLen())
        );
     :}
-  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name
+  | SCOPED_IDENTIFIER:scoped_identifier
     {:
        // TODO(steving) Long term I'll want to support first-class procedure references to contract procedures, so this
        // TODO(steving)     would actually need to be updated to check whether the given dep_module_name is in fact a
        // TODO(steving)     declared module dep and if not then it would be parsed as a contract procedure reference.
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright));
-       int startCol = min(dep_module_nameleft, cleft, type_nameleft);
-       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen());
-
-       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(
+          scoped_identifier.getVal().getScopeName(), scoped_identifier.getVal().getIdentifier());
        RESULT = new Symbol(
           -1,
-          startCol,
-          endCol,
+          scoped_identifierleft,
+          scoped_identifierright, // line number
           LexedValue.create(
             TypeProvider.Util.getTypeByName(disambiguatedDepModuleTypeName, /*isTypeDefinition=*/true),
-            currentLinesSupplier,
-            endCol - startCol)
+            scoped_identifier.getCurrentInputLine(),
+            scoped_identifier.getLen())
        );
     :}
   | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
@@ -1176,11 +1174,34 @@ base_builtin_type_without_mutability_modifier ::=
             // TODO(steving)    of procedures/types that are actually unusable.
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
-              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-              ImmutableSet.of("Error", "ParsedJson").contains(type_name.getVal())
-              ? ""
-              : optionalUniqueModuleName.orElse(""),
+              optionalUniqueModuleName.orElse(""),
+              concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
+            ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | SCOPED_IDENTIFIER:scoped_identifier L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(scoped_identifier.getCurrentInputLine(), scoped_identifierright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(scoped_identifierleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(scoped_identifierleft + scoped_identifier.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
+
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(depModuleName, scoped_identifier.getVal().getIdentifier());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol,
+          LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
+            (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              scoped_identifier.getVal().getIdentifier(),
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleName)),
               concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
             ),
             currentLinesSupplier,
@@ -1973,6 +1994,24 @@ match_case_patterns ::=
     {: RESULT =
           MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
             type,
+            wrapped);
+    :}
+  | scoped_identifier:type LPAR primitive:wrapped RPAR
+    {: RESULT =
+          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+            type.getScopeNameIdentifierReferenceTerm(
+                Optional.of(ScopedHeap.getDefiningModuleDisambiguator(Optional.of(type.getScopeName())))),
+            type.getIdentifierIdentifierReferenceTerm(
+                Optional.of(ScopedHeap.getDefiningModuleDisambiguator(Optional.of(type.getScopeName())))),
+            MatchStmt.MaybeWildcardPrimitivePattern.forNullableExpr(wrapped));
+    :}
+  | scoped_identifier:type LPAR match_case_patterns:wrapped RPAR
+    {: RESULT =
+          MatchStmt.UserDefinedTypePattern.forTypeNameAndWrappedValue(
+            type.getScopeNameIdentifierReferenceTerm(
+                Optional.of(ScopedHeap.getDefiningModuleDisambiguator(Optional.of(type.getScopeName())))),
+            type.getIdentifierIdentifierReferenceTerm(
+                Optional.of(ScopedHeap.getDefiningModuleDisambiguator(Optional.of(type.getScopeName())))),
             wrapped);
     :}
   | LPAR:lp match_case_patterns:head COMMA:c match_case_patterns_list:tailValues RPAR:rp
@@ -3530,28 +3569,29 @@ function_call_expr ::=
          RESULT = new FirstClassFunctionCallExpr(function, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(), currentLinesSupplier, rright, startCol, endCol);
        }
     :}
-  | identifier:contract_name COLON_COLON:c identifier:function_name LPAR:l args_list:args RPAR:r
+  | scoped_identifier:scoped_identifier LPAR:l args_list:args RPAR:r
+  // Foo::bar(arg1, ..., argN)
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.getCurrentInputLine(), cright), new Line(function_name), new Line(l.getCurrentInputLine(), lright), new Line(args), new Line(r.getCurrentInputLine(), rright));
-       int startCol = min(contract_name.startCol, cleft, function_name.startCol, lleft, args.left, rleft);
-       int endCol = max(contract_name.endCol, cleft + c.getLen(), function_name.endCol, lleft + l.getLen(), args.left + ((LexedValue)args.value).getLen(), rleft + r.getLen());
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(scoped_identifier.getCurrentInputLine(), scoped_identifierright), new Line(l.getCurrentInputLine(), lright), new Line(args), new Line(r.getCurrentInputLine(), rright));
+       int startCol = min(scoped_identifier.getStartCol(), lleft, args.left, rleft);
+       int endCol = max(scoped_identifier.getStartCol() + scoped_identifier.getOverallLen(), lleft + l.getLen(), args.left + ((LexedValue)args.value).getLen(), rleft + r.getLen());
 
        // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
        // the name of a dep module or not.
-       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       String contractNameStr = scoped_identifier.getScopeName();
        if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
          // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
          ScopedHeap.markDepModuleUsed(contractNameStr);
          // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
-         RESULT = new FunctionCallExpr(contractNameStr, ((IdentifierReferenceTerm) function_name).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(), currentLinesSupplier, rright, startCol, endCol);
+         RESULT = new FunctionCallExpr(contractNameStr, scoped_identifier.getIdentifier(), ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(), currentLinesSupplier, rright, startCol, endCol);
        } else {
          // This is in fact a contract procedure call, referencing a contract defined w/in this current compilation unit.
          RESULT =
           new ContractFunctionCallExpr(
             contractNameStr,
-            contract_name,
-            ((IdentifierReferenceTerm) function_name).identifier,
-            function_name,
+            scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
+            scoped_identifier.getIdentifier(),
+            scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),
             ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse(),
             currentLinesSupplier, rright, startCol, endCol);
        }
@@ -3571,25 +3611,26 @@ provider_function_call_expr ::=
          RESULT = new FirstClassProviderFunctionCallExpr(provider_name, currentLinesSupplier, rright, startCol, endCol);
        }
     :}
-  | identifier:contract_name COLON_COLON:c identifier:provider_name LPAR:l RPAR:r
+  | scoped_identifier:scoped_identifier LPAR:l RPAR:r
     {:
-       Supplier<String> currentLinesSupplier = joinExprLines(new Line(contract_name), new Line(c.getCurrentInputLine(), cright), new Line(provider_name), new Line(l.getCurrentInputLine(), lright), new Line(r.getCurrentInputLine(), rright));
-       int startCol = min(contract_name.startCol, cleft, provider_name.startCol, lleft, rleft);
-       int endCol = max(contract_name.endCol, cleft + c.getLen(), provider_name.endCol, lleft + l.getLen(), rleft + r.getLen());
+       Supplier<String> currentLinesSupplier = joinExprLines(new Line(scoped_identifier.getCurrentInputLine(), scoped_identifierright), new Line(l.getCurrentInputLine(), lright), new Line(r.getCurrentInputLine(), rright));
+       int startCol = min(scoped_identifier.getStartCol(), lleft, rleft);
+       int endCol = max(scoped_identifier.getStartCol() + scoped_identifier.getOverallLen(), lleft + l.getLen(), rleft + r.getLen());
+
        // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
        // the name of a dep module or not.
-       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       String contractNameStr = scoped_identifier.getScopeName();
        if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
          // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
          ScopedHeap.markDepModuleUsed(contractNameStr);
          // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
-         RESULT = new ProviderFunctionCallExpr(contractNameStr, ((IdentifierReferenceTerm) provider_name).identifier, currentLinesSupplier, rright, startCol, endCol);
+         RESULT = new ProviderFunctionCallExpr(contractNameStr, scoped_identifier.getIdentifier(), currentLinesSupplier, rright, startCol, endCol);
        } else {
          RESULT = new ContractProviderFunctionCallExpr(
-           contract_name.identifier,
-           contract_name,
-           provider_name.identifier,
-           provider_name,
+           contractNameStr,
+           scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
+           scoped_identifier.getIdentifier(),
+           scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),
            currentLinesSupplier, rright, startCol, endCol);
        }
     :}
@@ -3605,22 +3646,22 @@ consumer_function_call_stmt ::=
          RESULT = new FirstClassConsumerFunctionCallStmt(consumer_name, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
        }
     :}
-  | identifier:contract_name COLON_COLON identifier:consumer_name LPAR:l args_list:args RPAR:r SEMICOLON
+  | scoped_identifier:scoped_identifier LPAR:l args_list:args RPAR:r SEMICOLON
     {:
        // This syntax is technically contextual (read: ambiguous) depending upon whether the "contract_name" is actually
        // the name of a dep module or not.
-       String contractNameStr = ((IdentifierReferenceTerm) contract_name).identifier;
+       String contractNameStr = scoped_identifier.getScopeName();
        if (ScopedHeap.currProgramDepModules.containsRow(contractNameStr)) {
          // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
          ScopedHeap.markDepModuleUsed(contractNameStr);
          // This is actually a call to a procedure defined in a dep module, not a contract procedure call.
-         RESULT = new ConsumerFunctionCallStmt(contractNameStr, ((IdentifierReferenceTerm) consumer_name).identifier, ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
+         RESULT = new ConsumerFunctionCallStmt(contractNameStr, scoped_identifier.getIdentifier(), ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
        } else {
          RESULT = new ContractConsumerFunctionCallStmt(
-           ((IdentifierReferenceTerm) contract_name).identifier,
-           contract_name,
-           ((IdentifierReferenceTerm) consumer_name).identifier,
-           consumer_name,
+           contractNameStr,
+           scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
+           scoped_identifier.getIdentifier(),
+           scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),
            ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
        }
     :}
@@ -3795,6 +3836,8 @@ term ::=
     {: RESULT = p; :}
   | identifier:i
     {: RESULT = i; :}
+  | scoped_identifier:s
+    {: RESULT = s.getOverallIdentifierReferenceTerm(getDisambiguatedExportedIdentifierName(s.getScopeName(), s.getIdentifier()), ScopedHeap.getDefiningModuleDisambiguator(Optional.of(s.getScopeName()))); :}
   | node_reference:nr
     {: RESULT = nr; :}
   | UP_ARROW:a
@@ -3812,6 +3855,11 @@ term ::=
 identifier ::=
     IDENTIFIER:identifier
     {: RESULT = new IdentifierReferenceTerm(identifier.getVal(), identifier.getCurrentInputLine(), identifierright, identifierleft, identifierleft + identifier.getLen()); :}
+  ;
+
+scoped_identifier ::=
+    SCOPED_IDENTIFIER:scoped_identifier
+    {: RESULT = scoped_identifier.getVal(); :}
   ;
 
 primitive ::=

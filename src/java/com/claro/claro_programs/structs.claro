@@ -24,11 +24,11 @@ print("unwrap(myStruct).lastName = {unwrap(myStruct).lastName}");
 
 newtype TreeNode<T> : struct {
   val: T,
-  left: oneof<TreeNode<T>, Nothing>,
-  right: oneof<TreeNode<T>, Nothing>
+  left: oneof<TreeNode<T>, std::Nothing>,
+  right: oneof<TreeNode<T>, std::Nothing>
 }
 
-var treeRoot: TreeNode<int> = TreeNode({val = 10, left = Nothing, right = Nothing});
+var treeRoot: TreeNode<int> = TreeNode({val = 10, left = std::Nothing, right = std::Nothing});
 print(treeRoot);
 type(treeRoot);
 

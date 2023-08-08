@@ -39,12 +39,7 @@ public class AtomDefinitionStmt extends Stmt {
           ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
       scopedHeap.putIdentifierValueAsTypeDef(
           this.name.identifier,
-          Types.AtomType.forNameAndDisambiguator(
-              this.name.identifier,
-              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-              this.name.identifier.equals("Nothing") ? "" : thisModuleDisambiguator
-          ),
+          Types.AtomType.forNameAndDisambiguator(this.name.identifier, thisModuleDisambiguator),
           null
       );
       scopedHeap.initializeIdentifier(this.name.identifier);
@@ -73,19 +68,21 @@ public class AtomDefinitionStmt extends Stmt {
 
   public static String codegenAtomCacheInit() {
     String definingModuleDisambiguator = ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
-    return InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build()
-        .rowMap()
-        // Only want the atoms defined in this current module.
-        .get(definingModuleDisambiguator)
-        .entrySet().stream().sorted(Comparator.comparingInt(Map.Entry::getValue))
-        .map(entry -> String.format(
-            "$ClaroAtom.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
-            entry.getKey(),
-            // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-            //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-            entry.getKey().equals("Nothing") ? "" : definingModuleDisambiguator
-        ))
-        .collect(Collectors.joining(", "));
+    if (InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build()
+        .containsRow(definingModuleDisambiguator)) {
+      return InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build()
+          .rowMap()
+          // Only want the atoms defined in this current module.
+          .get(definingModuleDisambiguator)
+          .entrySet().stream().sorted(Comparator.comparingInt(Map.Entry::getValue))
+          .map(entry -> String.format(
+              "$ClaroAtom.forTypeNameAndDisambiguator(\"%s\", \"%s\")",
+              entry.getKey(),
+              definingModuleDisambiguator
+          ))
+          .collect(Collectors.joining(", "));
+    }
+    return "/* No atoms defined in this compilation unit. Skipping Atom Cache init.*/";
   }
 
   @Override

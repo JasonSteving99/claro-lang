@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
 import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
 import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -122,7 +123,8 @@ public class ClaroRuntimeUtilities {
     // shadow it or create their own type meeting these conditions, so here we'll be good.
     return t.baseType().equals(BaseType.USER_DEFINED_TYPE)
            && ((Types.UserDefinedType) t).getTypeName().equals("Error")
-           && t.parameterizedTypeArgs().size() == 1;
+           && ((Types.UserDefinedType) t).getDefiningModuleDisambiguator()
+               .equals(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR);
   }
 
   public static Type getClaroType(Object value) {
@@ -158,8 +160,7 @@ public class ClaroRuntimeUtilities {
                         targetType,
                         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                             "Error",
-                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                             ImmutableList.of(Types.STRING)
                         )
                     )
@@ -171,16 +172,14 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
-        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(
             parsedJsonStructType,
             new $UserDefinedType<>(
                 "Error",
-                // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                 ImmutableList.of(Types.STRING),
                 Types.STRING,
                 String.format(
@@ -209,8 +208,7 @@ public class ClaroRuntimeUtilities {
                         targetType,
                         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                             "Error",
-                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                             ImmutableList.of(Types.STRING)
                         )
                     )
@@ -222,7 +220,7 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
-        /*definingModuleDisambiguator=*/"",
+        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(parsedJsonStructType, parsedRes, jsonString)

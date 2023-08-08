@@ -17,6 +17,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
         "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
         "//src/java/com/claro/runtime_utilities",
+        "//src/java/com/claro/stdlib:stdlib_module_registry",
     ],
 )
 

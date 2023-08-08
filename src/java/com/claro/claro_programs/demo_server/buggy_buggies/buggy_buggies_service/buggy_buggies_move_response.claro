@@ -1,4 +1,4 @@
 
-function getParsedMoveResponse(buggyResponse: string) -> ParsedJson<MoveResponse> {
+function getParsedMoveResponse(buggyResponse: string) -> std::ParsedJson<MoveResponse> {
   return fromJson(buggyResponse);
 }

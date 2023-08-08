@@ -6,9 +6,9 @@ print("Here's the original JSON:\n\t{testJson}\n");
 alias TargetType : struct{
   field1: [int],
   field2: string,
-  field3: [oneof<Nothing, int, string>]
+  field3: [oneof<std::Nothing, int, string>]
 }
-var parsedJson: ParsedJson<TargetType> = fromJson(testJson);
+var parsedJson: std::ParsedJson<TargetType> = fromJson(testJson);
 
 var parsedResult = unwrap(parsedJson).result;
 if (parsedResult instanceof TargetType) {
@@ -16,7 +16,7 @@ if (parsedResult instanceof TargetType) {
   print("field1: {parsedResult.field1}");
   print("field2: {parsedResult.field2}");
   print("field3: {parsedResult.field3}");
-} else if (parsedResult instanceof Error<string>) {
+} else if (parsedResult instanceof std::Error<string>) {
   print("FAILED TO PARSE!\n{unwrap(parsedResult)}");
 }
 
@@ -28,6 +28,6 @@ print("Here's the INVALID JSON:\n\t{testJson}\n");
 
 parsedJson = fromJson(testJson);
 parsedResult = unwrap(parsedJson).result;
-if (parsedResult instanceof Error<string>) {
+if (parsedResult instanceof std::Error<string>) {
   print("FAILED TO PARSE!\n{unwrap(parsedResult)}");
 }

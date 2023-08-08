@@ -98,6 +98,7 @@ java_library(
         "//src/java/com/claro/runtime_utilities/injector:key",
         "//src/java/com/claro/runtime_utilities/injector:injected_key",
         "//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
+        "//src/java/com/claro/stdlib:stdlib_module_registry",
     ],
 )
 

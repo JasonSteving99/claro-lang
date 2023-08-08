@@ -1766,12 +1766,18 @@ public class MatchStmt extends Stmt {
   // This class will be used by the parser to signal that a User-Defined type was matched.
   @AutoValue
   public abstract static class UserDefinedTypePattern implements TypeMatchPattern<Types.UserDefinedType> {
+    public abstract Optional<IdentifierReferenceTerm> getOptionalOriginatingDepModuleName();
+
     public abstract IdentifierReferenceTerm getTypeName();
 
     public abstract TypeMatchPattern<? extends Type> getWrappedValue();
 
     public static UserDefinedTypePattern forTypeNameAndWrappedValue(IdentifierReferenceTerm typeName, TypeMatchPattern<? extends Type> wrappedValue) {
-      return new AutoValue_MatchStmt_UserDefinedTypePattern(typeName, wrappedValue);
+      return new AutoValue_MatchStmt_UserDefinedTypePattern(Optional.empty(), typeName, wrappedValue);
+    }
+
+    public static UserDefinedTypePattern forTypeNameAndWrappedValue(IdentifierReferenceTerm depModuleName, IdentifierReferenceTerm typeName, TypeMatchPattern<? extends Type> wrappedValue) {
+      return new AutoValue_MatchStmt_UserDefinedTypePattern(Optional.of(depModuleName), typeName, wrappedValue);
     }
 
     @Override
@@ -1785,7 +1791,8 @@ public class MatchStmt extends Stmt {
 
     private FunctionCallExpr getSyntheticFunctionCallExprForTypeValidation() {
       return
-          new FunctionCallExpr(
+          FunctionCallExpr.getFunctionCallExprForOptionalOriginatingDepModule(
+              this.getOptionalOriginatingDepModuleName().map(d -> d.identifier),
               this.getTypeName().identifier,
               ImmutableList.of(
                   new Expr(

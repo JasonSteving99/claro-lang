@@ -43,6 +43,14 @@ public class FunctionCallExpr extends Expr {
     this.argExprs = args;
   }
 
+  // Use this factory literally just to simplify calls that hinge on optionally setting an originating dep module.
+  public static FunctionCallExpr getFunctionCallExprForOptionalOriginatingDepModule(Optional<String> optionalOriginatingDepModuleName, String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    if (optionalOriginatingDepModuleName.isPresent()) {
+      return new FunctionCallExpr(optionalOriginatingDepModuleName.get(), name, args, currentLine, currentLineNumber, startCol, endCol);
+    }
+    return new FunctionCallExpr(name, args, currentLine, currentLineNumber, startCol, endCol);
+  }
+
   public FunctionCallExpr(String depModuleName, String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
     this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
@@ -137,11 +145,7 @@ public class FunctionCallExpr extends Expr {
                : String.format(
                    "%s$%s",
                    this.name,
-                   // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-                   //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-                   ImmutableSet.of("Error", "ParsedJson").contains(this.name)
-                   ? ""
-                   : ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)
+                   ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)
                ))
               + "$wrappedType"));
       this.name = this.name + "$constructor";

@@ -232,7 +232,7 @@ public class IdentifierReferenceTerm extends Term {
                                      .values().stream().findFirst().get());
                 return String.format(
                     "%s%sATOM_CACHE[%s]",
-                    uniqueModuleDescriptor.map(m -> m.getProjectPackage() + '$').orElse(""),
+                    uniqueModuleDescriptor.map(m -> m.getProjectPackage() + '.').orElse(""),
                     this.optionalDefiningModuleDisambiguator.map(s -> s + '.').orElseGet(
                         () -> {
                           String definingModuleDisambiguator =
@@ -243,7 +243,8 @@ public class IdentifierReferenceTerm extends Term {
                           return definingModuleDisambiguator + '.';
                         }),
                     InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
-                        ScopedHeap.getDefiningModuleDisambiguator(this.optionalDefiningModuleDisambiguator),
+                        this.optionalDefiningModuleDisambiguator.orElseGet(
+                            () -> ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
                         this.identifier
                     )
                 );

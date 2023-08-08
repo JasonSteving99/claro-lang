@@ -1,29 +1,29 @@
-var myFirstError = Error(-99);
+var myFirstError = std::Error(-99);
 print(myFirstError);
 type(myFirstError);
 
-function failIfNegative(x: int) -> oneof<int, Error<int>> {
+function failIfNegative(x: int) -> oneof<int, std::Error<int>> {
   if (x < 0) {
-    return Error(x);
+    return std::Error(x);
   }
   return x;
 }
 
-function testAutomaticErrorPropagation(x: int) -> oneof<int, Error<int>> {
+function testAutomaticErrorPropagation(x: int) -> oneof<int, std::Error<int>> {
   var validatedInt: int ?= failIfNegative(x);
   print("Validated that {validatedInt} is not negative!");
   return validatedInt;
 }
 
 # The above function could also have used this alt impl, though as a matter of taste, I'd call it uglier.
-function ALTERNATETestAutomaticErrorPropagation(x: int) -> oneof<int, Error<int>> {
+function ALTERNATETestAutomaticErrorPropagation(x: int) -> oneof<int, std::Error<int>> {
   _ ?= failIfNegative(x);
   print("Validated that {x} is not negative!");
   return x;
 }
 
-consumer logIfError<Good, Bad>(x: oneof<Good, Error<Bad>>) {
-  if (x instanceof Error<Bad>) {
+consumer logIfError<Good, Bad>(x: oneof<Good, std::Error<Bad>>) {
+  if (x instanceof std::Error<Bad>) {
     print("Logging this propagated error: {x}");
   }
 }

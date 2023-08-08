@@ -8,7 +8,7 @@ initializers Heap {
 }
 
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Pos::Position, Error<Nothing>>;
+  function extract_min(heap: Heap) -> oneof<Pos::Position, std::Error<std::Nothing>>;
   consumer insert(heap: Heap, value: struct {dist: int, pos: Pos::Position});
   function heapIsEmpty(heap: Heap) -> boolean;
 }

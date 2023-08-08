@@ -8,7 +8,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,11 +54,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
         this.typeName,
         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
             this.typeName,
-            // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-            //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-            ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
-            ? ""
-            : this.optionalOriginatingModuleDisambiguator.orElse(""),
+            this.optionalOriginatingModuleDisambiguator.orElse(""),
             this.parameterizedTypeNames.stream()
                 .map(Types.$GenericTypeParam::forTypeParamName).collect(ImmutableList.toImmutableList())
         ),
@@ -72,11 +67,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
           String.format(
               "%s$%s",
               this.typeName,
-              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-              ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
-              ? ""
-              : this.optionalOriginatingModuleDisambiguator.orElse("")
+              this.optionalOriginatingModuleDisambiguator.orElse("")
           ),
           this.parameterizedTypeNames
       );
@@ -179,11 +170,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                     String.format(
                         "%s$%s",
                         this.typeName,
-                        // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-                        //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-                        ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
-                        ? ""
-                        : this.optionalOriginatingModuleDisambiguator.orElse("")
+                        this.optionalOriginatingModuleDisambiguator.orElse("")
                     ),
                     wrappedType
                 );
@@ -209,11 +196,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
                     String.format(
                         "%s$%s",
                         this.typeName,
-                        // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-                        //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-                        ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
-                        ? ""
-                        : this.optionalOriginatingModuleDisambiguator.orElse("")
+                        this.optionalOriginatingModuleDisambiguator.orElse("")
                     ),
                     wrappedType
                 );
@@ -300,11 +283,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
       this.wrappedTypeIdentifier = String.format(
           "%s$%s$wrappedType",
           this.typeName,
-          // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-          //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-          ImmutableSet.of("Error", "ParsedJson").contains(this.typeName)
-          ? ""
-          : this.optionalOriginatingModuleDisambiguator.orElse("")
+          this.optionalOriginatingModuleDisambiguator.orElse("")
       );
     }
     return this.wrappedTypeIdentifier;

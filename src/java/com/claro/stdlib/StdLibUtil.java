@@ -40,12 +40,12 @@ public class StdLibUtil {
       return ImmutableList.of(
           new NewTypeDefStmt(
               "Error",
-              /*optionalOriginatingModuleDisambiguator=*/Optional.of(""),
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR),
               TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")
           ),
           new NewTypeDefStmt(
               "ParsedJson",
-              /*optionalOriginatingModuleDisambiguator=*/Optional.of(""),
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR),
               (TypeProvider) (scopedHeap1) ->
                   Types.StructType.forFieldTypes(
                       ImmutableList.of("result", "rawJson"),
@@ -56,8 +56,7 @@ public class StdLibUtil {
                                       .resolveType(scopedHeap1),
                                   Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                                       "Error",
-                                      // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                                      /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                                      /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                                       ImmutableList.of(Types.STRING)
                                   )
                               )

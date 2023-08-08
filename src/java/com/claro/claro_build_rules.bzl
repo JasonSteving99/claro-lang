@@ -6,8 +6,12 @@ DEFAULT_PACKAGE_PREFIX = "com.claro"
 
 CLARO_STDLIB_FILES = [
     "//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
-    "//src/java/com/claro/stdlib/claro:builtin_types.claro_internal",
 ]
+# The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
+# to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
+CLARO_STDLIB_MODULES = {
+    "std": "//src/java/com/claro/stdlib/claro:builtin_types",
+}
 CLARO_BUILTIN_JAVA_DEPS = [
     "//:guava",
     "//:gson",
@@ -75,16 +79,30 @@ def _invoke_claro_compiler_impl(ctx):
         args.add("--src", src)
     dep_module_runfiles = []
     dep_module_targets_by_dep_name = {}
-    for module_dep_label, concatenated_module_dep_names in ctx.attr.deps.items():
+
+    def add_arg_for_dep_label_and_names(module_dep_label, concatenated_module_dep_names):
+        added_dep_module_names = []
         # Add args for this direct dep.
         for module_dep_name in concatenated_module_dep_names.split('$'):
             dep_claro_module_file = module_dep_label[ClaroModuleInfo].info.path_to_claro_module_file
             dep_module_runfiles.append(dep_claro_module_file)
             dep_module_targets_by_dep_name[module_dep_name] = module_dep_label
             args.add("--dep", dep_claro_module_file, format = "{0}:%s".format(module_dep_name))
+            added_dep_module_names.append(module_dep_name)
         # Add args for all the exported transitive deps exported by this dep.
         for transitive_dep_module_file in module_dep_label[DefaultInfo].files.to_list():
             args.add("--transitive_exported_dep_module", transitive_dep_module_file)
+        return added_dep_module_names
+
+    # Add all stdlib modules as dep module args.
+    for module_dep_label, concatenated_module_dep_names in ctx.attr._stdlib_module_deps.items():
+        added_dep_module_names = add_arg_for_dep_label_and_names(
+            module_dep_label, concatenated_module_dep_names)
+        for stdlib_dep_module_name in added_dep_module_names:
+            # Signal to the compiler not to error on this dep being unused or not exported when it otw should've been.
+            args.add("--stdlib_dep", stdlib_dep_module_name)
+    for module_dep_label, concatenated_module_dep_names in ctx.attr.deps.items():
+        add_arg_for_dep_label_and_names(module_dep_label, concatenated_module_dep_names)
 
     for export in ctx.attr.exports:
         args.add("--export", export)
@@ -93,7 +111,7 @@ def _invoke_claro_compiler_impl(ctx):
     ctx.actions.run(
         inputs = depset(
             direct = srcs,
-            transitive = [dep.files for dep in ctx.attr.deps.keys()]
+            transitive = [dep.files for dep in ctx.attr._stdlib_module_deps.keys()] + [dep.files for dep in ctx.attr.deps.keys()]
         ),
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],
@@ -166,11 +184,19 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
         deps = CLARO_BUILTIN_JAVA_DEPS +
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.
-            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
+            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
+            # Add the Stdlib Modules compiled java libs as default deps.
+            ["{0}_compiled_claro_module_java_lib".format(Label(stdlib_mod)) for stdlib_mod in CLARO_STDLIB_MODULES.values()],
     )
 
-
 def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = False, **kwargs):
+    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, debug, **kwargs)
+
+def claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], debug = False, **kwargs):
+    _claro_module_internal(
+        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, debug, add_stdlib_deps = False, **kwargs)
+
+def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, exports = [], debug = False, add_stdlib_deps = True, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
     # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
@@ -183,7 +209,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = F
             "\n\t- ".join(invalid_exports),
         ))
 
-    _invoke_claro_compiler(
+    invoke_claro_compiler_rule(
         name = name,
         module_api_file = module_api_file,
         srcs = srcs,
@@ -201,9 +227,11 @@ def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = F
         deps = CLARO_BUILTIN_JAVA_DEPS +
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.
-            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys(),
+            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
+            # Add the Stdlib Modules compiled java libs as default deps.
+            (["{0}_compiled_claro_module_java_lib".format(stdlib_mod) for stdlib_mod in CLARO_STDLIB_MODULES.values()] if add_stdlib_deps else []),
         exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports],
-        **kwargs # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
+        **{k:v for k,v in kwargs.items() if k != "stdlib_srcs"} # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
     )
 
 def _transpose_module_deps_dict(deps):
@@ -217,63 +245,79 @@ def _transpose_module_deps_dict(deps):
             res[target] = module_name
     return res
 
+INVOKE_CLARO_COMPILER_ATTRS = {
+    "main_file": attr.label(
+        doc = "The .claro file containing top-level statements to be executed as the program's main entrypoint.\n" +
+              "module_api_file must not be set if this is set.",
+        allow_single_file = [".claro"],
+        default = None,
+    ),
+    "module_api_file": attr.label(
+        doc = "The .claro_module_api file containing this Module's API.\n" +
+              "main_file must not be set if this is set.",
+        allow_single_file = [".claro_module_api"],
+        default = None,
+    ),
+    "srcs": attr.label_list(allow_files = [".claro"]),
+    "deps": attr.label_keyed_string_dict(
+        doc = "An optional set of Modules that this binary's sources directly depend on.",
+        providers = [ClaroModuleInfo],
+    ),
+    "exports": attr.string_list(
+        doc = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
+              "module actually have access to the definitions of types defined in this module's deps."
+    ),
+    "debug": attr.bool(default = False),
+
+    # Args below this point are intended primarily for internal use only.
+
+    "unique_module_name": attr.string(),
+    "_claro_compiler": attr.label(
+        default = Label("//src/java/com/claro:claro_compiler_binary"),
+        allow_files = True,
+        executable = True,
+        cfg = "host",
+    ),
+    "_module_deserialization_util": attr.label(
+        default = Label("//src/java/com/claro/compiler_backends/java_source/deserialization:claro_module_deserialization_util"),
+        allow_files = True,
+        executable = True,
+        cfg = "host",
+    ),
+    # TODO(steving) Need to migrate away from _stdlib_srcs to _stdlib_module_deps once generic procedure exports are supported.
+    "_stdlib_srcs": attr.label_list(
+        default = [Label(stdlib_file) for stdlib_file in CLARO_STDLIB_FILES],
+        allow_files = [".claro_internal"],
+    ),
+    "_stdlib_module_deps": attr.label_keyed_string_dict(
+        default = _transpose_module_deps_dict(CLARO_STDLIB_MODULES),
+        providers = [ClaroModuleInfo],
+    ),
+    "compiler_out": attr.output(
+        doc = "The .java source file codegen'd by the Claro compiler. This is an intermediate output produced by " +
+              "this rule, and manually inspecting it should not be necessary for most users.",
+        mandatory = True,
+    ),
+    "module_static_java_out": attr.output(
+        doc = "The .java source file that will contain the static java codegen extracted from the .claro_module " +
+              "produced by this rule in order for dependent claro_binary() targets to access it directly for the " +
+              "sake of incrementality.",
+        mandatory = False,
+    )
+}
+
 _invoke_claro_compiler = rule(
     implementation = _invoke_claro_compiler_impl,
-    attrs = {
-        "main_file": attr.label(
-            doc = "The .claro file containing top-level statements to be executed as the program's main entrypoint.\n" +
-                  "module_api_file must not be set if this is set.",
-            allow_single_file = [".claro"],
-            default = None,
-        ),
-        "module_api_file": attr.label(
-            doc = "The .claro_module_api file containing this Module's API.\n" +
-                  "main_file must not be set if this is set.",
-            allow_single_file = [".claro_module_api"],
-            default = None,
-        ),
-        "srcs": attr.label_list(allow_files = [".claro"]),
-        "deps": attr.label_keyed_string_dict(
-            doc = "An optional set of Modules that this binary's sources directly depend on.",
-            providers = [ClaroModuleInfo],
-        ),
-        "exports": attr.string_list(
-            doc = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
-                  "module actually have access to the definitions of types defined in this module's deps."
-        ),
-        "debug": attr.bool(default = False),
+    attrs = INVOKE_CLARO_COMPILER_ATTRS,
+)
 
-        # Args below this point are intended primarily for internal use only.
-
-        "unique_module_name": attr.string(),
-        "_claro_compiler": attr.label(
-            default = Label("//src/java/com/claro:claro_compiler_binary"),
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-        ),
-        "_module_deserialization_util": attr.label(
-            default = Label("//src/java/com/claro/compiler_backends/java_source/deserialization:claro_module_deserialization_util"),
-            allow_files = True,
-            executable = True,
-            cfg = "host",
-        ),
-        "_stdlib_srcs": attr.label_list(
-            default = [Label(stdlib_file) for stdlib_file in CLARO_STDLIB_FILES],
-            allow_files = [".claro_internal"],
-        ),
-        "compiler_out": attr.output(
-            doc = "The .java source file codegen'd by the Claro compiler. This is an intermediate output produced by " +
-                  "this rule, and manually inspecting it should not be necessary for most users.",
-            mandatory = True,
-        ),
-        "module_static_java_out": attr.output(
-            doc = "The .java source file that will contain the static java codegen extracted from the .claro_module " +
-                  "produced by this rule in order for dependent claro_binary() targets to access it directly for the " +
-                  "sake of incrementality.",
-            mandatory = False,
-        )
-    },
+# Override the defaults for internal claro_modules so that we avoid circular deps when compiling the stdlib modules.
+INVOKE_CLARO_COMPILER_INTERNAL_ATTRS = INVOKE_CLARO_COMPILER_ATTRS
+INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_srcs"] = attr.label_list(default = [], allow_files = [".claro_internal"])
+INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_module_deps"] = attr.label_keyed_string_dict(default = {}, providers = [ClaroModuleInfo])
+_invoke_claro_compiler_internal = rule(
+    implementation = _invoke_claro_compiler_impl,
+    attrs = INVOKE_CLARO_COMPILER_INTERNAL_ATTRS,
 )
 
 
@@ -328,6 +372,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         deps = [
             ":claro_parser_exception",
             ":lexed_value",
+            ":scoped_identifier",
             "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
             "//src/java/com/claro/intermediate_representation:node",
             "//src/java/com/claro/intermediate_representation:program_node",
@@ -383,5 +428,14 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         srcs = ["LexedValue.java"],
         deps = [
             "//:autovalue",
+        ],
+    )
+
+    native.java_library(
+        name = "scoped_identifier",
+        srcs = ["ScopedIdentifier.java"],
+        deps = [
+            "//:autovalue",
+            "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
         ],
     )

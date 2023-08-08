@@ -63,18 +63,18 @@ alias FallibleOpErrors : oneof<
 # DEMONSTRATE USING ATOMS FOR EXPRESSIVE ERROR-HANDLING
 ########################################################################################################################
 
-function doFallibleThing<T>(arg: T) -> oneof<T, Error<FallibleOpErrors>> {
+function doFallibleThing<T>(arg: T) -> oneof<T, std::Error<FallibleOpErrors>> {
   # To simulate something that might fail, let's just ask the user interactively what should happen.
   match(input("Want an error? (Y/n)")) {
     case "Y" ->
       print("Ok what error in particular?\n\t1 ------- {OutOfMemory}\n\t2 ------- {TimeLimitExceeded}\n\t3 ------- {PermissionDenied}\n\tOther --- {UnknownInternalError}");
       # TODO(steving) SHOULD BE ABLE TO JUST IMMEDIATELY RETURN.
-      var res: Error<FallibleOpErrors>;
+      var res: std::Error<FallibleOpErrors>;
       match(input("Pick one of the above options: ")) {
-        case "1" -> res = Error(OutOfMemory);
-        case "2" -> res = Error(TimeLimitExceeded);
-        case "3" -> res = Error(PermissionDenied);
-        case _   -> res = Error(UnknownInternalError);
+        case "1" -> res = std::Error(OutOfMemory);
+        case "2" -> res = std::Error(TimeLimitExceeded);
+        case "3" -> res = std::Error(PermissionDenied);
+        case _   -> res = std::Error(UnknownInternalError);
       }
       return res;
     case _ ->
@@ -83,8 +83,8 @@ function doFallibleThing<T>(arg: T) -> oneof<T, Error<FallibleOpErrors>> {
 }
 
 match (doFallibleThing("Dummy-Task")) {
-  # TODO(steving) I should be able to consolidate this nested match-block into case patterns like `Error(_:OutOfMemory)`.
-  case Error(ERR) ->
+  # TODO(steving) I should be able to consolidate this nested match-block into case patterns like `std::Error(_:OutOfMemory)`.
+  case std::Error(ERR) ->
     match (ERR) {
       case _:OutOfMemory          -> print("Ran out of memory while processing task!");
       case _:TimeLimitExceeded    -> print("Ran out of time while processing task!");

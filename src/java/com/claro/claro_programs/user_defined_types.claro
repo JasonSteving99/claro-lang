@@ -88,24 +88,24 @@ Foo::bar(someCustomInt);
 newtype EvenInt : int
 
 initializers EvenInt {
-  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, Error<string>> {
+  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, std::Error<string>> {
     if (x % 2 == 1) {
-      return Error("Given int {x} is odd!");
+      return std::Error("Given int {x} is odd!");
     }
     return EvenInt(x);
   }
 }
 
 
-var firstEvenInt : oneof<EvenInt, Error<string>> = GetValidatedEvenInt(2);
+var firstEvenInt : oneof<EvenInt, std::Error<string>> = GetValidatedEvenInt(2);
 if (firstEvenInt instanceof EvenInt) {
   print("I successfully initialized an EvenInt! {firstEvenInt}");
   type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an EventInt.
 }
 firstEvenInt = GetValidatedEvenInt(3);
-if (firstEvenInt instanceof Error<string>) {
+if (firstEvenInt instanceof std::Error<string>) {
   print("The odd int 3 was correctly rejected!: {firstEvenInt}");
-  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an Error<int>.
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an std::Error<int>.
 }
 
 
@@ -131,18 +131,18 @@ if (firstEvenInt instanceof Error<string>) {
 newtype EvenIntGreaterThan10 : EvenInt
 
 initializers EvenIntGreaterThan10 {
-  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, Error<string>> {
+  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, std::Error<string>> {
     if (unwrap(x) > 10) {
       return EvenIntGreaterThan10(x);
     }
-    return Error("The given int {x} is even but not greater than 10!");
+    return std::Error("The given int {x} is even but not greater than 10!");
   }
-  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, Error<int>, Error<string>> {
+  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, std::Error<int>, std::Error<string>> {
     var evenInt ?= GetValidatedEvenInt(x);
     if (x > 10) {
       return EvenIntGreaterThan10(evenInt);
     }
-    return Error("The given int {x} is even but not greater than 10!");
+    return std::Error("The given int {x} is even but not greater than 10!");
   }
 }
 
@@ -368,9 +368,9 @@ print(myIntOrList);
 # DEMONSTRATE PARAMETERIZED CUSTOM TYPE DEFINITIONS
 ########################################################################################################################
 
-newtype Maybe<T> : oneof<T, Nothing>
+newtype Maybe<T> : oneof<T, std::Nothing>
 
-var m : Maybe<int> = Maybe(Nothing);
+var m : Maybe<int> = Maybe(std::Nothing);
 print("Maybe<int>: {m}");
 type(m);
 var s = Maybe(["yo"]);
@@ -378,10 +378,10 @@ print("Maybe::<string>: {s}");
 type(s);
 
 
-newtype Node<T> : mut tuple<T, oneof<Node<T>, Nothing>, oneof<Node<T>, Nothing>>
+newtype Node<T> : mut tuple<T, oneof<Node<T>, std::Nothing>, oneof<Node<T>, std::Nothing>>
 
-var myOneof: oneof<Node<int>, Nothing> = Node(mut (2, Nothing, Nothing));
-var treeRoot: Node<int> = Node(mut (1, myOneof,  Nothing));
+var myOneof: oneof<Node<int>, std::Nothing> = Node(mut (2, std::Nothing, std::Nothing));
+var treeRoot: Node<int> = Node(mut (1, myOneof,  std::Nothing));
 
 print("\n\nTYPES!!!");
 print(treeRoot);
@@ -396,7 +396,7 @@ type(unwrap(treeRoot)[1]);
 # I'm just leaving this here b/c supporting parameterized types actually ended up leading to a lot of backflips in the
 # parser in order to avoid an ambiguous grammar. So take this as a note that that's happened.
 i = 1;
-var leftNode = cast(oneof<Node<int>, Nothing>, unwrap(treeRoot)[i]);
+var leftNode = cast(oneof<Node<int>, std::Nothing>, unwrap(treeRoot)[i]);
 if (leftNode instanceof Node<int>) {
   type(leftNode);
   print(unwrap(leftNode)[0]);
@@ -414,7 +414,7 @@ implement Foo<Node<string>> as SNode {
   }
 }
 
-var stringNode = Node(mut ("My Tree!", Nothing, Nothing));
+var stringNode = Node(mut ("My Tree!", std::Nothing, std::Nothing));
 
 Foo::bar(treeRoot);
 Foo::bar(stringNode);
@@ -425,7 +425,7 @@ someNode = treeRoot;
 Foo::bar(someNode);
 
 consumer prettyishPrintTree<T>(currRoot: Node<T>) {
-  var fringe: mut [oneof<Node<T>, Nothing>] = mut [currRoot];
+  var fringe: mut [oneof<Node<T>, std::Nothing>] = mut [currRoot];
   var i = 0;
   while (len(fringe) - i > 0) {
     var currNode = fringe[i];
@@ -444,7 +444,7 @@ consumer prettyishPrintTree<T>(currRoot: Node<T>) {
 
 print("PRETTY-ISH PRINT! {treeRoot}");
 prettyishPrintTree(treeRoot);
-var getNewNode = (x: int) -> Node<int> { return Node(mut (x, Nothing, Nothing)); };
+var getNewNode = (x: int) -> Node<int> { return Node(mut (x, std::Nothing, std::Nothing)); };
 print(getNewNode(3));
 
 unwrap(treeRoot)[2] = getNewNode(3);
@@ -460,7 +460,7 @@ newtype NonEmptyList<T> : [T]
 initializers NonEmptyList {
   function GetValidatedNonEmptyList<T>(l: [T]) -> Maybe<NonEmptyList<T>> {
     if (len(l) == 0) {
-      return Maybe(Nothing);
+      return Maybe(std::Nothing);
     }
     return Maybe(NonEmptyList(l));
   }

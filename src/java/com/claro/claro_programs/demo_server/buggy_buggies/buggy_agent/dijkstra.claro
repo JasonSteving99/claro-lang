@@ -6,10 +6,10 @@
 
 # This is an internal-only alias, as no procedure exported by the module actually references this there's no need to
 # expose this detail in the public api.
-alias DistanceVia : struct {dist: int, via: oneof<Pos::Position, Nothing>}
+alias DistanceVia : struct {dist: int, via: oneof<Pos::Position, std::Nothing>}
 
 function dijkstra(world: {Pos::Position: string}, start: Pos::Position) -> BestPath {
-  var distances: DefaultDict<Pos::Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  var distances: DefaultDict<Pos::Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = std::Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
   defaultDictPut(distances, start, {dist = 0, via = start});
   var pq = Heaps::getHeap();
   Heaps::insert(pq, {dist = 0, pos = start});

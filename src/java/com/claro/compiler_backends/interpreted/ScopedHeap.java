@@ -29,6 +29,10 @@ public class ScopedHeap {
   // .claro_module_api file is going to explicitly reference any types declared in a dep Module (e.g. `Foo::FooType`).
   // This ensures that the consumers of this Module are actually able to read the definition of the transitive dep types.
   public static ImmutableSet<String> transitiveExportedDepModules = ImmutableSet.of();
+  // The set of dep modules that have been explicitly annotated as stdlib modules. These modules are privileged to not
+  // cause an error if they are unused and to not be required to be marked exported if mentioned in a .claro_module_api
+  // file given the implication that these modules are implicit direct deps of every single claro_module() target.
+  public static ImmutableSet<String> stdlibDepModules = ImmutableSet.of();
 
   public static String getDefiningModuleDisambiguator(Optional<String> optionalOriginatingDepModuleName) {
     String res;
@@ -419,7 +423,9 @@ public class ScopedHeap {
     // less performant for no reason.
     HashSet<String> unusedSymbolSet = Sets.newHashSet();
     for (String depModuleName : ScopedHeap.currProgramDepModules.rowKeySet()) {
-      if (ScopedHeap.currProgramDepModules.contains(depModuleName, /*isUsed=*/false)) {
+      if (ScopedHeap.currProgramDepModules.contains(depModuleName, /*isUsed=*/false)
+          // Stdlib modules are privileged to not require usage since it's an implicit dep to all claro_module() targets.
+          && !ScopedHeap.stdlibDepModules.contains(depModuleName)) {
         unusedSymbolSet.add(depModuleName);
       }
     }

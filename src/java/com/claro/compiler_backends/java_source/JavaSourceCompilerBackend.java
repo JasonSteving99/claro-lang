@@ -85,6 +85,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               );
             }
         ));
+    // Make sure to mark the stdlib dep modules so they're "privileged" to avoid some errors relating to usage and non-export.
+    ScopedHeap.stdlibDepModules = ImmutableSet.copyOf(options.stdlib_modules);
     this.TRANSITIVE_MODULE_DEPS =
         options.transitive_deps.stream()
             // If I already have a direct dep on some dep that's also listed as a transitive dep, then I *don't* need to
@@ -251,45 +253,48 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // Parse the main src file.
       ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
 
-      // Here, type checking and codegen of ALL src files is happening at once.
-      StringBuilder generateTargetOutputRes =
-          mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
       int totalParserErrorsFound =
           mainSrcFileParser.errorsFound +
           nonMainSrcFileParsers.stream().map(p -> p.errorsFound).reduce(Integer::sum).orElse(0);
-      if (totalParserErrorsFound == 0 && Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
-        if (optionalModuleApiParser.isPresent()) {
-          // Here, we were asked to compile a non-executable Claro Module, rather than an executable Claro program. So,
-          // we need to populate and emit a SerializedClaroModule proto that can be used as a dep for other Claro
-          // Modules/programs.
-          serializeClaroModule(
-              this.PACKAGE_STRING.get(),
-              this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
-              optionalModuleApiSrcFile.get(),
-              generateTargetOutputRes,
-              nonMainSrcFiles,
-              scopedHeap
-          );
-        } else {
-          if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
-            // Here we've been asked to write the output to a particular file.
-            try (FileWriter outputFileWriter = new FileWriter(createOutputFile())) {
-              outputFileWriter.write(generateTargetOutputRes.toString());
-            }
+      // Don't even bother attempting type validation if there was a parsing error.
+      if (totalParserErrorsFound == 0) {
+        // Here, type checking and codegen of ALL src files is happening at once.
+        StringBuilder generateTargetOutputRes =
+            mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
+        if (Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
+          if (optionalModuleApiParser.isPresent()) {
+            // Here, we were asked to compile a non-executable Claro Module, rather than an executable Claro program. So,
+            // we need to populate and emit a SerializedClaroModule proto that can be used as a dep for other Claro
+            // Modules/programs.
+            serializeClaroModule(
+                this.PACKAGE_STRING.get(),
+                this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
+                optionalModuleApiSrcFile.get(),
+                generateTargetOutputRes,
+                nonMainSrcFiles,
+                scopedHeap
+            );
           } else {
-            // Here, we were simply asked to codegen an executable Claro program. Output the codegen'd Java source to
-            // stdout directly where it will be piped by Claro's Bazel rules into the appropriate .java file.
-            System.out.println(generateTargetOutputRes);
+            if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
+              // Here we've been asked to write the output to a particular file.
+              try (FileWriter outputFileWriter = new FileWriter(createOutputFile())) {
+                outputFileWriter.write(generateTargetOutputRes.toString());
+              }
+            } else {
+              // Here, we were simply asked to codegen an executable Claro program. Output the codegen'd Java source to
+              // stdout directly where it will be piped by Claro's Bazel rules into the appropriate .java file.
+              System.out.println(generateTargetOutputRes);
+            }
           }
+          System.exit(0);
         }
-        System.exit(0);
-      } else {
-        ClaroParser.errorMessages.forEach(Runnable::run);
-        Expr.typeErrorsFound.forEach(e -> e.accept(mainSrcFileParser.generatedClassName));
-        ProgramNode.miscErrorsFound.forEach(Runnable::run);
-        warnNumErrorsFound(totalParserErrorsFound);
-        System.exit(1);
       }
+      // Fall into this error reporting if we encountered any parsing or type validation errors.
+      ClaroParser.errorMessages.forEach(Runnable::run);
+      Expr.typeErrorsFound.forEach(e -> e.accept(mainSrcFileParser.generatedClassName));
+      ProgramNode.miscErrorsFound.forEach(Runnable::run);
+      warnNumErrorsFound(totalParserErrorsFound);
+      System.exit(1);
     } catch (ClaroParserException e) {
       ClaroParser.errorMessages.forEach(Runnable::run);
       Expr.typeErrorsFound.forEach(err -> err.accept(mainSrcFileParser.generatedClassName));
@@ -472,11 +477,13 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       Types.UserDefinedType.$resolvedWrappedTypes.put(disambiguatedIdentifier, wrappedType);
       // Register its constructor.
       optionalModuleName.ifPresent(
-          moduleName ->
-              scopedHeap.putIdentifierValue(
-                  String.format("$DEP_MODULE$%s$%s$constructor", moduleName, exportedNewTypedef.getKey()),
-                  getProcedureTypeFromProto(exportedNewTypedef.getValue().getConstructor())
-              ));
+          moduleName -> {
+            Type cons = getProcedureTypeFromProto(exportedNewTypedef.getValue().getConstructor());
+            scopedHeap.putIdentifierValue(
+                String.format("$DEP_MODULE$%s$%s$constructor", moduleName, exportedNewTypedef.getKey()),
+                cons
+            );
+          });
     }
 
     // Register any AtomDefinitionStmts found in the module.

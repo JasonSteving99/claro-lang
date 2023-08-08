@@ -15,7 +15,7 @@ function getClient(url: string) -> HttpClient<BuggyBuggies>;
 # This type models the JSON response from the Buggy-Buggies service as a Claro type to enable parsing the response into
 # something that you can work with programmatically with strict type validation on the edge.
 alias MoveResponse : struct {
-  reason: oneof<string, Nothing>,
+  reason: oneof<string, std::Nothing>,
   result: struct {
     players: { string : struct { x: int, y: int } },
     dimensions: struct {
@@ -34,4 +34,4 @@ alias MoveResponse : struct {
   success: boolean
 }
 
-function getParsedMoveResponse(buggyResponse: string) -> ParsedJson<MoveResponse>;
+function getParsedMoveResponse(buggyResponse: string) -> std::ParsedJson<MoveResponse>;

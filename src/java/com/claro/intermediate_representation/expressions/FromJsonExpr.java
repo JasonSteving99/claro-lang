@@ -7,11 +7,11 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -44,8 +44,7 @@ public class FromJsonExpr extends Expr {
 
     Type expectedResultType = Types.UserDefinedType.forTypeNameAndParameterizedTypes(
         "ParsedJson",
-        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
         ImmutableList.of(Types.$GenericTypeParam.forTypeParamName("T"))
     );
     HashMap<Type, Type> targetConcreteTypeMap = Maps.newHashMap();
@@ -78,7 +77,10 @@ public class FromJsonExpr extends Expr {
   private void validateJSONParsingIsPossible(Type type) throws ClaroTypeException {
     switch (type.baseType()) {
       case ATOM:
-        if (((Types.AtomType) type).getName().equals("Nothing")) {
+        if (((Types.AtomType) type).getName().equals("Nothing")
+            &&
+            ((Types.AtomType) type).getDefiningModuleDisambiguator()
+                .equals(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)) {
           return; // OK.
         }
         throw ClaroTypeException.forIllegalParseFromJSONForUnsupportedOneofType(type, this.assertedTargetType);
@@ -219,25 +221,29 @@ public class FromJsonExpr extends Expr {
         }
         break;
       case ATOM:
-        if (((Types.AtomType) type).getName().equals("Nothing")) {
+        if (((Types.AtomType) type).getName().equals("Nothing")
+            &&
+            ((Types.AtomType) type).getDefiningModuleDisambiguator()
+                .equals(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)) {
           if (!alreadyPeekedType) {
             res.append("if (").append(GSON_TOKEN).append(".NULL.equals($peeked").append(nestingLevel).append(")) {\n");
           }
+          // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE of the stdlib module
+          // defining this builtin type.
           res.append("\t$jsonReader.nextNull();\n")
               .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
               .append(type.getJavaSourceClaroType())
               .append(", ")
-              .append(String.format(
-                  "%s%sATOM_CACHE[%s]",
-                  // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-                  //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-                  "",
-                  "",
-                  InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
-                      ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
-                      "Nothing"
-                  )
-              ))
+              .append(
+                  String.format(
+                      "%s.%s.ATOM_CACHE[%s]",
+                      StdLibModuleRegistry.STDLIB_MODULE_PACKAGE,
+                      StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                      InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                          StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                          String.format("Nothing$%s", StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)
+                      )
+                  ))
               .append(", $jsonString);");
           if (!alreadyPeekedType) {
             res.append("} ");
@@ -472,7 +478,9 @@ public class FromJsonExpr extends Expr {
                   res.append("STRING:\n");
                   break;
                 case ATOM:
-                  if (((Types.AtomType) currType).getName().equals("Nothing")) {
+                  if (((Types.AtomType) currType).getName().equals("Nothing")
+                      && ((Types.AtomType) currType).getDefiningModuleDisambiguator()
+                          .equals(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)) {
                     res.append("NULL:\n");
                     break;
                   }

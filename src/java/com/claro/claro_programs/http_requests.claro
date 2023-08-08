@@ -6,7 +6,7 @@ HttpService BuggyBuggies {
 var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
 alias HostJoinGameResponse : struct {
-  reason: oneof<string, Nothing>,
+  reason: oneof<string, std::Nothing>,
   result: struct {
     example: string,
     game_id: string,
@@ -16,7 +16,7 @@ alias HostJoinGameResponse : struct {
   success: boolean
 }
 alias MoveResponse : struct {
-  reason: oneof<string, Nothing>,
+  reason: oneof<string, std::Nothing>,
   result: struct {
     players: { string : struct { x: int, y: int } },
     dimensions: struct {
@@ -35,8 +35,8 @@ alias MoveResponse : struct {
   success: boolean
 }
 alias FailedMovedResponse : struct {
-  reason: oneof<string, Nothing>,
-  result: Nothing,
+  reason: oneof<string, std::Nothing>,
+  result: std::Nothing,
   success: boolean
 }
 
@@ -46,9 +46,9 @@ var playerSecret = "1c1d5c02-fe17-4a98-a7a8-ccac89699278";
 
 if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   handle = input("What's your game handle?: ");
-  var rawHostGameResponse: oneof<string, Error<string>> <-| hostGame(buggyBuggiesClient, handle);
+  var rawHostGameResponse: oneof<string, std::Error<string>> <-| hostGame(buggyBuggiesClient, handle);
   if (rawHostGameResponse instanceof string) {
-    var hostGameParsedJson: ParsedJson<HostJoinGameResponse> = fromJson(rawHostGameResponse);
+    var hostGameParsedJson: std::ParsedJson<HostJoinGameResponse> = fromJson(rawHostGameResponse);
     var hostGameResponse = unwrap(hostGameParsedJson).result;
     if (hostGameResponse instanceof HostJoinGameResponse) {
       gameId = hostGameResponse.result.game_id;
@@ -64,9 +64,9 @@ if (input("Do you want to start a new game? (Y/N): ") == "Y") {
   _ = input("Hit enter once you're ready to start playing!");
 } else if (input("Do you want to add a new player to the existing game? (Y/N)") == "Y") {
   handle = input("What's your game handle?: ");
-  var response: oneof<string, Error<string>> <-| friendsJoin(buggyBuggiesClient, gameId, handle);
+  var response: oneof<string, std::Error<string>> <-| friendsJoin(buggyBuggiesClient, gameId, handle);
   if (response instanceof string) {
-    var joinParsedJson: ParsedJson<HostJoinGameResponse> = fromJson(response);
+    var joinParsedJson: std::ParsedJson<HostJoinGameResponse> = fromJson(response);
     var joinResponse = unwrap(joinParsedJson).result;
     if (joinResponse instanceof HostJoinGameResponse) {
       playerSecret = joinResponse.result.secret;
@@ -76,7 +76,7 @@ if (input("Do you want to start a new game? (Y/N): ") == "Y") {
 }
 
 var userInput = input("Which direction do you want to move? (N/E/S/W): ");
-var bestMoves: oneof<[string], Nothing> = Nothing;
+var bestMoves: oneof<[string], std::Nothing> = std::Nothing;
 while (true) {
   var parsedMove = parseMove(userInput);
 
@@ -87,10 +87,10 @@ while (true) {
         bestMoves = response;
       }
     case _:RepeatMove ->
-      var response: oneof<[string], Error<string>>;
+      var response: oneof<[string], std::Error<string>>;
       repeat(unwrap(parsedMove).dist - 1) {
         response = handleMove(buggyBuggiesClient, gameId, playerSecret, unwrap(parsedMove).dir);
-        if (response instanceof Error<string>) {
+        if (response instanceof std::Error<string>) {
           print(response);
           break;
         }
@@ -99,9 +99,9 @@ while (true) {
       if (response instanceof [string]) {
         bestMoves = response;
       }
-    case _:Error<string> ->
+    case _:std::Error<string> ->
       print(parsedMove);
-    case _:Error<EndGame> ->
+    case _:std::Error<EndGame> ->
       print("Good game!");
       break;
   }
@@ -120,13 +120,13 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
       var response <-| move(buggyBuggiesClient, gameId, playerSecret, bestMoves[i++]);
       match (response) {
         case _:string ->
-          if (unwrap(cast(ParsedJson<MoveResponse>, fromJson(response))).result instanceof Error<string>) {
+          if (unwrap(cast(std::ParsedJson<MoveResponse>, fromJson(response))).result instanceof std::Error<string>) {
             if (retries >= 3) {
               print("Retried too many times with no success! Ending game.");
               break;
             }
             print(response);
-            var failedMoveResponseParsedJson: ParsedJson<FailedMovedResponse> = fromJson(response);
+            var failedMoveResponseParsedJson: std::ParsedJson<FailedMovedResponse> = fromJson(response);
             var failedMoveResponse = unwrap(failedMoveResponseParsedJson).result;
             if (failedMoveResponse instanceof FailedMovedResponse) {
               print("");
@@ -147,7 +147,7 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
               print("");
             }
           }
-        case _:Error<string> ->
+        case _:std::Error<string> ->
           print("Automatic moves led to a failure!\n{response}\n\nEnding game.");
           break;
       }
@@ -165,13 +165,13 @@ if ((bestMoves instanceof [string]) and (input("Want Claro to continue playing a
 }
 
 blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, playerSecret: string, dir: string)
-    -> oneof<[string], Error<string>> {
+    -> oneof<[string], std::Error<string>> {
   # Make the HTTP req.
   var rawMoveResponseOrErr <-| move(client, gameId, playerSecret, dir);
   var rawMoveResponse ?= rawMoveResponseOrErr;
 
   # Parse from Json.
-  var moveResponseParsedJson: ParsedJson<MoveResponse> = fromJson(rawMoveResponse);
+  var moveResponseParsedJson: std::ParsedJson<MoveResponse> = fromJson(rawMoveResponse);
   var moveResponse = unwrap(moveResponseParsedJson).result;
   if (moveResponse instanceof MoveResponse) {
     var parsedWorld = parseWorldMap(moveResponse.result.world);
@@ -181,7 +181,7 @@ blocking function handleMove(client: HttpClient<BuggyBuggies>, gameId: string, p
     print("These are the best moves:\n{computedMoves}");
     return computedMoves;
   } else {
-    return Error("Got an error response before completing full set of moves:\n{moveResponse}\n{moveResponseParsedJson}");
+    return std::Error("Got an error response before completing full set of moves:\n{moveResponse}\n{moveResponseParsedJson}");
   }
 }
 
@@ -189,8 +189,8 @@ newtype RepeatMove: struct{
   dist: int,
   dir: string
 }
-newtype EndGame: Nothing
-function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>, Error<EndGame>> {
+newtype EndGame: std::Nothing
+function parseMove(moveInput: string) -> oneof<string, RepeatMove, std::Error<string>, std::Error<EndGame>> {
   var dirs = {"N", "E", "S", "W"};
   var numbers = {"{x}":x | x in [1,2,3,4,5,6,7,8,9]};
 
@@ -203,9 +203,9 @@ function parseMove(moveInput: string) -> oneof<string, RepeatMove, Error<string>
   }
 
   if (len(moveInput) == 0) {
-    return Error(EndGame(Nothing));
+    return std::Error(EndGame(std::Nothing));
   } else {
-    return Error("Unexpected input: {moveInput}");
+    return std::Error("Unexpected input: {moveInput}");
   }
 }
 
@@ -248,8 +248,8 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
       ystring = "{ystring}{rawPos[i++]}";
     }
     # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
-    var x: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(xstring))).result;
-    var y: oneof<int, Error<string>> = unwrap(cast(ParsedJson<int>, fromJson(ystring))).result;
+    var x: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(xstring))).result;
+    var y: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(ystring))).result;
     # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
     if ((x instanceof int) and (y instanceof int)) {
       return Position({x = x, y = y});
@@ -267,11 +267,11 @@ function parseWorldMap(world: {string: string}) -> {Position: string} {
 # BEGIN Dijkstra.claro
 ####################################################################################################
 
-alias DistanceVia : struct {dist: int, via: oneof<Position, Nothing>}
+alias DistanceVia : struct {dist: int, via: oneof<Position, std::Nothing>}
 alias BestPath : [Position]
 
 function dijkstra(world: {Position: string}, start: Position) -> BestPath {
-  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  var distances: DefaultDict<Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = std::Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
   defaultDictPut(distances, start, {dist = 0, via = start});
   var pq = getHeap();
   insert(pq, {dist = 0, pos = start});
@@ -406,9 +406,9 @@ initializers Heap {
 }
 
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Position, Error<Nothing>> {
+  function extract_min(heap: Heap) -> oneof<Position, std::Error<std::Nothing>> {
       if (len(unwrap(heap)) == 0) {
-          return Error(Nothing);
+          return std::Error(std::Nothing);
       }
       var min_value = unwrap(heap)[0];
       swap(heap, 0, len(unwrap(heap)) - 1);

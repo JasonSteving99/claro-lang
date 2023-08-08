@@ -701,12 +701,38 @@ base_builtin_type_without_mutability_modifier ::=
             // TODO(steving)    of procedures/types that are actually unusable.
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
               type_name.getVal(),
-              // TODO(steving) TESTING!!! Unfortunately I need to actually hardcode the disambiguators for some builtin
-              //    types that haven't been migrated to modules yet. This is a major pain, but necessary until modularized.
-              ImmutableSet.of("Error", "ParsedJson").contains(type_name.getVal())
-              ? ""
               // There's no leading `Foo::` so this must've been defined in this module.
-              : uniqueModuleName,
+              uniqueModuleName,
+              concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
+            ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(dep_module_nameleft, cleft, type_nameleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
+
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       depModuleTransitiveTypeExports.add(dep_module_name.getVal());
+
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol,
+          LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
+            (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              type_name.getVal(),
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(dep_module_name.getVal())),
               concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
             ),
             currentLinesSupplier,

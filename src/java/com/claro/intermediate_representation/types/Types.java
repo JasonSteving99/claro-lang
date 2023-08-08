@@ -58,7 +58,11 @@ public final class Types {
 
     @Override
     public TypeProto toProto() {
-      return TypeProto.newBuilder().setAtom(TypeProtos.AtomType.newBuilder().setName(this.getName())).build();
+      return TypeProto.newBuilder().setAtom(
+              TypeProtos.AtomType.newBuilder()
+                  .setName(this.getName())
+                  .setDefiningModuleDisambiguator(this.getDefiningModuleDisambiguator()))
+          .build();
     }
   }
 

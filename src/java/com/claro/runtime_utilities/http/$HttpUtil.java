@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;
 import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.SettableFuture;
@@ -79,8 +80,7 @@ public class $HttpUtil {
                 Types.STRING,
                 Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                     "Error",
-                    // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                    /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                    /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                     ImmutableList.of(Types.STRING)
                 )
             )),

@@ -74,6 +74,15 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public List<String> exports;
 
   @Option(
+      name = "stdlib_dep",
+      help = "Module deps that are treated as privileged stdlib modules for the purpose of deciding whether or not " +
+             "using the module is required, or whether it must be exported if referenced in the .claro_module_api file",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> stdlib_modules;
+
+  @Option(
       name = "output_file_path",
       help = "The path to the output file to put the generated Java.",
       defaultValue = ""

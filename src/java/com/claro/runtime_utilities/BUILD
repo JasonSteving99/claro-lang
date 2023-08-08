@@ -5,6 +5,7 @@ package(
         "//src/java/com/claro/intermediate_representation/expressions:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
         "//src/java/com/claro/runtime_utilities:__subpackages__",
+        "//src/java/com/claro/stdlib/claro:__subpackages__",
     ]
 )
 
@@ -13,6 +14,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//:guava",
+        "//src/java/com/claro/stdlib:stdlib_module_registry",
         "//src/java/com/claro/intermediate_representation/types:concrete_type",
         "//src/java/com/claro/intermediate_representation/types:base_type",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",

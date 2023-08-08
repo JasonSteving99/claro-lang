@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.expressions.FormatStringExpr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -49,8 +50,7 @@ public class HttpServiceDefStmt extends Stmt {
                                     Types.STRING,
                                     Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                                         "Error",
-                                        // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                                        /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                                        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                                         ImmutableList.of(Types.STRING)
                                     )
                                 )));
@@ -92,8 +92,7 @@ public class HttpServiceDefStmt extends Stmt {
                                         Types.STRING,
                                         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                                             "Error",
-                                            // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                                            /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                                             ImmutableList.of(Types.STRING)
                                         )
                                     )))))
@@ -159,8 +158,7 @@ public class HttpServiceDefStmt extends Stmt {
                           Types.STRING,
                           Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                               "Error",
-                              // TODO(steving) This is going to be problematic once I begin building out the stdlib modules.
-                              /*definingModuleDisambiguator=*/"", // No module for stdlib types that weren't moved into Modules yet.
+                              /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                               ImmutableList.of(Types.STRING)
                           )
                       )))),

@@ -7,6 +7,6 @@ provider gamePageHandler() -> future<string>;
 
 function startNewGameHandler(handle: string) -> future<string>;
 
-function getBestMovesHandler(buggyResponse: oneof<string, Error<string>>) -> string;
+function getBestMovesHandler(buggyResponse: oneof<string, std::Error<string>>) -> string;
 
 function gameMoveHandler(gameId: string, playerSecret: string, dir: string) -> future<string>;

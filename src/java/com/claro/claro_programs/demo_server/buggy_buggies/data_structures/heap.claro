@@ -11,9 +11,9 @@ initializers Heap {
 # Notice that just because this implementation has many unwrappers doesn't mean that they all need to be exported by the
 # public Module providing this functionality to dependents.
 unwrappers Heap {
-  function extract_min(heap: Heap) -> oneof<Pos::Position, Error<Nothing>> {
+  function extract_min(heap: Heap) -> oneof<Pos::Position, std::Error<std::Nothing>> {
       if (len(unwrap(heap)) == 0) {
-          return Error(Nothing);
+          return std::Error(std::Nothing);
       }
       var min_value = unwrap(heap)[0];
       swap(heap, 0, len(unwrap(heap)) - 1);
@@ -21,18 +21,6 @@ unwrappers Heap {
       heapify_down(heap, 0);
 
       return min_value.pos;
-  }
-
-  function parent(i: int) -> int {
-      return (i - 1) / 2;
-  }
-
-  function left_child(i: int) -> int {
-      return 2 * i + 1;
-  }
-
-  function right_child(i: int) -> int {
-      return 2 * i + 2;
   }
 
   consumer swap(heap: Heap, i: int, j: int) {
@@ -75,4 +63,16 @@ unwrappers Heap {
           }
       }
   }
+}
+
+function parent(i: int) -> int {
+    return (i - 1) / 2;
+}
+
+function left_child(i: int) -> int {
+    return 2 * i + 1;
+}
+
+function right_child(i: int) -> int {
+    return 2 * i + 2;
 }
