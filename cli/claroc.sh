@@ -53,9 +53,18 @@ function main() {
   # Dynamically lookup the .claro_internal files found packed in the jar so I don't need to keep updating this script.
   CLARO_STDLIB_SRCS=$(find com -type f -name "*.claro_internal")
   CLARO_STDLIB_SRCS=$(echo -n " $CLARO_STDLIB_SRCS" | tr '\n' ' ' | sed 's/ / --src /g')
+  # Dynamically lookup the .claro_module files found packed in the jar so I don't need to keep updating this script.
+  CLARO_STDLIB_MODULES=$(find com -type f -name "*.claro_module")
+  CLARO_STDLIB_MODULES=$(
+    echo -n "$CLARO_STDLIB_MODULES" |
+    tr ' ' '\n' |
+    # Who woulda thunk that awk is actually kinda sick. Weird as all hell... but kinda sick.
+    awk '{split($0,parts,"."); n=split(parts[1],modname,"/"); print " --dep " modname[n] ":" parts[1] "." parts[2] " --stdlib_dep " modname[n]; }' |
+    tr '\n' ' '
+  )
 
   echo "Compiling $CLARO_MAIN_FILE.claro..."
-  java -jar "$CLARO_COMPILER_PATH" --java_source --silent=true --classname="$CLARO_MAIN_FILE" --package=com.claro $CLARO_STDLIB_SRCS $CLARO_FILE_NAMES > "$CLARO_MAIN_FILE".java || die
+  java -jar "$CLARO_COMPILER_PATH" --java_source --silent=true --classname="$CLARO_MAIN_FILE" --package=com.claro $CLARO_STDLIB_SRCS $CLARO_STDLIB_MODULES $CLARO_FILE_NAMES > "$CLARO_MAIN_FILE".java || die
 
   echo "Compiling $CLARO_MAIN_FILE.java..."
   javac -cp ".:$CLARO_BUILTIN_DEPS_PATH" "$CLARO_MAIN_FILE".java -d .

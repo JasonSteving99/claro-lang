@@ -10,7 +10,7 @@ CLARO_STDLIB_FILES = [
 # The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
-    "std": "//src/java/com/claro/stdlib/claro:builtin_types",
+    "std": "//src/java/com/claro/stdlib/claro:std",
 }
 CLARO_BUILTIN_JAVA_DEPS = [
     "//:guava",
@@ -339,7 +339,7 @@ def gen_claro_builtin_java_deps_jar():
         deps = CLARO_BUILTIN_JAVA_DEPS,
         # Pack the stdlib into this JAR file just so that there's one fewer thing for users to download and keep in the
         # right place. This can always be changed later.
-        resources = CLARO_STDLIB_FILES
+        resources = CLARO_STDLIB_FILES + CLARO_STDLIB_MODULES.values()
     )
 
 
