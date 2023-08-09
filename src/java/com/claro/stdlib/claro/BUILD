@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module_internal")
+load("//src/java/com/claro:claro_build_rules_internal.bzl", "claro_module_internal")
 
 exports_files(glob(["*.claro_internal"]))
 

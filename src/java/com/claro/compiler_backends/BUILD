@@ -6,8 +6,6 @@ package(
     ]
 )
 
-load("//src/java/com/claro:claro_build_rules.bzl", "DEFAULT_CLARO_NAME")
-
 java_library(
     name = "compiler_backend",
     srcs = glob(["*.java"], exclude = ["ParserUtil.java"]),
@@ -20,6 +18,6 @@ java_library(
     name = "parser_util",
     srcs = glob(["ParserUtil.java"]),
     deps = [
-      "//src/java/com/claro:" + DEFAULT_CLARO_NAME + "_java_parser",
+      "//src/java/com/claro:claro_java_parser",
     ]
 )

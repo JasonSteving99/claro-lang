@@ -7,13 +7,12 @@ package(
     ]
 )
 
-load("//src/java/com/claro:claro_build_rules.bzl", "DEFAULT_CLARO_NAME")
-
 java_library(
     name = "stdlib",
     srcs = glob(["*.java"], exclude = ["StdLibModuleRegistry.java"]),
     deps = [
         "//:guava",
+        "//src/java/com/claro:claro_java_parser",
         "//src/java/com/claro:claro_parser_exception",
         "//src/java/com/claro/compiler_backends:parser_util",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
@@ -32,7 +31,6 @@ java_library(
         "//src/java/com/claro/runtime_utilities/http:http_server",
         "//src/java/com/claro/stdlib:stdlib_module_registry",
         "//src/java/com/claro/stdlib/http",
-        "//src/java/com/claro:" + DEFAULT_CLARO_NAME + "_java_parser",
     ],
 )
 
