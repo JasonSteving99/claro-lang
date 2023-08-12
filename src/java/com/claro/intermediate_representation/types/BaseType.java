@@ -219,8 +219,8 @@ public enum BaseType {
   // will validate that its parameterized type is in fact an HttpService. Other types can only simulate this behavior
   // via initializers.
   HTTP_CLIENT("HttpClient<%s>", "%s"),
-  HTTP_SERVER("HttpServer<%s>", "$ClaroHttpServer"),
-  HTTP_RESPONSE("HttpResponse", "$ClaroHttpResponse"),
+  HTTP_SERVER("HttpServer<%s>", "com.claro.runtime_utilities.http.$ClaroHttpServer"),
+  HTTP_RESPONSE("HttpResponse", "com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse"),
 
   // Generic Type Param and Contract are Types that are only modeled internally and shouldn't appear in generated output
   // or in any other user observable way.

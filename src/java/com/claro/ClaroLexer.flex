@@ -1,8 +1,10 @@
 package com.claro;
 
+import com.claro.stdlib.StdLibModuleUtil;
 import com.google.common.base.Strings;
 
 import java_cup.runtime.Symbol;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -218,9 +220,9 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
     "$dumpscope"       { return symbol(Tokens.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
 
     // This is an internal-only feature, reserved for implementing the stdlib.
-    "$$BEGIN_JAVA"    { if (supportPrivilegedInlineJava) {
-                          yycolumn+=12;
-                          addToLine("$$BEGIN_JAVA");
+    "$$BEGIN_JAVA\n"  { if (supportPrivilegedInlineJava) {
+                          yyline++;
+                          yycolumn=0;
                           yybegin(PRIVILEGED_INLINE_JAVA);
                         } else {
                           handleUnknownToken();
@@ -280,10 +282,24 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
     "_"                { return symbol(Tokens.UNDERSCORE, 0, 1, "_"); }
 
      // Symbols related to builtin HTTP support go here.
+     // TODO(steving) The Http related types should all also require http:: namespacing.
+     // TODO(steving) This `http` module should be completely reimplemented as a proper claro_module_internal() target once possible.
      "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }
      "HttpClient"      { return symbol(Tokens.HTTP_CLIENT, 0, 10, "HttpClient"); }
-     "getHttpClient"   { return symbol(Tokens.GET_HTTP_CLIENT, 0, 13, "getHttpClient"); }
-     "getBasicHttpServerForPort"  { return symbol(Tokens.GET_BASIC_HTTP_SERVER_FOR_PORT, 0, 25, "getBasicHttpServerForPort"); }
+     "http::getHttpClient"   {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.GET_HTTP_CLIENT, 0, 19, "http::getHttpClient");
+     }
+     "http::getBasicHttpServerForPort"  {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.GET_BASIC_HTTP_SERVER_FOR_PORT, 0, 31, "http::getBasicHttpServerForPort");
+     }
+     // This is a major hack that simply allows the detection of the synthetic http optional stdlib module for which extra java deps will need to be added to the build.
+     "http::startServerAndAwaitShutdown"  {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.IDENTIFIER, 0, 33, "com.claro.runtime_utilities.http.$ClaroHttpServer.startServerAndAwaitShutdown");
+     }
+     "HttpResponse"      { return symbol(Tokens.HTTP_RESPONSE, 0, 12, "HttpResponse"); }
      "HttpServer"      { return symbol(Tokens.HTTP_SERVER, 0, 10, "HttpServer"); }
      "endpoint_handlers" { return symbol(Tokens.ENDPOINT_HANDLERS, 0, 17, "endpoint_handlers"); }
 
@@ -389,9 +405,13 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
 }
 
 <PRIVILEGED_INLINE_JAVA> {
-    {PrivilegedInlineJava} {
+    [^]                    {
+                              // Collect everything into the currentInputLine just for somewhere to keep it.
+                              addToLine(yytext());
+                           }
+    "$$END_JAVA\n"           {
                              yybegin(YYINITIAL);
-                             String lexed = yytext();
+                             String lexed = currentInputLine.get().toString();
                              // Just want to make sure line numbers are still tracked properly.
                              int lines = 0;
                              int i = 0;
@@ -400,10 +420,10 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                                  lines++;
                                }
                              }
-                             yyline += lines - 1;
-                             // Just drop the preceding `$$BEGIN_JAVA` since we've already made a match.
+                             yyline += lines;
+                             yycolumn = 0;
                              currentInputLine.set(new StringBuilder());
-                             return symbol(Tokens.PRIVILEGED_INLINE_JAVA, lines, lexed.length() - lexed.lastIndexOf("\n"), lexed.substring(0, lexed.length() - new String("$$END_JAVA").length()).trim());
+                             return new Symbol(Tokens.PRIVILEGED_INLINE_JAVA, yycolumn, yyline - 1, LexedValue.create(lexed, () -> lexed, lexed.length()));
                            }
 }
 

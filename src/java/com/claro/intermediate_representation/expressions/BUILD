@@ -48,6 +48,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/internal_static_state",
         "//src/java/com/claro/stdlib:stdlib_module_registry",
+        "//src/java/com/claro/stdlib:module_util",
     ],
 )
 

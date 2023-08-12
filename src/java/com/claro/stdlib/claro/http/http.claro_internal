@@ -1,0 +1,16 @@
+
+function getOk200HttpResponseForHtml(html: string) -> HttpResponse {
+  var res: HttpResponse;
+  $$BEGIN_JAVA
+  res = com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForHtmlImpl(html);
+  $$END_JAVA
+  return res;
+}
+
+function getOk200HttpResponseForJson(json: string) -> HttpResponse {
+  var res: HttpResponse;
+  $$BEGIN_JAVA
+  res = com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForJsonImpl(json);
+  $$END_JAVA
+  return res;
+}

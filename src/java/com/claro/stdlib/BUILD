@@ -28,9 +28,22 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-        "//src/java/com/claro/runtime_utilities/http:http_server",
         "//src/java/com/claro/stdlib:stdlib_module_registry",
         "//src/java/com/claro/stdlib/http",
+    ],
+)
+
+java_library(
+    name = "module_util",
+    srcs = ["StdLibModuleUtil.java"],
+    deps = [
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
+        "//src/java/com/claro/intermediate_representation/expressions:expr",
+        "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+    ],
+    visibility = [
+        "//src/java/com/claro:__pkg__",
+        "//src/java/com/claro/intermediate_representation/expressions:__pkg__",
     ],
 )
 

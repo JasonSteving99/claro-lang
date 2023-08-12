@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.stdlib.StdLibModuleUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -44,6 +45,8 @@ public class GetHttpServerExpr extends Expr {
     }
 
     super.assertExpectedExprType(scopedHeap, expectedExprType);
+
+    StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http", Optional.of(this));
   }
 
   @Override
@@ -91,7 +94,7 @@ public class GetHttpServerExpr extends Expr {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder()
-            .append("\n\tnew $ClaroHttpServer(\n\t\t$ClaroHttpServer.getRoutingServlet()"));
+            .append("\n\tnew com.claro.runtime_utilities.http.$ClaroHttpServer(\n\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getRoutingServlet()"));
 
 
     InternalStaticStateUtil.HttpServiceDef_endpointPaths.row(this.assertedHttpService.get().getServiceName())
@@ -100,9 +103,9 @@ public class GetHttpServerExpr extends Expr {
             e ->
                 String.format(
                     "\n\t\t\t.map(" +
-                    "\n\t\t\t\t$ClaroHttpServer.GET," +
+                    "\n\t\t\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.GET," +
                     "\n\t\t\t\t\"%s\"," +
-                    "\n\t\t\t\t$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply(%s))" +
+                    "\n\t\t\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply(%s))" +
                     "\n\t)",
                     e.getValue(),
                     e.getValue(),
@@ -115,7 +118,7 @@ public class GetHttpServerExpr extends Expr {
                 ))
         .forEach(res.javaSourceBody()::append);
     res.javaSourceBody()
-        .append(",\n\t\t$ClaroHttpServer.getInetSocketAddressForPort(");
+        .append(",\n\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getInetSocketAddressForPort(");
     res = res.createMerged(this.portNumber.generateJavaSourceOutput(scopedHeap));
     res.javaSourceBody().append(")\n\t)");
 

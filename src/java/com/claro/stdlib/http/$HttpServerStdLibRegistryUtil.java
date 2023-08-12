@@ -15,7 +15,8 @@ import java.util.Optional;
 public class $HttpServerStdLibRegistryUtil {
 
   public static String getProcedureName() {
-    return "startServerAndAwaitShutdown";
+    // Massive hack only necessarily until `http` can be reimplemented as a proper claro_module_internal().
+    return "com.claro.runtime_utilities.http.$ClaroHttpServer.startServerAndAwaitShutdown";
   }
 
   public static Type getProcedureType() {

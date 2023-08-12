@@ -66,7 +66,7 @@ public class HttpServiceDefStmt extends Stmt {
 
                         GeneratedJavaSource res =
                             GeneratedJavaSource.forJavaSourceBody(
-                                new StringBuilder("$HttpUtil.executeAsyncHttpRequest($httpClient.")
+                                new StringBuilder("com.claro.runtime_utilities.http.$HttpUtil.executeAsyncHttpRequest($httpClient.")
                                     .append(endpointName).append("("));
                         if (!argNames.isEmpty()) {
                           argNames.subList(0, argNames.size() - 1).forEach(
@@ -240,7 +240,7 @@ public class HttpServiceDefStmt extends Stmt {
     this.endpoints.entrySet().forEach(
         e -> {
           finalRes.optionalStaticDefinitions().get()
-              .append("\t@GET(\"");
+              .append("\t@retrofit2.http.GET(\"");
           if (e.getValue() instanceof FormatStringExpr) {
             FormatStringExpr fmt = (FormatStringExpr) e.getValue();
             Streams.forEachPair(
@@ -260,14 +260,14 @@ public class HttpServiceDefStmt extends Stmt {
             finalRes.optionalStaticDefinitions().get().append(e);
           }
           finalRes.optionalStaticDefinitions().get()
-              .append("\")\n\tretrofit2.Call<ResponseBody> ")
+              .append("\")\n\tretrofit2.Call<okhttp3.ResponseBody> ")
               .append(e.getKey().identifier)
               .append("(");
           if (e.getValue() instanceof FormatStringExpr) {
             ImmutableList<Expr> fmtExprArgs = ((FormatStringExpr) e.getValue()).fmtExprArgs;
             fmtExprArgs.subList(0, fmtExprArgs.size() - 1).forEach(
                 pathArg -> finalRes.optionalStaticDefinitions().get()
-                    .append("@Path(\"")
+                    .append("@retrofit2.http.Path(\"")
                     .append(((IdentifierReferenceTerm) pathArg).identifier)
                     .append("\") ")
                     .append("String ")
@@ -275,7 +275,7 @@ public class HttpServiceDefStmt extends Stmt {
                     .append(", ")
             );
             finalRes.optionalStaticDefinitions().get()
-                .append("@Path(\"")
+                .append("@retrofit2.http.Path(\"")
                 .append(((IdentifierReferenceTerm) fmtExprArgs.get(fmtExprArgs.size() - 1)).identifier)
                 .append("\") ")
                 .append("String ")

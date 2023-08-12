@@ -1,4 +1,4 @@
 
 function getClient(url: string) -> HttpClient<BuggyBuggies> {
-  return getHttpClient(url);
+  return http::getHttpClient(url);
 }

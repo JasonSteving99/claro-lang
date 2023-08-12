@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 
 public class PrivilegedInlineJavaStmt extends Stmt {
@@ -16,24 +17,34 @@ public class PrivilegedInlineJavaStmt extends Stmt {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // Somehow this must've been allowed by the Parser, so the only thing that needs to happen here is just
     // synthetically mark *every* variable in the current scope as initialized/used.
-    scopedHeap.scopeStack.peek().scopedSymbolTable.keySet().forEach(
-        identifier -> {
-          scopedHeap.markIdentifierUsed(identifier);
-          scopedHeap.initializeIdentifier(identifier);
-        }
-    );
+    scopedHeap.scopeStack.peek().scopedSymbolTable.keySet().stream()
+        .filter(identifier ->
+                    // Workaround the return tracking.
+                    !InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+                    || !(identifier.startsWith("$") && identifier.endsWith("RETURNS")))
+        .forEach(
+            identifier -> {
+              scopedHeap.markIdentifierUsed(identifier);
+              scopedHeap.initializeIdentifier(identifier);
+            }
+        );
   }
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     // Somehow this must've been allowed by the Parser, so the only thing that needs to happen here is just
     // synthetically mark *every* variable in the current scope as initialized/used.
-    scopedHeap.scopeStack.peek().scopedSymbolTable.keySet().forEach(
-        identifier -> {
-          scopedHeap.markIdentifierUsed(identifier);
-          scopedHeap.initializeIdentifier(identifier);
-        }
-    );
+    scopedHeap.scopeStack.peek().scopedSymbolTable.keySet().stream()
+        .filter(identifier ->
+                    // Workaround the return tracking.
+                    !InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
+                    || !(identifier.startsWith("$") && identifier.endsWith("RETURNS")))
+        .forEach(
+            identifier -> {
+              scopedHeap.markIdentifierUsed(identifier);
+              scopedHeap.initializeIdentifier(identifier);
+            }
+        );
     return GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder("// BEGIN PRIVILEGED INLINE JAVA\n")
             .append(this.java)

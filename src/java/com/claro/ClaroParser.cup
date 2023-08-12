@@ -340,7 +340,7 @@ terminal LexedValue<String>  MODULE, BIND, TO, AS, USING;
 terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRAPH, ROOT, NODE, LEFT_ARROW, AT;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES;
 terminal LexedValue<String>  CAST;
-terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
+terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, HTTP_RESPONSE, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
 terminal LexedValue<String>  PRIVILEGED_INLINE_JAVA;
 
 // DEBUGGING keywords which should be removed when we want a real release....
@@ -1167,7 +1167,7 @@ base_builtin_type_without_mutability_modifier ::=
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol, // line number
+          type_nameright, // line number
           LexedValue.create(
             // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
             // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
@@ -1194,7 +1194,7 @@ base_builtin_type_without_mutability_modifier ::=
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol,
+          scoped_identifierright,
           LexedValue.create(
             // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
             // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
@@ -1225,7 +1225,7 @@ base_builtin_type_without_mutability_modifier ::=
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol, // line number
+          sright, // line number
           LexedValue.create(
             (TypeProvider) (scopedHeap) ->
               Types.StructType.forFieldTypes(
@@ -1239,6 +1239,18 @@ base_builtin_type_without_mutability_modifier ::=
             endCol - startCol)
        );
     :}
+  | HTTP_RESPONSE:h
+    {:
+       RESULT = new Symbol(
+          -1,
+          hleft,
+          hright, // line number
+          LexedValue.create(
+            TypeProvider.ImmediateTypeProvider.of(Types.HTTP_RESPONSE),
+            joinExprLines(new Line(h.getCurrentInputLine(), hright)),
+            h.getVal().length())
+       );
+    :}
   | HTTP_CLIENT:h L_ANGLE_BRACKET:la builtin_type:http_service R_ANGLE_BRACKET:ra
     {:
        LexedValue<TypeProvider> httpServiceLex = (LexedValue<TypeProvider>)http_service.value;
@@ -1250,7 +1262,7 @@ base_builtin_type_without_mutability_modifier ::=
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol, // line number
+          hright, // line number
           LexedValue.create(
             (TypeProvider) (scopedHeap) -> {
               // First things first, I need to actually do some type validation that this type has been correctly
@@ -1278,7 +1290,7 @@ base_builtin_type_without_mutability_modifier ::=
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol, // line number
+          fright, // line number
           LexedValue.create(
             (TypeProvider) (scopedHeap) -> {
               Type resolvedHttpServiceType = wrappedTypeProvider.getVal().resolveType(scopedHeap);

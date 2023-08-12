@@ -11,4 +11,5 @@ claro_binary(
         "EndpointHandlers": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:endpoint_handlers",
         "Utils": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:utils",
     },
+    optional_stdlib_deps = ["http"],
 )

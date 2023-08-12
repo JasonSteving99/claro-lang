@@ -590,13 +590,17 @@ public class ProgramNode {
           "      // Because Claro has native support for Graph Functions which execute concurrently/asynchronously,\n" +
           "      // we also need to make sure to shutdown the executor service at the end of the run to clean up.\n" +
           "      ClaroRuntimeUtilities.$shutdownAndAwaitTermination(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE);\n" +
-          "\n\n" +
-          "      // Because Claro has native support for Http Requests sent asynchronously on a threadpool, I\n" +
-          "      // need to also ensure that the OkHttp3 client is shutdown.\n" +
-          "      $HttpUtil.shutdownOkHttpClient();\n" +
+          "%s" +
           "    }\n" +
           "  }\n\n",
-          stmtListJavaSource.javaSourceBody()
+          stmtListJavaSource.javaSourceBody(),
+          // Only actually codegen cleanup code for the optional stdlib `http` Module, if it was actually used somewhere
+          // in this Claro program and we actually have runtime Java deps on the module's custom deps.
+          ScopedHeap.currProgramDepModules.containsRow("http")
+          ? "      // Because Claro has native support for Http Requests sent asynchronously on a threadpool, I\n" +
+            "      // need to also ensure that the OkHttp3 client is shutdown.\n" +
+            "      com.claro.runtime_utilities.http.$HttpUtil.shutdownOkHttpClient();\n"
+          : ""
       );
     }
     return new StringBuilder(
@@ -605,9 +609,6 @@ public class ProgramNode {
             "%s" +
             "\n" +
             "import static com.claro.stdlib.Exec.exec;\n" +
-            "import static com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForHtml;\n" +
-            "import static com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse.getOk200HttpResponseForJson;\n" +
-            "import static com.claro.runtime_utilities.http.$ClaroHttpServer.startServerAndAwaitShutdown;\n" +
             "import static com.claro.stdlib.userinput.UserInput.promptUserInput;\n" +
             "\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +
@@ -621,7 +622,6 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.builtins_impls.collections.*;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.atoms.$ClaroAtom;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;\n" +
-            "import com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
@@ -629,8 +629,6 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +
-            "import com.claro.runtime_utilities.http.$ClaroHttpServer;\n" +
-            "import com.claro.runtime_utilities.http.$HttpUtil;\n" +
             "import com.claro.runtime_utilities.injector.Injector;\n" +
             "import com.claro.runtime_utilities.injector.Key;\n" +
             "import com.claro.stdlib.userinput.UserInput;\n" +
@@ -647,9 +645,6 @@ public class ProgramNode {
             "import java.util.function.Function;\n" +
             "import java.util.function.Supplier;\n" +
             "import java.util.stream.Collectors;\n" +
-            "import okhttp3.ResponseBody;\n" +
-            "import retrofit2.http.GET;\n" +
-            "import retrofit2.http.Path;\n" +
             "\n\n" +
             "@SuppressWarnings(\"unchecked\")\n" +
             "public class %s {\n" +

@@ -57,9 +57,26 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     if (options.java_package.isEmpty() || options.srcs.isEmpty()) {
       System.err.println("Error: --java_package and [--src ...]+ are required args.");
+      System.exit(1);
     }
     if (options.classname.isEmpty() == options.unique_module_name.isEmpty()) {
       System.err.println("Error: Exactly one of --unique_module_name and --classname should be set.");
+      System.exit(1);
+    }
+    if (!options.classname.isEmpty() // this is a claro_binary() with a main method.
+        && options.optional_stdlib_modules_used_in_transitive_closure.contains("http")
+        && !options.optional_stdlib_deps.contains("http")) {
+      System.err.println("Error: The transitive closure of Modules depended on by this Claro Binary includes a dep on" +
+                         "the optional stdlib Module `http` which requires Claro to generate teardown logic in the " +
+                         "generated main method. In order for Claro to be able to do this, this compilation unit must " +
+                         "explicitly opt in to a dependency on `http` in order for the generated code's dependencies " +
+                         "to be present in the generated executable Jar.\n" +
+                         "\tUpdate the build target as follows:\n" +
+                         "\t\tclaro_binary(\n" +
+                         "\t\t\t...\n" +
+                         "\t\t\toptional_stdlib_deps = [\"http\"],\n" +
+                         "\t\t)");
+      System.exit(1);
     }
 
     this.SILENT = options.silent;

@@ -83,6 +83,29 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public List<String> stdlib_modules;
 
   @Option(
+      name = "optional_stdlib_dep",
+      help = "Optional Stdlib Modules that you would like to place a dep on in order to make use of in this current " +
+             "compilation unit. These modules are part of Claro's Stdlib, but are considered either too heavyweight, " +
+             "or too infrequently needed to be bundled into every Claro executable by default. The available " +
+             "optional stdlib modules are the following:",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> optional_stdlib_deps;
+
+  @Option(
+      name = "optional_stdlib_module_used_in_transitive_closure",
+      help =
+          "Optional Stdlib Modules that are used either directly by this compilation unit or in some module in the " +
+          "transitive closure of dep Modules. This will be used to handle any teardown that is needed in the main " +
+          "method for some of these stdlib Modules (e.g. `http` provides functionality that requires explicit " +
+          "shutdown to avoid Claro programs hanging).",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> optional_stdlib_modules_used_in_transitive_closure;
+
+  @Option(
       name = "output_file_path",
       help = "The path to the output file to put the generated Java.",
       defaultValue = ""

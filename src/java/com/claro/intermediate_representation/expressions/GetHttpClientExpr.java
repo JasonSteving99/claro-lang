@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.stdlib.StdLibModuleUtil;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -34,6 +35,8 @@ public class GetHttpClientExpr extends Expr {
     }
 
     super.assertExpectedExprType(scopedHeap, expectedExprType);
+
+    StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http", Optional.of(this));
   }
 
   @Override
@@ -54,7 +57,7 @@ public class GetHttpClientExpr extends Expr {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     return GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder()
-            .append("$HttpUtil.getServiceClientForBaseUrl(")
+            .append("com.claro.runtime_utilities.http.$HttpUtil.getServiceClientForBaseUrl(")
             .append(this.assertedHttpServiceName.get())
             .append(".class, ")
             .append(this.baseUrl.generateJavaSourceOutput(scopedHeap)

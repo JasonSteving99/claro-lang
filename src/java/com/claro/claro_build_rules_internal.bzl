@@ -17,18 +17,21 @@ CLARO_STDLIB_FILES = [
 CLARO_STDLIB_MODULES = {
     "std": "//src/java/com/claro/stdlib/claro:std",
 }
+# Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
+# enable Claro to build smaller executables in cases where certain lesser used parts of the stdlib are not actually
+# needed in a given Claro program.
+CLARO_OPTIONAL_STDLIB_MODULE_DEPS = {
+    "http": "//src/java/com/claro/stdlib/claro/http:http",
+}
 CLARO_BUILTIN_JAVA_DEPS = [
     "//:guava",
     "//:gson",
-    "//:okhttp",
-    "//:retrofit",
     "//src/java/com/claro/stdlib",
     "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
     "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
@@ -39,8 +42,6 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "//src/java/com/claro/intermediate_representation/types:types",
     "//src/java/com/claro/intermediate_representation/types:type_provider",
     "//src/java/com/claro/runtime_utilities",
-    "//src/java/com/claro/runtime_utilities/http",
-    "//src/java/com/claro/runtime_utilities/http:http_server",
     "//src/java/com/claro/runtime_utilities/injector",
     "//src/java/com/claro/runtime_utilities/injector:key",
     "//src/java/com/claro/stdlib/userinput",
@@ -52,6 +53,11 @@ ClaroModuleInfo = provider(
     fields={
         "info": "A struct containing metadata about this module",
         "deps_with_exports": "A depset representing transitive dep module dependencies.",
+        "optional_stdlib_modules_used_in_transitive_closure":
+            "A depset of all of the optional stdlib modules that have been used anywhere in this compilation unit's " +
+            "transitive closure of deps. This will be used to signal to the top-level claro_binary() whether or not " +
+            "extra teardown may be needed for some of these deps. E.g. Use of the `http` module would require main " +
+            "to call $HttpUtil.shutdownOkHttpClient() at the end of the program run to avoid the program hanging.",
     })
 
 def _invoke_claro_compiler_impl(ctx):
@@ -109,9 +115,24 @@ def _invoke_claro_compiler_impl(ctx):
     for module_dep_label, concatenated_module_dep_names in ctx.attr.deps.items():
         add_arg_for_dep_label_and_names(module_dep_label, concatenated_module_dep_names)
 
+    # Add all optional stdlib modules that the user explicitly placed a dep on. This will enable the user to explicitly
+    # opt-in to parts of the stdlib that are only optionally bundled into your executable.
+    for optional_stdlib_module_name in ctx.attr.optional_stdlib_deps:
+        args.add("--optional_stdlib_dep", optional_stdlib_module_name)
+
     for export in ctx.attr.exports:
         args.add("--export", export)
     args.add("--output_file_path", ctx.outputs.compiler_out)
+
+    # Make sure to signal to the binary which (if any) optional stdlib modules have been used, because some (e.g. `http`)
+    # may actually require some teardown in the main method.
+    optional_stdlib_modules_used_in_transitive_closure = depset(
+        direct = [opt_stdlib_module for opt_stdlib_module in ctx.attr.optional_stdlib_deps],
+        transitive = [dep[ClaroModuleInfo].optional_stdlib_modules_used_in_transitive_closure for dep in ctx.attr.deps],
+    )
+    if not is_module:
+        for used_optional_stdlib_module in optional_stdlib_modules_used_in_transitive_closure.to_list():
+            args.add("--optional_stdlib_module_used_in_transitive_closure", used_optional_stdlib_module)
 
     ctx.actions.run(
         inputs = depset(
@@ -163,6 +184,7 @@ def _invoke_claro_compiler_impl(ctx):
                     direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps if len(dep[ClaroModuleInfo].info.exports) > 0],
                     transitive = [dep[ClaroModuleInfo].deps_with_exports for dep in ctx.attr.deps]
                 ),
+                optional_stdlib_modules_used_in_transitive_closure = optional_stdlib_modules_used_in_transitive_closure,
             )
         ]
     else:
@@ -171,13 +193,20 @@ def _invoke_claro_compiler_impl(ctx):
         ]
 
 
-def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
+def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [], debug = False):
     main_file_name = main_file[:len(main_file) - len(".claro")]
+
+    # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
+    deps = dict(**deps) # Make a copy of the frozen deps dict.
+    for optional_stdlib_dep in optional_stdlib_deps:
+        deps[optional_stdlib_dep] = CLARO_OPTIONAL_STDLIB_MODULE_DEPS[optional_stdlib_dep]
+
     _invoke_claro_compiler(
         name = "{0}_bin".format(name),
         main_file = main_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
+        optional_stdlib_deps = optional_stdlib_deps,
         compiler_out = "{0}.java".format(main_file_name),
         debug = debug,
     )
@@ -194,14 +223,14 @@ def claro_binary(name, main_file, srcs = [], deps = {}, debug = False):
             ["{0}_compiled_claro_module_java_lib".format(Label(stdlib_mod)) for stdlib_mod in CLARO_STDLIB_MODULES.values()],
     )
 
-def claro_module(name, module_api_file, srcs, deps = {}, exports = [], debug = False, **kwargs):
-    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, debug, **kwargs)
+def claro_module(name, module_api_file, srcs, deps = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
 
-def claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], debug = False, **kwargs):
+def claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
-        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, debug, add_stdlib_deps = False, **kwargs)
+        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
 
-def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, exports = [], debug = False, add_stdlib_deps = True, **kwargs):
+def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], optional_stdlib_deps = [], debug = False, add_stdlib_deps = True, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
     # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
@@ -214,12 +243,18 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
             "\n\t- ".join(invalid_exports),
         ))
 
+    # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
+    deps = dict(**deps) # Make a copy of the frozen deps dict.
+    for optional_stdlib_dep in optional_stdlib_deps:
+        deps[optional_stdlib_dep] = CLARO_OPTIONAL_STDLIB_MODULE_DEPS[optional_stdlib_dep]
+
     invoke_claro_compiler_rule(
         name = name,
         module_api_file = module_api_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
         exports = exports,
+        optional_stdlib_deps = optional_stdlib_deps,
         unique_module_name = unique_module_name,
         compiler_out = "{0}.claro_module".format(name),
         module_static_java_out = "{0}.java".format(unique_module_name),
@@ -234,8 +269,11 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
             # dep more than once for different dep module impls in a claro_* rule.
             {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
             # Add the Stdlib Modules compiled java libs as default deps.
-            (["{0}_compiled_claro_module_java_lib".format(stdlib_mod) for stdlib_mod in CLARO_STDLIB_MODULES.values()] if add_stdlib_deps else []),
-        exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports],
+            (["{0}_compiled_claro_module_java_lib".format(stdlib_mod) for stdlib_mod in CLARO_STDLIB_MODULES.values()] if add_stdlib_deps else []) +
+            # Add any custom Java deps that an internal optional stdlib module might need to add.
+            exported_custom_java_deps,
+        exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports] + \
+                  exported_custom_java_deps,
         **{k:v for k,v in kwargs.items() if k != "stdlib_srcs"} # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
     )
 
@@ -271,6 +309,14 @@ INVOKE_CLARO_COMPILER_ATTRS = {
     "exports": attr.string_list(
         doc = "Exported transitive dep modules. Modules are listed here in order to ensure that consumers of this " +
               "module actually have access to the definitions of types defined in this module's deps."
+    ),
+    "optional_stdlib_deps": attr.string_list(
+        doc = "Optional Stdlib Modules that you would like to place a dep on in order to make use of in this current " +
+              "compilation unit. These modules are part of Claro's Stdlib, but are considered either too heavyweight, "+
+              "or too infrequently needed to be bundled into every Claro executable by default. The available " +
+              "optional stdlib modules are the following:\n" +
+              '\n\t- '.join(CLARO_OPTIONAL_STDLIB_MODULE_DEPS.keys()),
+        default = [],
     ),
     "debug": attr.bool(default = False),
 
@@ -318,6 +364,7 @@ _invoke_claro_compiler = rule(
 
 # Override the defaults for internal claro_modules so that we avoid circular deps when compiling the stdlib modules.
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS = INVOKE_CLARO_COMPILER_ATTRS
+INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["srcs"] = attr.label_list(allow_files = [".claro", ".claro_internal"])
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_srcs"] = attr.label_list(default = [], allow_files = [".claro_internal"])
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_module_deps"] = attr.label_keyed_string_dict(default = {}, providers = [ClaroModuleInfo])
 _invoke_claro_compiler_internal = rule(
@@ -404,6 +451,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/intermediate_representation/types:types",
             "//src/java/com/claro/runtime_utilities/injector:injected_key",
             "//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
+            "//src/java/com/claro/stdlib:module_util",
             "//:apache_commons_text",
             "//:guava",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient

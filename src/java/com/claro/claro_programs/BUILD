@@ -73,6 +73,7 @@ claro_binary(
 claro_binary(
     name = "http_requests",
     main_file = "http_requests.claro",
+    optional_stdlib_deps = ["http"],
 )
 
 claro_binary(

@@ -178,6 +178,7 @@ WhiteSpace     = [ \t\f]
      "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }
      "HttpClient"      { return symbol(Tokens.HTTP_CLIENT, 0, 10, "HttpClient"); }
      "HttpServer"      { return symbol(Tokens.HTTP_SERVER, 0, 10, "HttpServer"); }
+     "HttpResponse"      { return symbol(Tokens.HTTP_RESPONSE, 0, 12, "HttpResponse"); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.

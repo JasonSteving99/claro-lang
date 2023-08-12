@@ -454,6 +454,17 @@ public class ClaroTypeException extends Exception {
       ".claro_module_api file declaring this Modules public interface.\n" +
       "\tDrop the following Modules from the Module's exports list:\n" +
       "\t\t%s";
+  private static final String USING_OPTIONAL_STDLIB_DEP_MODULE_WITHOUT_EXPLICIT_BUILD_DEP =
+      "Missing Dependency on Referenced Optional Stdlib Module: In order for Claro to minimize executable size of " +
+      "programs that do not actually use the entire stdlib, explicit deps on optional stdlib modules are required " +
+      "to be placed on modules that do actually utilize them.\n" +
+      "\tEither drop all references to this optional stdlib module, or update your module build target as follows:\n" +
+      "\t\tclaro_module(\n" +
+      "\t\t\t...\n" +
+      "\t\t\toptional_stdlib_deps = [\n" +
+      "\t\t\t\t\"%s\"\n" +
+      "\t\t\t],\n" +
+      "\t\t)";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1626,6 +1637,15 @@ public class ClaroTypeException extends Exception {
         String.format(
             MODULE_UNNECESSARILY_EXPORTS_DEP_MODULES_THAT_ARE_NOT_REFERENCED_IN_MODULE_API,
             Joiner.on("\n\t\t- ").join(unnecessarilyExportedDeps)
+        )
+    );
+  }
+
+  public static ClaroTypeException forUsingOptionalStdlibDepModuleWithoutExplicitBuildDep(String optionalStdlibDepModuleName) {
+    return new ClaroTypeException(
+        String.format(
+            USING_OPTIONAL_STDLIB_DEP_MODULE_WITHOUT_EXPLICIT_BUILD_DEP,
+            optionalStdlibDepModuleName
         )
     );
   }

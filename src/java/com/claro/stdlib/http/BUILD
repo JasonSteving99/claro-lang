@@ -24,6 +24,5 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-        "//src/java/com/claro/runtime_utilities/http:http_server",
     ],
 )

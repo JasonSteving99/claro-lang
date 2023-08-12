@@ -3,7 +3,7 @@ HttpService BuggyBuggies {
   friendsJoin: "/api/game/{gameId}/join/{handle}",
   move: "/api/game/{gameId}/player/{secret}/move/{direction}"
 }
-var buggyBuggiesClient: HttpClient<BuggyBuggies> = getHttpClient("https://buggy-buggies.gigalixirapp.com");
+var buggyBuggiesClient: HttpClient<BuggyBuggies> = http::getHttpClient("https://buggy-buggies.gigalixirapp.com");
 
 alias HostJoinGameResponse : struct {
   reason: oneof<string, std::Nothing>,

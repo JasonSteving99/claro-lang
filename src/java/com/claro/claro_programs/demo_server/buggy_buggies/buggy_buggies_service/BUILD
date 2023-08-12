@@ -8,6 +8,7 @@ claro_module(
         "buggy_buggies_client.claro",
         "buggy_buggies_move_response.claro",
     ],
+    optional_stdlib_deps = ["http"],
     visibility = [
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies:__pkg__",
         "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/endpoint_handlers:__pkg__",

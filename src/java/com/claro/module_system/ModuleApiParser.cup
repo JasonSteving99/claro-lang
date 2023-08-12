@@ -174,7 +174,7 @@ terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS;
-terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER;
+terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER, HTTP_RESPONSE;
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
 
 // Declare which type will be returned by each nonterminal grammar production.
@@ -768,6 +768,18 @@ base_builtin_type_without_mutability_modifier ::=
               ),
             currentLinesSupplier,
             endCol - startCol)
+       );
+    :}
+  | HTTP_RESPONSE:h
+    {:
+       RESULT = new Symbol(
+          -1,
+          hleft,
+          hright, // line number
+          LexedValue.create(
+            TypeProvider.ImmediateTypeProvider.of(Types.HTTP_RESPONSE),
+            joinExprLines(new Line(h.getCurrentInputLine(), hright)),
+            h.getVal().length())
        );
     :}
   | HTTP_CLIENT:h L_ANGLE_BRACKET:la builtin_type:http_service R_ANGLE_BRACKET:ra
