@@ -1,0 +1,28 @@
+HttpService DepModuleCoordinatorService {
+  # This endpoint must be immediately called once the listening port is determined by any dep module monomorphization
+  # subprocess. This should be done immediately so that no matter what, the coordinator may gracefully trigger shutdown
+  # if possible. I'd much prefer depending on graceful shutdown paths than the fault-tolerance paths.
+  registerDepModuleSubprocessPort: "/register/{unique_module_name}/{port}",
+
+  # This endpoint indicates that the dep module monomorphization subprocess has completed any compilation preprocessing
+  # necessary before it would be able to handle any monomorphization reqs. In order to communicate to the subprocess
+  # that it should keepalive, this req will not be responded to until *after* the coordinator is completely *done* with
+  # the dep module subprocess indicating that the subprocess should terminate. As such, dep module subprocess should
+  # block on this request, whether the response is success or failure due to the coordinator process being killed by the
+  # OS w/o being able to do a graceful shutdown, the subprocess will take the request completing as signal to terminate
+  # to avoid orphaning.
+  markDepModuleSubprocessReady: "/ready/{unique_module_name}"
+}
+
+function getDepModuleCoordinatorClient(port: int) -> HttpClient<DepModuleCoordinatorService>;
+
+function sendMessageToCoordinator_registerDepModulePortWithCoordinator(
+  client: HttpClient<DepModuleCoordinatorService>, uniqueModuleName: string, port: string) -> future<string>;
+
+function sendMessageToCoordinator_markDepModuleSubprocessReady(
+    client: HttpClient<DepModuleCoordinatorService>, uniqueModuleName: string) -> future<string>;
+
+provider getDepModuleCoordinatorServerForFreePort() -> HttpServer<DepModuleCoordinatorService>;
+
+consumer startCoordinatorServerAndAwaitShutdown(server: HttpServer<DepModuleCoordinatorService>, startMessage: string);
+

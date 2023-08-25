@@ -1,0 +1,9 @@
+HttpService DepModuleMonomorphizationService {
+  triggerMonomorphization: "/monomorphization/{monomorphizationReq}/"
+}
+
+provider getDepModuleMonomorphizationServerForFreePort() -> HttpServer<DepModuleMonomorphizationService>;
+
+consumer startMonomorphizationServerAndAwaitShutdown(server: HttpServer<DepModuleMonomorphizationService>, startMessage: string);
+
+function sendMessageToSubprocess_TriggerMonomorphization(client: HttpClient<DepModuleMonomorphizationService>, monomorphizationReq: string) -> future<string>;

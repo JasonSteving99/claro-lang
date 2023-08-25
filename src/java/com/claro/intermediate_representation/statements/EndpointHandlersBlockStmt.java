@@ -28,6 +28,14 @@ public class EndpointHandlersBlockStmt extends Stmt {
       endpointImpl.procedureName = endpointImpl.procedureName + "$EndpointHandler";
       endpointImpl.registerProcedureTypeProvider(scopedHeap);
     }
+
+    // Make note of this endpoint_handlers block. Don't wait until validating the procedures.
+    InternalStaticStateUtil.HttpServiceDef_servicesWithValidEndpointHandlersDefined.add(
+        String.format(
+            "%s$%s",
+            this.serviceName.identifier,
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+        ));
   }
 
   @Override
@@ -68,14 +76,6 @@ public class EndpointHandlersBlockStmt extends Stmt {
           invalidEndpointSignatures
       );
     }
-
-    // Make note of this endpoint_handlers block being successfully validated.
-    InternalStaticStateUtil.HttpServiceDef_servicesWithValidEndpointHandlersDefined.add(
-        String.format(
-            "%s$%s",
-            this.serviceName.identifier,
-            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
-        ));
   }
 
   @Override

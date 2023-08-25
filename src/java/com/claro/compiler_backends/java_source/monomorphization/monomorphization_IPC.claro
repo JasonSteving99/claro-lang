@@ -1,0 +1,35 @@
+
+endpoint_handlers DepModuleMonomorphizationService {
+  graph function triggerMonomorphization(monomorphizationReq: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedResp);
+    node formattedResp <- "Here's the monomorphization codegen for your req: {monomorphizationReq}";
+  }
+}
+
+provider getDepModuleMonomorphizationServerForFreePort() -> HttpServer<DepModuleMonomorphizationService> {
+  return http::getBasicHttpServerForPort(0);
+}
+
+consumer startMonomorphizationServerAndAwaitShutdown(server: HttpServer<DepModuleMonomorphizationService>, startMessage: string) {
+  print(startMessage);
+  http::startServerAndAwaitShutdown(server);
+}
+
+function getDepModuleMonomorphizationClient(port: int) -> HttpClient<DepModuleMonomorphizationService> {
+  return http::getHttpClient("http://localhost:{port}");
+}
+
+graph function sendMessageToSubprocess_TriggerMonomorphization(client: HttpClient<DepModuleMonomorphizationService>, monomorphizationReq: string) -> future<string> {
+  root parsed <- handleResponse(@response);
+  node response <- triggerMonomorphization(client, monomorphizationReq);
+}
+
+function handleResponse(response: oneof<string, std::Error<string>>) -> string {
+  var res: string;
+  match (response) {
+    case _:string -> res = response;
+    case err:std::Error<string> -> res = unwrap(err);
+  }
+  _ = response;
+  return res;
+}

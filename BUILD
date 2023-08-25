@@ -57,6 +57,11 @@ alias(
     actual = "@maven//:io_activej_activej_promise"
 )
 
+alias(
+    name = "slf4j_nop",
+    actual = "@maven//:org_slf4j_slf4j_nop"
+)
+
 exports_files(["CLARO_VERSION.txt"])
 
 ################################################################################

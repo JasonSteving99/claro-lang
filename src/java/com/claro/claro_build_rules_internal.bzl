@@ -4,7 +4,10 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 # The entire intention of this .bzl file is to restrict external usage of Claro's internal build rule setup.
 # Users should be unable to access certain config settings and should be required to come through the "front
 # door" of the public claro_module() and claro_binary() rules.
-visibility(["//src/java/com/claro/stdlib/claro/..."])
+visibility([
+    "//src/java/com/claro/stdlib/claro/...",
+    "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
+])
 
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
@@ -26,6 +29,9 @@ CLARO_OPTIONAL_STDLIB_MODULE_DEPS = {
 CLARO_BUILTIN_JAVA_DEPS = [
     "//:guava",
     "//:gson",
+    # This addresses unwanted missing StaticLoggerBinder warning logs from SLF4J. This shouldn't be necessary anymore
+    # once Claro has proper logging support. See: https://www.slf4j.org/codes.html#StaticLoggerBinder
+    "//:slf4j_nop",
     "//src/java/com/claro/stdlib",
     "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
     "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",

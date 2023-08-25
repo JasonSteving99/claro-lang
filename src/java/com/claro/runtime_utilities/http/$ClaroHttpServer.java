@@ -15,6 +15,7 @@ import io.activej.http.*;
 import io.activej.promise.SettablePromise;
 
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -80,7 +81,13 @@ public class $ClaroHttpServer extends $ClaroLauncher {
   }
 
   public static InetSocketAddress getInetSocketAddressForPort(int port) {
-    return new InetSocketAddress(port);
+    // This more complex approach to instantiating an InetSocketAddress first goes through ServerSocket so that if the
+    // user chooses port 0 then ServerSocket will actually find and claim any available port automatically.
+    try (ServerSocket ss = new ServerSocket(port)) {
+      return new InetSocketAddress(ss.getInetAddress(), ss.getLocalPort());
+    } catch (Exception e) {
+      throw new ClaroFuture.Panic(e);
+    }
   }
 }
 

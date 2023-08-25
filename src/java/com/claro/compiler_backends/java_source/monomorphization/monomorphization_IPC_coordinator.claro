@@ -1,0 +1,48 @@
+
+endpoint_handlers DepModuleCoordinatorService {
+  graph function registerDepModuleSubprocessPort(uniqueModuleName: string, port: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedResp);
+    node formattedResp <- MonomorphizationHackUtils::registerDepModuleSubprocessPort(uniqueModuleName, port);
+  }
+
+  graph function markDepModuleSubprocessReady(uniqueModuleName: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedResp);
+    node formattedResp <- MonomorphizationHackUtils::markDepModuleSubprocessReady(uniqueModuleName);
+  }
+}
+
+function getDepModuleCoordinatorClient(port: int) -> HttpClient<DepModuleCoordinatorService> {
+  return http::getHttpClient("http://localhost:{port}");
+}
+
+graph function sendMessageToCoordinator_registerDepModulePortWithCoordinator(
+    client: HttpClient<DepModuleCoordinatorService>, uniqueModuleName: string, port: string) -> future<string> {
+  root parsed <- handleResponse(@response);
+  node response <- registerDepModuleSubprocessPort(client, uniqueModuleName, port);
+}
+
+graph function sendMessageToCoordinator_markDepModuleSubprocessReady(
+    client: HttpClient<DepModuleCoordinatorService>, uniqueModuleName: string) -> future<string> {
+  root parsed <- handleResponse(@response);
+  node response <- markDepModuleSubprocessReady(client, uniqueModuleName);
+}
+
+function handleResponse(response: oneof<string, std::Error<string>>) -> string {
+  var res: string;
+  match (response) {
+    case _:string -> res = response;
+    case err:std::Error<string> -> res = unwrap(err);
+  }
+  _ = response;
+  return res;
+}
+
+provider getDepModuleCoordinatorServerForFreePort() -> HttpServer<DepModuleCoordinatorService> {
+  return http::getBasicHttpServerForPort(0);
+}
+
+consumer startCoordinatorServerAndAwaitShutdown(server: HttpServer<DepModuleCoordinatorService>, startMessage: string) {
+  print(startMessage);
+  http::startServerAndAwaitShutdown(server);
+}
+

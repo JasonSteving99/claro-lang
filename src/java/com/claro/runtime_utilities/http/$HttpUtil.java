@@ -17,6 +17,7 @@ import retrofit2.Retrofit;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class $HttpUtil {
 
@@ -25,7 +26,11 @@ public class $HttpUtil {
 
   private static OkHttpClient getOkHttpClient() {
     if ($HttpUtil.OKHTTP_CLIENT == null) {
-      $HttpUtil.OKHTTP_CLIENT = new OkHttpClient.Builder().build();
+      $HttpUtil.OKHTTP_CLIENT = new OkHttpClient.Builder()
+          // TODO(steving) I want to update this to actually allow a user configured timeout and default to 10 OkHttp's
+          //  defualt 10sec read timeout. But for now, hardcoding 0 for NO timeout whatsoever.
+          .readTimeout(0, TimeUnit.SECONDS)
+          .build();
     }
     return $HttpUtil.OKHTTP_CLIENT;
   }
@@ -80,7 +85,7 @@ public class $HttpUtil {
                 Types.STRING,
                 Types.UserDefinedType.forTypeNameAndParameterizedTypes(
                     "Error",
-                    /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                    StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                     ImmutableList.of(Types.STRING)
                 )
             )),
@@ -89,6 +94,6 @@ public class $HttpUtil {
   }
 
   private static <T> $UserDefinedType<T> getSimpleErrorType(Type wrappedType, T wrappedValue) {
-    return new $UserDefinedType<>("Error", /*definingModuleDisambiguator=*/"", ImmutableList.of(wrappedType), wrappedType, wrappedValue);
+    return new $UserDefinedType<>("Error", StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR, ImmutableList.of(wrappedType), wrappedType, wrappedValue);
   }
 }

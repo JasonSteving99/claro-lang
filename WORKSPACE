@@ -56,7 +56,6 @@ maven_install(
             "com.googlecode.lanterna:lanterna:3.1.1",
             "io.javalin:javalin:4.1.1",
             "org.apache.commons:commons-text:jar:1.1",
-            "org.slf4j:slf4j-simple:1.7.31",
             "com.squareup.okhttp3:okhttp:4.11.0",
             # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.
             # The maintainers responded to this calling it something they explicitly won't fix since it's just a warning
@@ -76,6 +75,10 @@ maven_install(
             ############################################################################################################
             # END ACTIVE J
             ############################################################################################################
+
+            # This addresses unwanted missing StaticLoggerBinder warning logs from SLF4J. This shouldn't be necessary
+            # anymore once Claro has proper logging support. See: https://www.slf4j.org/codes.html#StaticLoggerBinder
+            "org.slf4j:slf4j-nop:2.0.7",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [
