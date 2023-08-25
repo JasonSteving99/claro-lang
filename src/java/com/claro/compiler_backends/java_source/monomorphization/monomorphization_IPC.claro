@@ -2,7 +2,8 @@
 endpoint_handlers DepModuleMonomorphizationService {
   graph function triggerMonomorphization(monomorphizationReq: string) -> future<HttpResponse> {
     root res <- http::getOk200HttpResponseForJson(@formattedResp);
-    node formattedResp <- "Here's the monomorphization codegen for your req: {monomorphizationReq}";
+    node formattedResp <- MonomorphizationHackUtils::handleMonomorphizationRequest(monomorphizationReq);
+    #"Here's the monomorphization codegen for your req: {monomorphizationReq}";
   }
 }
 

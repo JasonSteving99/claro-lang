@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package claro.compiler_backends.java_source.monomorphization.ipc_protos;
+
+import "src/java/com/claro/module_system/module_serialization/proto/claro_types/ClaroTypes.proto";
+
+option java_multiple_files = false;
+option java_outer_classname = "IPCMessages";
+option java_package = "com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos";
+
+message MonomorphizationRequest {
+  string procedure_name = 1;
+  repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+}
