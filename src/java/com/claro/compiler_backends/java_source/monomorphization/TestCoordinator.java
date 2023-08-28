@@ -1,5 +1,6 @@
 package com.claro.compiler_backends.java_source.monomorphization;
 
+import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages.MonomorphizationRequest;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
@@ -12,6 +13,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -31,8 +33,7 @@ public class TestCoordinator {
   private static $ClaroHttpServer coordinatorServer = null;
   // This cache enables us to ensure that we don't make IPC calls for monomorphizations that have already been retrieved.
   private static final HashBasedTable<String, MonomorphizationRequest, String>
-      monomorphizationsByModuleAndRequestCache =
-      HashBasedTable.create();
+      monomorphizationsByModuleAndRequestCache = HashBasedTable.create();
 
   public static void main(String[] args) {
     Scanner sc = new Scanner(System.in);
@@ -69,7 +70,7 @@ public class TestCoordinator {
         monomorphizationsCodegen.append("private class ").append(module).append(" {\n");
         for (Map.Entry<MonomorphizationRequest, String> entry : monomorphizationsByModuleAndRequestCache.row(module)
             .entrySet()) {
-          monomorphizationsCodegen.append("\t/* Monomorphization for:\n")
+          monomorphizationsCodegen.append("\t/* Monomorphization for:\n\t")
               .append(entry.getKey().toString().replaceAll("\n", ""))
               .append("\n\t*/\n");
           monomorphizationsCodegen.append("\t").append(entry.getValue()).append("\n");
@@ -138,7 +139,17 @@ public class TestCoordinator {
     }).start();
   }
 
-  private static String getDepModuleMonomorphization(String module, MonomorphizationRequest depModuleMonomorphizationReq) {
+  // TODO(steving) In the future, assuming this "simple" implementation works, I should actually be able to potentially
+  //   optimize this process via some parallelization via some clever scheme to immediately trigger monomorphization the
+  //   second it's recognized during type checking. This would give the subprocesses a head start of starting up earlier
+  //   than they do in the current approach where they don't startup until codegen. And since they don't necessarily
+  //   depend on each other, they could actually be running in parallel rather than a single subprocess actively
+  //   processing MonomorphizationRequests at any given time. This could potentially help to alleviate some of the
+  //   overhead of Dep Module Monomorphization, so I should circle back to this when I get a chance. (Impl note: I think
+  //   it'd center around a Caffeine loading cache w/ infinite timeout so that multiple threads could be updating
+  //   essentially a central work registry safely; triggering monomorphization would just be calling get() on the cache).
+  private static String /*TODO(steving) Should just return void, there's no point to this returning a value early*/
+  getDepModuleMonomorphization(String module, MonomorphizationRequest depModuleMonomorphizationReq) {
     // See if the IPC req can be skipped in the case that this monomorphization has already been retrieved previously.
     {
       String cachedRes;
@@ -149,19 +160,42 @@ public class TestCoordinator {
     }
     try {
       // Make a blocking IPC call to the dep module monomorphization subprocess.
-      String monomorphizationRes = Futures.transform(
-          getDepModuleMonomorphizationSubprocessClient(module),
-          depModuleMonomorphizationService -> sendMessageToSubprocess_TriggerMonomorphization.apply(
-              depModuleMonomorphizationService,
-              BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
-          ).get(),
-          MoreExecutors.directExecutor()
-      ).get();
-      // Cache the result so that we can avoid duplicate calls in the future.
-      monomorphizationsByModuleAndRequestCache.put(module, depModuleMonomorphizationReq, monomorphizationRes);
-      return monomorphizationRes;
+      IPCMessages.MonomorphizationResponse monomorphizationRes =
+          IPCMessages.MonomorphizationResponse.parseFrom(
+              BaseEncoding.base64().decode(
+                  Futures.transform(
+                      getDepModuleMonomorphizationSubprocessClient(module),
+                      depModuleMonomorphizationService -> sendMessageToSubprocess_TriggerMonomorphization.apply(
+                          depModuleMonomorphizationService,
+                          BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
+                      ).get(),
+                      MoreExecutors.directExecutor()
+                  ).get()));
+      String directlyRequestedMonomorphizationCodegen = null;
+      // Store all local monomorphizations returned by the dep module subprocess, they'll need to be included in the
+      // module's codegen.
+      for (IPCMessages.MonomorphizationResponse.Monomorphization monomorphization : monomorphizationRes.getLocalModuleMonomorphizationsList()) {
+        if (monomorphization.getMonomorphizationRequest().equals(depModuleMonomorphizationReq)) {
+          directlyRequestedMonomorphizationCodegen = monomorphization.getMonomorphizationCodegen();
+        }
+        // Cache the result so that we can avoid duplicate calls in the future.
+        monomorphizationsByModuleAndRequestCache.put(
+            module, monomorphization.getMonomorphizationRequest(), monomorphization.getMonomorphizationCodegen());
+      }
+      // Handle any transitive dep module monomorphizations that were requested by the dep module subprocess.
+      for (Map.Entry<String, MonomorphizationRequest> transitiveDepModuleMonomorphizationReq :
+          monomorphizationRes.getTransitiveDepModuleMonomorphizationRequestsMap().entrySet()) {
+        // I want to have the current module's compilation process move in as much of a straight line as possible, so
+        // for now, I'm going to immediately request the monomorphization from this transitive dep module.
+        getDepModuleMonomorphization(
+            transitiveDepModuleMonomorphizationReq.getKey(), transitiveDepModuleMonomorphizationReq.getValue());
+      }
+
+      return directlyRequestedMonomorphizationCodegen;
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException("Internal Compiler Error! Failed to get dep module monomorphization from subprocess.", e);
+    } catch (InvalidProtocolBufferException e) {
+      throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationResponse proto.", e);
     }
   }
 

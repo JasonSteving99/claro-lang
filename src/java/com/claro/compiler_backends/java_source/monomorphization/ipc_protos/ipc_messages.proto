@@ -12,3 +12,20 @@ message MonomorphizationRequest {
   string procedure_name = 1;
   repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
 }
+
+message MonomorphizationResponse {
+  message Monomorphization {
+    MonomorphizationRequest monomorphization_request = 1;
+    string monomorphization_codegen = 2;
+  }
+  // The actual codegen'd Java-source strings for the requested monomorphization as well as any other local, generic
+  // procedure monomorphizations that were triggered by monomorphization of the requested procedure (this can happen
+  // when a generic procedure calls another generic procedure ad infinitum).
+  repeated Monomorphization local_module_monomorphizations = 1;
+
+  // A map of requested monomorphizations from transitive dep modules that the coordinator will need to trigger codegen
+  // for. The assumption here is that the codegen in the local_module_monomorphizations field implicitly depends on the
+  // monomorphizations represented in this field, so the coordinator must trigger that transitive dep module
+  // monomorphization or else the local_module_monomorphization codegen would be invalid.
+  map<string, MonomorphizationRequest> transitive_dep_module_monomorphization_requests = 2;
+}
