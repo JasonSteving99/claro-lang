@@ -92,3 +92,40 @@ java_library(
 # END: Setup AutoValue.
 ################################################################################
 
+
+################################################################################
+# BEGIN: Setup Bootstrapping Claro Compiler.
+################################################################################
+java_binary(
+    name = "bootstrapping_claro_compiler_binary",
+    main_class = "com.claro.ClaroCompilerMain",
+    srcs = [":_dummy"], # java_binary() requires some source file, so giving a dummy file.
+    deps = [":bootstrapping_claro_compiler_import"],
+)
+genrule(
+    name = "_dummy",
+    outs = ["dummy.java"],
+    cmd = "echo 'public class dummy {}' > $(OUTS)",
+)
+java_import(
+    name = "bootstrapping_claro_compiler_import",
+    jars = [":bootstrapping_claro_compiler.jar"],
+)
+java_import(
+    name = "bootstrapping_claro_builtin_java_deps_import",
+    jars = [":bootstrapping_claro_builtin_java_deps_deploy.jar"],
+)
+genrule(
+    name = "bootstrapping_claro_compiler",
+    srcs = ["@bootstrapping_claro_compiler_tarfile//file"],
+    outs = [
+        "bootstrapping_claro_compiler.jar",
+        "bootstrapping_claro_builtin_java_deps_deploy.jar",
+    ],
+    cmd = "tar -xpf $(location @bootstrapping_claro_compiler_tarfile//file) " +
+          "&& cat claro_compiler_binary_deploy.jar > $(location bootstrapping_claro_compiler.jar)" +
+          "&& cat claro_builtin_java_deps_deploy.jar > $(location bootstrapping_claro_builtin_java_deps_deploy.jar)",
+)
+################################################################################
+# END: Setup Bootstrapping Claro Compiler.
+################################################################################

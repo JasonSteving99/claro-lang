@@ -1,6 +1,6 @@
 workspace(name = "claro-lang")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 RULES_JVM_EXTERNAL_TAG = "3.3"
 RULES_JVM_EXTERNAL_SHA = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
@@ -39,6 +39,13 @@ http_archive(
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 rules_proto_dependencies()
 rules_proto_toolchains()
+
+# Claro's going to utilize some
+http_file(
+    name = "bootstrapping_claro_compiler_tarfile",
+    sha256 = "8139d945d16f91e4e2fe586887f31bb5746c5f15861ff3f99d959e9e292c03c8",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.207/claro-cli-install.tar.gz",
+)
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
 # https://github.com/bazelbuild/rules_jvm_external

@@ -1,6 +1,7 @@
 package com.claro.internal_static_state;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.google.common.collect.*;
@@ -79,6 +80,11 @@ public class InternalStaticStateUtil {
   public static String ComprehensionExpr_nestedComprehensionMappedItemName;
   public static HashSet<String> ComprehensionExpr_nestedComprehensionIdentifierReferences = new HashSet<>();
   public static boolean LoopingConstructs_withinLoopingConstructBody = false;
+  // Throughout compilation I'll collect a list of all dep module monomorphizations for which codegen will be needed
+  // from dep modules.
+  public static HashMultimap<String, IPCMessages.MonomorphizationRequest>
+      JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded =
+      HashMultimap.create();
 
   // This function allows IdentifierReferenceterm to add any referenced vars so that the codegen for the outermost
   // collection can create a class that collects the referenced variables in order to workaround Java's effectively

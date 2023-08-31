@@ -12,12 +12,9 @@ java_library(
     srcs = glob(["*.java"], exclude = ["StdLibModuleRegistry.java"]),
     deps = [
         "//:guava",
-        "//src/java/com/claro:claro_java_parser",
         "//src/java/com/claro:claro_parser_exception",
-        "//src/java/com/claro/compiler_backends:parser_util",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
-        "//src/java/com/claro/intermediate_representation:program_node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",

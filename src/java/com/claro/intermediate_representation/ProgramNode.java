@@ -1,6 +1,8 @@
 package com.claro.intermediate_representation;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.compiler_backends.java_source.monomorphization.MonomorphizationCoordinator;
+import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.procedures.functions.StructuralConcreteGenericTypeValidationUtil;
 import com.claro.intermediate_representation.statements.*;
@@ -12,6 +14,7 @@ import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 import java.util.function.Consumer;
@@ -263,6 +266,42 @@ public class ProgramNode {
       }
       // Finally, wrap up the GeneratedJavaSource as a Java src file.
       res = genJavaSource(programJavaSource);
+
+      // As a final step, it's possible that this compilation unit depended on some dep module for a generic procedure(s)
+      // whose monomorphization(s) will still need to be generated. Do that now and append the codegen to the codegen
+      // for the current compilation unit.
+      // TODO(steving) This has resulted in a very significant amount of codegen duplication for the sake of repeatedly
+      //  monomorphizing generic procedures for the same concrete type params in different compilation units. Some more
+      //  sophisticated approach that avoids code duplication while maintaining build incrementality will be necessary
+      //  to get Claro to a more practically useful place.
+      if (!InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.isEmpty()) {
+        // Sequentially trigger all dep module monomorphizations. Register all of the monomorphizations first and then
+        // collect them afterwards. It's necessary to do it this way since each monomorphization request may actually
+        // trigger an unknown chain of other monomorphization requests even from transitive dep modules, so a single
+        // monomorphization request doesn't actually correspond directly to something I can immediately append to codegen.
+        for (Map.Entry<String, IPCMessages.MonomorphizationRequest> depModuleMonomorphization :
+            InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.entries()) {
+          // Under the hood this call is abstracting away a massive amount of multiprocessing complexity.
+          MonomorphizationCoordinator.getDepModuleMonomorphization(
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleMonomorphization.getKey())),
+              depModuleMonomorphization.getValue()
+          );
+        }
+        res.append("\n// Dep Module Monomorphizations Generated Below:\n")
+            .append("final class $DepModuleMonomorphizations {\n");
+        for (String depModule : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.rowKeySet()) {
+          res.append("private static final class $").append(depModule).append(" {\n");
+          for (String monomorphization : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.row(depModule)
+              .values()) {
+            res.append(monomorphization).append("\n");
+          }
+          res.append("\n}\n");
+        }
+        res.append("}\n");
+
+        // Cleanup any threads or subprocesses that got started up by monomorphization.
+        MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
+      }
     }
 
     // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks
@@ -608,7 +647,6 @@ public class ProgramNode {
             "/*******AUTO-GENERATED: DO NOT MODIFY*******/\n\n" +
             "%s" +
             "\n" +
-            "import static com.claro.stdlib.Exec.exec;\n" +
             "import static com.claro.stdlib.userinput.UserInput.promptUserInput;\n" +
             "\n" +
             "import com.claro.intermediate_representation.types.BaseType;\n" +

@@ -6,11 +6,13 @@ import com.claro.ModuleApiParser;
 import com.claro.compiler_backends.CompilerBackend;
 import com.claro.compiler_backends.ParserUtil;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.compiler_backends.java_source.monomorphization.MonomorphizationCoordinator;
+import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.intermediate_representation.ModuleNode;
-import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
@@ -34,12 +36,22 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Scanner;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 public class JavaSourceCompilerBackend implements CompilerBackend {
+
+  // ***** BEGIN DEP MODULE MONOMORPHIZATION RELATED FIELDS *****
+  // This is effectively a CLI arg but in order to avoid this being able to be set accidentally or purposefully by users
+  // this is a static field that will be directly configured by {@link DepModuleMonomorphization.java} when the compiler
+  // is re-invoked as a dep module monomorphization subprocess.
+  public static boolean DEP_MODULE_MONOMORPHIZATION_ENABLED = false;
+  public static ScopedHeap scopedHeap;
+  public static ProgramNode mainSrcFileProgramNode;
+  // ***** END DEP MODULE MONOMORPHIZATION RELATED FIELDS *****
+
+  private final String[] COMMAND_LINE_ARGS;
   private final ImmutableMap<String, SrcFile> MODULE_DEPS;
   private final ImmutableSet<SrcFile> TRANSITIVE_MODULE_DEPS;
   private final ImmutableSet<String> EXPORTS;
@@ -50,10 +62,9 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final Optional<String> OPTIONAL_UNIQUE_MODULE_NAME;
   private final Optional<String> OPTIONAL_OUTPUT_FILE_PATH;
 
-  // TODO(steving) Migrate this file to use an actual cli library.
-  // TODO(steving) Consider Apache Commons Cli 1.4 https://commons.apache.org/proper/commons-cli/download_cli.cgi
   public JavaSourceCompilerBackend(String... args) {
-    JavaSourceCompilerBackendCLIOptions options = parseCLIOptions(args);
+    this.COMMAND_LINE_ARGS = args;
+    JavaSourceCompilerBackendCLIOptions options = parseCLIOptions(this.COMMAND_LINE_ARGS);
 
     if (options.java_package.isEmpty() || options.srcs.isEmpty()) {
       System.err.println("Error: --java_package and [--src ...]+ are required args.");
@@ -118,6 +129,18 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     this.EXPORTS = options.exports.stream().collect(ImmutableSet.toImmutableSet());
     this.OPTIONAL_OUTPUT_FILE_PATH =
         Optional.ofNullable(options.output_file_path.isEmpty() ? null : options.output_file_path);
+
+    // Make sure that the MonomorphizationCoordinator knows paths to all .claro_module files that may be used for
+    // monomorphization of generic procedures from direct and transitive dep modules.
+    if (!options.dep_graph_claro_module_by_unique_name.isEmpty()) {
+      MonomorphizationCoordinator.DEP_GRAPH_CLARO_MODULE_PATHS_BY_UNIQUE_MODULE_NAME =
+          options.dep_graph_claro_module_by_unique_name.stream()
+              .map(s -> s.split(":"))
+              .collect(ImmutableMap.toImmutableMap(
+                  split -> split[0],
+                  split -> split[1]
+              ));
+    }
   }
 
   private static JavaSourceCompilerBackendCLIOptions parseCLIOptions(String... args) {
@@ -130,7 +153,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   // validation that you have exactly 0 or 1 .claro_module_api files and, if 1, then --classname is set to "".
   @Override
   public void run() throws Exception {
-    ScopedHeap scopedHeap = new ScopedHeap();
+    scopedHeap = new ScopedHeap();
     scopedHeap.enterNewScope();
     if (this.SRCS.size() == 1) {
       checkTypesAndGenJavaSourceForSrcFiles(this.SRCS.get(0), ImmutableList.of(), Optional.empty(), scopedHeap);
@@ -197,7 +220,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     return inputProgram.toString();
   }
 
-  private Node.GeneratedJavaSource checkTypesAndGenJavaSourceForSrcFiles(
+  private void checkTypesAndGenJavaSourceForSrcFiles(
       SrcFile mainSrcFile,
       ImmutableList<SrcFile> nonMainSrcFiles,
       Optional<SrcFile> optionalModuleApiSrcFile,
@@ -268,7 +291,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         ScopedHeap.transitiveExportedDepModules = this.EXPORTS;
       }
       // Parse the main src file.
-      ProgramNode mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
+      mainSrcFileProgramNode = ((ProgramNode) mainSrcFileParser.parse().value);
 
       int totalParserErrorsFound =
           mainSrcFileParser.errorsFound +
@@ -280,17 +303,24 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
         if (Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
           if (optionalModuleApiParser.isPresent()) {
-            // Here, we were asked to compile a non-executable Claro Module, rather than an executable Claro program. So,
-            // we need to populate and emit a SerializedClaroModule proto that can be used as a dep for other Claro
-            // Modules/programs.
-            serializeClaroModule(
-                this.PACKAGE_STRING.get(),
-                this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
-                optionalModuleApiSrcFile.get(),
-                generateTargetOutputRes,
-                nonMainSrcFiles,
-                scopedHeap
-            );
+            if (DEP_MODULE_MONOMORPHIZATION_ENABLED) {
+              // In this case we're intentionally avoiding doing any file writing for the compilation results, as for
+              // the sake of dep module monomorphization we don't actually want to re-emit this module's codegen, we
+              // simply wanted to ready the AST and symbol table for monomorphizations that will be requested afterwards
+              // by the monomorphization coordinator.
+              return;
+            } else {
+              // Here, we were asked to compile a non-executable Claro Module, rather than an executable Claro program. So,
+              // we need to populate and emit a SerializedClaroModule proto that can be used as a dep for other Claro
+              // Modules/programs.
+              serializeClaroModule(
+                  this.PACKAGE_STRING.get(),
+                  this.OPTIONAL_UNIQUE_MODULE_NAME.get(),
+                  generateTargetOutputRes,
+                  nonMainSrcFiles,
+                  scopedHeap
+              );
+            }
           } else {
             if (this.OPTIONAL_OUTPUT_FILE_PATH.isPresent()) {
               // Here we've been asked to write the output to a particular file.
@@ -303,7 +333,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               System.out.println(generateTargetOutputRes);
             }
           }
-          System.exit(0);
+          return;
         }
       }
       // Fall into this error reporting if we encountered any parsing or type validation errors.
@@ -365,9 +395,50 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // Setup the regular exported procedures.
       for (SerializedClaroModule.Procedure depExportedProc :
           moduleDep.getValue().getExportedProcedureDefinitionsList()) {
+        Types.ProcedureType procedureType = getProcedureTypeFromProto(depExportedProc);
+        Object symbolTableValue = null;
+        if (procedureType.getGenericProcedureArgNames().map(l -> !l.isEmpty()).orElse(false)) {
+          // If we're dealing with a generic procedure from a dep module, then we'll need to also setup an additional
+          // value in its symbol table entry that will be used by FunctionCallExpr to derive the monomorphization name
+          // based on the concrete arg types at the callsite. We'll also be able to utilize this as a "hook" of sorts to
+          // configure any other work that'll be necessary to register the fact that a monomomorphization of one of this
+          // compilation unit's dep modules actually needs to be generated before we can go to Java.
+          symbolTableValue = (BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
+              (internalScopedHeap, concreteTypeParams) -> {
+                ImmutableList.Builder<Type> orderedConcreteTypeParamsBuilder = ImmutableList.builder();
+                ImmutableList<String> genericProcedureArgNames = procedureType.getGenericProcedureArgNames().get();
+                for (int i = 0; i < genericProcedureArgNames.size(); i++) {
+                  orderedConcreteTypeParamsBuilder.add(
+                      concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(genericProcedureArgNames.get(i))));
+                }
+                ImmutableList<Type> orderedConcreteTypeParams = orderedConcreteTypeParamsBuilder.build();
+                String monomorphizationName = ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                    /*contractName=*/"$MONOMORPHIZATION", orderedConcreteTypeParams, depExportedProc.getName());
+                // Enable FunctionCallExpr to mark this monomorphization used.
+                internalScopedHeap.putIdentifierValueAtLevel(
+                    monomorphizationName,
+                    procedureType,
+                    null,
+                    /*scopeLevel=*/0
+                );
+
+                // Make note of this needed dep module monomorphization somewhere so that just before finalizing codegen
+                // we can trigger dep module monomorphization.
+                InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.put(
+                    moduleDep.getKey(),
+                    IPCMessages.MonomorphizationRequest.newBuilder()
+                        .setProcedureName(depExportedProc.getName())
+                        .addAllConcreteTypeParams(
+                            orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
+                        .build()
+                );
+                return monomorphizationName;
+              };
+        }
         scopedHeap.putIdentifierValue(
             String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedProc.getName()),
-            getProcedureTypeFromProto(depExportedProc)
+            procedureType,
+            symbolTableValue
         );
       }
       registerDepModuleExportedTypeInitializersAndUnwrappers(scopedHeap, Optional.of(moduleDep.getKey()), moduleDep.getValue());
@@ -586,7 +657,6 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private void serializeClaroModule(
       String projectPackage,
       String uniqueModuleName,
-      SrcFile moduleApiSrcFile,
       StringBuilder moduleCodegen,
       ImmutableList<SrcFile> moduleImplFiles,
       ScopedHeap scopedHeap) throws IOException {
@@ -596,6 +666,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
                     .setProjectPackage(projectPackage)
                     .setUniqueModuleName(uniqueModuleName))
+            .addAllCommandLineArgs(Arrays.asList(this.COMMAND_LINE_ARGS))
             .setExportedTypeDefinitions(
                 SerializedClaroModule.ExportedTypeDefinitions.newBuilder()
                     .putAllExportedAliasDefsByName(

@@ -1,0 +1,8 @@
+
+
+consumer localPrint<T>(t: T) {
+  print(t);
+}
+localPrint("BOO");
+
+Dep::myPrint("TESTING!");

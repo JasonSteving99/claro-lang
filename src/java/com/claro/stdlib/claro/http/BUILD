@@ -1,7 +1,7 @@
-load("//src/java/com/claro:claro_build_rules_internal.bzl", "claro_module_internal", "claro_binary")
+load("//src/java/com/claro:claro_build_rules_internal.bzl", "bootstrapped_claro_module_internal", "claro_binary")
 
 
-claro_module_internal(
+bootstrapped_claro_module_internal(
     name = "http",
     module_api_file = "http.claro_module_api",
     srcs = ["http.claro_internal"],

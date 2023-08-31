@@ -3,7 +3,7 @@ function registerDepModuleSubprocessPort(uniqueModuleName: string, port: string)
   var res: string;
 
   $$BEGIN_JAVA
-  com.claro.compiler_backends.java_source.monomorphization.SubprocessRegistration.registerPort(uniqueModuleName, port);
+  com.claro.compiler_backends.java_source.monomorphization.ipc_coordinator.SubprocessRegistration.registerPort(uniqueModuleName, port);
   res = "true";
   $$END_JAVA
 
@@ -17,7 +17,7 @@ function markDepModuleSubprocessReady(uniqueModuleName: string) -> future<string
   var res: future<string>;
 
   $$BEGIN_JAVA
-  res = com.claro.compiler_backends.java_source.monomorphization.SubprocessRegistration.markDepModuleSubprocessReady(uniqueModuleName);
+  res = com.claro.compiler_backends.java_source.monomorphization.ipc_coordinator.SubprocessRegistration.markDepModuleSubprocessReady(uniqueModuleName);
   $$END_JAVA
 
   return res;

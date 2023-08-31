@@ -11,5 +11,6 @@ java_library(
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
     ]
 )

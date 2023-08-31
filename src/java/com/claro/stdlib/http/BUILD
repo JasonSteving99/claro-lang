@@ -12,7 +12,6 @@ java_library(
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
-        "//src/java/com/claro/intermediate_representation:program_node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",

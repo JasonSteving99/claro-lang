@@ -1,22 +1,47 @@
-load("//src/java/com/claro:claro_build_rules_internal.bzl", "claro_module_internal", "claro_module")
+load("//src/java/com/claro:claro_build_rules_internal.bzl", "bootstrapped_claro_module_internal", "bootstrapped_claro_module", "CLARO_BUILTIN_JAVA_DEPS")
 
-# TODO(steving) DELETE THIS AND INCORPORATE INTO COMPILER ITSELF.
-java_binary(
-    name = "test_coordinator",
-    srcs = ["TestCoordinator.java"],
-    main_class = "com.claro.compiler_backends.java_source.monomorphization.TestCoordinator",
+java_library(
+    name = "monomorphization_coordinator",
+    srcs = ["MonomorphizationCoordinator.java"],
     deps = [
-        ":monomorphization_ipc_compiled_claro_module_java_lib",
-        ":monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
-        ":subprocess_registration",
+        "@bazel_tools//tools/java/runfiles",
         "//:guava",
         "//:protobuf",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:subprocess_registration",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
         "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
         "//src/java/com/claro/runtime_utilities",
         "//src/java/com/claro/runtime_utilities/http",
         "//src/java/com/claro/runtime_utilities/http:http_server",
+    ],
+    data = ["dep_module_monomorphization_deploy.jar"],
+    visibility = [
+        "//src/java/com/claro/compiler_backends/java_source:__pkg__",
+        "//src/java/com/claro/intermediate_representation:__pkg__",
     ]
+)
+
+# I'll leave this implementation around just since it's actually a complex enough multiprocessing architecture that I
+# think running the prototype will actually be by far the best way to demonstrate the IPC protocol.
+java_binary(
+    name = "test_coordinator",
+    srcs = ["TestCoordinator.java"],
+    main_class = "com.claro.compiler_backends.java_source.monomorphization.TestCoordinator",
+    deps = [
+        "//:guava",
+        "//:protobuf",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:subprocess_registration",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
+        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
+        "//src/java/com/claro/runtime_utilities",
+        "//src/java/com/claro/runtime_utilities/http",
+        "//src/java/com/claro/runtime_utilities/http:http_server",
+    ],
+    data = [":dep_module_monomorphization_deploy.jar"],
 )
 
 java_binary(
@@ -27,81 +52,35 @@ java_binary(
     ],
     main_class = "com.claro.compiler_backends.java_source.monomorphization.DepModuleMonomorphization",
     deps = [
-        ":monomorphization_ipc_compiled_claro_module_java_lib",
-        ":monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
+        # Unfortunately, there's no clear way to get a dep on ClaroCompilerMain.java w/o creating a circular dep that
+        # Bazel would be unable to handle. This is somewhat intrinsically related to the problem at hand, so I'm not
+        # sure that there's anything to be done about this other than BEING VERY WELL AWARE that the dep module
+        # monomorphization subprocesses must run the "bootstrapping" version of the compiler rather than the latest
+        # in-development version. This should be fine, although it does mean that any changes to the interprocess
+        # communication must be arbitrated through a multi-step release upgrade cycle as the in-development version of
+        # the compiler (which is running the monomorphization coordinator) will receive updates that the "bootstrapping"
+        # compiler won't get yet until a new release is made.
+        "//:bootstrapping_claro_compiler_import",
+
         "//:google-options",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
+        "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
         "//src/java/com/claro/runtime_utilities",
         "//src/java/com/claro/runtime_utilities/http",
         "//src/java/com/claro/runtime_utilities/http:http_server",
     ],
-    args = ["--coordinator_port", "8080", "--dep_module_file_path", "foo/bar"]
-)
-
-
-claro_module(
-    name = "monomorphization_ipc",
-    module_api_file = "monomorphization_IPC.claro_module_api",
-    srcs = ["monomorphization_IPC.claro"],
-    optional_stdlib_deps = ["http"],
-    deps = {
-        "MonomorphizationHackUtils": ":monomorphization_IPC_hack_utils",
-    },
-)
-
-claro_module(
-    name = "monomorphization_ipc_coordinator",
-    module_api_file = "monomorphization_IPC_coordinator.claro_module_api",
-    srcs = ["monomorphization_IPC_coordinator.claro"],
-    optional_stdlib_deps = ["http"],
-    deps = {
-        "MonomorphizationHackUtils": ":monomorphization_IPC_coordinator_hack_utils",
-    },
-)
-
-claro_module_internal(
-    name = "monomorphization_IPC_hack_utils",
-    module_api_file = "monomorphization_IPC_hack_utils.claro_module_api",
-    srcs = [
-        "monomorphization_IPC_hack_utils.claro_internal",
+    runtime_deps = [
+        # TODO(steving) This runtime-dep may not be permanently necessary after the next release enables the
+        # TODO(steving)     "bootstrapping compiler"'s jar to include the up-to-date implementation of the
+        # TODO(steving)     SerializedClaroModule.proto definition. This is quite a hacky workaround that has Bazel
+        # TODO(steving)     somewhat incidentally overwriting Java's PATH to make the latest local build version
+        # TODO(steving)     take precedence over the version in the bootstrapping jar.
+        "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
     ],
-    exported_custom_java_deps = [
-        ":monomorphization_request_processing",
-    ]
-)
-
-claro_module_internal(
-    name = "monomorphization_IPC_coordinator_hack_utils",
-    module_api_file = "monomorphization_IPC_coordinator_hack_utils.claro_module_api",
-    srcs = [
-        "monomorphization_IPC_coordinator_hack_utils.claro_internal",
-    ],
-    exported_custom_java_deps = [
-        ":subprocess_registration",
-    ]
-)
-
-java_library(
-    name = "monomorphization_request_processing",
-    srcs = ["MonomorphizationRequestProcessing.java"],
-    deps = [
-        "//:guava",
-        "//:protobuf",
-        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
-        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
-        "//src/java/com/claro/intermediate_representation/types:types",
-        "//src/java/com/claro/intermediate_representation/statements/contracts",
-    ],
-)
-
-java_library(
-    name = "subprocess_registration",
-    srcs = ["SubprocessRegistration.java"],
-    deps = [
-        "//:autovalue",
-        "//:guava",
-        ":monomorphization_ipc_compiled_claro_module_java_lib",
-        "//src/java/com/claro/intermediate_representation/types:types",
-        "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
+    args = ["--coordinator_port", "8080", "--dep_module_file_path", "foo/bar"],
+    visibility = [
+        "//src/java/com/claro:__pkg__",
     ]
 )

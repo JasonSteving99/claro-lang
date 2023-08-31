@@ -1,4 +1,4 @@
-package com.claro.compiler_backends.java_source.monomorphization;
+package com.claro.compiler_backends.java_source.monomorphization.ipc;
 
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages.MonomorphizationRequest;
@@ -102,22 +102,22 @@ public class MonomorphizationRequestProcessing {
     // This is something that would have to be handled by the coordinator via a new subprocess b/c the source code isn't
     // available here.
     double rand = random.nextDouble();
-    if (rand > 0.7) {
-      System.out.println("TESTING! REQUESTING TRANSITIVE MODULE MONOMORPHIZATION");
-      return ImmutableList.of(
-          MonomorphizationRequest.newBuilder()
-              // I want some chance of collision, to just validate that that works.
-              .setProcedureName("TRANSITIVE_RANDOM_" + (rand > .85 ? "AAAAAA" : "BBBBBB"))
-              .addAllConcreteTypeParams(
-                  ImmutableList.of(
-                      TypeProtos.TypeProto.newBuilder()
-                          .setAtom(TypeProtos.AtomType.newBuilder()
-                                       .setName("RAND_A")
-                                       .setDefiningModuleDisambiguator(""))
-                          .build()))
-              .build()
-      );
-    }
+//    if (rand > 0.7) {
+//      System.out.println("TESTING! REQUESTING TRANSITIVE MODULE MONOMORPHIZATION");
+//      return ImmutableList.of(
+//          MonomorphizationRequest.newBuilder()
+//              // I want some chance of collision, to just validate that that works.
+//              .setProcedureName("TRANSITIVE_RANDOM_" + (rand > .85 ? "AAAAAA" : "BBBBBB"))
+//              .addAllConcreteTypeParams(
+//                  ImmutableList.of(
+//                      TypeProtos.TypeProto.newBuilder()
+//                          .setAtom(TypeProtos.AtomType.newBuilder()
+//                                       .setName("RAND_A")
+//                                       .setDefiningModuleDisambiguator(""))
+//                          .build()))
+//              .build()
+//      );
+//    }
     return ImmutableList.of();
   }
 }
