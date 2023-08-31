@@ -3,7 +3,7 @@ function handleMonomorphizationRequest(base64_encoded_monomorphization_req: stri
   var res: string;
 
   $$BEGIN_JAVA
-  res = com.claro.compiler_backends.java_source.monomorphization.MonomorphizationRequestProcessing
+  res = com.claro.compiler_backends.java_source.monomorphization.ipc.MonomorphizationRequestProcessing
       .handleMonomorphizationRequest(base64_encoded_monomorphization_req);
   $$END_JAVA
 

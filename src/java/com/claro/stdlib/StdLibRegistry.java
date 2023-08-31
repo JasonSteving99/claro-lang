@@ -15,7 +15,6 @@ import java.util.function.BiFunction;
 public class StdLibRegistry {
   public static final ImmutableTable<String, Type, Object> stdLibProcedureTypes =
       ImmutableTable.<String, Type, Object>builder()
-          .put(Exec.getProcedureName(), Exec.getProcedureType(), Exec.execProcedureWrapper)
           .put(
               $HttpServerStdLibRegistryUtil.getProcedureName(),
               $HttpServerStdLibRegistryUtil.getProcedureType(),

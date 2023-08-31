@@ -1,26 +1,38 @@
 package com.claro.compiler_backends.java_source.monomorphization;
 
+import com.claro.ClaroCompilerMain;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
 import com.claro.runtime_utilities.http.$HttpUtil;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.OptionsParser;
 
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.getDepModuleMonomorphizationServerForFreePort;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.startMonomorphizationServerAndAwaitShutdown;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc_coordinator.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.util.List;
+
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.getDepModuleMonomorphizationServerForFreePort;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.startMonomorphizationServerAndAwaitShutdown;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc_coordinator$monomorphization_ipc_coordinator.*;
 
 public class DepModuleMonomorphization {
 
   private final $ClaroHttpServer server;
   private final DepModuleCoordinatorService coordinatorClient;
+  private final ImmutableList<String> recompilationArgs;
 
   public static void main(String[] args) throws Exception {
     DepModuleMonomorphizationCLIOptions options = parseCLIOptions(args);
 
-    System.out.println("TESTING!!! MADE IT INTO THE CHILD PROCESS: " + options);
+    // First thing first, parse the specified .claro_module to discover the unique module name as well as the cli args
+    // to restart compilation with.
+    SerializedClaroModule parsedModule =
+        SerializedClaroModule.parseDelimitedFrom(
+            Files.newInputStream(FileSystems.getDefault().getPath(options.depModuleFilePath), StandardOpenOption.READ));
 
-    // TODO(steving) UPDATE TO READ AN ACTUAL .claro_module FILE TO GET THE UNIQUE MODULE NAME.
-    String uniqueModuleName = options.depModuleUniqueName;
+    String uniqueModuleName = parsedModule.getModuleDescriptor().getUniqueModuleName();
 
     // Here I need to immediately trigger the server to startup so that I can be ready to receive monomorphization reqs
     // from the coordinator compilation unit.
@@ -30,13 +42,19 @@ public class DepModuleMonomorphization {
       monomorphizer =
           new DepModuleMonomorphization(
               startMonomorphizationServerInNewThread(uniqueModuleName, coordinatorClient),
-              coordinatorClient
+              coordinatorClient,
+              // TODO(steving) Unfortunately, for now, the "bootstrapping" version of the SerializedClaroModule.java file
+              //     doesn't have access to the command_line_args field as it's a version behind. After I push the first
+              //     version of Claro that actually supports dep module monomorphization, I should refactor to call directly.
+              ImmutableList.copyOf((List<String>) Class.forName(parsedModule.getClass().getName())
+                  .getMethod("getCommandLineArgsList")
+                  .invoke(parsedModule))
           );
     }
 
-    // TODO(steving) In practice, I'm actually going to want to run *all* of the initial setup and type checking before
-    //   actually accepting any monomorphization reqs. So do that all here before reporting "ready" back to the coordinator.
-    runModuleCompilationPreworkBeforeMonomorphizationWorkPossible();
+    // I'm actually going to want to run *all* of the initial setup and type checking before actually accepting any
+    // monomorphization reqs. So doing that all here before reporting "ready" back to the coordinator.
+    monomorphizer.runModuleCompilationPreworkBeforeMonomorphizationWorkPossible();
 
     // Now report back to the coordinator that we're ready to handle monomorphization requests. We'll intentionally
     // block forever on this response because this signals this process to stay alive so long as this connection is
@@ -53,17 +71,24 @@ public class DepModuleMonomorphization {
           " of originating compilation unit coordinator process.\n\tCaused by: " + coordinatorReadyResponse + "\n" +
           "Subprocess exiting...");
     }
-
-    System.out.println("TESTING! SHUTTING DOWN DEP MODULE SUBPROCESS.");
-    // Our connection to the coordinator has terminated, time to shutdown.
-    monomorphizer.server.shutdown();
-    System.out.println("TESTING! DEP MODULE SUBPROCESS EXITING.");
   }
 
   // I'll make an instance of this literally just so I can have final variables.
-  private DepModuleMonomorphization($ClaroHttpServer server, DepModuleCoordinatorService coordinatorClient) {
+  private DepModuleMonomorphization(
+      $ClaroHttpServer server, DepModuleCoordinatorService coordinatorClient, ImmutableList<String> recompilationArgs) {
     this.server = server;
     this.coordinatorClient = coordinatorClient;
+    // TODO(steving) TESTING!!! FOR NOW I'LL NEED TO FILTER OUT ARGS THAT THE "BOOTSTRAPPING" COMPILER WON'T BE READY
+    //   FOR BECAUSE THAT WOULD CAUSE THE PROCESS TO EXIT.
+    ImmutableList.Builder<String> recompilationArgsBuilder = ImmutableList.<String>builder().add("--java_source");
+    for (String arg : recompilationArgs) {
+      // Once you find a new arg, bail.
+      if (arg.equals("--dep_graph_claro_module_by_unique_name")) {
+        break;
+      }
+      recompilationArgsBuilder.add(arg);
+    }
+    this.recompilationArgs = recompilationArgsBuilder.build();
   }
 
   private static DepModuleMonomorphizationCLIOptions parseCLIOptions(String... args) {
@@ -76,7 +101,6 @@ public class DepModuleMonomorphization {
       String uniqueModuleName, DepModuleCoordinatorService coordinatorClient) {
     $ClaroHttpServer monomorphizationServer = getDepModuleMonomorphizationServerForFreePort.apply();
     int monomorphizationServerPort = monomorphizationServer.server.getListenAddresses().get(0).getPort();
-    System.out.println("TESTING!!! DEP MODULE SERVER LISTENING ON PORT: " + monomorphizationServerPort);
 
     // I'll need to actually start the server before reporting its port so that by the time there's a call it's
     // actually running.
@@ -113,8 +137,14 @@ public class DepModuleMonomorphization {
     return monomorphizationServer;
   }
 
-  private static void runModuleCompilationPreworkBeforeMonomorphizationWorkPossible() throws InterruptedException {
+  private void runModuleCompilationPreworkBeforeMonomorphizationWorkPossible() throws InterruptedException {
     System.out.println("TESTING!!! PREWORK...sleeping 1 second...");
     Thread.sleep(1000);
+    try {
+      ClaroCompilerMain.main(this.recompilationArgs.toArray(new String[this.recompilationArgs.size()]));
+    } catch (Exception e) {
+      System.err.println("TESTING!!! FAILED RECOMPILATION SOMEHOW:");
+      e.printStackTrace();
+    }
   }
 }

@@ -58,7 +58,9 @@ ClaroModuleInfo = provider(
     "Info needed to compile/link Claro Modules.",
     fields={
         "info": "A struct containing metadata about this module",
-        "deps_with_exports": "A depset representing transitive dep module dependencies.",
+        "transitive_subgraph_dep_modules":
+            "A depset representing transitive dep module dependencies for the sake of dep module monomorphization " +
+            "having access to the .claro_module files at runtime.",
         "optional_stdlib_modules_used_in_transitive_closure":
             "A depset of all of the optional stdlib modules that have been used anywhere in this compilation unit's " +
             "transitive closure of deps. This will be used to signal to the top-level claro_binary() whether or not " +
@@ -130,6 +132,20 @@ def _invoke_claro_compiler_impl(ctx):
         args.add("--export", export)
     args.add("--output_file_path", ctx.outputs.compiler_out)
 
+    # TODO(steving) Drop this once the "bootstrapping" version of the compiler also accepts this.
+    if "bootstrapping" not in ctx.executable.claro_compiler.basename:
+        # Add paths to all transitive .claro_module files for all modules in this compilation unit's subgraph.
+        transitive_subgraph_dep_modules_depset = depset(
+            direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
+            transitive = [dep[ClaroModuleInfo].transitive_subgraph_dep_modules for dep in ctx.attr.deps]
+        )
+        for transitive_subgraph_dep_module in transitive_subgraph_dep_modules_depset.to_list():
+            args.add(
+                "--dep_graph_claro_module_by_unique_name",
+                "{0}:{1}".format(
+                    transitive_subgraph_dep_module.unique_module_name,
+                    transitive_subgraph_dep_module.path_to_claro_module_file.path))
+
     # Make sure to signal to the binary which (if any) optional stdlib modules have been used, because some (e.g. `http`)
     # may actually require some teardown in the main method.
     optional_stdlib_modules_used_in_transitive_closure = depset(
@@ -143,12 +159,12 @@ def _invoke_claro_compiler_impl(ctx):
     ctx.actions.run(
         inputs = depset(
             direct = srcs,
-            transitive = [dep.files for dep in ctx.attr._stdlib_module_deps.keys()] + [dep.files for dep in ctx.attr.deps.keys()]
+            transitive = [dep.files for dep in ctx.attr._stdlib_module_deps.keys()] + [dep.files for dep in ctx.attr.deps.keys()] + [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
         ),
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],
         progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.short_path,
-        executable = ctx.executable._claro_compiler,
+        executable = ctx.executable.claro_compiler,
     )
 
     if is_module:
@@ -184,11 +200,14 @@ def _invoke_claro_compiler_impl(ctx):
                     unique_module_name = ctx.attr.unique_module_name,
                     exports = [dep_module_targets_by_dep_name[export] for export in ctx.attr.exports],
                     path_to_claro_module_file = ctx.outputs.compiler_out,
+                    files = depset(
+                        direct = srcs,
+                        transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
+                    )
                 ),
-                deps_with_exports = depset(
-                    # Here I preemptively prune any direct deps that don't actually export anything.
-                    direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps if len(dep[ClaroModuleInfo].info.exports) > 0],
-                    transitive = [dep[ClaroModuleInfo].deps_with_exports for dep in ctx.attr.deps]
+                transitive_subgraph_dep_modules = depset(
+                    direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
+                    transitive = [dep[ClaroModuleInfo].transitive_subgraph_dep_modules for dep in ctx.attr.deps]
                 ),
                 optional_stdlib_modules_used_in_transitive_closure = optional_stdlib_modules_used_in_transitive_closure,
             )
@@ -236,6 +255,23 @@ def claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], 
     _claro_module_internal(
         _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
 
+# In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
+# the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
+def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug,
+        claro_compiler = "//:bootstrapping_claro_compiler_binary",
+        override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
+        **kwargs)
+
+# In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
+# the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
+def bootstrapped_claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
+    _claro_module_internal(
+        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
+        claro_compiler = "//:bootstrapping_claro_compiler_binary",
+        override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
+        **kwargs)
+
 def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], optional_stdlib_deps = [], debug = False, add_stdlib_deps = True, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
@@ -265,12 +301,13 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
         compiler_out = "{0}.claro_module".format(name),
         module_static_java_out = "{0}.java".format(unique_module_name),
         debug = debug,
-        **kwargs # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
+        # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
+        **{k:v for k,v in kwargs.items() if k != "override_claro_builtin_java_deps"}
     )
     native.java_library(
         name = "{0}_compiled_claro_module_java_lib".format(name),
         srcs = [":{0}.java".format(unique_module_name)],
-        deps = CLARO_BUILTIN_JAVA_DEPS +
+        deps = (CLARO_BUILTIN_JAVA_DEPS if ("override_claro_builtin_java_deps" not in kwargs) else kwargs["override_claro_builtin_java_deps"]) +
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.
             {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
@@ -280,7 +317,8 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
             exported_custom_java_deps,
         exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports] + \
                   exported_custom_java_deps,
-        **{k:v for k,v in kwargs.items() if k != "stdlib_srcs"} # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
+        # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
+        **{k:v for k,v in kwargs.items() if k not in ["stdlib_srcs", "claro_compiler", "override_claro_builtin_java_deps"]}
     )
 
 def _transpose_module_deps_dict(deps):
@@ -329,7 +367,7 @@ INVOKE_CLARO_COMPILER_ATTRS = {
     # Args below this point are intended primarily for internal use only.
 
     "unique_module_name": attr.string(),
-    "_claro_compiler": attr.label(
+    "claro_compiler": attr.label(
         default = Label("//src/java/com/claro:claro_compiler_binary"),
         allow_files = True,
         executable = True,

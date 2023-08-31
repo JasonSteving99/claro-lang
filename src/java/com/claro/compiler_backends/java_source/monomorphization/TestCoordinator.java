@@ -1,5 +1,6 @@
 package com.claro.compiler_backends.java_source.monomorphization;
 
+import com.claro.compiler_backends.java_source.monomorphization.ipc_coordinator.SubprocessRegistration;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages.MonomorphizationRequest;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
@@ -22,8 +23,8 @@ import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.DepModuleMonomorphizationService;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.sendMessageToSubprocess_TriggerMonomorphization;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.DepModuleMonomorphizationService;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.sendMessageToSubprocess_TriggerMonomorphization;
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc_coordinator.getDepModuleCoordinatorServerForFreePort;
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc_coordinator.startCoordinatorServerAndAwaitShutdown;
 
@@ -212,7 +213,8 @@ public class TestCoordinator {
         System.out.println("TESTING! STARTING SUBPROCESS!");
         Process depModuleSubprocess =
             new ProcessBuilder()
-                .command("java", "-jar", "bazel-bin/src/java/com/claro/compiler_backends/java_source/monomorphization/dep_module_monomorphization_deploy.jar", "--coordinator_port", String.valueOf(coordinatorPort), "--dep_module_file_path", "foo/bar",
+//                .command("java", "-jar", "bazel-bin/src/java/com/claro/compiler_backends/java_source/monomorphization/dep_module_monomorphization_deploy.jar", "--coordinator_port", String.valueOf(coordinatorPort), "--dep_module_file_path", "foo/bar",
+                .command("java", "-jar", "src/java/com/claro/compiler_backends/java_source/monomorphization/dep_module_monomorphization_deploy.jar", "--coordinator_port", String.valueOf(coordinatorPort), "--dep_module_file_path", "foo/bar",
                          // TODO(steving) TESTING! DELETE THIS, The uniqe name should be looked up in the .claro_module.
                          "--dep_module_unique_name", uniqueModuleName
                 )

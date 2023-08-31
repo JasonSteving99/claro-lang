@@ -51,11 +51,6 @@ claro_binary(
 )
 
 claro_binary(
-    name = "exec",
-    main_file = "exec.claro",
-)
-
-claro_binary(
     name = "for_loops",
     main_file = "for_loops.claro",
 )

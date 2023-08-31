@@ -1,4 +1,4 @@
-package com.claro.compiler_backends.java_source.monomorphization;
+package com.claro.compiler_backends.java_source.monomorphization.ipc_coordinator;
 
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;
@@ -8,8 +8,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.DepModuleMonomorphizationService;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$monomorphization_ipc.getDepModuleMonomorphizationClient;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.DepModuleMonomorphizationService;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.getDepModuleMonomorphizationClient;
 
 public class SubprocessRegistration {
   public static SettableFuture<HashMap<String, DepModuleMonomorphizationSubprocessState>>
@@ -50,13 +50,13 @@ public class SubprocessRegistration {
   public abstract static class DepModuleMonomorphizationSubprocessState {
     abstract SettableFuture<Integer> getPortFuture();
 
-    abstract SettableFuture<DepModuleMonomorphizationService> getReadyClient();
+    public abstract SettableFuture<DepModuleMonomorphizationService> getReadyClient();
 
     // This future will not be marked complete until the Coordinator decides that it's done with all monomorphizations
     // from this dep module. This should be used by the DepModuleCoordinatorService::markDepModuleSubprocessReady
     // endpoint to be able to delay the response so that the connection remains open and the subprocess uses that as
     // signal to keepalive.
-    abstract SettableFuture<String> getDoneFuture();
+    public abstract SettableFuture<String> getDoneFuture();
 
     public static DepModuleMonomorphizationSubprocessState create() {
       return new AutoValue_SubprocessRegistration_DepModuleMonomorphizationSubprocessState(

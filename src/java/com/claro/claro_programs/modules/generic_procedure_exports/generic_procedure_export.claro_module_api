@@ -1,0 +1,2 @@
+
+consumer myPrint<T>(t: T);

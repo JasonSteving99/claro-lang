@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules_internal.bzl", "claro_module_internal")
+load("//src/java/com/claro:claro_build_rules_internal.bzl", "bootstrapped_claro_module_internal")
 
 exports_files(glob(["*.claro_internal"]))
 
@@ -7,7 +7,7 @@ exports_files(glob(["*.claro_internal"]))
 #       modules packaged in the java deps jar. So, name the stdlib module targets carefully, as these are the names that
 #       will be available for .claro srcs to use when built with the CLI.
 
-claro_module_internal(
+bootstrapped_claro_module_internal(
     name = "std",
     module_api_file = "std.claro_module_api",
     # TODO(steving) I need to upgrade the claro_module() target to allow api-only modules when only type defs are exported.

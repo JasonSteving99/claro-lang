@@ -239,10 +239,37 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    Optional<String> optionalNormalizedOriginatingDepModuleName = this.optionalOriginatingDepModuleName;
     if (!this.consumerName.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.consumerName);
     } else {
       this.hashNameForCodegen = true;
+      if (this.optionalOriginatingDepModuleName.isPresent()) {
+        // TODO(steving) TESTING!!! This needs a complete overhaul to correctly point to the codegen in the local file.
+        // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
+        // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
+        // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
+        // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
+        // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
+        // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        optionalNormalizedOriginatingDepModuleName =
+            Optional.of(this.optionalOriginatingDepModuleName.get() + "$MONOMORPHIZATIONS");
+        Optional<SerializedClaroModule.UniqueModuleDescriptor> optionalCurrModuleDescriptor =
+            ScopedHeap.getModuleNameFromDisambiguator("$THIS_MODULE$").map(
+                currModuleName -> ScopedHeap.currProgramDepModules.get(currModuleName, /*isUsed=*/true));
+        ScopedHeap.currProgramDepModules.put(
+            optionalNormalizedOriginatingDepModuleName.get(),
+            /*isUsed=*/true,
+            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+                .setUniqueModuleName(
+                    String.format(
+                        "$%s",
+                        ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
+                    ))
+                .setProjectPackage("$DepModuleMonomorphizations")
+                .build()
+        );
+      }
     }
 
     if (this.hashNameForCodegen) {
@@ -265,7 +292,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
             new StringBuilder(
                 String.format(
                     this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
-                    this.optionalOriginatingDepModuleName
+                    optionalNormalizedOriginatingDepModuleName
                         // Turns out I need to codegen the Java namespace of the dep module.
                         .map(depMod -> {
                           SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =

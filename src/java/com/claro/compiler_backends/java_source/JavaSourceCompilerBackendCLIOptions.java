@@ -106,6 +106,17 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public List<String> optional_stdlib_modules_used_in_transitive_closure;
 
   @Option(
+      name = "dep_graph_claro_module_by_unique_name",
+      help =
+          "Paths to all .claro_module files used in this compilation unit's transitive graph of Claro dependencies. " +
+          "This is in order to allow dep module monomorphization to read all of these files as needed. Values should " +
+          "be formatted as '<unique module name>:<path to .claro_module file>'.",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> dep_graph_claro_module_by_unique_name;
+
+  @Option(
       name = "output_file_path",
       help = "The path to the output file to put the generated Java.",
       defaultValue = ""

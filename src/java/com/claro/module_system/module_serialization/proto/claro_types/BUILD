@@ -6,6 +6,7 @@ java_proto_library(
     visibility = [
         "//src/java/com/claro/compiler_backends:__subpackages__",
         "//src/java/com/claro/compiler_backends/interpreted:__pkg__",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization:__subpackages__",
         "//src/java/com/claro/intermediate_representation:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
@@ -16,5 +17,8 @@ java_proto_library(
 proto_library(
     name = "claro_types_proto",
     srcs = ["ClaroTypes.proto"],
-    visibility = ["//src/java/com/claro/module_system/module_serialization/proto:__pkg__"]
+    visibility = [
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization:__subpackages__",
+        "//src/java/com/claro/module_system/module_serialization/proto:__pkg__",
+    ]
 )

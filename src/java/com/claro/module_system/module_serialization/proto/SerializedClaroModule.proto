@@ -13,6 +13,15 @@ option java_package = "com.claro.module_system.module_serialization.proto";
 // so I won't pretend that's the case here just yet. Remember that this affects dev machines not deploy binary sizes.
 option optimize_for = SPEED;
 
+// NOTE: As Claro is now bootstrapping in some places, these field numbers are effectively set in stone. It's possible
+//       that they can still be changed as long as there are no backwards compatibility assurances for public Claro
+//       programs (which will be years away realistically), but even so, it would have to go through a dedicated release
+//       process to iteratively migrate the compiler towards new numbering for the fields and would likely require
+//       multiple commits. So, care should be taken to avoid needing to change any existing field numbers or field types
+//       unnecessarily as this would require a lot of planning and manual labor. Unfortunately, from an aesthetic
+//       perspective, this means that some fields will have out-of-order field numbers as fields get added in some
+//       semblance of a sensible organization, but this isn't a problem.
+
 message SerializedClaroModule {
   message ClaroSourceFile {
     string original_filename = 1;
@@ -82,6 +91,10 @@ message SerializedClaroModule {
   }
 
   UniqueModuleDescriptor module_descriptor = 1;
+
+  // In order for this build to be repeatable (or perhaps, in the future, statically analyzed in some way), here are the
+  // exact command line args that were passed to the compiler to build this module.
+  repeated string command_line_args = 9;
 
   // This is essentially a serialized symbol table containing just the newtypes and aliases exported by this module.
   ExportedTypeDefinitions exported_type_definitions = 2;
