@@ -31,11 +31,27 @@ java_library(
     name = "monomorphization_request_processing",
     srcs = ["MonomorphizationRequestProcessing.java"],
     deps = [
+        # Unfortunately, there's no clear way to get a dep on ClaroCompilerMain.java w/o creating a circular dep that
+        # Bazel would be unable to handle. This is somewhat intrinsically related to the problem at hand, so I'm not
+        # sure that there's anything to be done about this other than BEING VERY WELL AWARE that the dep module
+        # monomorphization subprocesses must run the "bootstrapping" version of the compiler rather than the latest
+        # in-development version. This should be fine, although it does mean that any changes to the interprocess
+        # communication must be arbitrated through a multi-step release upgrade cycle as the in-development version of
+        # the compiler (which is running the monomorphization coordinator) will receive updates that the "bootstrapping"
+        # compiler won't get yet until a new release is made.
+        "//:bootstrapping_claro_compiler_import",
+
         "//:guava",
         "//:protobuf",
+        "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
         "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
+        "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:types",
+        "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/statements/contracts",
     ],
+    visibility = [
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization:__pkg__",
+    ]
 )

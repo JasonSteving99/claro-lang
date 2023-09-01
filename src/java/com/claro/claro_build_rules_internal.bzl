@@ -163,7 +163,7 @@ def _invoke_claro_compiler_impl(ctx):
         ),
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],
-        progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.short_path,
+        progress_message = "Compiling Claro Program: " + ctx.outputs.compiler_out.path,
         executable = ctx.executable.claro_compiler,
     )
 

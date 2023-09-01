@@ -3,6 +3,8 @@
 consumer localPrint<T>(t: T) {
   print(t);
 }
-localPrint("BOO");
+localPrint("LOCAL");
 
-Dep::myPrint("TESTING!");
+Dep::myPrint("TESTING DEP MODULE GENERIC PROCEDURE!");
+Dep::myPrint("TESTING AGAIN!");
+Dep::myPrint(99999);

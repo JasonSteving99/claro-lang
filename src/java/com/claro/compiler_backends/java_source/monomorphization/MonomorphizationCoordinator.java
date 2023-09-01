@@ -139,6 +139,9 @@ public class MonomorphizationCoordinator {
     // Startup the coordinator server so it's ready to communicate.
     coordinatorServer = getDepModuleCoordinatorServerForFreePort.apply();
     coordinatorPort = coordinatorServer.server.getListenAddresses().get(0).getPort();
+    // TODO(steving) Remember to silence $ClaroHttpServer's startup message. No need to go scaring people w/ this
+    //  internal detail.
+//    $ClaroHttpServer.silent = true;
     new Thread(() -> {
       startCoordinatorServerAndAwaitShutdown.apply(coordinatorServer, "COORDINATOR STARTED!");
 

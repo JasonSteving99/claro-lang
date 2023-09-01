@@ -41,8 +41,7 @@ provider getDepModuleCoordinatorServerForFreePort() -> HttpServer<DepModuleCoord
   return http::getBasicHttpServerForPort(0);
 }
 
-consumer startCoordinatorServerAndAwaitShutdown(server: HttpServer<DepModuleCoordinatorService>, startMessage: string) {
-  print(startMessage);
+consumer startCoordinatorServerAndAwaitShutdown(server: HttpServer<DepModuleCoordinatorService>) {
   http::startServerAndAwaitShutdown(server);
 }
 

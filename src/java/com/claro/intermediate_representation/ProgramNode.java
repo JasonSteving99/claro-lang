@@ -290,7 +290,7 @@ public class ProgramNode {
         res.append("\n// Dep Module Monomorphizations Generated Below:\n")
             .append("final class $DepModuleMonomorphizations {\n");
         for (String depModule : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.rowKeySet()) {
-          res.append("private static final class $").append(depModule).append(" {\n");
+          res.append("static final class $").append(depModule).append(" {\n");
           for (String monomorphization : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.row(depModule)
               .values()) {
             res.append(monomorphization).append("\n");

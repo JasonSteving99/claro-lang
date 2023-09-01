@@ -32,9 +32,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private boolean alreadyValidatedTypes = false;
 
-  private static final HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
+  public static final HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
       monomorphizations = HashBasedTable.create();
-  private static final HashBasedTable<String, ImmutableMap<Type, Type>, String>
+  public static final HashBasedTable<String, ImmutableMap<Type, Type>, String>
       alreadyCodegendMonomorphizations = HashBasedTable.create();
   public static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 

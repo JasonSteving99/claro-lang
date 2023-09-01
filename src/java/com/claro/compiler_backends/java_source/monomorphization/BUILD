@@ -72,14 +72,16 @@ java_binary(
         "//src/java/com/claro/runtime_utilities/http:http_server",
     ],
     runtime_deps = [
-        # TODO(steving) This runtime-dep may not be permanently necessary after the next release enables the
-        # TODO(steving)     "bootstrapping compiler"'s jar to include the up-to-date implementation of the
-        # TODO(steving)     SerializedClaroModule.proto definition. This is quite a hacky workaround that has Bazel
-        # TODO(steving)     somewhat incidentally overwriting Java's PATH to make the latest local build version
-        # TODO(steving)     take precedence over the version in the bootstrapping jar.
-        "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
+        # NOTE: This runtime-dep sectiono is not permanently necessary after subsequent releases enable the
+        #       "bootstrapping compiler"'s jar to include the up-to-date implementation of the proto definition. This is
+        #       instead, quite a hacky workaround that has Bazel somewhat incidentally overwriting Java's PATH to make
+        #       the latest local build version take precedence over the version in the bootstrapping jar in deps above.
+        #       Make use of this field for deps in the .../monomorphization/* subtree that have been locally changed in
+        #       order to avoid needing to go through an entire
+#        "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_request_processing"
     ],
-    args = ["--coordinator_port", "8080", "--dep_module_file_path", "foo/bar"],
     visibility = [
         "//src/java/com/claro:__pkg__",
     ]

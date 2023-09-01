@@ -1,16 +1,21 @@
 package com.claro.compiler_backends.java_source.monomorphization.ipc;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.compiler_backends.java_source.JavaSourceCompilerBackend;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages.MonomorphizationRequest;
-import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
+import com.claro.intermediate_representation.Node;
+import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
+import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
-import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.Random;
+import java.util.function.BiFunction;
+import java.util.stream.IntStream;
 
 public class MonomorphizationRequestProcessing {
 
@@ -28,8 +33,7 @@ public class MonomorphizationRequestProcessing {
     return BaseEncoding.base64().encode(
         IPCMessages.MonomorphizationResponse.newBuilder()
             .addAllLocalModuleMonomorphizations(
-                // TODO(steving) Swap this out with a real implementation that hooks into the actual compiler.
-                getTestSimulateCollectLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
+                getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
             .putAllTransitiveDepModuleMonomorphizationRequests(
                 // TODO(steving) Swap this out with a real implementation that hooks into the actual compiler.
                 getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest().stream().collect(
@@ -42,59 +46,37 @@ public class MonomorphizationRequestProcessing {
 
   }
 
+  @SuppressWarnings("unchecked")
   public static ImmutableList<IPCMessages.MonomorphizationResponse.Monomorphization>
-  getTestSimulateCollectLocalMonomorphizationsForMonomorphizationRequest(
+  getLocalMonomorphizationsForMonomorphizationRequest(
       MonomorphizationRequest monomorphizationRequest) {
-
-    ImmutableList.Builder<IPCMessages.MonomorphizationResponse.Monomorphization> localMonomorphizationsList =
-        ImmutableList.builder();
-    // No matter what, we will always codegen for the explicitly requested monomorphization.
-    localMonomorphizationsList.add(
+    ImmutableList<String> requestedProcedureGenericTypeParamNames =
+        ((Types.ProcedureType) JavaSourceCompilerBackend.scopedHeap
+            .getValidatedIdentifierType(monomorphizationRequest.getProcedureName()))
+            .getGenericProcedureArgNames().get();
+    ((BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
+         JavaSourceCompilerBackend.scopedHeap.getIdentifierValue(monomorphizationRequest.getProcedureName()))
+        .apply(
+            JavaSourceCompilerBackend.scopedHeap,
+            IntStream.range(0, monomorphizationRequest.getConcreteTypeParamsCount()).boxed().collect(
+                ImmutableMap.toImmutableMap(
+                    i -> Types.$GenericTypeParam.forTypeParamName(requestedProcedureGenericTypeParamNames.get(i)),
+                    i -> Types.parseTypeProto(monomorphizationRequest.getConcreteTypeParams(i))
+                ))
+        );
+    // TODO(steving) This is some unreliable hackery. Factor out the core monomorphization logic into a static function
+    //   that can be called in isolation w/o automatically recursing over transitive local monomorphizations.
+    Node.GeneratedJavaSource monoCodegen =
+        new GenericFunctionDefinitionStmt(null, null, null, null, null, null, null, null)
+            .generateJavaSourceOutput(JavaSourceCompilerBackend.scopedHeap);
+    // TODO(steving) HANDLE LOCAL TRANSITIVE MONOMORPHIZATIONS.
+    return ImmutableList.of(
         IPCMessages.MonomorphizationResponse.Monomorphization.newBuilder()
             .setMonomorphizationRequest(monomorphizationRequest)
             .setMonomorphizationCodegen(
-                // TODO(steving) I need to do a lot more work here than just a simple name generation,
-                //  but this is representative.
-                ContractProcedureImplementationStmt.getCanonicalProcedureName(
-                    "$MONOMORPHIZATION"/*contractName=*/,
-                    monomorphizationRequest.getConcreteTypeParamsList().stream()
-                        .map(Types::parseTypeProto)
-                        .collect(ImmutableList.toImmutableList()),
-                    monomorphizationRequest.getProcedureName()
-                ))
-            .build());
-
-    // I want to simulate some likelihood that there's a transitive local monomorphization that needs to get codegen'd.
-    double rand = random.nextDouble();
-    if (rand > 0.5) {
-      // Here it turns out that there was some random chance I needed to monomorphize some other local generic procedure.
-      String procedureName = "LOCAL_RANDOM_" + rand;
-      ImmutableList<TypeProtos.TypeProto> concreteTypeParams =
-          ImmutableList.of(
-              TypeProtos.TypeProto.newBuilder()
-                  .setAtom(TypeProtos.AtomType.newBuilder()
-                               .setName("RAND_A")
-                               .setDefiningModuleDisambiguator(""))
-                  .build());
-      localMonomorphizationsList.add(
-          IPCMessages.MonomorphizationResponse.Monomorphization.newBuilder()
-              .setMonomorphizationRequest(
-                  MonomorphizationRequest.newBuilder()
-                      .setProcedureName(procedureName)
-                      .addAllConcreteTypeParams(concreteTypeParams)
-                      .build())
-              .setMonomorphizationCodegen(
-                  // TODO(steving) I need to do a lot more work here than just a simple name generation,
-                  //  but this is representative.
-                  ContractProcedureImplementationStmt.getCanonicalProcedureName(
-                      "$MONOMORPHIZATION"/*contractName=*/,
-                      concreteTypeParams.stream().map(Types::parseTypeProto).collect(ImmutableList.toImmutableList()),
-                      procedureName
-                  ))
-              .build());
-    }
-
-    return localMonomorphizationsList.build();
+                monoCodegen.optionalStaticPreambleStmts().get().toString() +
+                monoCodegen.optionalStaticDefinitions().get().toString()
+            ).build());
   }
 
   private static ImmutableList<MonomorphizationRequest> getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest() {

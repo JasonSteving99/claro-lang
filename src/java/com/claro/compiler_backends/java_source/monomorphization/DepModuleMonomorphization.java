@@ -1,6 +1,7 @@
 package com.claro.compiler_backends.java_source.monomorphization;
 
 import com.claro.ClaroCompilerMain;
+import com.claro.compiler_backends.java_source.JavaSourceCompilerBackend;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
@@ -11,7 +12,6 @@ import com.google.devtools.common.options.OptionsParser;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
 
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.getDepModuleMonomorphizationServerForFreePort;
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.startMonomorphizationServerAndAwaitShutdown;
@@ -46,9 +46,7 @@ public class DepModuleMonomorphization {
               // TODO(steving) Unfortunately, for now, the "bootstrapping" version of the SerializedClaroModule.java file
               //     doesn't have access to the command_line_args field as it's a version behind. After I push the first
               //     version of Claro that actually supports dep module monomorphization, I should refactor to call directly.
-              ImmutableList.copyOf((List<String>) Class.forName(parsedModule.getClass().getName())
-                  .getMethod("getCommandLineArgsList")
-                  .invoke(parsedModule))
+              ImmutableList.copyOf(parsedModule.getCommandLineArgsList())
           );
     }
 
@@ -101,12 +99,15 @@ public class DepModuleMonomorphization {
       String uniqueModuleName, DepModuleCoordinatorService coordinatorClient) {
     $ClaroHttpServer monomorphizationServer = getDepModuleMonomorphizationServerForFreePort.apply();
     int monomorphizationServerPort = monomorphizationServer.server.getListenAddresses().get(0).getPort();
+    // TODO(steving) Remember to silence $ClaroHttpServer's startup message. No need to go scaring people w/ this
+    //  internal detail.
+//    $ClaroHttpServer.silent = true;
 
     // I'll need to actually start the server before reporting its port so that by the time there's a call it's
     // actually running.
     new Thread(() -> {
       // This line runs forever - until the server receives the shutdown command.
-      startMonomorphizationServerAndAwaitShutdown.apply(monomorphizationServer, "DEP MODULE STARTED!");
+      startMonomorphizationServerAndAwaitShutdown.apply(monomorphizationServer);
 
       // Cleanup once something triggers shutdown. W/o this the process would hang forever as these threads are
       // going to live forever.
@@ -137,13 +138,17 @@ public class DepModuleMonomorphization {
     return monomorphizationServer;
   }
 
+  // NOTE: It's important to keep in mind the subtle detail that the compiler being invoked here is the *BOOTSTRAPPING*
+  //       compiler, not the latest (local) version of the compiler. This is important in that any local modifications
+  //       made to the source of the compiler will not reflect here until included in a new release.
   private void runModuleCompilationPreworkBeforeMonomorphizationWorkPossible() throws InterruptedException {
-    System.out.println("TESTING!!! PREWORK...sleeping 1 second...");
-    Thread.sleep(1000);
     try {
+      // Make sure to signal to the compiler that we are doing dep module monomorphization and so must follow simplified
+      // compilation process.
+      JavaSourceCompilerBackend.DEP_MODULE_MONOMORPHIZATION_ENABLED = true;
       ClaroCompilerMain.main(this.recompilationArgs.toArray(new String[this.recompilationArgs.size()]));
     } catch (Exception e) {
-      System.err.println("TESTING!!! FAILED RECOMPILATION SOMEHOW:");
+      System.err.println("TESTING!! Internal Compiler Error! FAILED RECOMPILATION SOMEHOW:");
       e.printStackTrace();
     }
   }

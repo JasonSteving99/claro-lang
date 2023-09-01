@@ -26,7 +26,6 @@ public class SubprocessRegistration {
       throw new RuntimeException("Internal Compiler Error! Coordinator attempting to mark a dep module " +
                                  "monomorphization subprocess port more than once.");
     }
-    System.out.println("DEP MODULE: " + uniqueModuleName + " PORT REGISTRATION: " + port);
     registry.get(uniqueModuleName).getPortFuture().set(Integer.parseInt(port));
   }
 

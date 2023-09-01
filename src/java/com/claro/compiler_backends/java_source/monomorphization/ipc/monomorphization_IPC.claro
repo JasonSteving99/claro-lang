@@ -3,7 +3,6 @@ endpoint_handlers DepModuleMonomorphizationService {
   graph function triggerMonomorphization(monomorphizationReq: string) -> future<HttpResponse> {
     root res <- http::getOk200HttpResponseForJson(@formattedResp);
     node formattedResp <- MonomorphizationHackUtils::handleMonomorphizationRequest(monomorphizationReq);
-    #"Here's the monomorphization codegen for your req: {monomorphizationReq}";
   }
 }
 
@@ -11,8 +10,7 @@ provider getDepModuleMonomorphizationServerForFreePort() -> HttpServer<DepModule
   return http::getBasicHttpServerForPort(0);
 }
 
-consumer startMonomorphizationServerAndAwaitShutdown(server: HttpServer<DepModuleMonomorphizationService>, startMessage: string) {
-  print(startMessage);
+consumer startMonomorphizationServerAndAwaitShutdown(server: HttpServer<DepModuleMonomorphizationService>) {
   http::startServerAndAwaitShutdown(server);
 }
 

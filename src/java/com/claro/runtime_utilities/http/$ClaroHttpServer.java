@@ -22,6 +22,7 @@ import java.util.function.Function;
 public class $ClaroHttpServer extends $ClaroLauncher {
 
   public static final HttpMethod GET = HttpMethod.GET;
+  public static boolean silent = false;
 
   public static ClaroConsumerFunction<$ClaroHttpServer> startServerAndAwaitShutdown =
       new ClaroConsumerFunction<$ClaroHttpServer>() {
@@ -59,7 +60,9 @@ public class $ClaroHttpServer extends $ClaroLauncher {
 
   @Override
   protected void run() throws Exception {
-    System.out.println("HTTP Server is now available at " + String.join(", ", super.server.getHttpAddresses()));
+    if (!$ClaroHttpServer.silent) {
+      System.out.println("HTTP Server is now available at " + String.join(", ", super.server.getHttpAddresses()));
+    }
     awaitShutdown();
   }
 
