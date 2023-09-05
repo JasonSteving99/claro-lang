@@ -91,15 +91,20 @@ public class MonomorphizationCoordinator {
               BaseEncoding.base64().decode(
                   Futures.transform(
                       getDepModuleMonomorphizationSubprocessClient(module),
-                      depModuleMonomorphizationService -> {
-                        String res = sendMessageToSubprocess_TriggerMonomorphization.apply(
-                            depModuleMonomorphizationService,
-                            BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
-                        ).get();
-                        return res;
-                      },
+                      depModuleMonomorphizationService ->
+                          sendMessageToSubprocess_TriggerMonomorphization.apply(
+                              depModuleMonomorphizationService,
+                              BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
+                          ).get(),
                       MoreExecutors.directExecutor()
                   ).get()));
+      if (!monomorphizationRes.getOptionalErrorMessage().isEmpty()) {
+        shutdownDepModuleMonomorphization();
+        throw new RuntimeException(
+            "Internal Compiler Error! Dep Module Monomorphization Failed for current MonomorphizationRequest:\n"
+            + depModuleMonomorphizationReq + "\nHere's the stacktrace from the dep module subprocess:\n"
+            + monomorphizationRes.getOptionalErrorMessage());
+      }
       // Store all local monomorphizations returned by the dep module subprocess, they'll need to be included in the
       // module's codegen.
       for (IPCMessages.MonomorphizationResponse.Monomorphization monomorphization : monomorphizationRes.getLocalModuleMonomorphizationsList()) {
@@ -116,13 +121,10 @@ public class MonomorphizationCoordinator {
             transitiveDepModuleMonomorphizationReq.getKey(), transitiveDepModuleMonomorphizationReq.getValue());
       }
     } catch (InterruptedException | ExecutionException e) {
-      terminateAllDepModuleMonomorphizationSubprocesses();
+      shutdownDepModuleMonomorphization();
       throw new RuntimeException("Internal Compiler Error! Failed to get dep module monomorphization from subprocess.", e);
-    } catch (InvalidProtocolBufferException e) {
-      terminateAllDepModuleMonomorphizationSubprocesses();
-      throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationResponse proto.", e);
-    } catch (IllegalArgumentException e) {
-      terminateAllDepModuleMonomorphizationSubprocesses();
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      shutdownDepModuleMonomorphization();
       throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationResponse proto.", e);
     }
   }
@@ -147,9 +149,7 @@ public class MonomorphizationCoordinator {
     // Startup the coordinator server so it's ready to communicate.
     coordinatorServer = getDepModuleCoordinatorServerForFreePort.apply();
     coordinatorPort = coordinatorServer.server.getListenAddresses().get(0).getPort();
-    // TODO(steving) Remember to silence $ClaroHttpServer's startup message. No need to go scaring people w/ this
-    //  internal detail.
-//    $ClaroHttpServer.silent = true;
+    $ClaroHttpServer.silent = true;
     new Thread(() -> {
       startCoordinatorServerAndAwaitShutdown.apply(coordinatorServer, "COORDINATOR STARTED!");
 

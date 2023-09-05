@@ -99,9 +99,7 @@ public class DepModuleMonomorphization {
       String uniqueModuleName, DepModuleCoordinatorService coordinatorClient) {
     $ClaroHttpServer monomorphizationServer = getDepModuleMonomorphizationServerForFreePort.apply();
     int monomorphizationServerPort = monomorphizationServer.server.getListenAddresses().get(0).getPort();
-    // TODO(steving) Remember to silence $ClaroHttpServer's startup message. No need to go scaring people w/ this
-    //  internal detail.
-//    $ClaroHttpServer.silent = true;
+    $ClaroHttpServer.silent = true;
 
     // I'll need to actually start the server before reporting its port so that by the time there's a call it's
     // actually running.

@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
@@ -30,20 +31,33 @@ public class MonomorphizationRequestProcessing {
       throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationRequest!", e);
     }
 
-    return BaseEncoding.base64().encode(
-        IPCMessages.MonomorphizationResponse.newBuilder()
-            .addAllLocalModuleMonomorphizations(
-                getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
-            .putAllTransitiveDepModuleMonomorphizationRequests(
-                // TODO(steving) Swap this out with a real implementation that hooks into the actual compiler.
-                getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest().stream().collect(
-                    ImmutableMap.toImmutableMap(
-                        unused -> "TRANSITIVE_DEP_MODULE_" + (random.nextDouble() > 0.5 ? "AAAAA" : "BBBBB"),
-                        r -> r
-                    )
-                ))
-            .build().toByteArray());
-
+    try {
+      return BaseEncoding.base64().encode(
+          IPCMessages.MonomorphizationResponse.newBuilder()
+              .addAllLocalModuleMonomorphizations(
+                  getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
+              .putAllTransitiveDepModuleMonomorphizationRequests(
+                  // TODO(steving) Swap this out with a real implementation that hooks into the actual compiler.
+                  getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest().stream().collect(
+                      ImmutableMap.toImmutableMap(
+                          unused -> "TRANSITIVE_DEP_MODULE_" + (random.nextDouble() > 0.5 ? "AAAAA" : "BBBBB"),
+                          r -> r
+                      )
+                  ))
+              .build().toByteArray());
+    } catch (Exception e) {
+      // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
+      // that in the main coordinator process as debugging the dep module processes is a painful process. So, instead,
+      // I'll format an error message here and convey the problem to the coordinator via a proper error field in the
+      // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
+      // proceeding.
+      return BaseEncoding.base64().encode(
+          IPCMessages.MonomorphizationResponse.newBuilder()
+              .setOptionalErrorMessage(
+                  "Internal Compiler Error! Exception thrown during MonomorphizationRequest handling: "
+                  + e.getMessage() + "\n\t" + Joiner.on("\n\t").join(e.getStackTrace()))
+              .build().toByteArray());
+    }
   }
 
   @SuppressWarnings("unchecked")

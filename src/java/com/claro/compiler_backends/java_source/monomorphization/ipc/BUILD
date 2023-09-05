@@ -80,6 +80,9 @@ java_library(
         "//src/java/com/claro/intermediate_representation:node",
         "//src/java/com/claro/intermediate_representation/statements/contracts",
     ],
+    runtime_deps = [
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
+    ],
     visibility = [
         "//src/java/com/claro/compiler_backends/java_source/monomorphization:__pkg__",
     ]

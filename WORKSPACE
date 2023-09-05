@@ -43,8 +43,8 @@ rules_proto_toolchains()
 # Claro's going to utilize some
 http_file(
     name = "bootstrapping_claro_compiler_tarfile",
-    sha256 = "4e8d8ff917e816e705901774ab35becb220c41ab2b7bab29516be31c3c6e69e0",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.210/claro-cli-install.tar.gz",
+    sha256 = "423d253c1bf61cbb65eb059ebc1990d72e4d060e898a158c8490a485fe648484",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.213/claro-cli-install.tar.gz",
 )
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
