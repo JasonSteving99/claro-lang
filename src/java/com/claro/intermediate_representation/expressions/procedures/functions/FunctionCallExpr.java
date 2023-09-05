@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
@@ -675,7 +676,18 @@ public class FunctionCallExpr extends Expr {
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
-    Optional<String> optionalNormalizedOriginatingDepModulePrefix = this.optionalOriginatingDepModuleName;
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix =
+        this.optionalOriginatingDepModuleName
+            // Turns out I need to codegen the Java namespace of the dep module.
+            .map(depMod -> {
+              SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                  ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+              return String.format(
+                  "%s.%s.",
+                  depModDescriptor.getProjectPackage(),
+                  depModDescriptor.getUniqueModuleName()
+              );
+            });
     if (!this.name.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.name);
     } else {
