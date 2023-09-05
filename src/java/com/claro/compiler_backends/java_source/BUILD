@@ -23,6 +23,7 @@ java_library(
       "//src/java/com/claro/intermediate_representation:program_node",
       "//src/java/com/claro/intermediate_representation/expressions:expr",
       "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+      "//src/java/com/claro/intermediate_representation/statements:stmt",
       "//src/java/com/claro/intermediate_representation/statements:stmt_impls",
       "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
       "//src/java/com/claro/intermediate_representation/statements/contracts",

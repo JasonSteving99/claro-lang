@@ -70,7 +70,6 @@ java_library(
     deps = [
         ":stmt",
         ":stmt_list_node",
-        "//:apache_commons_text",
         "//:autovalue",
         "//:guava",
         "//src/java/com/claro:claro_parser_exception",

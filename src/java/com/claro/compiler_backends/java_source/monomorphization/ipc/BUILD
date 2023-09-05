@@ -6,6 +6,11 @@ package(
     ]
 )
 
+########################################################################################################################
+# BEGIN monomorphization_IPC TARGETS:
+########################################################################################################################
+# Use this first target for the Dep Module Monomorphization case where you'll actually need to call back into the
+# bootstrapping compiler.
 bootstrapped_claro_module(
     name = "monomorphization_ipc",
     module_api_file = "monomorphization_IPC.claro_module_api",
@@ -15,17 +20,41 @@ bootstrapped_claro_module(
         "MonomorphizationHackUtils": ":monomorphization_IPC_hack_utils",
     },
 )
+# Use this second target in the build of the main compilation unit compiler since it should have no dep back into the
+# bootstrapping compiler.
+bootstrapped_claro_module(
+    name = "main_compilation_unit_monomorphization_ipc",
+    module_api_file = "monomorphization_IPC.claro_module_api",
+    srcs = ["monomorphization_IPC.claro"],
+    optional_stdlib_deps = ["http"],
+    deps = {
+        "MonomorphizationHackUtils": ":DUMMY_monomorphization_IPC_hack_utils",
+    },
+)
+########################################################################################################################
+# END monomorphization_IPC TARGETS:
+########################################################################################################################
 
+
+########################################################################################################################
+# BEGIN monomorphization_IPC_hack_utils TARGETS:
+########################################################################################################################
 bootstrapped_claro_module_internal(
     name = "monomorphization_IPC_hack_utils",
     module_api_file = "monomorphization_IPC_hack_utils.claro_module_api",
-    srcs = [
-        "monomorphization_IPC_hack_utils.claro_internal",
-    ],
+    srcs = ["monomorphization_IPC_hack_utils.claro_internal"],
     exported_custom_java_deps = [
         ":monomorphization_request_processing",
     ],
 )
+bootstrapped_claro_module_internal(
+    name = "DUMMY_monomorphization_IPC_hack_utils",
+    module_api_file = "monomorphization_IPC_hack_utils.claro_module_api",
+    srcs = ["monomorphization_IPC_hack_utils_DUMMY.claro_internal"],
+)
+########################################################################################################################
+# END monomorphization_IPC_hack_utils TARGETS:
+########################################################################################################################
 
 java_library(
     name = "monomorphization_request_processing",

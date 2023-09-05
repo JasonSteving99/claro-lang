@@ -496,7 +496,6 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             "//src/java/com/claro/runtime_utilities/injector:injected_key",
             "//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
             "//src/java/com/claro/stdlib:module_util",
-            "//:apache_commons_text",
             "//:guava",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient
         ],

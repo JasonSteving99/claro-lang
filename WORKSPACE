@@ -43,8 +43,8 @@ rules_proto_toolchains()
 # Claro's going to utilize some
 http_file(
     name = "bootstrapping_claro_compiler_tarfile",
-    sha256 = "88583d80c9cb7d99ed83ae2535279348067baa3a7cf950fa6a3fe49b2018893f",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.209/claro-cli-install.tar.gz",
+    sha256 = "4e8d8ff917e816e705901774ab35becb220c41ab2b7bab29516be31c3c6e69e0",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.210/claro-cli-install.tar.gz",
 )
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
@@ -62,7 +62,6 @@ maven_install(
             "com.google.guava:guava:jar:23.5-jre",
             "com.googlecode.lanterna:lanterna:3.1.1",
             "io.javalin:javalin:4.1.1",
-            "org.apache.commons:commons-text:jar:1.1",
             "com.squareup.okhttp3:okhttp:4.11.0",
             # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.
             # The maintainers responded to this calling it something they explicitly won't fix since it's just a warning

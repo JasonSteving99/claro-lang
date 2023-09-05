@@ -33,7 +33,7 @@ java_library(
     deps = [
         "//:autovalue",
         "//:guava",
-        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:main_compilation_unit_monomorphization_ipc_compiled_claro_module_java_lib",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
     ],

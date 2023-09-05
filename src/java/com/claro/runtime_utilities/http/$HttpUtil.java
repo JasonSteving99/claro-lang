@@ -16,6 +16,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -75,7 +76,10 @@ public class $HttpUtil {
 
       @Override
       public void onFailure(Call<ResponseBody> call, Throwable throwable) {
-        settableFuture.set(getSimpleErrorType(Types.STRING, "HTTP GET FAILURE!: " + throwable));
+        settableFuture.set(getSimpleErrorType(
+            Types.STRING,
+            "HTTP GET FAILURE!: " + throwable.getMessage() + "\n" + Arrays.toString(throwable.getStackTrace())
+        ));
       }
     });
 

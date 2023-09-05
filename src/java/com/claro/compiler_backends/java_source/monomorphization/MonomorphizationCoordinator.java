@@ -25,8 +25,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.DepModuleMonomorphizationService;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.sendMessageToSubprocess_TriggerMonomorphization;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$main_compilation_unit_monomorphization_ipc.DepModuleMonomorphizationService;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$main_compilation_unit_monomorphization_ipc.sendMessageToSubprocess_TriggerMonomorphization;
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc_coordinator$monomorphization_ipc_coordinator.getDepModuleCoordinatorServerForFreePort;
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc_coordinator$monomorphization_ipc_coordinator.startCoordinatorServerAndAwaitShutdown;
 
@@ -91,10 +91,13 @@ public class MonomorphizationCoordinator {
               BaseEncoding.base64().decode(
                   Futures.transform(
                       getDepModuleMonomorphizationSubprocessClient(module),
-                      depModuleMonomorphizationService -> sendMessageToSubprocess_TriggerMonomorphization.apply(
-                          depModuleMonomorphizationService,
-                          BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
-                      ).get(),
+                      depModuleMonomorphizationService -> {
+                        String res = sendMessageToSubprocess_TriggerMonomorphization.apply(
+                            depModuleMonomorphizationService,
+                            BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
+                        ).get();
+                        return res;
+                      },
                       MoreExecutors.directExecutor()
                   ).get()));
       // Store all local monomorphizations returned by the dep module subprocess, they'll need to be included in the
@@ -113,8 +116,13 @@ public class MonomorphizationCoordinator {
             transitiveDepModuleMonomorphizationReq.getKey(), transitiveDepModuleMonomorphizationReq.getValue());
       }
     } catch (InterruptedException | ExecutionException e) {
+      terminateAllDepModuleMonomorphizationSubprocesses();
       throw new RuntimeException("Internal Compiler Error! Failed to get dep module monomorphization from subprocess.", e);
     } catch (InvalidProtocolBufferException e) {
+      terminateAllDepModuleMonomorphizationSubprocesses();
+      throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationResponse proto.", e);
+    } catch (IllegalArgumentException e) {
+      terminateAllDepModuleMonomorphizationSubprocesses();
       throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationResponse proto.", e);
     }
   }

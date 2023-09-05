@@ -8,8 +8,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.DepModuleMonomorphizationService;
-import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$monomorphization_ipc.getDepModuleMonomorphizationClient;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$main_compilation_unit_monomorphization_ipc.DepModuleMonomorphizationService;
+import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$main_compilation_unit_monomorphization_ipc.getDepModuleMonomorphizationClient;
 
 public class SubprocessRegistration {
   public static SettableFuture<HashMap<String, DepModuleMonomorphizationSubprocessState>>

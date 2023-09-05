@@ -12,6 +12,9 @@ import com.claro.intermediate_representation.ModuleNode;
 import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.Target;
 import com.claro.intermediate_representation.expressions.Expr;
+import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
+import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
@@ -396,49 +399,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       for (SerializedClaroModule.Procedure depExportedProc :
           moduleDep.getValue().getExportedProcedureDefinitionsList()) {
         Types.ProcedureType procedureType = getProcedureTypeFromProto(depExportedProc);
-        Object symbolTableValue = null;
-        if (procedureType.getGenericProcedureArgNames().map(l -> !l.isEmpty()).orElse(false)) {
-          // If we're dealing with a generic procedure from a dep module, then we'll need to also setup an additional
-          // value in its symbol table entry that will be used by FunctionCallExpr to derive the monomorphization name
-          // based on the concrete arg types at the callsite. We'll also be able to utilize this as a "hook" of sorts to
-          // configure any other work that'll be necessary to register the fact that a monomomorphization of one of this
-          // compilation unit's dep modules actually needs to be generated before we can go to Java.
-          symbolTableValue = (BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String>)
-              (internalScopedHeap, concreteTypeParams) -> {
-                ImmutableList.Builder<Type> orderedConcreteTypeParamsBuilder = ImmutableList.builder();
-                ImmutableList<String> genericProcedureArgNames = procedureType.getGenericProcedureArgNames().get();
-                for (int i = 0; i < genericProcedureArgNames.size(); i++) {
-                  orderedConcreteTypeParamsBuilder.add(
-                      concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(genericProcedureArgNames.get(i))));
-                }
-                ImmutableList<Type> orderedConcreteTypeParams = orderedConcreteTypeParamsBuilder.build();
-                String monomorphizationName = ContractProcedureImplementationStmt.getCanonicalProcedureName(
-                    /*contractName=*/"$MONOMORPHIZATION", orderedConcreteTypeParams, depExportedProc.getName());
-                // Enable FunctionCallExpr to mark this monomorphization used.
-                internalScopedHeap.putIdentifierValueAtLevel(
-                    monomorphizationName,
-                    procedureType,
-                    null,
-                    /*scopeLevel=*/0
-                );
-
-                // Make note of this needed dep module monomorphization somewhere so that just before finalizing codegen
-                // we can trigger dep module monomorphization.
-                InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.put(
-                    moduleDep.getKey(),
-                    IPCMessages.MonomorphizationRequest.newBuilder()
-                        .setProcedureName(depExportedProc.getName())
-                        .addAllConcreteTypeParams(
-                            orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
-                        .build()
-                );
-                return monomorphizationName;
-              };
-        }
         scopedHeap.putIdentifierValue(
             String.format("$DEP_MODULE$%s$%s", moduleDep.getKey(), depExportedProc.getName()),
             procedureType,
-            symbolTableValue
+            // If this is a generic procedure, then the symbol table will hold a function that's used to register a
+            // concrete call, and get back the monomorphization's canonical name, otherwise, null.
+            maybeSetupGenericDepModuleProcedure(moduleDep.getKey(), depExportedProc, procedureType)
         );
       }
       registerDepModuleExportedTypeInitializersAndUnwrappers(scopedHeap, Optional.of(moduleDep.getKey()), moduleDep.getValue());
@@ -462,6 +428,89 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         ));
   }
 
+  private static ProcedureDefinitionStmt syntheticProcedureDefStmt = null;
+
+  private static BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String> maybeSetupGenericDepModuleProcedure(
+      String depModuleName, SerializedClaroModule.Procedure depExportedProc, Types.ProcedureType procedureType) {
+    BiFunction<ScopedHeap, ImmutableMap<Type, Type>, String> symbolTableValue = null;
+    if (procedureType.getGenericProcedureArgNames().map(l -> !l.isEmpty()).orElse(false)) {
+      // If we're dealing with a generic procedure from a dep module, then we'll need to also setup an additional
+      // value in its symbol table entry that will be used by FunctionCallExpr to derive the monomorphization name
+      // based on the concrete arg types at the callsite. We'll also be able to utilize this as a "hook" of sorts to
+      // configure any other work that'll be necessary to register the fact that a monomomorphization of one of this
+      // compilation unit's dep modules actually needs to be generated before we can go to Java.
+      symbolTableValue =
+          (internalScopedHeap, concreteTypeParams) -> {
+            ImmutableList.Builder<Type> orderedConcreteTypeParamsBuilder = ImmutableList.builder();
+            ImmutableList<String> genericProcedureArgNames = procedureType.getGenericProcedureArgNames().get();
+            for (int i = 0; i < genericProcedureArgNames.size(); i++) {
+              orderedConcreteTypeParamsBuilder.add(
+                  concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(genericProcedureArgNames.get(i))));
+            }
+            ImmutableList<Type> orderedConcreteTypeParams = orderedConcreteTypeParamsBuilder.build();
+            String monomorphizationName = ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                /*contractName=*/"$MONOMORPHIZATION", orderedConcreteTypeParams, depExportedProc.getName());
+            // Enable FunctionCallExpr to mark this monomorphization used.
+            internalScopedHeap.putIdentifierValueAtLevel(
+                monomorphizationName,
+                procedureType,
+                null,
+                /*scopeLevel=*/0
+            );
+
+            // Make note of this needed dep module monomorphization somewhere so that just before finalizing codegen
+            // we can trigger dep module monomorphization.
+            InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.put(
+                depModuleName,
+                IPCMessages.MonomorphizationRequest.newBuilder()
+                    .setProcedureName(depExportedProc.getName())
+                    .addAllConcreteTypeParams(
+                        orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
+                    .build()
+            );
+            return monomorphizationName;
+          };
+      // Each parsed procedure type will be given a synthetic procedure definition stmt literally just for the sake of
+      // giving ProcedureDefinitionStmt's transitive procedure type checking something to interact with.
+      if (syntheticProcedureDefStmt == null) {
+        syntheticProcedureDefStmt = new ProcedureDefinitionStmt(
+            "$$SYNTHETIC_DEP_MODULE_PROCEDURE_DEF$$",
+            (unused) -> (unused2) -> procedureType,
+            new StmtListNode(new Stmt(ImmutableList.of()) {
+              @Override
+              public void assertExpectedExprTypes(ScopedHeap scopedHeap) {
+              }
+
+              @Override
+              public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+                return null;
+              }
+
+              @Override
+              public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+                return null;
+              }
+            })
+        ) {
+          @Override
+          public void registerProcedureTypeProvider(ScopedHeap scopedHeap) {
+          }
+
+          @Override
+          public void assertExpectedExprTypes(ScopedHeap scopedHeap) {
+          }
+
+          @Override
+          public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+            throw new RuntimeException("Internal Compiler Error! Should be unreachable.");
+          }
+        };
+      }
+      procedureType.autoValueIgnoredProcedureDefStmt.set(syntheticProcedureDefStmt);
+    }
+    return symbolTableValue;
+  }
+
   // Register an optionally named module dep's exported type initializers and unwrappers. All direct dep modules will be
   // inherently named, and transitive exported deps of those direct deps will be unnamed. This is in keeping with Claro
   // enabling module consumers to actually utilize transitive exported types from dep modules w/o actually placing a
@@ -475,8 +524,16 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       optionalModuleName.ifPresent(
           moduleName ->
               initializerEntry.getValue().getProceduresList().forEach(
-                  p -> scopedHeap.putIdentifierValue(
-                      String.format("$DEP_MODULE$%s$%s", moduleName, p.getName()), getProcedureTypeFromProto(p))));
+                  p -> {
+                    Types.ProcedureType procedureType = getProcedureTypeFromProto(p);
+                    scopedHeap.putIdentifierValue(
+                        String.format("$DEP_MODULE$%s$%s", moduleName, p.getName()),
+                        procedureType,
+                        // If this is a generic procedure, then the symbol table will hold a function that's used to register a
+                        // concrete call, and get back the monomorphization's canonical name, otherwise, null.
+                        maybeSetupGenericDepModuleProcedure(moduleName, p, procedureType)
+                    );
+                  }));
       InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
           .put(
               initializerEntry.getKey(),
@@ -498,8 +555,16 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       optionalModuleName.ifPresent(
           moduleName ->
               unwrapperEntry.getValue().getProceduresList().forEach(
-                  p -> scopedHeap.putIdentifierValue(
-                      String.format("$DEP_MODULE$%s$%s", moduleName, p.getName()), getProcedureTypeFromProto(p))));
+                  p -> {
+                    Types.ProcedureType procedureType = getProcedureTypeFromProto(p);
+                    scopedHeap.putIdentifierValue(
+                        String.format("$DEP_MODULE$%s$%s", moduleName, p.getName()),
+                        procedureType,
+                        // If this is a generic procedure, then the symbol table will hold a function that's used to register a
+                        // concrete call, and get back the monomorphization's canonical name, otherwise, null.
+                        maybeSetupGenericDepModuleProcedure(moduleName, p, procedureType)
+                    );
+                  }));
       InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
           .put(
               unwrapperEntry.getKey(),

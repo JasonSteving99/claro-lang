@@ -8,7 +8,6 @@ import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
-import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
@@ -676,10 +675,27 @@ public class FunctionCallExpr extends Expr {
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix = this.optionalOriginatingDepModuleName;
     if (!this.name.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.name);
     } else {
       this.hashNameForCodegen = true;
+      if (this.optionalOriginatingDepModuleName.isPresent()) {
+        // TODO(steving) TESTING!!! This needs a complete overhaul to correctly point to the codegen in the local file.
+        // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
+        // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
+        // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
+        // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
+        // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
+        // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        optionalNormalizedOriginatingDepModulePrefix =
+            Optional.of(
+                String.format(
+                    "%s.$%s.",
+                    "$DepModuleMonomorphizations",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
+                ));
+      }
     }
 
     if (this.hashNameForCodegen) {
@@ -734,17 +750,7 @@ public class FunctionCallExpr extends Expr {
           new StringBuilder(
               String.format(
                   this.staticDispatchCodegen ? "%s%s(%s%s)" : "%s%s.apply(%s%s)",
-                  this.optionalOriginatingDepModuleName
-                      // Turns out I need to codegen the Java namespace of the dep module.
-                      .map(depMod -> {
-                        SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
-                            ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
-                        return String.format(
-                            "%s.%s.",
-                            depModDescriptor.getProjectPackage(),
-                            depModDescriptor.getUniqueModuleName()
-                        );
-                      }).orElse(""),
+                  optionalNormalizedOriginatingDepModulePrefix.orElse(""),
                   this.optionalOriginatingDepModuleName
                       .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
                       .orElse(this.name),

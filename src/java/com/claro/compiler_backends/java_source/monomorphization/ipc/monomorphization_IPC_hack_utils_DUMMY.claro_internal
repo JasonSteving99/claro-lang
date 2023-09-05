@@ -1,0 +1,13 @@
+
+function handleMonomorphizationRequest(base64_encoded_monomorphization_req: string) -> string {
+  var res: string;
+
+  $$BEGIN_JAVA
+  res = null;
+  if (true) {
+    throw new RuntimeException("Internal Compiler Error! handleMonomorphizationRequest shouldn't ever be called in main compilation unit process!");
+  }
+  $$END_JAVA
+
+  return res;
+}

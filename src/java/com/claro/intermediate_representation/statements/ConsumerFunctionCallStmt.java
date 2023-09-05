@@ -9,7 +9,6 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
-import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -239,7 +238,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
-    Optional<String> optionalNormalizedOriginatingDepModuleName = this.optionalOriginatingDepModuleName;
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix = this.optionalOriginatingDepModuleName;
     if (!this.consumerName.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.consumerName);
     } else {
@@ -252,23 +251,13 @@ public class ConsumerFunctionCallStmt extends Stmt {
         // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
         // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
         // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
-        optionalNormalizedOriginatingDepModuleName =
-            Optional.of(this.optionalOriginatingDepModuleName.get() + "$MONOMORPHIZATIONS");
-        Optional<SerializedClaroModule.UniqueModuleDescriptor> optionalCurrModuleDescriptor =
-            ScopedHeap.getModuleNameFromDisambiguator("$THIS_MODULE$").map(
-                currModuleName -> ScopedHeap.currProgramDepModules.get(currModuleName, /*isUsed=*/true));
-        ScopedHeap.currProgramDepModules.put(
-            optionalNormalizedOriginatingDepModuleName.get(),
-            /*isUsed=*/true,
-            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
-                .setUniqueModuleName(
-                    String.format(
-                        "$%s",
-                        ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
-                    ))
-                .setProjectPackage("$DepModuleMonomorphizations")
-                .build()
-        );
+        optionalNormalizedOriginatingDepModulePrefix =
+            Optional.of(
+                String.format(
+                    "%s.$%s.",
+                    "$DepModuleMonomorphizations",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
+                ));
       }
     }
 
@@ -292,17 +281,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
             new StringBuilder(
                 String.format(
                     this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
-                    optionalNormalizedOriginatingDepModuleName
-                        // Turns out I need to codegen the Java namespace of the dep module.
-                        .map(depMod -> {
-                          SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
-                              ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
-                          return String.format(
-                              "%s.%s.",
-                              depModDescriptor.getProjectPackage(),
-                              depModDescriptor.getUniqueModuleName()
-                          );
-                        }).orElse(""),
+                    optionalNormalizedOriginatingDepModulePrefix.orElse(""),
                     this.optionalOriginatingDepModuleName
                         .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
                         .orElse(this.consumerName),
