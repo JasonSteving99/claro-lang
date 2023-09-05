@@ -462,11 +462,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             // we can trigger dep module monomorphization.
             InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.put(
                 depModuleName,
-                IPCMessages.MonomorphizationRequest.newBuilder()
-                    .setProcedureName(depExportedProc.getName())
-                    .addAllConcreteTypeParams(
-                        orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
-                    .build()
+                getMonomorphizationRequest(depExportedProc, orderedConcreteTypeParams)
             );
             return monomorphizationName;
           };
@@ -509,6 +505,30 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       procedureType.autoValueIgnoredProcedureDefStmt.set(syntheticProcedureDefStmt);
     }
     return symbolTableValue;
+  }
+
+  private static IPCMessages.MonomorphizationRequest getMonomorphizationRequest(SerializedClaroModule.Procedure depExportedProc, ImmutableList<Type> orderedConcreteTypeParams) {
+    return IPCMessages.MonomorphizationRequest.newBuilder()
+        .setProcedureName(depExportedProc.getName())
+        .addAllConcreteTypeParams(
+            orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
+        .addAllUserDefinedTypeConcreteTypeParamsMetadata(
+            orderedConcreteTypeParams.stream().filter(t -> t instanceof Types.UserDefinedType)
+                .map(t -> {
+                  Types.UserDefinedType userDefinedType = (Types.UserDefinedType) t;
+                  String disambiguatedIdentifier =
+                      String.format("%s$%s", userDefinedType.getTypeName(), userDefinedType.getDefiningModuleDisambiguator());
+                  return IPCMessages.MonomorphizationRequest.UserDefinedTypeMetadata.newBuilder()
+                      .setType(t.toProto().getUserDefinedType())
+                      .addAllTypeParamNames(
+                          Optional.ofNullable(Types.UserDefinedType.$typeParamNames.get(disambiguatedIdentifier))
+                              .orElse(ImmutableList.of()))
+                      .setWrappedType(
+                          Types.UserDefinedType.$resolvedWrappedTypes.get(disambiguatedIdentifier).toProto())
+                      .build();
+                })
+                .collect(Collectors.toList())
+        ).build();
   }
 
   // Register an optionally named module dep's exported type initializers and unwrappers. All direct dep modules will be

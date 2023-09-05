@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.Node;
 import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -78,6 +79,30 @@ public class MonomorphizationRequestProcessing {
                     i -> Types.parseTypeProto(monomorphizationRequest.getConcreteTypeParams(i))
                 ))
         );
+
+    // Before invoking the codegen, in order to allow for any user-defined types whose definition may not already be
+    // known by this compilation unit's dep subgraph, I need to do some preliminary setup of metadata associated with
+    // any user-defined types used as concrete type params in this monomorphization request.
+    for (MonomorphizationRequest.UserDefinedTypeMetadata userDefinedTypeMetadata :
+        monomorphizationRequest.getUserDefinedTypeConcreteTypeParamsMetadataList()) {
+      TypeProtos.UserDefinedType userDefinedType = userDefinedTypeMetadata.getType();
+      String disambiguatedIdentifier =
+          String.format("%s$%s", userDefinedType.getTypeName(), userDefinedType.getDefiningModuleDisambiguator());
+      // If this type has already been observed either b/c it was defined w/in this compilation unit's dep subgraph, or
+      // b/c it has already been seen in a prior MonomorphizationRequest, just move on, nothing to see here.
+      if (Types.UserDefinedType.$resolvedWrappedTypes.containsKey(disambiguatedIdentifier)) {
+        continue;
+      }
+      if (userDefinedType.getParameterizedTypesCount() > 0) {
+        Types.UserDefinedType.$typeParamNames.put(
+            disambiguatedIdentifier, ImmutableList.copyOf(userDefinedTypeMetadata.getTypeParamNamesList()));
+      }
+      Types.UserDefinedType.$resolvedWrappedTypes.put(
+          disambiguatedIdentifier,
+          Types.parseTypeProto(userDefinedTypeMetadata.getWrappedType())
+      );
+    }
+
     // TODO(steving) This is some unreliable hackery. Factor out the core monomorphization logic into a static function
     //   that can be called in isolation w/o automatically recursing over transitive local monomorphizations.
     Node.GeneratedJavaSource monoCodegen =
