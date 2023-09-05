@@ -28,4 +28,11 @@ message MonomorphizationResponse {
   // monomorphizations represented in this field, so the coordinator must trigger that transitive dep module
   // monomorphization or else the local_module_monomorphization codegen would be invalid.
   map<string, MonomorphizationRequest> transitive_dep_module_monomorphization_requests = 2;
+
+  // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
+  // that in the main coordinator process as debugging the dep module processes is a painful process. So, instead,
+  // I'll format an error message here and convey the problem to the coordinator via a proper error field in the
+  // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
+  // proceeding.
+  string optional_error_message = 3;
 }
