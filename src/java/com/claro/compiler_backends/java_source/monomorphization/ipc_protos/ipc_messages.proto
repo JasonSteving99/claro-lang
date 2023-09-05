@@ -9,8 +9,24 @@ option java_outer_classname = "IPCMessages";
 option java_package = "com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos";
 
 message MonomorphizationRequest {
+  message UserDefinedTypeMetadata {
+    claro.module_system.module_serialization.claro_types.UserDefinedType type = 1;
+    claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
+    repeated string type_param_names = 3;
+  }
+
+  // The name of the generic procedure for which monomorphization is being requested.
   string procedure_name = 1;
+
+  // The ordered list of concrete types the procedure's generic type params are being bound to.
   repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+
+  // In the case that the requested concrete_type_params are user-defined types (in particular if they were defined
+  // outside of the dep module's own dep subgraph) then the dep module will not have configuration for the type's
+  // wrapped type, or type param names. So, when sending a MonomorphizationRequest, this metadata will be passed along
+  // to enable the dep module subprocess to make note before it attempts monomorphization. If the concrete_type_params
+  // doesn't contain any user-defined types, then this list will be empty.
+  repeated UserDefinedTypeMetadata user_defined_type_concrete_type_params_metadata = 3;
 }
 
 message MonomorphizationResponse {
