@@ -10,8 +10,6 @@ claro_module(
         "game_move_handler.claro",
         "get_best_moves_handler.claro",
         "start_new_game_handler.claro",
-        # TODO(steving) This should be a Module dep rather than an included src once Modules can support it.
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/utils:reduce.claro",
     ],
     deps = {
         "Agent": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/buggy_agent:buggy_agent",

@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
+load("//src/java/com/claro:claro_build_rules.bzl", "claro_module", "claro_binary")
 
 
 # TODO(steving) Realistically I'd rather break up this functionality into two separate modules. In particular I don't
@@ -13,10 +13,9 @@ claro_module(
     srcs = [
         "agent.claro",
         "dijkstra.claro",
-        # TODO(steving) This should be a Module dep rather than an included src once Modules can support it.
-        "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict.claro",
     ],
     deps = {
+        "DefaultDict": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:default_dict",
         "Heaps": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:heap",
         "Pos": "//src/java/com/claro/claro_programs/demo_server/buggy_buggies/data_structures:position",
     },

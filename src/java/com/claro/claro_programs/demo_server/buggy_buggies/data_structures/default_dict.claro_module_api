@@ -1,0 +1,12 @@
+newtype DefaultDict<K,V>: struct {defaultPr: provider<V>, dict: mut {K:V}}
+
+initializers DefaultDict {
+  function create<K,V>(defaultPr: provider<V>) -> DefaultDict<K,V>;
+}
+
+# TODO(steving) Claro really needs to support overloading operator[] via some Contract.
+unwrappers DefaultDict {
+  function get<K,V>(d: DefaultDict<K,V>, key: K) -> V;
+  consumer put<K,V>(d: DefaultDict<K,V>, key: K, value: V);
+  function asMap<K,V>(d: DefaultDict<K,V>) -> {K: V};
+}

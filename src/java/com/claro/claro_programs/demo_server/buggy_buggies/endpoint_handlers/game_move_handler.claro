@@ -1,6 +1,6 @@
 
 graph function gameMoveHandler(gameId: string, playerSecret: string, dir: string) -> future<string> {
-  root formattedHtml <- reduce(@htmlStrParts, "", lambda (accum, curr) -> { return "{accum}{curr}"; });
+  root formattedHtml <- Utils::reduce(@htmlStrParts, "", lambda (accum, curr) -> { return "{accum}{curr}"; });
   node htmlStrParts <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse);
   node moveBuggyResponse <-
     BuggyBuggiesClient::move(

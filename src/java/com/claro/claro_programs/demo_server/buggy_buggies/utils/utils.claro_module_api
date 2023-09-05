@@ -1,3 +1,4 @@
 # This module is simply a dumping ground of uncategorized utility functions.
 
 function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, std::Error<string>>) -> [string];
+function reduce<T, R>(l: [T], accumulated: R, accumulatorFn: function<|R, T| -> R>) -> R;

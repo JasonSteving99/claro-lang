@@ -9,8 +9,9 @@
 alias DistanceVia : struct {dist: int, via: oneof<Pos::Position, std::Nothing>}
 
 function dijkstra(world: {Pos::Position: string}, start: Pos::Position) -> BestPath {
-  var distances: DefaultDict<Pos::Position, DistanceVia> = getDefaultDict(lambda () -> DistanceVia { return {dist = 999999, via = std::Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
-  defaultDictPut(distances, start, {dist = 0, via = start});
+  var distances: DefaultDict::DefaultDict<Pos::Position, DistanceVia> =
+    DefaultDict::create(lambda () -> DistanceVia { return {dist = 999999, via = std::Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  DefaultDict::put(distances, start, {dist = 0, via = start});
   var pq = Heaps::getHeap();
   Heaps::insert(pq, {dist = 0, pos = start});
   var visited: mut {Pos::Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
@@ -25,15 +26,15 @@ function dijkstra(world: {Pos::Position: string}, start: Pos::Position) -> BestP
       for (weightedNeighbor in getWeightedNeighbors(world, currPos)) {
         var neighbor = weightedNeighbor.neighbor;
         var weight = weightedNeighbor.weight;
-        if ((defaultDictGet(distances, currPos).dist + weight) < defaultDictGet(distances, neighbor).dist) {
-          defaultDictPut(distances, neighbor, {dist = defaultDictGet(distances, currPos).dist + weight, via = currPos});
-          Heaps::insert(pq, {dist = defaultDictGet(distances, neighbor).dist, pos = neighbor});
+        if ((DefaultDict::get(distances, currPos).dist + weight) < DefaultDict::get(distances, neighbor).dist) {
+          DefaultDict::put(distances, neighbor, {dist = DefaultDict::get(distances, currPos).dist + weight, via = currPos});
+          Heaps::insert(pq, {dist = DefaultDict::get(distances, neighbor).dist, pos = neighbor});
         }
       }
     }
   }
 
-  return rebuildBestPath(world, asMap(distances));
+  return rebuildBestPath(world, DefaultDict::asMap(distances));
 }
 
 function rebuildBestPath(world: {Pos::Position: string}, distances: {Pos::Position: DistanceVia}) -> BestPath {
