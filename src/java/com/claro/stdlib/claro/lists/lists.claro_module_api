@@ -113,6 +113,7 @@ consumer sort<T>(l: mut [T], comparator: function<|T, T| -> int>);
 # `fromInclusive` and `toExclusive` are equal, the returned list is empty.) The returned list is backed by this list.
 function subList<T>(l: [T], fromInclusive: int, toExclusive: int) -> [T];
 
+# Returns a view of the portion of this list between the specified fromIndex, inclusive, and toIndex, exclusive. (If
 # `fromInclusive` and `toExclusive` are equal, the returned list is empty.) The returned list is backed by this list, so
 # non-structural changes in the returned list are reflected in this list, and vice-versa.
 # This function eliminates the need for explicit range operations (of the sort that commonly exist for arrays). Any
