@@ -5,6 +5,7 @@
 
 atom Nothing
 
+atom OK
 newtype Error<T> : T
 
 newtype ParsedJson<T> : struct {
