@@ -1144,8 +1144,13 @@ base_builtin_type_without_mutability_modifier ::=
        // TODO(steving) Long term I'll want to support first-class procedure references to contract procedures, so this
        // TODO(steving)     would actually need to be updated to check whether the given dep_module_name is in fact a
        // TODO(steving)     declared module dep and if not then it would be parsed as a contract procedure reference.
+       String depModuleNameStr = scoped_identifier.getVal().getScopeName();
+       if (ScopedHeap.currProgramDepModules.containsRow(depModuleNameStr)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(depModuleNameStr);
+       }
        String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(
-          scoped_identifier.getVal().getScopeName(), scoped_identifier.getVal().getIdentifier());
+          depModuleNameStr, scoped_identifier.getVal().getIdentifier());
        RESULT = new Symbol(
           -1,
           scoped_identifierleft,
@@ -1190,7 +1195,12 @@ base_builtin_type_without_mutability_modifier ::=
        int endCol = max(scoped_identifierleft + scoped_identifier.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
 
        String depModuleName = scoped_identifier.getVal().getScopeName();
-       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(depModuleName, scoped_identifier.getVal().getIdentifier());
+       if (ScopedHeap.currProgramDepModules.containsRow(depModuleName)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(depModuleName);
+       }
+       String disambiguatedDepModuleTypeName =
+          getDisambiguatedExportedIdentifierName(depModuleName, scoped_identifier.getVal().getIdentifier());
        RESULT = new Symbol(
           -1,
           startCol,
@@ -3871,7 +3881,14 @@ identifier ::=
 
 scoped_identifier ::=
     SCOPED_IDENTIFIER:scoped_identifier
-    {: RESULT = scoped_identifier.getVal(); :}
+    {:
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       if (ScopedHeap.currProgramDepModules.containsRow(depModuleName)) {
+         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+         ScopedHeap.markDepModuleUsed(depModuleName);
+       }
+       RESULT = scoped_identifier.getVal();
+    :}
   ;
 
 primitive ::=
