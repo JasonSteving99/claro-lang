@@ -18,6 +18,7 @@ CLARO_STDLIB_FILES = [
 # The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
+    "lists": "//src/java/com/claro/stdlib/claro/lists:lists",
     "std": "//src/java/com/claro/stdlib/claro:std",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
@@ -136,7 +137,7 @@ def _invoke_claro_compiler_impl(ctx):
     if "bootstrapping" not in ctx.executable.claro_compiler.basename:
         # Add paths to all transitive .claro_module files for all modules in this compilation unit's subgraph.
         transitive_subgraph_dep_modules_depset = depset(
-            direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
+            direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps] + [dep[ClaroModuleInfo].info for dep in ctx.attr._stdlib_module_deps.keys()],
             transitive = [dep[ClaroModuleInfo].transitive_subgraph_dep_modules for dep in ctx.attr.deps]
         )
         for transitive_subgraph_dep_module in transitive_subgraph_dep_modules_depset.to_list():
@@ -159,7 +160,10 @@ def _invoke_claro_compiler_impl(ctx):
     ctx.actions.run(
         inputs = depset(
             direct = srcs,
-            transitive = [dep.files for dep in ctx.attr._stdlib_module_deps.keys()] + [dep.files for dep in ctx.attr.deps.keys()] + [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
+            transitive = [dep.files for dep in ctx.attr._stdlib_module_deps.keys()] +
+                         [dep[ClaroModuleInfo].info.files for dep in ctx.attr._stdlib_module_deps.keys()] +
+                         [dep.files for dep in ctx.attr.deps.keys()] +
+                         [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
         ),
         outputs = [ctx.outputs.compiler_out],
         arguments = [args],

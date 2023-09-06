@@ -40,11 +40,17 @@ load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_
 rules_proto_dependencies()
 rules_proto_toolchains()
 
-# Claro's going to utilize some
+# Claro's going to require bootstrapping for at least Dep Module Monomorphization, and in the future will ideally
+# iteratively be migrated from an all-Java implementation, to an implementation that uses progressively more Claro. As
+# such, a "bootstrapping compiler", defined via a prior release, will be necessary in order to prevent a circular dep
+# in Claro's Bazel build which would fail to build.
 http_file(
     name = "bootstrapping_claro_compiler_tarfile",
-    sha256 = "82e73bdaa06d78e841905493174559c9b2c8979da5639374f02fb4fcabace387",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.216/claro-cli-install.tar.gz",
+    # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
+    # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
+    # rebuild without manual work.
+    sha256 = "aca9b5bea836ab994f433c44a9337fb129a09fa77b6c3c006b493e28254806ad",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.217/claro-cli-install.tar.gz",
 )
 
 # See this documentation to understand how fetching Maven deps works in Bazel:

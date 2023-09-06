@@ -101,9 +101,10 @@ public class MonomorphizationCoordinator {
       if (!monomorphizationRes.getOptionalErrorMessage().isEmpty()) {
         shutdownDepModuleMonomorphization();
         throw new RuntimeException(
-            "Internal Compiler Error! Dep Module Monomorphization Failed for current MonomorphizationRequest:\n"
-            + depModuleMonomorphizationReq + "\nHere's the stacktrace from the dep module subprocess:\n"
-            + monomorphizationRes.getOptionalErrorMessage());
+            "Internal Compiler Error! Dep Module Monomorphization Failed for Module: " + module
+            + " for current MonomorphizationRequest:\n" + depModuleMonomorphizationReq
+            + "\nHere's the stacktrace from the dep module subprocess:\n" +
+            monomorphizationRes.getOptionalErrorMessage());
       }
       // Store all local monomorphizations returned by the dep module subprocess, they'll need to be included in the
       // module's codegen.
