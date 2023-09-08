@@ -964,6 +964,7 @@ public class MatchStmt extends Stmt {
           ((MaybeWildcardPrimitivePattern) pattern.get(0)).autoValueIgnored_optionalWildcardBindingDestructuringCodegen
               .set(Optional.of(
                   new StringBuilder(patternImpliedType.getJavaSourceType())
+                      .append(" ")
                       .append(((MaybeWildcardPrimitivePattern) pattern.get(0)).getOptionalWildcardBinding()
                                   .get().identifier)
                       .append(" = ((")
