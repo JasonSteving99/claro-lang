@@ -19,6 +19,7 @@ CLARO_STDLIB_FILES = [
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
     "lists": "//src/java/com/claro/stdlib/claro/lists:lists",
+    "maps": "//src/java/com/claro/stdlib/claro/maps:maps",
     "std": "//src/java/com/claro/stdlib/claro:std",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to

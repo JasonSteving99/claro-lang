@@ -10,7 +10,7 @@
 # TODO(steving) If at all possible, ClaroList.java should be refactored so that it *contains* a List rather than extends
 # TODO(steving)     ArrayList directly so that functionality directly from Guava's Lists class can be directly added to
 # TODO(steving)     this module w/o losing the performance wins of their "views".
-# TODO(steving)   - https://guava.dev/releases/22.0/api/docs/com/google/common/collect/Lists.html
+# TODO(steving)   - https://guava.dev/releases/23.0/api/docs/com/google/common/collect/Lists.html
 
 newtype IndexOutOfBounds : struct {index: int, size: int}
 newtype IndicesOutOfOrder : struct {invalidLowerBound: int, invalidUpperBound: int}

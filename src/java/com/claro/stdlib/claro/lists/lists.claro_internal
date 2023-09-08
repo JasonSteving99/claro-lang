@@ -332,6 +332,9 @@ function subListOfMut<T>(l: mut [T], fromInclusive: int, toExclusive: int)
     return std::Error(IndexOutOfBounds({index = toExclusive, size = len(l)}));
   }
   var res: mut [T];
+  # TODO(steving) This implementation is unnecessarily inefficient. I need the ability to use inline-Java but still have
+  # TODO(steving)     access to the compile-time type codegen. I want to use the below initialization instead:
+  # TODO(steving)       res = new ClaroList(<Java source Claro type of T>, ...);
   $$BEGIN_JAVA
   res = new ClaroList((Types.ListType) l.getClaroType(), l.subList(fromInclusive, toExclusive));
   $$END_JAVA
@@ -351,9 +354,6 @@ function withInitialCapacity<T>(capacity: int) -> oneof<mut [T], std::Error<Inva
     return std::Error(InvalidCapacity(capacity));
   }
   var res: mut [T] = mut [];
-  # TODO(steving) This implementation is unnecessarily inefficient. I need the ability to use inline-Java but still have
-  # TODO(steving)     access to the compile-time type codegen. I want to use the below initialization instead:
-  # TODO(steving)       res = new ClaroList(<Java source Claro type of T>, capacity);
   ensureCapacity(res, capacity);
   return res;
 }
