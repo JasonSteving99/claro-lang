@@ -13,7 +13,7 @@ import java.util.concurrent.TimeoutException;
 public class ClaroFuture<T> implements ClaroBuiltinTypeImplementation, ListenableFuture<T> {
 
   private final Type claroType;
-  private final ListenableFuture<T> defer;
+  public final ListenableFuture<T> defer;
 
   public ClaroFuture(Type wrappedClaroType, ListenableFuture<T> defer) {
     this.claroType = Types.FutureType.wrapping(wrappedClaroType);

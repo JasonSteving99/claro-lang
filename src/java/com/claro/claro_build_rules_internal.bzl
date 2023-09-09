@@ -18,6 +18,7 @@ CLARO_STDLIB_FILES = [
 # The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
+    "futures": "//src/java/com/claro/stdlib/claro/futures:futures",
     "lists": "//src/java/com/claro/stdlib/claro/lists:lists",
     "maps": "//src/java/com/claro/stdlib/claro/maps:maps",
     "std": "//src/java/com/claro/stdlib/claro:std",
