@@ -938,7 +938,17 @@ base_builtin_type_without_mutability_modifier ::=
           startCol,
           endCol, // line number
           LexedValue.create(
-            (TypeProvider) (scopedHeap) -> Types.OneofType.forVariantTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.OneofType.forVariantTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+              },
             currentLinesSupplier,
             endCol - startCol)
        );
