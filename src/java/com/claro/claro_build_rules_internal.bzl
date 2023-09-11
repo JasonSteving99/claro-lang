@@ -21,6 +21,7 @@ CLARO_STDLIB_MODULES = {
     "futures": "//src/java/com/claro/stdlib/claro/futures:futures",
     "lists": "//src/java/com/claro/stdlib/claro/lists:lists",
     "maps": "//src/java/com/claro/stdlib/claro/maps:maps",
+    "sets": "//src/java/com/claro/stdlib/claro/sets:sets",
     "std": "//src/java/com/claro/stdlib/claro:std",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to

@@ -1,0 +1,98 @@
+# This module simply provides access to the functionality described in:
+#   - https://docs.oracle.com/javase/8/docs/api/java/util/Set.html
+
+# TODO(steving) Claro needs some sort of Collection<T> contract so that these procedures can avoid duplication for the
+# TODO(steving)     various combinations of mutability annotations.
+
+# TODO(steving) If at all possible, ClaroSet.java should be refactored so that it *contains* a Set rather than extends
+# TODO(steving)     HashSet directly so that functionality directly from Guava's Sets class can be directly added to
+# TODO(steving)     this module w/o losing the performance wins of their "views".
+# TODO(steving)   - https://guava.dev/releases/23.0/api/docs/com/google/common/collect/Sets.html
+
+
+# TODO(steving) Should be `provider`s, but Claro can't parse generic providers in api files yet.
+function getEmptySet<T>(unused: std::Nothing) -> {T};
+function getEmptyMutSet<T>(unused: std::Nothing) -> mut {T};
+
+# Adds the specified element to this set if it is not already present. If this set already contains the element, the
+# call leaves the set unchanged and returns false. This ensures that sets never contain duplicate elements.
+#
+# Returns: true if this set did not already contain the specified element.
+function add<T>(s: mut {T}, t: T) -> boolean;
+
+# Adds all of the elements in the specified collection to this set if they're not already present.
+#
+# Returns: true if the set changed as a result of the call.
+function addAllFromList<T>(s: mut {T}, toAdd: [T]) -> boolean;
+function addAllFromMutList<T>(s: mut {T}, toAdd: mut [T]) -> boolean;
+# Adds all of the elements in the second set to the first set if they're not already present. This operation effectively
+# modifies the first set so that its value is the union of the two sets.
+#
+# Returns: true if the first set changed as a result of the call.
+function addAllFromSet<T>(s: mut {T}, toAdd: {T}) -> boolean;
+function addAllFromMutSet<T>(s: mut {T}, toAdd: mut {T}) -> boolean;
+
+# Removes all of the elements from this set. The set will be empty after this call returns.
+consumer clear<T>(s: mut {T});
+
+# Returns true if this set contains all of the elements of the specified collection.
+function containsAll<T>(s: {T}, elems: [T]) -> boolean;
+function containsAllFromMut<T>(s: {T}, elems: mut [T]) -> boolean;
+function containsAllInMut<T>(s: mut {T}, elems: [T]) -> boolean;
+function containsAllInMutFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean;
+
+# Performs the given action for each element.
+consumer forEach<T>(s: {T}, action: consumer<T>);
+consumer forEachInMut<T>(s: mut {T}, action: consumer<T>);
+
+# This method returns true if the first set is a superset of the second set. Note, this procedure returns true if the
+# two sets are equal.
+function isSuperset<T>(s: {T}, other: {T}) -> boolean;
+function isSupersetOfMut<T>(s: {T}, other: mut {T}) -> boolean;
+function isMutSuperset<T>(s: mut {T}, other: {T}) -> boolean;
+function isMutSupersetOfMut<T>(s: mut {T}, other: mut {T}) -> boolean;
+
+# This method returns true if the first set is a subset of the second set. Note, this procedure returns true if the two
+# sets are equal.
+function isSubset<T>(s: {T}, other: {T}) -> boolean;
+function isSubsetOfMut<T>(s: {T}, other: mut {T}) -> boolean;
+function isMutSubset<T>(s: mut {T}, other: {T}) -> boolean;
+function isMutSubsetOfMut<T>(s: mut {T}, other: mut {T}) -> boolean;
+
+# Returns true if this set contains no elements.
+function isEmpty<T>(s: {T}) -> boolean;
+function isEmptyForMut<T>(s: mut {T}) -> boolean;
+
+# Removes the specified element from this set if it is present.
+function removeElem<T>(s: mut {T}, elem: T) -> boolean;
+
+# Removes from this set all of its elements that are contained in the specified list.
+#
+# Returns: true if this set changed as a result of the call.
+function removeAll<T>(s: mut {T}, elems: [T]) -> boolean;
+function removeAllFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean;
+# Removes from the first set all of its elements that are contained in the second set. This operation effectively
+# modifies the first set so that its value is the asymmetric set difference of the two sets.
+#
+# Returns: true if this set changed as a result of the call.
+function removeAllFromSet<T>(s: mut {T}, elems: {T}) -> boolean;
+function removeAllFromMutSet<T>(s: mut {T}, elems: mut {T}) -> boolean;
+
+# Removes all of the elements of this collection that satisfy the given predicate.
+#
+# Returns: true if any elements were removed.
+function removeIf<T>(s: mut {T}, predicate: function<T -> boolean>) -> boolean;
+
+# Retains only the elements in this set that are contained in the specified list. In other words, removes from this set
+# all of its elements that are not contained in the specified list.
+#
+# Returns: true if this set changed as a result of the call.
+function retainAll<T>(s: mut {T}, elems: [T]) -> boolean;
+function retainAllFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean;
+# Retains only the elements in the first set that are contained in the second set. In other words, removes from the
+# first set all of its elements that are not contained in the second set. This operation effectively modifies this set
+# so that its value is the intersection of the two sets.
+#
+# Returns: true if this set changed as a result of the call.
+function retainAllFromSet<T>(s: mut {T}, elems: {T}) -> boolean;
+function retainAllFromMutSet<T>(s: mut {T}, elems: mut {T}) -> boolean;

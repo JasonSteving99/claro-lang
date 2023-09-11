@@ -1,0 +1,270 @@
+
+function getEmptySet<T>(unused: std::Nothing) -> {T} {
+  _ = unused;
+  var res: {T};
+  # TODO(steving) Inline-Java needs support for requesting certain type-related codegen to be emitted so that this type
+  # TODO(steving)     of workaround (which entails runtime overhead) can be avoided.
+  var emptyListToWorkaroundInlineJavaAccessingConcreteType: [T] = [];
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      ((Types.ListType) emptyListToWorkaroundInlineJavaAccessingConcreteType.getClaroType())
+        .getElementType()));
+  $$END_JAVA
+  return res;
+}
+function getEmptyMutSet<T>(unused: std::Nothing) -> mut {T} {
+  _ = unused;
+  var res: mut {T};
+  # TODO(steving) Inline-Java needs support for requesting certain type-related codegen to be emitted so that this type
+  # TODO(steving)     of workaround (which entails runtime overhead) can be avoided.
+  var emptyListToWorkaroundInlineJavaAccessingConcreteType: [T] = [];
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      ((Types.ListType) emptyListToWorkaroundInlineJavaAccessingConcreteType.getClaroType())
+        .getElementType(),
+      /*isMutable=*/ true));
+  $$END_JAVA
+  return res;
+}
+
+
+function add<T>(s: mut {T}, t: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.add(t);
+  $$END_JAVA
+  return res;
+}
+
+
+function addAllFromList<T>(s: mut {T}, toAdd: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+function addAllFromMutList<T>(s: mut {T}, toAdd: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+function addAllFromSet<T>(s: mut {T}, toAdd: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+function addAllFromMutSet<T>(s: mut {T}, toAdd: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer clear<T>(s: mut {T}) {
+  $$BEGIN_JAVA
+  s.clear();
+  $$END_JAVA
+}
+
+
+function containsAll<T>(s: {T}, elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllFromMut<T>(s: {T}, elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllInMut<T>(s: mut {T}, elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllInMutFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function isSuperset<T>(s: {T}, other: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(other);
+  $$END_JAVA
+  return res;
+}
+function isSupersetOfMut<T>(s: {T}, other: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(other);
+  $$END_JAVA
+  return res;
+}
+function isMutSuperset<T>(s: mut {T}, other: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(other);
+  $$END_JAVA
+  return res;
+}
+function isMutSupersetOfMut<T>(s: mut {T}, other: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.containsAll(other);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer forEach<T>(s: {T}, action: consumer<T>) {
+  $$BEGIN_JAVA
+  s.forEach(action::apply);
+  $$END_JAVA
+}
+consumer forEachInMut<T>(s: mut {T}, action: consumer<T>) {
+  $$BEGIN_JAVA
+  s.forEach(action::apply);
+  $$END_JAVA
+}
+
+
+function isSubset<T>(s: {T}, other: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = other.containsAll(s);
+  $$END_JAVA
+  return res;
+}
+function isSubsetOfMut<T>(s: {T}, other: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = other.containsAll(s);
+  $$END_JAVA
+  return res;
+}
+function isMutSubset<T>(s: mut {T}, other: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = other.containsAll(s);
+  $$END_JAVA
+  return res;
+}
+function isMutSubsetOfMut<T>(s: mut {T}, other: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = other.containsAll(s);
+  $$END_JAVA
+  return res;
+}
+
+
+function isEmpty<T>(s: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.isEmpty();
+  $$END_JAVA
+  return res;
+}
+function isEmptyForMut<T>(s: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.isEmpty();
+  $$END_JAVA
+  return res;
+}
+
+
+function removeElem<T>(s: mut {T}, elem: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.remove(elem);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeIf<T>(s: mut {T}, predicate: function<T -> boolean>) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.removeIf(predicate::apply);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeAll<T>(s: mut {T}, elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.removeAll(elems);
+  $$END_JAVA
+  return res;
+}
+function removeAllFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.removeAll(elems);
+  $$END_JAVA
+  return res;
+}
+function removeAllFromSet<T>(s: mut {T}, elems: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.removeAll(elems);
+  $$END_JAVA
+  return res;
+}
+function removeAllFromMutSet<T>(s: mut {T}, elems: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.removeAll(elems);
+  $$END_JAVA
+  return res;
+}
+
+
+function retainAll<T>(s: mut {T}, elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.retainAll(elems);
+  $$END_JAVA
+  return res;
+}
+function retainAllFromMut<T>(s: mut {T}, elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.retainAll(elems);
+  $$END_JAVA
+  return res;
+}
+function retainAllFromSet<T>(s: mut {T}, elems: {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.retainAll(elems);
+  $$END_JAVA
+  return res;
+}
+function retainAllFromMutSet<T>(s: mut {T}, elems: mut {T}) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = s.retainAll(elems);
+  $$END_JAVA
+  return res;
+}
