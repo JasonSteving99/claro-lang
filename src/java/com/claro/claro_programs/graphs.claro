@@ -136,7 +136,7 @@ function maybeCallSubgraph(subgraph: provider<future<int>>, other: int, b: boole
   if (b) {
     return subgraph();
   }
-  return getIntFuture(other);
+  return futures::immediateFuture(other);
 }
 
 var callSubgraphRes <-| demoLazyNodeProviderInjection(2, 2, true);
@@ -164,12 +164,11 @@ graph function nTimesRecursively(n: int, x: int, y: int) -> future<int> {
   node next1 <- maybeRecurse(n - 1 > 0, n, x, y);
 }
 
-using(immediateFuture: function<int -> future<int>>)
 function maybeRecurse(b: boolean, n: int, x: int, y: int) -> future<int> {
   if (b) {
     return nTimesRecursively(n - 1, x, y);
   }
-  return immediateFuture(0);
+  return futures::immediateFuture(0);
 }
 
 blocking function maybeRecurseBlockingIndirectly(b: boolean, n: int, x: int, y: int) -> int {
@@ -202,23 +201,10 @@ function nonblocking(b: boolean, n: int, x: int, y: int) -> int {
   return res;
 }
 
-# TODO(steving) There's got to be an easier way to simply construct an immediate future. Try handling this the way we're
-# TODO(steving) already planning to handle implicit auto-wrapping to optional<...> in function returns.
-graph function getIntFuture(x: int) -> future<int> {
-  root res <- @identity;
-  node identity <- x;
-}
-
-module ImmediateFutureModule {
-  bind immediateFuture:function<int -> future<int>> to getIntFuture;
-}
-
-using(ImmediateFutureModule) {
-  var n = 200;
-  var recursiveRes <-| nTimesRecursively(n, 10, 2);
-  print(recursiveRes);
-  print(recursiveRes == n);
-}
+var n = 200;
+var recursiveRes <-| nTimesRecursively(n, 10, 2);
+print(recursiveRes);
+print(recursiveRes == n);
 
 var f: blocking function<|boolean, int, int, int| -> int> = maybeRecurseBlockingIndirectly;
 print(f(false, -1, -1, -1));
