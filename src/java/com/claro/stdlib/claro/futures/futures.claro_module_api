@@ -3,9 +3,8 @@
 # `future` can't be canceled or timed out and `futures::isDone(futures::immediateFuture(...))` always returns true.
 function immediateFuture<T>(t: T) -> future<T>;
 
-# TODO(steving) Currently this is unimplementable because Claro can't parse generic providers in api files yet.
 # Creates a `future` which is cancelled immediately upon construction, so that `futures::isCancelled` always returns `true`.
-#provider immediateCancelledFuture<T>() -> future<T>;
+provider immediateCancelledFuture<T>() -> future<T>;
 
 # Attempts to cancel execution of this task. This attempt will fail if the task has already completed, has already been
 # cancelled, or could not be cancelled for some other reason. If successful, and this task has not started when cancel

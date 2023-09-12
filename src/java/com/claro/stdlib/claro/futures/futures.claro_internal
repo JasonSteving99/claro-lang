@@ -9,17 +9,16 @@ function immediateFuture<T>(t: T) -> future<T> {
 }
 
 
-# TODO(steving) Currently this is unimplementable because Claro can't parse generic providers in api files yet.
-#provider immediateCancelledFuture<T>() -> future<T> {
-#  var res: future<T>;
-#  var emptyListForTheSakeOfGettingThisClaroType: [T] = [];
-#  $$BEGIN_JAVA
-#  res = new ClaroFuture(
-#    emptyListForTheSakeOfGettingThisClaroType.getClaroType().parameterizedTypes().get(Types.ListType.PARAMETERIZED_TYPE_KEY),
-#    com.google.common.util.concurrent.Futures.immediateCancelledFuture(t));
-#  $$END_JAVA
-#  return res;
-#}
+provider immediateCancelledFuture<T>() -> future<T> {
+  var res: future<T>;
+  var emptyListForTheSakeOfGettingThisClaroType: [T] = [];
+  $$BEGIN_JAVA
+  res = new ClaroFuture(
+    emptyListForTheSakeOfGettingThisClaroType.getClaroType().parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY),
+    com.google.common.util.concurrent.Futures.immediateCancelledFuture());
+  $$END_JAVA
+  return res;
+}
 
 
 function cancel<T>(f: future<T>, mayInterrupt: boolean) -> boolean {

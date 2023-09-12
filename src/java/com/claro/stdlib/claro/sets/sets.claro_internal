@@ -1,6 +1,5 @@
 
-function getEmptySet<T>(unused: std::Nothing) -> {T} {
-  _ = unused;
+provider emptySet<T>() -> {T} {
   var res: {T};
   # TODO(steving) Inline-Java needs support for requesting certain type-related codegen to be emitted so that this type
   # TODO(steving)     of workaround (which entails runtime overhead) can be avoided.
@@ -13,8 +12,7 @@ function getEmptySet<T>(unused: std::Nothing) -> {T} {
   $$END_JAVA
   return res;
 }
-function getEmptyMutSet<T>(unused: std::Nothing) -> mut {T} {
-  _ = unused;
+provider emptyMutSet<T>() -> mut {T} {
   var res: mut {T};
   # TODO(steving) Inline-Java needs support for requesting certain type-related codegen to be emitted so that this type
   # TODO(steving)     of workaround (which entails runtime overhead) can be avoided.
