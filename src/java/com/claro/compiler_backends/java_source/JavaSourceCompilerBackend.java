@@ -302,8 +302,22 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       // Don't even bother attempting type validation if there was a parsing error.
       if (totalParserErrorsFound == 0) {
         // Here, type checking and codegen of ALL src files is happening at once.
-        StringBuilder generateTargetOutputRes =
-            mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
+        StringBuilder generateTargetOutputRes = null;
+        if (DEP_MODULE_MONOMORPHIZATION_ENABLED && this.OPTIONAL_UNIQUE_MODULE_NAME.orElse("").contains("TESTING")) {
+          // TODO(steving) TESTING!!! I don't want to deal with breaking the stdlib which functions via dep-module
+          //     monomorphization now, so instead I'm gating this change behind a simple check for the string TESTING in
+          //     the module name. This is the consequence of using a bootstrapping compiler that always has to be a
+          //     version behind.
+          System.err.println("TESTING!! DEP MODULE MONO TEST PATH FOLLOWED.");
+          // In this case, since this module has already been validated, a full recompilation is not necessary. Instead,
+          // just do the "discovery" phases that will bring the necessary types/identifiers into memory so that generic
+          // procedures requested by the monomorphization coordinator can be selectively type checked and monomorphized.
+          // This should account for a significant time savings, going a good ways towards minimizing wasted work.
+          mainSrcFileProgramNode.runDiscoveryCompilationPhases(scopedHeap);
+        } else {
+          generateTargetOutputRes =
+              mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);
+        }
         if (Expr.typeErrorsFound.isEmpty() && ProgramNode.miscErrorsFound.isEmpty()) {
           if (optionalModuleApiParser.isPresent()) {
             if (DEP_MODULE_MONOMORPHIZATION_ENABLED) {

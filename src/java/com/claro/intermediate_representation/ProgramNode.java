@@ -22,7 +22,7 @@ import java.util.function.Function;
 
 public class ProgramNode {
   private final String packageString, generatedClassName;
-  private StmtListNode stmtListNode;
+  public StmtListNode stmtListNode;
   public static final Stack<Runnable> miscErrorsFound = new Stack<>();
   public static ImmutableList<ProgramNode> nonMainFiles = ImmutableList.of();
   public static Optional<ModuleNode> moduleApiDef = Optional.empty();
@@ -96,52 +96,10 @@ public class ProgramNode {
 
   // TODO(steving) This method needs to be refactored and have lots of its logic lifted up out into the callers which
   // TODO(steving) are the actual CompilerBackend's. Most of what's going on here is legit not an AST node's responsibility.
-  protected StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
-    // Setup the StdLib in the current Scope and append any setup Stmts to prefix the given program.
-    setupStdLib(scopedHeap);
-
-    // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
-    // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
-    // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
-    // TYPE DISCOVERY PHASE:
-    if (ProgramNode.moduleApiDef.isPresent()) {
-      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
-      // defs exported by the module that should also be accessible w/in its implementation sources.
-      ProgramNode.moduleApiDef.get().registerExportedTypeDefs(scopedHeap);
-      // Now, since all the types defined by this and dep modules are all known, time to validate that the initializers
-      // and unwrappers are only defined for valid user-defined types exported by *this* module.
-      ProgramNode.moduleApiDef.get()
-          .assertInitializersAndUnwrappersBlocksAreDefinedOnTypesExportedByThisModule(scopedHeap);
-    }
-    runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
-
-    // PROCEDURE DISCOVERY PHASE:
-    if (ProgramNode.moduleApiDef.isPresent()) {
-      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
-      // defs exported by the module whose constructors should also be accessible w/in its implementation sources.
-      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
-        exportedNewTypeDef.registerConstructorTypeProvider(scopedHeap);
-      }
-      // HttpServiceDefStmts also register synthetic procedures for calling the defined service.
-      for (HttpServiceDefStmt exportedHttpServiceDefStmt : ProgramNode.moduleApiDef.get().exportedHttpServiceDefs) {
-        exportedHttpServiceDefStmt.registerHttpProcedureTypeProviders(scopedHeap);
-      }
-    }
-    runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
-
-    // CONTRACT DISCOVERY PHASE:
-    runPhaseOverAllProgramFiles(p -> p.performContractDiscoveryPhase(p.stmtListNode, scopedHeap));
-
-    // GENERIC PROCEDURE DISCOVERY PHASE:
-    runPhaseOverAllProgramFiles(p -> p.performGenericProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
-
-    // Modules only need to know about procedure type signatures, nothing else, so save procedure type
-    // validation for after the full module discovery and validation phases since procedure type validation
-    // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
-    // top-level procedures.
-
-    // MODULE DISCOVERY PHASE:
-    runPhaseOverAllProgramFiles(p -> p.performModuleDiscoveryPhase(p.stmtListNode, scopedHeap));
+  public StringBuilder generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // RUN ALL PHASES THAT PRECEDE TYPE VALIDATION. THESE PHASES PREPROCESS THE GIVEN PROGRAM TO "DISCOVER" AND REGISTER
+    // ALL TYPES AND IDENTIFIERS THAT WILL BE NECESSARY DURING THE FOLLOWING TYPE VALIDATION PHASES.
+    runDiscoveryCompilationPhases(scopedHeap);
 
     // MODULE TYPE VALIDATION PHASE:
     runPhaseOverAllProgramFiles(p -> p.performModuleTypeValidationPhase(p.stmtListNode, scopedHeap));
@@ -315,6 +273,58 @@ public class ProgramNode {
 
     // Wrap the generated source code with the needed Java boilerplate.
     return res;
+  }
+
+  // Run "discovery" prework over the current compilation unit so that type validation is ready to be performed after.
+  // Note: this has really only been factored out so that in the case of dep module monomorphization, this prework can
+  //       be run in isolation, only re-triggering type validation of generic procedures that are explicitly requested
+  //       by the monomorphization coordinator (as well as for transitive deps on local generic procedures).
+  public void runDiscoveryCompilationPhases(ScopedHeap scopedHeap) {
+    // Setup the StdLib in the current Scope and append any setup Stmts to prefix the given program.
+    setupStdLib(scopedHeap);
+
+    // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
+    // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,
+    // TODO(steving) instead it should give a structured list of type defs seperate from procedure defs etc.
+    // TYPE DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+      // defs exported by the module that should also be accessible w/in its implementation sources.
+      ProgramNode.moduleApiDef.get().registerExportedTypeDefs(scopedHeap);
+      // Now, since all the types defined by this and dep modules are all known, time to validate that the initializers
+      // and unwrappers are only defined for valid user-defined types exported by *this* module.
+      ProgramNode.moduleApiDef.get()
+          .assertInitializersAndUnwrappersBlocksAreDefinedOnTypesExportedByThisModule(scopedHeap);
+    }
+    runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
+
+    // PROCEDURE DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
+      // defs exported by the module whose constructors should also be accessible w/in its implementation sources.
+      for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
+        exportedNewTypeDef.registerConstructorTypeProvider(scopedHeap);
+      }
+      // HttpServiceDefStmts also register synthetic procedures for calling the defined service.
+      for (HttpServiceDefStmt exportedHttpServiceDefStmt : ProgramNode.moduleApiDef.get().exportedHttpServiceDefs) {
+        exportedHttpServiceDefStmt.registerHttpProcedureTypeProviders(scopedHeap);
+      }
+    }
+    runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
+
+    // CONTRACT DISCOVERY PHASE:
+    runPhaseOverAllProgramFiles(p -> p.performContractDiscoveryPhase(p.stmtListNode, scopedHeap));
+
+    // GENERIC PROCEDURE DISCOVERY PHASE:
+    runPhaseOverAllProgramFiles(p -> p.performGenericProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
+
+    // Modules only need to know about procedure type signatures, nothing else, so save procedure type
+    // validation for after the full module discovery and validation phases since procedure type validation
+    // phase will depend on knowledge of transitive module bindings to validate using-blocks nested in
+    // top-level procedures.
+
+    // MODULE DISCOVERY PHASE:
+    runPhaseOverAllProgramFiles(p -> p.performModuleDiscoveryPhase(p.stmtListNode, scopedHeap));
   }
 
   protected Object generateInterpretedOutput(ScopedHeap scopedHeap) {
