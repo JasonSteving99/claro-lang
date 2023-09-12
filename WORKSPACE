@@ -49,8 +49,8 @@ http_file(
     # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
     # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
     # rebuild without manual work.
-    sha256 = "d40f6fe9e99c7d527594030ba934bd6bdf46f4bf3075b1135cad3bb920b26073",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.226/claro-cli-install.tar.gz",
+    sha256 = "123845fd8d763ce885292f58cb4b06202c382f81aca9a5977c164bac2aaf92bf",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.227/claro-cli-install.tar.gz",
 )
 
 # See this documentation to understand how fetching Maven deps works in Bazel:

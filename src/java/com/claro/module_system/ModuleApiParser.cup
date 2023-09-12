@@ -1194,6 +1194,18 @@ contract_procedure_signature_definition_stmt ::=
      String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
      RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
    :}
+ | PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {: // Interestingly this production is only possible because the stdlib uses some compiler intrinsics to implement
+      // this manner of generic provider signature. So, a fun fact is that every procedure w/ this signature validated
+      // by the compiler will touch one of those specific stdlib procedures at some point (or else it returns a value
+      // that does not actually contain an instance of the generic type
+      // (e.g. `provider foo<T>() -> oneof<Other, T> { return Other(...); }`).
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<String> genericTypesList =
+
+       ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.getVal(), Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
+   :}
   ;
 
 alias_stmt ::=

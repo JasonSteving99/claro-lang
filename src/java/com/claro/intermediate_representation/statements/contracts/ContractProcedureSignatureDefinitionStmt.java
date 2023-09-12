@@ -253,8 +253,15 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
         );
       }
     } else {
-      resType = Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-          optionalConcreteReturnType.get(), this.explicitlyAnnotatedBlocking);
+      resType = Types.ProcedureType.ProviderType.forReturnType(
+          optionalConcreteReturnType.get(),
+          /*overrideBaseType=*/ BaseType.PROVIDER_FUNCTION,
+          /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+          /*procedureDefinitionStmt=*/ null,
+          this.explicitlyAnnotatedBlocking,
+          this.optionalGenericTypesList,
+          /*optionalRequiredContractNamesToGenericArgs=*/ Optional.empty()
+      );
     }
     return resType;
   }

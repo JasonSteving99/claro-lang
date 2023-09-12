@@ -1093,12 +1093,14 @@ public final class Types {
 
       @Override
       public TypeProto toProto() {
-        return TypeProto.newBuilder()
-            .setProvider(
-                TypeProtos.ProviderType.newBuilder()
-                    .setOutputType(this.getReturnType().toProto())
-                    .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking())))
-            .build();
+        TypeProtos.ProviderType.Builder providerTypeBuilder =
+            TypeProtos.ProviderType.newBuilder()
+                .setOutputType(this.getReturnType().toProto())
+                .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking()));
+        if (this.getGenericProcedureArgNames().isPresent()) {
+          providerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
+        }
+        return TypeProto.newBuilder().setProvider(providerTypeBuilder).build();
       }
     }
 
