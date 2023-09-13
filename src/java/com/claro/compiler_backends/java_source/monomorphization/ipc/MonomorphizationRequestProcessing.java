@@ -55,14 +55,10 @@ public class MonomorphizationRequestProcessing {
           IPCMessages.MonomorphizationResponse.newBuilder()
               .addAllLocalModuleMonomorphizations(
                   getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
-              .putAllTransitiveDepModuleMonomorphizationRequests(
-                  // TODO(steving) Swap this out with a real implementation that hooks into the actual compiler.
-                  getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest().stream().collect(
-                      ImmutableMap.toImmutableMap(
-                          unused -> "TRANSITIVE_DEP_MODULE_" + (random.nextDouble() > 0.5 ? "AAAAA" : "BBBBB"),
-                          r -> r
-                      )
-                  ))
+              // TODO(steving) In order to workaround the versioning issues between the latest and bootstrapping compilers, temporarily
+              // TODO(steving)     dropping this field so that I can come back and reuse it with a different signature later.
+//              .putAllTransitiveDepModuleMonomorphizationRequests(
+//                  InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded)
               .build().toByteArray());
     } catch (Exception e) {
       // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
@@ -177,33 +173,7 @@ public class MonomorphizationRequestProcessing {
           resBuilder.add(
               IPCMessages.MonomorphizationResponse.Monomorphization.newBuilder()
                   .setMonomorphizationRequest(
-                      MonomorphizationRequest.newBuilder()
-                          .setProcedureName(currGenericProcedureName)
-                          .addAllConcreteTypeParams(concreteTypeParamProtos)
-                          // Can set metadata even for types that potentially came from the coordinator rather than
-                          // this current dep module, because the only way this transitive procedure is called w/ them
-                          // is if the types were originally received from the coordinator in which case they're
-                          // already setup in Types.UserDefinedType's static state to be re-referenced here.
-                          .addAllUserDefinedTypeConcreteTypeParamsMetadata(
-                              concreteTypeParamProtos.stream().filter(TypeProtos.TypeProto::hasUserDefinedType)
-                                  .map(t -> {
-                                    String disambiguatedIdentifier =
-                                        String.format(
-                                            "%s$%s",
-                                            t.getUserDefinedType().getTypeName(),
-                                            t.getUserDefinedType().getDefiningModuleDisambiguator()
-                                        );
-                                    return IPCMessages.MonomorphizationRequest.UserDefinedTypeMetadata.newBuilder()
-                                        .setType(t.getUserDefinedType())
-                                        .addAllTypeParamNames(
-                                            Optional.ofNullable(Types.UserDefinedType.$typeParamNames.get(disambiguatedIdentifier))
-                                                .orElse(ImmutableList.of()))
-                                        .setWrappedType(
-                                            Types.UserDefinedType.$resolvedWrappedTypes.get(disambiguatedIdentifier)
-                                                .toProto())
-                                        .build();
-                                  })
-                                  .collect(Collectors.toList())))
+                      createMonomorphizationRequest(currGenericProcedureName, concreteTypeParamProtos))
                   .setMonomorphizationCodegen(
                       monoCodegen.optionalStaticPreambleStmts().get().toString() +
                       monoCodegen.optionalStaticDefinitions().get().toString()
@@ -213,11 +183,42 @@ public class MonomorphizationRequestProcessing {
       }
     }
 
-
     return resBuilder.build();
   }
 
-  private static ImmutableList<MonomorphizationRequest> getTestSimulateCollectTransitiveMonomorphizationsForMonomorphizationRequest() {
+  private static MonomorphizationRequest createMonomorphizationRequest(
+      String currGenericProcedureName, ImmutableList<TypeProtos.TypeProto> concreteTypeParamProtos) {
+    return MonomorphizationRequest.newBuilder()
+        .setProcedureName(currGenericProcedureName)
+        .addAllConcreteTypeParams(concreteTypeParamProtos)
+        // Can set metadata even for types that potentially came from the coordinator rather than
+        // this current dep module, because the only way this transitive procedure is called w/ them
+        // is if the types were originally received from the coordinator in which case they're
+        // already setup in Types.UserDefinedType's static state to be re-referenced here.
+        .addAllUserDefinedTypeConcreteTypeParamsMetadata(
+            concreteTypeParamProtos.stream().filter(TypeProtos.TypeProto::hasUserDefinedType)
+                .map(t -> {
+                  String disambiguatedIdentifier =
+                      String.format(
+                          "%s$%s",
+                          t.getUserDefinedType().getTypeName(),
+                          t.getUserDefinedType().getDefiningModuleDisambiguator()
+                      );
+                  return MonomorphizationRequest.UserDefinedTypeMetadata.newBuilder()
+                      .setType(t.getUserDefinedType())
+                      .addAllTypeParamNames(
+                          Optional.ofNullable(Types.UserDefinedType.$typeParamNames.get(disambiguatedIdentifier))
+                              .orElse(ImmutableList.of()))
+                      .setWrappedType(
+                          Types.UserDefinedType.$resolvedWrappedTypes.get(disambiguatedIdentifier)
+                              .toProto())
+                      .build();
+                })
+                .collect(Collectors.toList()))
+        .build();
+  }
+
+  private static ImmutableList<MonomorphizationRequest> getTransitiveDepModuleMonomorphizationsForMonomorphizationRequest() {
     // Now again some random chance that I may also need to codegen some random transitive dep module monomorphization.
     // This is something that would have to be handled by the coordinator via a new subprocess b/c the source code isn't
     // available here.

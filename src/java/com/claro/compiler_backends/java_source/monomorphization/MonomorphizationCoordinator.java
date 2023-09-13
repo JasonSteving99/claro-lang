@@ -114,13 +114,15 @@ public class MonomorphizationCoordinator {
             module, monomorphization.getMonomorphizationRequest(), monomorphization.getMonomorphizationCodegen());
       }
       // Handle any transitive dep module monomorphizations that were requested by the dep module subprocess.
-      for (Map.Entry<String, MonomorphizationRequest> transitiveDepModuleMonomorphizationReq :
-          monomorphizationRes.getTransitiveDepModuleMonomorphizationRequestsMap().entrySet()) {
-        // I want to have the current module's compilation process move in as much of a straight line as possible, so
-        // for now, I'm going to immediately request the monomorphization from this transitive dep module.
-        getDepModuleMonomorphization(
-            transitiveDepModuleMonomorphizationReq.getKey(), transitiveDepModuleMonomorphizationReq.getValue());
-      }
+      // TODO(steving) In order to workaround the versioning issues between the latest and bootstrapping compilers, temporarily
+      // TODO(steving)     dropping this field so that I can come back and reuse it with a different signature later.
+//      for (Map.Entry<String, MonomorphizationRequest> transitiveDepModuleMonomorphizationReq :
+//          monomorphizationRes.getTransitiveDepModuleMonomorphizationRequestsMap().entrySet()) {
+//        // I want to have the current module's compilation process move in as much of a straight line as possible, so
+//        // for now, I'm going to immediately request the monomorphization from this transitive dep module.
+//        getDepModuleMonomorphization(
+//            transitiveDepModuleMonomorphizationReq.getKey(), transitiveDepModuleMonomorphizationReq.getValue());
+//      }
     } catch (InterruptedException | ExecutionException e) {
       shutdownDepModuleMonomorphization();
       throw new RuntimeException("Internal Compiler Error! Failed to get dep module monomorphization from subprocess.", e);
