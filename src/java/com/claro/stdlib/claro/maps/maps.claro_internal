@@ -338,9 +338,7 @@ function computeIfPresent<K,V>(m: mut {K:V}, k: K, remapper: function<|K, V| -> 
       m[k] = remappedVal;
       return remappedVal;
     } else {
-      $$BEGIN_JAVA
-      m.remove(k);
-      $$END_JAVA
+      _ = removeKey(m, k);
       return REMOVE_ENTRY;
     }
   }
@@ -363,9 +361,7 @@ function compute<K,V>(m: mut {K:V}, k: K, remapper: function<|K, oneof<V, KeyNot
     if (newValue instanceof V) {
       m[k] = newValue;
     } else {
-      $$BEGIN_JAVA
-      m.remove(k);
-      $$END_JAVA
+      _ = removeKey(m, k);
       return REMOVE_ENTRY;
     }
   } else {
@@ -393,25 +389,10 @@ function merge<K,V>(
   }
   match (newValue) {
     case R:REMOVE_ENTRY ->
-      # TODO(steving) Refactor to call the Claro `maps::removeKey` function once Dep Module monomorphization supports
-      # TODO(steving)     transitive local monomorphizations. For now this causes a compilation failure.
-#      _ = removeKey(m, k);
-      $$BEGIN_JAVA
-      m.remove(k);
-      $$END_JAVA
+      _ = removeKey(m, k);
       return R;
     case _ ->
-      # TODO(steving) Refactor to call the Claro `maps::put` function once Dep Module monomorphization supports
-      # TODO(steving)     transitive local monomorphizations. For now this causes a compilation failure.
-#      _ = put(m, k, newValue);
-      if (newValue instanceof V) {
-        # Note that these type shenanigans are only necessary when calling the Java method directly since it would
-        # require a cast that I can't type manually in inline-Java. Will be resolved once I address above TODO.
-        var tmpToResolveJavaNotBelievingTheType: V = newValue;
-        $$BEGIN_JAVA
-        m.put(k, tmpToResolveJavaNotBelievingTheType);
-        $$END_JAVA
-      }
+      _ = put(m, k, newValue);
       return newValue;
   }
 }
