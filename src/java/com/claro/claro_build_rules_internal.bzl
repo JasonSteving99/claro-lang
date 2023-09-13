@@ -208,7 +208,7 @@ def _invoke_claro_compiler_impl(ctx):
                     exports = [dep_module_targets_by_dep_name[export] for export in ctx.attr.exports],
                     path_to_claro_module_file = ctx.outputs.compiler_out,
                     files = depset(
-                        direct = srcs,
+                        direct = srcs + [ctx.outputs.compiler_out],
                         transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
                     )
                 ),

@@ -6,4 +6,5 @@ consumer myPrint<T>(t: T) {
 }
 consumer myPrint2<T>(t: T) {
   print("myPrint2: {t}");
+  TransitiveDep::myTransitivePrint(t);
 }

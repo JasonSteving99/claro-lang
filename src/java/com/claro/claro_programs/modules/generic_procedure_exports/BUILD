@@ -5,6 +5,15 @@ claro_module(
     name = "generic_procedure_export",
     module_api_file = "generic_procedure_export.claro_module_api",
     srcs = ["generic_procedure_export.claro"],
+    deps = {
+        "TransitiveDep": ":transitive_generic_procedure_export",
+    },
+    debug = True,
+)
+claro_module(
+    name = "transitive_generic_procedure_export",
+    module_api_file = "transitive_generic_procedure_export.claro_module_api",
+    srcs = ["transitive_generic_procedure_export.claro"],
     debug = True,
 )
 

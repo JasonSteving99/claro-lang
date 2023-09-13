@@ -22,14 +22,11 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class MonomorphizationRequestProcessing {
-
-  private static final Random random = new Random();
   public static ImmutableMap<String, GenericFunctionDefinitionStmt> genericFunctionDefinitionStmtsByName = null;
   private static final HashSet<String> alreadyTypeCheckedGenericFunctionDefinitionStmts = Sets.newHashSet();
 
@@ -62,7 +59,8 @@ public class MonomorphizationRequestProcessing {
                       .map(e ->
                                IPCMessages.MonomorphizationResponse.TransitiveDepModuleMonomorphizationRequest
                                    .newBuilder()
-                                   .setUniqueModuleName(e.getKey())
+                                   .setUniqueModuleName(
+                                       ScopedHeap.getDefiningModuleDisambiguator(Optional.of(e.getKey())))
                                    .setMonomorphizationRequest(e.getValue())
                                    .build())
                       .collect(Collectors.toList()))
@@ -173,14 +171,15 @@ public class MonomorphizationRequestProcessing {
                   preparedMonomorphization.getKey(),
                   preparedMonomorphization.getValue()
               );
-          ImmutableList<TypeProtos.TypeProto> concreteTypeParamProtos =
-              preparedMonomorphization.getKey().values().stream()
-                  .map(Type::toProto)
-                  .collect(ImmutableList.toImmutableList());
           resBuilder.add(
               IPCMessages.MonomorphizationResponse.Monomorphization.newBuilder()
                   .setMonomorphizationRequest(
-                      createMonomorphizationRequest(currGenericProcedureName, concreteTypeParamProtos))
+                      createMonomorphizationRequest(
+                          currGenericProcedureName,
+                          preparedMonomorphization.getKey().values().stream()
+                              .map(Type::toProto)
+                              .collect(ImmutableList.toImmutableList())
+                      ))
                   .setMonomorphizationCodegen(
                       monoCodegen.optionalStaticPreambleStmts().get().toString() +
                       monoCodegen.optionalStaticDefinitions().get().toString()
@@ -223,29 +222,5 @@ public class MonomorphizationRequestProcessing {
                 })
                 .collect(Collectors.toList()))
         .build();
-  }
-
-  private static ImmutableList<MonomorphizationRequest> getTransitiveDepModuleMonomorphizationsForMonomorphizationRequest() {
-    // Now again some random chance that I may also need to codegen some random transitive dep module monomorphization.
-    // This is something that would have to be handled by the coordinator via a new subprocess b/c the source code isn't
-    // available here.
-    double rand = random.nextDouble();
-//    if (rand > 0.7) {
-//      System.out.println("TESTING! REQUESTING TRANSITIVE MODULE MONOMORPHIZATION");
-//      return ImmutableList.of(
-//          MonomorphizationRequest.newBuilder()
-//              // I want some chance of collision, to just validate that that works.
-//              .setProcedureName("TRANSITIVE_RANDOM_" + (rand > .85 ? "AAAAAA" : "BBBBBB"))
-//              .addAllConcreteTypeParams(
-//                  ImmutableList.of(
-//                      TypeProtos.TypeProto.newBuilder()
-//                          .setAtom(TypeProtos.AtomType.newBuilder()
-//                                       .setName("RAND_A")
-//                                       .setDefiningModuleDisambiguator(""))
-//                          .build()))
-//              .build()
-//      );
-//    }
-    return ImmutableList.of();
   }
 }
