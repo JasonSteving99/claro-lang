@@ -47,9 +47,7 @@ message MonomorphizationResponse {
   // for. The assumption here is that the codegen in the local_module_monomorphizations field implicitly depends on the
   // monomorphizations represented in this field, so the coordinator must trigger that transitive dep module
   // monomorphization or else the local_module_monomorphization codegen would be invalid.
-  // TODO(steving) In order to workaround the versioning issues between the latest and bootstrapping compilers, temporarily
-  // TODO(steving)     dropping this field so that I can come back and reuse it with a different signature later.
-  //  repeated TransitiveDepModuleMonomorphizationRequest transitive_dep_module_monomorphization_requests = 2;
+  repeated TransitiveDepModuleMonomorphizationRequest transitive_dep_module_monomorphization_requests = 2;
 
   // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
   // that in the main coordinator process as debugging the dep module processes is a painful process. So, instead,
