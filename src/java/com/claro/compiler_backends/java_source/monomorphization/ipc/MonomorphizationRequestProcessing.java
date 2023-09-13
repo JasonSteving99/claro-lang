@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.statements.GenericFunctionDefinitio
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -55,10 +56,16 @@ public class MonomorphizationRequestProcessing {
           IPCMessages.MonomorphizationResponse.newBuilder()
               .addAllLocalModuleMonomorphizations(
                   getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
-              // TODO(steving) In order to workaround the versioning issues between the latest and bootstrapping compilers, temporarily
-              // TODO(steving)     dropping this field so that I can come back and reuse it with a different signature later.
-//              .putAllTransitiveDepModuleMonomorphizationRequests(
-//                  InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded)
+              .addAllTransitiveDepModuleMonomorphizationRequests(
+                  InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.entries()
+                      .stream()
+                      .map(e ->
+                               IPCMessages.MonomorphizationResponse.TransitiveDepModuleMonomorphizationRequest
+                                   .newBuilder()
+                                   .setUniqueModuleName(e.getKey())
+                                   .setMonomorphizationRequest(e.getValue())
+                                   .build())
+                      .collect(Collectors.toList()))
               .build().toByteArray());
     } catch (Exception e) {
       // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
