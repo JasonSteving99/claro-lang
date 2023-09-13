@@ -2,11 +2,17 @@ package com.claro.compiler_backends.java_source.monomorphization;
 
 import com.claro.ClaroCompilerMain;
 import com.claro.compiler_backends.java_source.JavaSourceCompilerBackend;
+import com.claro.compiler_backends.java_source.monomorphization.ipc.MonomorphizationRequestProcessing;
+import com.claro.intermediate_representation.ProgramNode;
+import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
+import com.claro.intermediate_representation.statements.Stmt;
+import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
 import com.claro.runtime_utilities.http.$HttpUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParser;
 
 import java.nio.file.FileSystems;
@@ -145,6 +151,24 @@ public class DepModuleMonomorphization {
       // compilation process.
       JavaSourceCompilerBackend.DEP_MODULE_MONOMORPHIZATION_ENABLED = true;
       ClaroCompilerMain.main(this.recompilationArgs.toArray(new String[this.recompilationArgs.size()]));
+
+      // Setup MonomorphizationRequestProcessing to be able selectively trigger type validation on generic procedures
+      // as they're requested by the monomorphization coordinator.
+      ImmutableMap.Builder<String, GenericFunctionDefinitionStmt> genericFunctionDefinitionStmtBuilder =
+          ImmutableMap.builder();
+      for (ProgramNode currNonMainProgramNode : ProgramNode.nonMainFiles) {
+        StmtListNode currStmtListNode = currNonMainProgramNode.stmtListNode;
+        while (currStmtListNode != null) {
+          Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
+          if (currStmt instanceof GenericFunctionDefinitionStmt) {
+            genericFunctionDefinitionStmtBuilder.put(
+                ((GenericFunctionDefinitionStmt) currStmt).functionName, (GenericFunctionDefinitionStmt) currStmt);
+          }
+          currStmtListNode = currStmtListNode.tail;
+        }
+        MonomorphizationRequestProcessing.genericFunctionDefinitionStmtsByName =
+            genericFunctionDefinitionStmtBuilder.build();
+      }
     } catch (Exception e) {
       System.err.println("TESTING!! Internal Compiler Error! FAILED RECOMPILATION SOMEHOW:");
       e.printStackTrace();

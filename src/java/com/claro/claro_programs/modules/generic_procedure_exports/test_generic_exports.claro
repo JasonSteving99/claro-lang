@@ -8,3 +8,11 @@ localPrint("LOCAL");
 Dep::myPrint("TESTING DEP MODULE GENERIC PROCEDURE!");
 Dep::myPrint("TESTING AGAIN!");
 Dep::myPrint(99999);
+newtype Foo<T> : T
+Dep::myPrint(Foo(1));
+
+# Now validate that I can still directly call into the generic procedure that was already monomorphized transitively via
+# the above calls (this is validating that there's no invalid duplicated codegen).
+Dep::myPrint2("??");
+Dep::myPrint2("??");
+Dep::myPrint2(Foo(2));

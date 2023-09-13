@@ -1,4 +1,9 @@
 
 consumer myPrint<T>(t: T) {
   print(t);
+  # This is used to validate that local transitive monomorphizations work.
+  myPrint2(t);
+}
+consumer myPrint2<T>(t: T) {
+  print("myPrint2: {t}");
 }

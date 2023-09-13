@@ -64,6 +64,7 @@ java_binary(
 
         "//:google-options",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_ipc_compiled_claro_module_java_lib",
+        "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc:monomorphization_request_processing",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
         "//src/java/com/claro/module_system/module_serialization/proto:serialized_claro_module_java_proto",
