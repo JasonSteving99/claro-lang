@@ -65,8 +65,8 @@ maven_install(
         [
             "com.github.pcj:google-options:jar:1.0.0",
             "com.google.auto.value:auto-value:1.5.3",
-            "com.google.guava:guava:jar:23.5-jre",
-            "com.google.protobuf:protobuf-java-util:jar:3.24.3",
+            "com.google.guava:guava:jar:32.1.2-jre",
+            "com.google.protobuf:protobuf-java-util:3.24.3",
             "com.googlecode.lanterna:lanterna:3.1.1",
             "io.javalin:javalin:4.1.1",
             "com.squareup.okhttp3:okhttp:4.11.0",
