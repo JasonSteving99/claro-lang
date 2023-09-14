@@ -10,6 +10,7 @@ java_proto_library(
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
         "//src/java/com/claro/intermediate_representation/expressions/term:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
+        "//src/java/com/claro/module_system/module_serialization/json:__pkg__",
     ]
 )
 

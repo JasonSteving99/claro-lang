@@ -13,6 +13,10 @@ alias(
     actual = "@com_google_protobuf_protobuf_java//:com_google_protobuf_protobuf_java",
 )
 alias(
+    name = "protobuf_java_util",
+    actual = "@maven//:com_google_protobuf_protobuf_java_util",
+)
+alias(
     name = "lanterna",
     actual = "@maven//:com_googlecode_lanterna_lanterna",
 )
