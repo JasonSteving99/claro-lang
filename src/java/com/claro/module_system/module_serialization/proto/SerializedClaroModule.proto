@@ -80,6 +80,12 @@ message SerializedClaroModule {
     map<string, ProcedureList> unwrappers_by_type_name = 4;
   }
 
+  message ExportedContractDefinition {
+    string name = 1;
+    repeated string type_param_names = 2;
+    repeated Procedure signatures = 3;
+  }
+
   message ExportedHttpServiceDefinition {
     message Endpoint {
       string endpoint_name = 1;
@@ -102,6 +108,8 @@ message SerializedClaroModule {
   repeated string exported_atom_definitions = 3;
 
   repeated Procedure exported_procedure_definitions = 4;
+
+  repeated ExportedContractDefinition exported_contract_definitions = 10;
 
   repeated ExportedHttpServiceDefinition exported_http_service_definitions = 5;
 

@@ -822,6 +822,17 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 ProgramNode.moduleApiDef.get().exportedSignatures.stream()
                     .map(JavaSourceCompilerBackend::serializeProcedureSignature)
                     .collect(ImmutableList.toImmutableList()))
+            .addAllExportedContractDefinitions(
+                ProgramNode.moduleApiDef.get().exportedContractDefs.stream()
+                    .map(c -> SerializedClaroModule.ExportedContractDefinition.newBuilder()
+                        .setName(c.contractName)
+                        .addAllTypeParamNames(c.typeParamNames)
+                        .addAllSignatures(
+                            c.declaredContractSignaturesByProcedureName.values().stream()
+                                .map(JavaSourceCompilerBackend::serializeProcedureSignature)
+                                .collect(Collectors.toList()))
+                        .build())
+                    .collect(Collectors.toList()))
             .addAllExportedHttpServiceDefinitions(
                 ProgramNode.moduleApiDef.get().exportedHttpServiceDefs.stream()
                     .map(

@@ -313,6 +313,17 @@ public class ProgramNode {
     runPhaseOverAllProgramFiles(p -> p.performProcedureDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // CONTRACT DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are contract
+      // defs exported by the module that should also be accessible w/in its implementation sources.
+      for (ContractDefinitionStmt contractDef : ProgramNode.moduleApiDef.get().exportedContractDefs) {
+        try {
+          contractDef.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
     runPhaseOverAllProgramFiles(p -> p.performContractDiscoveryPhase(p.stmtListNode, scopedHeap));
 
     // GENERIC PROCEDURE DISCOVERY PHASE:

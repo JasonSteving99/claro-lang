@@ -174,6 +174,9 @@ WhiteSpace     = [ \t\f]
     "blocking"         { return symbol(Tokens.BLOCKING, 0, 8, "blocking"); }
     "blocking?"        { return symbol(Tokens.MAYBE_BLOCKING, 0, 9, "blocking?"); }
 
+    // Contract tokens.
+    "contract"         { return symbol(Tokens.CONTRACT, 0, 8, "contract"); }
+
      // Symbols related to builtin HTTP support go here.
      "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }
      "HttpClient"      { return symbol(Tokens.HTTP_CLIENT, 0, 10, "HttpClient"); }

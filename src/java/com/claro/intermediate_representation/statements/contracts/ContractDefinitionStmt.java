@@ -17,7 +17,7 @@ import java.util.stream.IntStream;
 
 public class ContractDefinitionStmt extends Stmt {
 
-  private final String contractName;
+  public final String contractName;
 
   private boolean alreadyAssertedTypes = false;
   public final ImmutableList<String> typeParamNames;
