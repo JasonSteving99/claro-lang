@@ -38,7 +38,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: v0.1.${{ github.run_number }}
-          name: v0.1.${{ github.run_number }} Automated Riju Release
+          name: v0.1.${{ github.run_number }} Automated Release
           body: |
             # This is an automated relase of resources needed to install and run Claro locally.
             Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#try-it-out-locally) to get started!
