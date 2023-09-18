@@ -22,6 +22,15 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
   private Optional<ImmutableSet<Integer>> optionalAnnotatedBlockingGenericOnArgs = Optional.empty();
   public Optional<ImmutableList<String>> optionalGenericTypesList;
+  // TODO(steving) Currently this field is only ever set by signatures exported in a .claro_module_api file. But going
+  //     forward this should ideally be supported in generic contract procedure signatures as well.
+  //     e.g.:
+  //         contract Foo<T> {
+  //           requires(Bar<V, T>)
+  //           function doFoo<V>(v: V) -> T;
+  //         }
+  public Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs =
+      Optional.of(ImmutableListMultimap.of());
 
   public ImmutableList<GenericSignatureType> resolvedArgTypes;
   public Optional<GenericSignatureType> resolvedOutputType;
@@ -237,19 +246,27 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     Types.ProcedureType resType;
     if (concreteArgTypes.size() > 0) {
       if (optionalConcreteReturnType.isPresent()) {
-        resType = Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+        resType = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
             concreteArgTypes,
             optionalConcreteReturnType.get(),
+            BaseType.FUNCTION,
+            /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/ null,
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
+            this.optionalGenericTypesList,
+            this.optionalRequiredContractNamesToGenericArgs
         );
       } else {
-        resType = Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+        resType = Types.ProcedureType.ConsumerType.forConsumerArgTypes(
             concreteArgTypes,
+            BaseType.CONSUMER_FUNCTION,
+            /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/ null,
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
+            this.optionalGenericTypesList,
+            this.optionalRequiredContractNamesToGenericArgs
         );
       }
     } else {
@@ -260,7 +277,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
           /*procedureDefinitionStmt=*/ null,
           this.explicitlyAnnotatedBlocking,
           this.optionalGenericTypesList,
-          /*optionalRequiredContractNamesToGenericArgs=*/ Optional.empty()
+          this.optionalRequiredContractNamesToGenericArgs
       );
     }
     return resType;

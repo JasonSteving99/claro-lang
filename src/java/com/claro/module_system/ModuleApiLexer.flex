@@ -176,6 +176,7 @@ WhiteSpace     = [ \t\f]
 
     // Contract tokens.
     "contract"         { return symbol(Tokens.CONTRACT, 0, 8, "contract"); }
+    "requires"         { return symbol(Tokens.REQUIRES, 0, 8, "requires"); }
 
      // Symbols related to builtin HTTP support go here.
      "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }

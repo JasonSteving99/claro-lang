@@ -926,6 +926,19 @@ public final class Types {
         if (this.getGenericProcedureArgNames().isPresent()) {
           functionTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
         }
+        if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
+          functionTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .collect(ImmutableMap.toImmutableMap(
+                      Map.Entry::getKey,
+                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
+                          .addAllGenericTypeParams(
+                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
+                                  .collect(Collectors.toList()))
+                          .build()
+                  ))
+          );
+        }
         return TypeProto.newBuilder().setFunction(functionTypeBuilder).build();
       }
     }
@@ -1079,7 +1092,29 @@ public final class Types {
         return String.format(
             fmtStr.toString(),
             this.getReturnType()
-        );
+        ) +
+               this.getGenericProcedureArgNames()
+                   .map(
+                       genArgNames ->
+                           genArgNames.stream()
+                               // First convert the name to a $GenericTypeParam because the toString has been overridden.
+                               .map(genArgName -> Types.$GenericTypeParam.forTypeParamName(genArgName).toString())
+                               .collect(Collectors.joining(", ", " Generic Over {", "}")))
+                   .orElse("")
+               + Optional.ofNullable(this.getAllTransitivelyRequiredContractNamesToGenericArgs())
+                   .map(requiredContracts ->
+                            requiredContracts.entries().stream()
+                                .map(entry ->
+                                         String.format(
+                                             "%s<%s>",
+                                             entry.getKey(),
+                                             entry.getValue()
+                                                 .stream()
+                                                 .map(Type::toString)
+                                                 .collect(Collectors.joining(", "))
+                                         ))
+                                .collect(Collectors.joining(", ", " Requiring Impls for Contracts {", "}")))
+                   .orElse("");
       }
 
       @Override
@@ -1099,6 +1134,19 @@ public final class Types {
                 .setAnnotatedBlocking(ProcedureType.getProtoBlockingAnnotation(this.getAnnotatedBlocking()));
         if (this.getGenericProcedureArgNames().isPresent()) {
           providerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
+        }
+        if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
+          providerTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .collect(ImmutableMap.toImmutableMap(
+                      Map.Entry::getKey,
+                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
+                          .addAllGenericTypeParams(
+                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
+                                  .collect(Collectors.toList()))
+                          .build()
+                  ))
+          );
         }
         return TypeProto.newBuilder().setProvider(providerTypeBuilder).build();
       }
@@ -1289,7 +1337,29 @@ public final class Types {
         return String.format(
             fmtStr.toString(),
             collectToArgTypesListFormatFn.apply(this.getArgTypes())
-        );
+        ) +
+               this.getGenericProcedureArgNames()
+                   .map(
+                       genArgNames ->
+                           genArgNames.stream()
+                               // First convert the name to a $GenericTypeParam because the toString has been overridden.
+                               .map(genArgName -> Types.$GenericTypeParam.forTypeParamName(genArgName).toString())
+                               .collect(Collectors.joining(", ", " Generic Over {", "}")))
+                   .orElse("")
+               + Optional.ofNullable(this.getAllTransitivelyRequiredContractNamesToGenericArgs())
+                   .map(requiredContracts ->
+                            requiredContracts.entries().stream()
+                                .map(entry ->
+                                         String.format(
+                                             "%s<%s>",
+                                             entry.getKey(),
+                                             entry.getValue()
+                                                 .stream()
+                                                 .map(Type::toString)
+                                                 .collect(Collectors.joining(", "))
+                                         ))
+                                .collect(Collectors.joining(", ", " Requiring Impls for Contracts {", "}")))
+                   .orElse("");
       }
 
       @Override
@@ -1314,6 +1384,19 @@ public final class Types {
         }
         if (this.getGenericProcedureArgNames().isPresent()) {
           consumerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
+        }
+        if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
+          consumerTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .collect(ImmutableMap.toImmutableMap(
+                      Map.Entry::getKey,
+                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
+                          .addAllGenericTypeParams(
+                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
+                                  .collect(Collectors.toList()))
+                          .build()
+                  ))
+          );
         }
         return TypeProto.newBuilder().setConsumer(consumerTypeBuilder).build();
       }

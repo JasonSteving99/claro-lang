@@ -176,6 +176,7 @@ terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  CONTRACT;
+terminal LexedValue<String>  REQUIRES;
 terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER, HTTP_RESPONSE;
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
 
@@ -188,7 +189,10 @@ nonterminal ImmutableList<String>              generic_blocking_on;
 nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
 nonterminal TypeProvider                       maybe_blocking_procedure_types;
 nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
+nonterminal ImmutableListMultimap.Builder/*<String, ImmutableList<Type>>*/  required_contracts;
 nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
+nonterminal ContractProcedureSignatureDefinitionStmt concrete_contract_procedure_signature_definition_stmt;
+nonterminal ContractProcedureSignatureDefinitionStmt generic_contract_procedure_signature_definition_stmt;
 nonterminal AliasStmt                          alias_stmt;
 nonterminal AtomDefinitionStmt                 atom_def_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
@@ -312,6 +316,12 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getUnwrappersBlocksByTypeName().putAll(unwrappers_block);
+       RESULT = res;
+    :}
+  | contract_definition_stmt:contract_def
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getContractDefsBuilder().add(contract_def);
        RESULT = res;
     :}
   | http_service_def_stmt:http_service_def
@@ -1043,7 +1053,38 @@ procedure_args_w_generic_blocking ::=
     :}
   ;
 
+// TODO(steving) I need to enable generic functions to be generic over only a partial subset of the required
+// TODO(steving) Contract's type params.
+required_contracts ::=
+    IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET COMMA required_contracts:tail
+    {:
+      ImmutableList<Type> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = tail.put(contract_name.getVal(), genericTypesList);
+    :}
+  | IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET
+    {:
+      ImmutableList<Type> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = ImmutableListMultimap.<String, ImmutableList<Type>>builder().put(contract_name.getVal(), genericTypesList);
+    :}
+  ;
+
 contract_procedure_signature_definition_stmt ::=
+   concrete_contract_procedure_signature_definition_stmt:sig
+   {: RESULT = sig; :}
+ | generic_contract_procedure_signature_definition_stmt:sig
+   {: RESULT = sig; :}
+ | REQUIRES LPAR required_contracts:required_contracts RPAR generic_contract_procedure_signature_definition_stmt:sig
+   {:
+      sig.optionalRequiredContractNamesToGenericArgs = Optional.of(required_contracts.build());
+      RESULT = sig;
+   :}
+ ;
+
+concrete_contract_procedure_signature_definition_stmt ::=
    // FUNCTIONS
    FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
    {:
@@ -1078,7 +1119,61 @@ contract_procedure_signature_definition_stmt ::=
      String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
      RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
    :}
- | FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+
+   // CONSUMERS
+ | CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+
+   // PROVIDERS
+ | PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+  ;
+
+generic_contract_procedure_signature_definition_stmt ::=
+   // FUNCTIONS
+   FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
    {:
      TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
@@ -1119,36 +1214,6 @@ contract_procedure_signature_definition_stmt ::=
    :}
 
    // CONSUMERS
- | CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
-   {:
-     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
-     ImmutableMap<String, TypeProvider> argTypesMap =
-         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-
-     // Use a disambiguation prefix for namespacing required by dep modules.
-     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
-     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
-   :}
- | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
-   {:
-     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
-     ImmutableMap<String, TypeProvider> argTypesMap =
-         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-
-     // Use a disambiguation prefix for namespacing required by dep modules.
-     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
-     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
-   :}
- | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR SEMICOLON
-   {:
-     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
-     ImmutableMap<String, TypeProvider> argTypesMap =
-         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
-
-     // Use a disambiguation prefix for namespacing required by dep modules.
-     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
-     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
-   :}
  | CONSUMER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
    {:
      ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
@@ -1187,22 +1252,6 @@ contract_procedure_signature_definition_stmt ::=
    :}
 
    // PROVIDERS
- | PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
-   {:
-     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
-
-     // Use a disambiguation prefix for namespacing required by dep modules.
-     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
-     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
-   :}
- | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
-   {:
-     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
-
-     // Use a disambiguation prefix for namespacing required by dep modules.
-     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
-     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
-   :}
  | PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type SEMICOLON
    {: // Interestingly this production is only possible because the stdlib uses some compiler intrinsics to implement
       // this manner of generic provider signature. So, a fun fact is that every procedure w/ this signature validated

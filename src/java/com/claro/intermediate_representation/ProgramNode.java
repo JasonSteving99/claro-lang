@@ -112,6 +112,7 @@ public class ProgramNode {
 
     // GENERIC PROCEDURE TYPE VALIDATION PHASE:
     runPhaseOverAllProgramFiles(p -> p.performGenericProcedureTypeValidationPhase(p.stmtListNode, scopedHeap));
+    InternalStaticStateUtil.GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = true;
 
     // Now, force the ScopedHeap into a new Scope, because we want to make it explicit that top-level function
     // definitions live in their own scope and cannot reference variables below. We consider functions defined
@@ -370,6 +371,7 @@ public class ProgramNode {
 
     // GENERIC PROCEDURE TYPE VALIDATION PHASE:
     performGenericProcedureTypeValidationPhase(stmtListNode, scopedHeap);
+    InternalStaticStateUtil.GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = true;
 
     // PROCEDURE TYPE VALIDATION PHASE:
     performProcedureTypeValidationPhase(stmtListNode, scopedHeap);
@@ -513,7 +515,6 @@ public class ProgramNode {
       }
       currStmtListNode = currStmtListNode.tail;
     }
-    InternalStaticStateUtil.GnericProcedureDefinitionStmt_doneWithGenericProcedureTypeValidationPhase = true;
   }
 
   private void performGenericProcedureDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
