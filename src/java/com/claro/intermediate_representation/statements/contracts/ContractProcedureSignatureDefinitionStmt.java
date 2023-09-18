@@ -30,7 +30,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   //           function doFoo<V>(v: V) -> T;
   //         }
   public Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs =
-      Optional.of(ImmutableListMultimap.of());
+      Optional.ofNullable(null);
 
   public ImmutableList<GenericSignatureType> resolvedArgTypes;
   public Optional<GenericSignatureType> resolvedOutputType;
