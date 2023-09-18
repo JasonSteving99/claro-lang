@@ -255,7 +255,9 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
             this.optionalGenericTypesList,
-            this.optionalRequiredContractNamesToGenericArgs
+            this.optionalGenericTypesList.isPresent()
+            ? this.optionalRequiredContractNamesToGenericArgs
+            : Optional.empty()
         );
       } else {
         resType = Types.ProcedureType.ConsumerType.forConsumerArgTypes(
@@ -266,7 +268,9 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
             this.optionalGenericTypesList,
-            this.optionalRequiredContractNamesToGenericArgs
+            this.optionalGenericTypesList.isPresent()
+            ? this.optionalRequiredContractNamesToGenericArgs
+            : Optional.empty()
         );
       }
     } else {
@@ -277,7 +281,7 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
           /*procedureDefinitionStmt=*/ null,
           this.explicitlyAnnotatedBlocking,
           this.optionalGenericTypesList,
-          this.optionalRequiredContractNamesToGenericArgs
+          this.optionalGenericTypesList.isPresent() ? this.optionalRequiredContractNamesToGenericArgs : Optional.empty()
       );
     }
     return resType;
