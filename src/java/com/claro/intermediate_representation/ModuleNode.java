@@ -243,8 +243,11 @@ public class ModuleNode {
       }
       Type actualIdentifierType = scopedHeap.getValidatedIdentifierType(exportedProcedureName);
       if (!(actualIdentifierType.equals(expectedExportedProcedureType)
-            && ((Types.ProcedureType) actualIdentifierType).allTransitivelyRequiredContractNamesToGenericArgs.get()
-                .equals(expectedExportedProcedureType.allTransitivelyRequiredContractNamesToGenericArgs.get())
+            &&
+            Objects.equals(
+                ((Types.ProcedureType) actualIdentifierType).allTransitivelyRequiredContractNamesToGenericArgs.get(),
+                expectedExportedProcedureType.allTransitivelyRequiredContractNamesToGenericArgs.get()
+            )
             &&
             Objects.equals(
                 ((Types.ProcedureType) actualIdentifierType).getAnnotatedBlocking(),
