@@ -15,6 +15,7 @@ import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
@@ -683,6 +684,38 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.put(
           parsedModule.getModuleDescriptor().getUniqueModuleName(), disambiguatedAtomIdentifier, i);
     }
+
+    // Register any ContractDefs found in the module.
+    parsedModule.getExportedContractDefinitionsList().forEach(
+        contractDef -> {
+          String disambiguatedContractName =
+              String.format("%s$%s", contractDef.getName(), parsedModule.getModuleDescriptor().getUniqueModuleName());
+          // Setup an empty set to collect all implementations in.
+          ContractDefinitionStmt.contractImplementationsByContractName.put(contractDef.getName(), new ArrayList<>());
+          // Add the contract itself to the symbol table.
+          scopedHeap.putIdentifierValue(
+              disambiguatedContractName,
+              Types.$Contract.forContractNameTypeParamNamesAndProcedureNames(
+                  disambiguatedContractName,
+                  parsedModule.getModuleDescriptor().getUniqueModuleName(),
+                  ImmutableList.copyOf(contractDef.getTypeParamNamesList()),
+                  contractDef.getSignaturesList().stream()
+                      .map(SerializedClaroModule.Procedure::getName).collect(ImmutableList.toImmutableList())
+              ),
+              null
+          );
+          // Add each of the contract procedure signatures to the symbol table.
+          contractDef.getSignaturesList().forEach(
+              sig -> {
+                String normalizedProcedureName =
+                    ContractProcedureSignatureDefinitionStmt.getFormattedInternalContractProcedureName(
+                        disambiguatedContractName, sig.getName());
+                scopedHeap.putIdentifierValue(normalizedProcedureName, getProcedureTypeFromProto(sig));
+                scopedHeap.markIdentifierUsed(normalizedProcedureName);
+              }
+          );
+        }
+    );
 
     // Register any HttpServiceDefs found in the module.
     parsedModule.getExportedHttpServiceDefinitionsList().forEach(

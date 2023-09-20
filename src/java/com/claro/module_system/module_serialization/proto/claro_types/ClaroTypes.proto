@@ -74,9 +74,6 @@ message FunctionType {
   ProcedureBlockingAnnotation annotated_blocking = 3;
   repeated int32 optional_annotated_blocking_generic_over_args = 4;
   repeated string optional_generic_type_param_names = 5;
-  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
-  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
-  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 6;
   repeated RequiredContract required_contracts = 7;
 }
 message ConsumerType {
@@ -84,18 +81,12 @@ message ConsumerType {
   ProcedureBlockingAnnotation annotated_blocking = 2;
   repeated int32 optional_annotated_blocking_generic_over_args = 3;
   repeated string optional_generic_type_param_names = 4;
-  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
-  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
-  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 5;
   repeated RequiredContract required_contracts = 6;
 }
 message ProviderType {
   TypeProto output_type = 1;
   ProcedureBlockingAnnotation annotated_blocking = 2;
   repeated string optional_generic_type_param_names = 3;
-  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
-  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
-  map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 4;
   repeated RequiredContract required_contracts = 5;
 }
 message UserDefinedType {

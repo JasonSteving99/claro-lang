@@ -220,12 +220,15 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     scopedHeap.markIdentifierUsed(normalizedProcedureName);
   }
 
-  public static String getFormattedInternalContractProcedureName(String procedureName) {
-    return String.format(
-        "$%s::%s",
+  private static String getFormattedInternalContractProcedureName(String procedureName) {
+    return getFormattedInternalContractProcedureName(
         InternalStaticStateUtil.ContractDefinitionStmt_currentContractName,
         procedureName
     );
+  }
+
+  public static String getFormattedInternalContractProcedureName(String contractName, String procedureName) {
+    return String.format("$%s::%s", contractName, procedureName);
   }
 
   public Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {

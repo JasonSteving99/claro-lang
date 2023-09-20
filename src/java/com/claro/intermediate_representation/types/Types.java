@@ -927,19 +927,6 @@ public final class Types {
           functionTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
         }
         if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
-          // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
-          // TOOD(steving)   RequiredContract message so that the contract disambiguators can be preserved.
-          functionTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
-              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
-                  .collect(ImmutableMap.toImmutableMap(
-                      Map.Entry::getKey,
-                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
-                          .addAllGenericTypeParams(
-                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
-                                  .collect(Collectors.toList()))
-                          .build()
-                  ))
-          );
           functionTypeBuilder.addAllRequiredContracts(
               this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
                   .map(e -> {
@@ -947,7 +934,9 @@ public final class Types {
                     TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
                     if (moduleDisambiguatorSplit == -1) {
                       // The contract was defined in the current compilation unit. No disambiguator to split.
-                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                      res.setName(e.getKey())
+                          .setDefiningModuleDisambiguator(ScopedHeap.getDefiningModuleDisambiguator(
+                              Optional.empty()));
                     } else {
                       // The contract was defined in another compilation unit. Split format
                       // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
@@ -1160,17 +1149,6 @@ public final class Types {
           providerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
         }
         if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
-          providerTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
-              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
-                  .collect(ImmutableMap.toImmutableMap(
-                      Map.Entry::getKey,
-                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
-                          .addAllGenericTypeParams(
-                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
-                                  .collect(Collectors.toList()))
-                          .build()
-                  ))
-          );
           providerTypeBuilder.addAllRequiredContracts(
               this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
                   .map(e -> {
@@ -1178,7 +1156,9 @@ public final class Types {
                     TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
                     if (moduleDisambiguatorSplit == -1) {
                       // The contract was defined in the current compilation unit. No disambiguator to split.
-                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                      res.setName(e.getKey())
+                          .setDefiningModuleDisambiguator(ScopedHeap.getDefiningModuleDisambiguator(
+                              Optional.empty()));
                     } else {
                       // The contract was defined in another compilation unit. Split format
                       // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
@@ -1432,17 +1412,6 @@ public final class Types {
           consumerTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
         }
         if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
-          consumerTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
-              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
-                  .collect(ImmutableMap.toImmutableMap(
-                      Map.Entry::getKey,
-                      e -> TypeProtos.GenericTypeParamNamesList.newBuilder()
-                          .addAllGenericTypeParams(
-                              e.getValue().stream().map(t -> ((Types.$GenericTypeParam) t).getTypeParamName())
-                                  .collect(Collectors.toList()))
-                          .build()
-                  ))
-          );
           consumerTypeBuilder.addAllRequiredContracts(
               this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
                   .map(e -> {
@@ -1450,7 +1419,9 @@ public final class Types {
                     TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
                     if (moduleDisambiguatorSplit == -1) {
                       // The contract was defined in the current compilation unit. No disambiguator to split.
-                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                      res.setName(e.getKey())
+                          .setDefiningModuleDisambiguator(ScopedHeap.getDefiningModuleDisambiguator(
+                              Optional.empty()));
                     } else {
                       // The contract was defined in another compilation unit. Split format
                       // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
@@ -2077,10 +2048,11 @@ public final class Types {
             ? Optional.empty()
             : Optional.of(ImmutableList.copyOf(functionTypeProto.getOptionalGenericTypeParamNamesList())),
             Optional.of(
-                functionTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                functionTypeProto.getRequiredContractsList().stream()
                     .collect(ImmutableListMultimap.toImmutableListMultimap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                        r -> String.format("%s$%s", r.getName(), r.getDefiningModuleDisambiguator()),
+                        r -> r.getGenericTypeParamsList().stream()
+                            .map($GenericTypeParam::forTypeParamName)
                             .collect(ImmutableList.toImmutableList())
                     )))
         );
@@ -2103,10 +2075,11 @@ public final class Types {
             ? Optional.empty()
             : Optional.of(ImmutableList.copyOf(consumerTypeProto.getOptionalGenericTypeParamNamesList())),
             Optional.of(
-                consumerTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                consumerTypeProto.getRequiredContractsList().stream()
                     .collect(ImmutableListMultimap.toImmutableListMultimap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                        r -> String.format("%s$%s", r.getName(), r.getDefiningModuleDisambiguator()),
+                        r -> r.getGenericTypeParamsList().stream()
+                            .map($GenericTypeParam::forTypeParamName)
                             .collect(ImmutableList.toImmutableList())
                     )))
         );
@@ -2123,10 +2096,11 @@ public final class Types {
             ? Optional.of(ImmutableList.copyOf(providerTypeProto.getOptionalGenericTypeParamNamesList()))
             : Optional.empty(),
             Optional.of(
-                providerTypeProto.getRequiredContractNamesToGenericTypeParamsMap().entrySet().stream()
+                providerTypeProto.getRequiredContractsList().stream()
                     .collect(ImmutableListMultimap.toImmutableListMultimap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getGenericTypeParamsList().stream().map($GenericTypeParam::forTypeParamName)
+                        r -> String.format("%s$%s", r.getName(), r.getDefiningModuleDisambiguator()),
+                        r -> r.getGenericTypeParamsList().stream()
+                            .map($GenericTypeParam::forTypeParamName)
                             .collect(ImmutableList.toImmutableList())
                     )))
         );
