@@ -927,6 +927,8 @@ public final class Types {
           functionTypeBuilder.addAllOptionalGenericTypeParamNames(this.getGenericProcedureArgNames().get());
         }
         if (Optional.ofNullable(this.allTransitivelyRequiredContractNamesToGenericArgs.get()).isPresent()) {
+          // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
+          // TOOD(steving)   RequiredContract message so that the contract disambiguators can be preserved.
           functionTypeBuilder.putAllRequiredContractNamesToGenericTypeParams(
               this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
                   .collect(ImmutableMap.toImmutableMap(
@@ -937,6 +939,28 @@ public final class Types {
                                   .collect(Collectors.toList()))
                           .build()
                   ))
+          );
+          functionTypeBuilder.addAllRequiredContracts(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .map(e -> {
+                    int moduleDisambiguatorSplit = e.getKey().indexOf('$');
+                    TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
+                    if (moduleDisambiguatorSplit == -1) {
+                      // The contract was defined in the current compilation unit. No disambiguator to split.
+                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                    } else {
+                      // The contract was defined in another compilation unit. Split format
+                      // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
+                      res.setName(e.getKey().substring(0, moduleDisambiguatorSplit))
+                          .setDefiningModuleDisambiguator(e.getKey().substring(moduleDisambiguatorSplit + 1));
+                    }
+                    res.addAllGenericTypeParams(
+                        e.getValue().stream()
+                            .map(t -> (($GenericTypeParam) t).getTypeParamName())
+                            .collect(Collectors.toList()));
+                    return res.build();
+                  })
+                  .collect(Collectors.toList())
           );
         }
         return TypeProto.newBuilder().setFunction(functionTypeBuilder).build();
@@ -1146,6 +1170,28 @@ public final class Types {
                                   .collect(Collectors.toList()))
                           .build()
                   ))
+          );
+          providerTypeBuilder.addAllRequiredContracts(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .map(e -> {
+                    int moduleDisambiguatorSplit = e.getKey().indexOf('$');
+                    TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
+                    if (moduleDisambiguatorSplit == -1) {
+                      // The contract was defined in the current compilation unit. No disambiguator to split.
+                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                    } else {
+                      // The contract was defined in another compilation unit. Split format
+                      // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
+                      res.setName(e.getKey().substring(0, moduleDisambiguatorSplit))
+                          .setDefiningModuleDisambiguator(e.getKey().substring(moduleDisambiguatorSplit + 1));
+                    }
+                    res.addAllGenericTypeParams(
+                        e.getValue().stream()
+                            .map(t -> (($GenericTypeParam) t).getTypeParamName())
+                            .collect(Collectors.toList()));
+                    return res.build();
+                  })
+                  .collect(Collectors.toList())
           );
         }
         return TypeProto.newBuilder().setProvider(providerTypeBuilder).build();
@@ -1396,6 +1442,28 @@ public final class Types {
                                   .collect(Collectors.toList()))
                           .build()
                   ))
+          );
+          consumerTypeBuilder.addAllRequiredContracts(
+              this.allTransitivelyRequiredContractNamesToGenericArgs.get().entries().stream()
+                  .map(e -> {
+                    int moduleDisambiguatorSplit = e.getKey().indexOf('$');
+                    TypeProtos.RequiredContract.Builder res = TypeProtos.RequiredContract.newBuilder();
+                    if (moduleDisambiguatorSplit == -1) {
+                      // The contract was defined in the current compilation unit. No disambiguator to split.
+                      res.setName(e.getKey()).setDefiningModuleDisambiguator("");
+                    } else {
+                      // The contract was defined in another compilation unit. Split format
+                      // `ContractName$some$arbitrary$disambiguator$module` dropping extra '$' separator.
+                      res.setName(e.getKey().substring(0, moduleDisambiguatorSplit))
+                          .setDefiningModuleDisambiguator(e.getKey().substring(moduleDisambiguatorSplit + 1));
+                    }
+                    res.addAllGenericTypeParams(
+                        e.getValue().stream()
+                            .map(t -> (($GenericTypeParam) t).getTypeParamName())
+                            .collect(Collectors.toList()));
+                    return res.build();
+                  })
+                  .collect(Collectors.toList())
           );
         }
         return TypeProto.newBuilder().setConsumer(consumerTypeBuilder).build();
@@ -1685,13 +1753,17 @@ public final class Types {
   public abstract static class $Contract extends Type {
     public abstract String getContractName();
 
+    // This disambiguator is necessary in order for two same-named contracts defined in separate Modules to have types
+    // correctly considered to be distinct.
+    public abstract String getDefiningModuleDisambiguator();
+
     public abstract ImmutableList<String> getTypeParamNames();
 
     public abstract ImmutableList<String> getProcedureNames();
 
     public static $Contract forContractNameTypeParamNamesAndProcedureNames(
-        String name, ImmutableList<String> typeParamNames, ImmutableList<String> procedureNames) {
-      return new AutoValue_Types_$Contract(BaseType.$CONTRACT, ImmutableMap.of(), name, typeParamNames, procedureNames);
+        String name, String definingModuleDisambiguator, ImmutableList<String> typeParamNames, ImmutableList<String> procedureNames) {
+      return new AutoValue_Types_$Contract(BaseType.$CONTRACT, ImmutableMap.of(), name, definingModuleDisambiguator, typeParamNames, procedureNames);
     }
 
     @Override

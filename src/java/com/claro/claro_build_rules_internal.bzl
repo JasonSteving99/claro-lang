@@ -292,10 +292,11 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
             "\n\t- ".join(invalid_exports),
         ))
 
-    # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
-    deps = dict(**deps) # Make a copy of the frozen deps dict.
-    for optional_stdlib_dep in optional_stdlib_deps:
-        deps[optional_stdlib_dep] = CLARO_OPTIONAL_STDLIB_MODULE_DEPS[optional_stdlib_dep]
+    if add_stdlib_deps:
+        # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
+        deps = dict(**deps) # Make a copy of the frozen deps dict.
+        for optional_stdlib_dep in optional_stdlib_deps:
+            deps[optional_stdlib_dep] = CLARO_OPTIONAL_STDLIB_MODULE_DEPS[optional_stdlib_dep]
 
     invoke_claro_compiler_rule(
         name = name,

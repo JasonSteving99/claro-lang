@@ -115,6 +115,7 @@ public class ContractDefinitionStmt extends Stmt {
           this.contractName,
           Types.$Contract.forContractNameTypeParamNamesAndProcedureNames(
               this.contractName,
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
               this.typeParamNames,
               this.declaredContractSignaturesByProcedureName.keySet().asList()
           ),

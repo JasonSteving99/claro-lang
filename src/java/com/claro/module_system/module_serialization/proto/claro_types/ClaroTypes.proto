@@ -74,20 +74,29 @@ message FunctionType {
   ProcedureBlockingAnnotation annotated_blocking = 3;
   repeated int32 optional_annotated_blocking_generic_over_args = 4;
   repeated string optional_generic_type_param_names = 5;
+  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
+  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
   map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 6;
+  repeated RequiredContract required_contracts = 7;
 }
 message ConsumerType {
   repeated TypeProto arg_types = 1;
   ProcedureBlockingAnnotation annotated_blocking = 2;
   repeated int32 optional_annotated_blocking_generic_over_args = 3;
   repeated string optional_generic_type_param_names = 4;
+  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
+  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
   map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 5;
+  repeated RequiredContract required_contracts = 6;
 }
 message ProviderType {
   TypeProto output_type = 1;
   ProcedureBlockingAnnotation annotated_blocking = 2;
   repeated string optional_generic_type_param_names = 3;
+  // TODO(steving) Migrate away from this map<string, GenericTypeParamNamesList> and exclusively use the
+  // TODO(steving)   RequiredContract message so that the contract disambiguators can be preserved.
   map<string, GenericTypeParamNamesList> required_contract_names_to_generic_type_params = 4;
+  repeated RequiredContract required_contracts = 5;
 }
 message UserDefinedType {
   string type_name = 1;
@@ -122,4 +131,22 @@ enum ProcedureBlockingAnnotation {
   BLOCKING = 2;
   // E.g. `blocking:arg1|arg2 function foo(arg1: blocking? provider<...>, arg2: blocking? function<...>, ...) -> ...;`
   BLOCKING_GENERIC = 3;
+}
+
+// This message is used by procedure types to represent the disambiguated contracts that are required, and over which
+// generic type params. E.g.:
+//   requires(Dep::Foo<T>)
+//   function doSmthViaDepFooContract<T,V>(t: T, v: V) -> ...;
+// would use the following RequiredContract message:
+//   RequiredContract {
+//     name: "Foo",
+//     definingModuleDisambiguator: "com$example$some_module",
+//     genericTypeParams: ["T"],
+//   }
+message RequiredContract {
+  string name = 1;
+  string defining_module_disambiguator = 2;
+  // This field refers to the generic type params that are listed in the the source file (in the same order). They
+  // directly correspond to the generic type param names that will be found in the procedure proto itself.
+  repeated string generic_type_params = 3;
 }
