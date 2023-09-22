@@ -8,3 +8,9 @@ consumer myPrint2<T>(t: T) {
   print("myPrint2: {t}");
   TransitiveDep::myTransitivePrint(t);
 }
+
+requires(Foo<T>)
+consumer myPrint3<T>(t: T) {
+  print("myPrint3: {t}");
+  Foo::doFoo(t);
+}

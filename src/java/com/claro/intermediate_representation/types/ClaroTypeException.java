@@ -465,6 +465,14 @@ public class ClaroTypeException extends Exception {
       "\t\t\t\t\"%s\"\n" +
       "\t\t\t],\n" +
       "\t\t)";
+  private static final String ILLEGAL_CONTRACT_IMPL_OVER_TYPES_NOT_DEFINED_IN_CURRENT_COMPILATION_UNIT =
+      "Illegal Contract Implementation Over Types Not Defined In Current Module: Contracts defined in a " +
+      "claro_module() may only be implemented over types defined in the current module. This ensures that Claro's " +
+      "incremental compilation scheme functions properly (see Rust's \"Orphan Rules\": https://smallcultfollowing.com/babysteps/blog/2015/01/14/little-orphan-impls/).\n" +
+      "\tThe following Contract Implementation:\n" +
+      "\t\t%s\n" +
+      "\tAttempts to implement the contract over the following external types:\n" +
+      "\t- %s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1646,6 +1654,17 @@ public class ClaroTypeException extends Exception {
         String.format(
             USING_OPTIONAL_STDLIB_DEP_MODULE_WITHOUT_EXPLICIT_BUILD_DEP,
             optionalStdlibDepModuleName
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalContractImplOverTypesNotDefinedInCurrentCompilationUnit(
+      String contractTypeString, ImmutableList<Type> implTypeParamsDefinedOutsideCurrentCompilationUnit) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_CONTRACT_IMPL_OVER_TYPES_NOT_DEFINED_IN_CURRENT_COMPILATION_UNIT,
+            contractTypeString,
+            Joiner.on("\n\t- ").join(implTypeParamsDefinedOutsideCurrentCompilationUnit)
         )
     );
   }

@@ -1,5 +1,6 @@
 package com.claro;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.stdlib.StdLibModuleUtil;
 import com.google.common.base.Strings;
 
@@ -108,6 +109,11 @@ Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|_|[0-9])*
 // situation where the parser's single token lookahead would be insufficient to distinguish between various uses of
 // scoped symbols e.g. `std::Error(std::Nothing)` parsed incorrectly as a syntax error before this change.
 ScopedIdentifier = {Identifier}::{Identifier}
+
+// An identifier that explicitly references a contract procedure from some contract defined in a dep module. Follows the
+// scoping as follows:
+//    <dep module name>::<contract name>::<procedure name>
+DepModuleContractProcedure = {Identifier}::{Identifier}::{Identifier}
 
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
@@ -343,6 +349,23 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                              lexed.length(),
                              ScopedIdentifier.forScopeNameAndIdentifier(
                                  split[0], split[1], () -> currentInputLineBuilder.toString(), yyline, yycolumn)
+                         );
+                       }
+    {DepModuleContractProcedure} {
+                         String lexed = yytext();
+                         String[] split = lexed.split("::");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         return symbol(
+                             Tokens.SCOPED_IDENTIFIER,
+                             0,
+                             lexed.length(),
+                             ScopedIdentifier.forScopeNameAndIdentifier(
+                                 String.format(
+                                     "%s$%s",
+                                     split[1],
+                                     ScopedHeap.getDefiningModuleDisambiguator(Optional.of(split[0]))),
+                                 split[2],
+                                 () -> currentInputLineBuilder.toString(), yyline, yycolumn)
                          );
                        }
 

@@ -16,3 +16,31 @@ Dep::myPrint(Foo(1));
 Dep::myPrint2("??");
 Dep::myPrint2("??");
 Dep::myPrint2(Foo(2));
+
+
+# Now validate that I can define procedures requiring contracts exported by a dep module.
+requires(Dep::Foo<T>)
+consumer testRequiringDepModuleContractImpl<T>(t: T) {
+  print("EXECUTING PROCEDURE THAT REQUIRES Dep::Foo<T>: {t}");
+  # And you can call dep module contract procedures.
+  Dep::Foo::doFoo(t);
+}
+
+# It's legal to implement contracts from dep modules.
+implement Dep::Foo<int> as FooI {
+  consumer doFoo(t: int) {
+    print("Dep::Foo<int>::doFoo: {t}");
+  }
+}
+# So I can call local procedures requiring that dep module contract.
+testRequiringDepModuleContractImpl(10);
+
+
+# TODO(steving) This currently doesn't work. Add support for calling a dep module procedure requiring a contract that
+# TODO(steving)     was implemented outside of the dep module (in this case defined in the current module).
+#Dep::myPrint3(3);
+
+# TODO(steving) This currently doesn't work. Add support for calling generic dep module procedures requiring a contract
+# TODO(steving)     that's implemented in some module other than the current one.
+#Dep::myPrint3(Dep::SomeType("test"));
+#Dep::myPrint3(OtherDep::SomeType("test"));

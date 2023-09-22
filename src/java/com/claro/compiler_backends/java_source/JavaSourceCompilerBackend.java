@@ -19,6 +19,7 @@ import com.claro.intermediate_representation.statements.contracts.ContractDefini
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.ModuleApiParserUtil;
@@ -43,6 +44,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class JavaSourceCompilerBackend implements CompilerBackend {
 
@@ -691,18 +693,59 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           String disambiguatedContractName =
               String.format("%s$%s", contractDef.getName(), parsedModule.getModuleDescriptor().getUniqueModuleName());
           // Setup an empty set to collect all implementations in.
-          ContractDefinitionStmt.contractImplementationsByContractName.put(contractDef.getName(), new ArrayList<>());
+          ContractDefinitionStmt.contractImplementationsByContractName.put(disambiguatedContractName, new ArrayList<>());
           // Add the contract itself to the symbol table.
+          ImmutableList<String> typeParamNamesImmutableList = ImmutableList.copyOf(contractDef.getTypeParamNamesList());
+          ContractDefinitionStmt contractDefinitionStmt =
+              new ContractDefinitionStmt(
+                  disambiguatedContractName,
+                  typeParamNamesImmutableList,
+                  contractDef.getSignaturesList().stream()
+                      .map(sig -> {
+                        Types.ProcedureType type = getProcedureTypeFromProto(sig);
+                        return new ContractProcedureSignatureDefinitionStmt(
+                            sig.getName(),
+                            Optional.ofNullable(
+                                type.hasArgs()
+                                ? IntStream.range(0, type.getArgTypes().size()).boxed()
+                                    .collect(ImmutableMap.toImmutableMap(
+                                        i -> "$" + i, // Don't need (or have) real arg names.
+                                        i -> TypeProvider.ImmediateTypeProvider.of(type.getArgTypes().get(i))
+                                    ))
+                                : null),
+                            Optional.ofNullable(
+                                type.hasReturnValue()
+                                ? TypeProvider.ImmediateTypeProvider.of(type.getReturnType())
+                                : null),
+                            type.getAnnotatedBlocking(),
+                            type.getAnnotatedBlockingGenericOverArgs()
+                                .map(
+                                    blockingGenArgs ->
+                                        blockingGenArgs.asList().stream()
+                                            .map(i -> "$" + i) // Use synthetic arg names defined a few lines above.
+                                            .collect(ImmutableList.toImmutableList())),
+                            type.getGenericProcedureArgNames()
+                        );
+                      })
+                      .collect(ImmutableList.toImmutableList())
+              );
+          // Just quickly do assertions on this synthetic def so that this is ready. It shouldn't be possible for this
+          // to fail, so it's acceptable to do this out of band here.
+          try {
+            contractDefinitionStmt.assertExpectedExprTypes(scopedHeap);
+          } catch (Exception e) {
+            throw new RuntimeException("Internal Compiler Error! Somehow failed type assertion on synthetic ContractDefinitionStmt representing dep module contract def.", e);
+          }
           scopedHeap.putIdentifierValue(
               disambiguatedContractName,
               Types.$Contract.forContractNameTypeParamNamesAndProcedureNames(
                   disambiguatedContractName,
                   parsedModule.getModuleDescriptor().getUniqueModuleName(),
-                  ImmutableList.copyOf(contractDef.getTypeParamNamesList()),
+                  typeParamNamesImmutableList,
                   contractDef.getSignaturesList().stream()
                       .map(SerializedClaroModule.Procedure::getName).collect(ImmutableList.toImmutableList())
               ),
-              null
+              contractDefinitionStmt
           );
           // Add each of the contract procedure signatures to the symbol table.
           contractDef.getSignaturesList().forEach(
