@@ -1,0 +1,4 @@
+
+function getGreeting(self: Animal) -> string {
+  return "{makeNoise()}! - says {getName(self)}";
+}

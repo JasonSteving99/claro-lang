@@ -1,0 +1,5 @@
+
+newtype Dog : struct {name: string}
+
+# This allows the inheritance of the implementations of signatures in Animal.claro_module_api.
+alias Animal : Dog

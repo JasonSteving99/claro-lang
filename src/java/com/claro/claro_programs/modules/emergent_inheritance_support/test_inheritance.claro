@@ -1,0 +1,6 @@
+
+var dog = Dog::Dog({name = "Milo"});
+var cat = Cat::Cat({callSign = "Satan"});
+
+print(Dog::getGreeting(dog));
+print(Cat::getGreeting(cat));
