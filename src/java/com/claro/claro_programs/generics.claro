@@ -6,7 +6,7 @@ contract Conversion<I, O> {
   function applyConversion(from: I) -> O;
 }
 
-implement Conversion<int, string> as IntToStrConversion {
+implement Conversion<int, string> {
   function applyConversion(from: int) -> string {
     var res: string;
     if (from < 0) {
@@ -20,7 +20,7 @@ implement Conversion<int, string> as IntToStrConversion {
   }
 }
 
-implement Conversion<tuple<int, int>, [int]> as TupleIntIntToListInt {
+implement Conversion<tuple<int, int>, [int]> {
   function applyConversion(from: tuple<int, int>) -> [int] {
     return [from[0], from[1]];
   }
@@ -128,7 +128,7 @@ print(mappedFloatsRes);
 ## DEMONSTRATE A GENERIC FUNCTION THAT USES BOTH A CONTRACT AND A FIRST CLASS ARG
 ##################################################################################
 
-implement Conversion<int, float> as IntToFloat {
+implement Conversion<int, float> {
   function applyConversion(from: int) -> float {
     return from * 1.0;
   }
@@ -224,12 +224,12 @@ alias Dog : tuple<string, string, ID>
 contract HasId<T> {
   function getId(t: T) -> ID;
 }
-implement HasId<Person> as PersonId {
+implement HasId<Person> {
   function getId(p: Person) -> ID {
     return p[1];
   }
 }
-implement HasId<Dog> as DogId {
+implement HasId<Dog> {
   function getId(d: Dog) -> ID {
     return d[2];
   }

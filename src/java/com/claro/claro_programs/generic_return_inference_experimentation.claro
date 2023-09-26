@@ -7,7 +7,7 @@ contract Index<D, T, V> {
   function get(data: D, index: T) -> V;
 }
 
-implement Index<[int], int, int> as UnsafeAccess {
+implement Index<[int], int, int> {
   function get(list: [int], index: int) -> int {
     return list[index];
   }
@@ -15,7 +15,7 @@ implement Index<[int], int, int> as UnsafeAccess {
 
 alias Result : tuple<boolean, int>
 
-implement Index<[int], int, Result> as SafeAccess {
+implement Index<[int], int, Result> {
   function get(list: [int], index: int) -> Result {
     if (index < 0 or len(list) <= index) {
       return (false, -1);
@@ -58,7 +58,7 @@ contract Conversion<I, O> {
   function from(i: I) -> O;
 }
 
-implement Conversion<int, string> as IntToString {
+implement Conversion<int, string> {
   function from(i: int) -> string {
     if (i == 0) {
       return "ZERO";
@@ -100,35 +100,35 @@ contract ColumnAccess<C> {
   function get(t: Table, id: ID) -> C;
 }
 
-implement ColumnAccess<Name> as NameCol {
+implement ColumnAccess<Name> {
   function get(t: Table, id: ID) -> Name {
     var row = t[id];
     return unwrap(row)[0];
   }
 }
 
-implement ColumnAccess<Age> as AgeCol {
+implement ColumnAccess<Age> {
   function get(t: Table, id: ID) -> Age {
     var row = t[id];
     return unwrap(row)[1];
   }
 }
 
-implement ColumnAccess<Birthday> as BirthdayCol {
+implement ColumnAccess<Birthday> {
   function get(t: Table, id: ID) -> Birthday {
     var row = t[id];
     return unwrap(row)[2];
   }
 }
 
-implement ColumnAccess<PhoneNumber> as PhoneNumberCol {
+implement ColumnAccess<PhoneNumber> {
   function get(t: Table, id: ID) -> PhoneNumber {
     var row = t[id];
     return unwrap(row)[3];
   }
 }
 
-implement ColumnAccess<Row> as AllColumns {
+implement ColumnAccess<Row> {
   function get(t: Table, id: ID) -> Row {
     return t[id];
   }

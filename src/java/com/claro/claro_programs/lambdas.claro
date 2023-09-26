@@ -60,7 +60,7 @@ contract ClosureProvider<State, Out> {
   function get(closureFn: ClosureFn<State, Out>) -> Out;
 }
 
-implement ClosureProvider<mut [int], int> as GetAndIncrClosure {
+implement ClosureProvider<mut [int], int> {
   function get(closureFn: ClosureFn<mut [int], int>) -> int {
     var toApply = unwrap(closureFn).fn;
     return toApply(unwrap(closureFn).state);

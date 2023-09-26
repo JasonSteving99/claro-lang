@@ -23,5 +23,4 @@ claro_binary(
     deps = {
         "Dep": ":generic_procedure_export"
     },
-    debug = True,
 )

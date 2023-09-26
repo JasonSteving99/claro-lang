@@ -3,7 +3,7 @@ contract BinaryMathOps<T, V, R> {
   function multiply(lhs: T, rhs: V) -> R;
 }
 
-implement BinaryMathOps<int, int, int> as IntegerAddition {
+implement BinaryMathOps<int, int, int> {
   function add(lhs: int, rhs: int) -> int {
     return lhs + rhs;
   }
@@ -13,7 +13,7 @@ implement BinaryMathOps<int, int, int> as IntegerAddition {
   }
 }
 
-implement BinaryMathOps<string, string, string> as ConcatStrings {
+implement BinaryMathOps<string, string, string> {
   function add(lhs: string, rhs: string) -> string {
     return "{lhs}{rhs}";
   }
@@ -26,7 +26,7 @@ implement BinaryMathOps<string, string, string> as ConcatStrings {
 
 alias IntFn : function<int -> int>
 
-implement BinaryMathOps<IntFn, int, IntFn> as ModifyIntFuncOutput {
+implement BinaryMathOps<IntFn, int, IntFn> {
   function add(lhs: function<int -> int>, rhs: int) -> function<int -> int> {
     return x -> lhs(x) + rhs;
   }
@@ -81,7 +81,7 @@ print("-------------------------------------------------------------------------
 print(foo(900000));
 print(bar("sup "));
 
-implement BinaryMathOps<int, int, string> as IntegerAdditionFormattedAsString {
+implement BinaryMathOps<int, int, string> {
   function add(lhs: int, rhs: int) -> string {
     var intAdditionRes: int = BinaryMathOps::add(lhs, rhs);
     return "Integer Addition Res String: {intAdditionRes}";
@@ -134,12 +134,12 @@ contract Foo<T> {
   function doIt<V>(t: T, v: V) -> tuple<T, V>;
 }
 
-implement Foo<int> as IntFoo {
+implement Foo<int> {
   function doIt<V>(t: int, v: V) -> tuple<int, V> {
     return (2 * t, v);
   }
 }
-implement Foo<string> as StringFoo {
+implement Foo<string> {
   function doIt<V>(t: string, v: V) -> tuple<string, V> {
     return ("formatted: {t}", identity(v));
   }
@@ -169,7 +169,7 @@ contract Bar<O> {
   blocking:mapFn function doIt<I>(i: I, mapFn: blocking? function<I -> O>) -> O;
   blocking function doItBlocking<I>(i: I, mapFn: blocking function<I -> O>) -> O;
 }
-implement Bar<int> as IntBar {
+implement Bar<int> {
   blocking:mapFn function doIt<I>(i: I, mapFn: blocking? function<I -> int>) -> int {
     return mapFn(i);
   }
@@ -214,7 +214,7 @@ contract Consumes<T> {
   blocking consumer genDoBlocking<A>(ignored: T, arg: A, doFn: blocking consumer<A>);
   blocking:doFn consumer genDoBlockingGen<A>(ignored: T, arg: A, doFn: blocking? consumer<A>);
 }
-implement Consumes<int> as IntConsumes {
+implement Consumes<int> {
   consumer prefixPrint(prefix: string, t: int) {
     print("{prefix}: {t}");
   }
@@ -238,7 +238,7 @@ implement Consumes<int> as IntConsumes {
     doFn(arg);
   }
 }
-implement Consumes<string> as StrConsumes {
+implement Consumes<string> {
   consumer prefixPrint(prefix: string, t: string) {
     print("{prefix}: {t}");
   }
@@ -327,7 +327,7 @@ contract Default<T> {
   provider get() -> T;
   blocking provider getBlocking() -> T;
 }
-implement Default<int> as IntDefault {
+implement Default<int> {
   provider get() -> int {
     return 0;
   }
@@ -337,7 +337,7 @@ implement Default<int> as IntDefault {
     return Default::get();
   }
 }
-implement Default<string> as StrDefault {
+implement Default<string> {
   provider get() -> string {
     return "--DEFAULT STRING--";
   }

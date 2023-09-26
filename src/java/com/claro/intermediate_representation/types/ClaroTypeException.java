@@ -114,7 +114,7 @@ public class ClaroTypeException extends Exception {
   private static final String CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
       "Invalid Contract Implementation: %s does not have the correct number of type params required by %s.";
   private static final String DUPLICATE_CONTRACT_IMPLEMENTATION =
-      "Invalid Contract Implementation: %s is a duplicate of existing implementation %s.";
+      "Invalid Contract Implementation: %s is a duplicate of existing implementation.";
   private static final String CONTRACT_IMPLEMENTATION_MISSION_REQUIRED_PROCEDURE_DEFS =
       "Invalid Contract Implementation: %s is missing definitions for the following required procedures %s.";
   private static final String CONTRACT_IMPLEMENTATION_WITH_EXTRA_PROCEDURE_DEFS =
@@ -860,14 +860,8 @@ public class ClaroTypeException extends Exception {
             CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS, contractTypeString, implementationTypeString));
   }
 
-  public static ClaroTypeException forDuplicateContractImplementation(
-      String currentImplementationTypeString, String otherImplementationTypeString) {
-    return new ClaroTypeException(
-        String.format(
-            DUPLICATE_CONTRACT_IMPLEMENTATION,
-            currentImplementationTypeString,
-            otherImplementationTypeString
-        ));
+  public static ClaroTypeException forDuplicateContractImplementation(String currentImplementationTypeString) {
+    return new ClaroTypeException(String.format(DUPLICATE_CONTRACT_IMPLEMENTATION, currentImplementationTypeString));
   }
 
   public static ClaroTypeException forContractImplementationMissingRequiredProcedureDefinitions(

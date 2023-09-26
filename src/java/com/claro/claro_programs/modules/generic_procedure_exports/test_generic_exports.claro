@@ -27,7 +27,7 @@ consumer testRequiringDepModuleContractImpl<T>(t: T) {
 }
 
 # It's legal to implement contracts from dep modules.
-implement Dep::Foo<int> as FooI {
+implement Dep::Foo<int> {
   consumer doFoo(t: int) {
     print("Dep::Foo<int>::doFoo: {t}");
   }
@@ -35,6 +35,7 @@ implement Dep::Foo<int> as FooI {
 # So I can call local procedures requiring that dep module contract.
 testRequiringDepModuleContractImpl(10);
 
+Dep::Foo::doFoo(99);
 
 # TODO(steving) This currently doesn't work. Add support for calling a dep module procedure requiring a contract that
 # TODO(steving)     was implemented outside of the dep module (in this case defined in the current module).

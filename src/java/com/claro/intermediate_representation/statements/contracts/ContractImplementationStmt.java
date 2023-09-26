@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 public class ContractImplementationStmt extends Stmt {
   private final String contractName;
-  private final String implementationName;
+  private String implementationName;
   private final ImmutableList<TypeProvider> concreteImplementationTypeParamTypeProviders;
   private final ImmutableList<ContractProcedureImplementationStmt> contractProcedureImplementationStmts;
 
@@ -30,12 +30,10 @@ public class ContractImplementationStmt extends Stmt {
 
   public ContractImplementationStmt(
       String contractName,
-      String implementationName,
       ImmutableList<TypeProvider> concreteImplementationTypeParamTypeProviders,
       ImmutableList<ContractProcedureImplementationStmt> contractProcedureImplementationStmts) {
     super(ImmutableList.of());
     this.contractName = contractName;
-    this.implementationName = implementationName;
     this.concreteImplementationTypeParamTypeProviders = concreteImplementationTypeParamTypeProviders;
     this.contractProcedureImplementationStmts = contractProcedureImplementationStmts;
   }
@@ -60,14 +58,20 @@ public class ContractImplementationStmt extends Stmt {
         .map(Type::toString)
         .collect(ImmutableList.toImmutableList());
     this.canonicalImplementationName = getContractTypeString(this.contractName, this.concreteTypeStrings);
+    this.implementationName =
+        // Not encoding the full contract name into the generated implementation name, b/c Java codegen was running into
+        // name too long errors for the generated class by this name (specifically was a problem for contracts defined
+        // in dep modules where the contract name was some variant of `ContractName$some$long$path$to$dep$module`.
+        String.format(
+            "ContractImpl__%s",
+            Hashing.sha256().hashUnencodedChars(this.contractName + this.canonicalImplementationName)
+        );
 
     // Now validate that this isn't a duplicate of another existing implementation of this contract.
     if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
       throw new RuntimeException(
           ClaroTypeException.forDuplicateContractImplementation(
-              getContractTypeString(this.implementationName, this.concreteTypeStrings),
-              getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), this.concreteTypeStrings)
-          ));
+              getContractTypeString(this.implementationName, this.concreteTypeStrings)));
     }
     // Additionally, if this contract definition has any implied types, then we need to validate that this contract
     // hasn't already implemented over these unconstrained type params.
@@ -244,7 +248,9 @@ public class ContractImplementationStmt extends Stmt {
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res =
-        new StringBuilder("  public static final class ")
+        new StringBuilder("  /* ")
+            .append(this.canonicalImplementationName)
+            .append(" */\n  public static final class ")
             .append(this.implementationName)
             .append(" {\n");
 

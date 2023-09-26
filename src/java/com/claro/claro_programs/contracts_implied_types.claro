@@ -27,12 +27,12 @@ contract Add<A, B => C> {
   function add(lhs: A, rhs: B) -> C;
 }
 
-implement Add<int, int, int> as IntAddition {
+implement Add<int, int, int> {
   function add(lhs: int, rhs: int) -> int {
     return lhs + rhs;
   }
 }
-implement Add<string, string, string> as StrConcat {
+implement Add<string, string, string> {
   function add(lhs: string, rhs: string) -> string {
     return "{lhs}{rhs}";
   }
@@ -41,7 +41,7 @@ implement Add<string, string, string> as StrConcat {
 # Uncomment this below impl to see Claro statically reject the existence of two contract impls which violate the
 # Contract Definition's constraint that Type C must be unique for any concrete args A, B.
 
-#implement Add<int, int, string> as CONFLICT {
+#implement Add<int, int, string> {
 #  function add(lhs: int, rhs: int) -> string {
 #    return "{lhs + rhs}";
 #  }

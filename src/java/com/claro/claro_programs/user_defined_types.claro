@@ -60,12 +60,12 @@ print(unwrappedInt + unwrappedInt);
 contract Foo<T> {
   consumer bar(t: T);
 }
-implement Foo<MyInt> as MyIntFoo {
+implement Foo<MyInt> {
   consumer bar(t: MyInt) {
     print("My Int is: {t}");
   }
 }
-implement Foo<MyOtherInt> as MyOtherIntFoo {
+implement Foo<MyOtherInt> {
   consumer bar(t: MyOtherInt) {
     print("My Other Int is: {t}");
   }
@@ -403,12 +403,12 @@ if (leftNode instanceof Node<int>) {
 }
 
 
-implement Foo<Node<int>> as INode {
+implement Foo<Node<int>> {
   consumer bar(t: Node<int>) {
     print("Got INT NODE: {t}");
   }
 }
-implement Foo<Node<string>> as SNode {
+implement Foo<Node<string>> {
   consumer bar(t: Node<string>) {
     print("Got STRING NODE: {t}");
   }

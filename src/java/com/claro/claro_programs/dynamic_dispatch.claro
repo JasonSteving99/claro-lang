@@ -34,26 +34,26 @@ contract Add<T,V> {
   function add(lhs: T, rhs: V) -> T;
 }
 
-implement Add<int, int> as IntAdd {
+implement Add<int, int> {
   function add(lhs: int, rhs: int) -> int {
     return lhs + rhs;
   }
 }
 
-implement Add<string, string> as StrAdd {
+implement Add<string, string> {
   function add(lhs: string, rhs: string) -> string {
     return "{lhs}{rhs}";
   }
 }
 
-implement Add<int, string> as IntStrAdd {
+implement Add<int, string> {
   function add(lhs: int, rhs: string) -> int {
     _ = rhs;
     return lhs;
   }
 }
 
-implement Add<string, int> as StrIntAdd {
+implement Add<string, int> {
   function add(lhs: string, rhs: int) -> string {
     _ = rhs;
     return lhs;
@@ -82,13 +82,13 @@ contract TypeParamNested<T, V> {
   function foo(l: [T]) -> [V];
 }
 
-implement TypeParamNested<int, int> as IntList {
+implement TypeParamNested<int, int> {
   function foo(l: [int]) -> [int] {
     print("Dispatched to: TypeParamNested<int, int>");
     return l;
   }
 }
-implement TypeParamNested<[int], int> as NestedIntList {
+implement TypeParamNested<[int], int> {
   function foo(l: [[int]]) -> [int] {
     print("Dispatched to: TypeParamNested<[int], int>");
     return l[0];
@@ -129,7 +129,7 @@ contract Animal<A> {
 
 alias Dog : string # name
 
-implement Animal<Dog> as DogAnimal {
+implement Animal<Dog> {
   function makeNoise(dog: Dog) -> string {
     return "\"woof!\" says {dog}";
   }
@@ -137,7 +137,7 @@ implement Animal<Dog> as DogAnimal {
 
 alias Cat : tuple<string, boolean> # name, isHappy
 
-implement Animal<Cat> as CatAnimal {
+implement Animal<Cat> {
   function makeNoise(cat: Cat) -> string {
     if (cat[1]) {
       # A happy cat... what are the chances?
@@ -180,12 +180,12 @@ alias Asteroid : int  # size
 contract Sized<T> {
   function getSize(t: T) -> int;
 }
-implement Sized<Spaceship> as SpaceshipSize {
+implement Sized<Spaceship> {
   function getSize(s: Spaceship) -> int {
     return s[0];
   }
 }
-implement Sized<Asteroid> as AsteroidSize {
+implement Sized<Asteroid> {
   function getSize(a: Asteroid) -> int {
     return a;
   }
@@ -194,25 +194,25 @@ implement Sized<Asteroid> as AsteroidSize {
 contract Collision<A, B> {
   function collideWith(a: A, b: B) -> string;
 }
-implement Collision<Spaceship, Asteroid> as SACollission {
+implement Collision<Spaceship, Asteroid> {
   function collideWith(s: Spaceship, a: Asteroid) -> string {
     _ = s; _ = a;
     return "s/a";
   }
 }
-implement Collision<Spaceship, Spaceship> as SSCollission {
+implement Collision<Spaceship, Spaceship> {
   function collideWith(s: Spaceship, s2: Spaceship) -> string {
     _ = s; _ = s2;
     return "s/s";
   }
 }
-implement Collision<Asteroid, Spaceship> as ASCollission {
+implement Collision<Asteroid, Spaceship> {
   function collideWith(a: Asteroid, s: Spaceship) -> string {
     _ = a; _ = s;
     return "a/s";
   }
 }
-implement Collision<Asteroid, Asteroid> as AACollission {
+implement Collision<Asteroid, Asteroid> {
   function collideWith(a: Asteroid, a2: Asteroid) -> string {
     _ = a; _ = a2;
     return "a/a";
@@ -289,7 +289,7 @@ contract Foo<A, B> {
   consumer baz(a: A, b: B);
 }
 
-implement Foo<int, string> as I {
+implement Foo<int, string> {
   function bar(a: int, b: string) -> boolean {
     _ = a; _ = b;
     return true;
@@ -299,7 +299,7 @@ implement Foo<int, string> as I {
     print("Foo<int, string>::baz!");
   }
 }
-implement Foo<string, int> as S {
+implement Foo<string, int> {
   function bar(a: string, b: int) -> boolean {
     _ = a; _ = b;
     return true;
@@ -309,7 +309,7 @@ implement Foo<string, int> as S {
     print("Foo<string, int>::baz!");
   }
 }
-implement Foo<int, int> as II {
+implement Foo<int, int> {
   function bar(a: int, b: int) -> boolean {
     _ = a; _ = b;
     return true;
@@ -348,12 +348,12 @@ contract Bar<T> {
   function doIt<V>(t: T, v: V) -> tuple<T, V>;
 }
 
-implement Bar<int> as IntBar {
+implement Bar<int> {
   function doIt<V>(t: int, v: V) -> tuple<int, V> {
     return (2 * t, v);
   }
 }
-implement Bar<string> as StringBar {
+implement Bar<string> {
   function doIt<V>(t: string, v: V) -> tuple<string, V> {
     return ("formatted: {t}", v);
   }

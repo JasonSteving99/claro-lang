@@ -3526,15 +3526,14 @@ contract_procedure_signature_definition_stmt ::=
   ;
 
 contract_implementation_stmt ::=
-    IMPLEMENT IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET AS IDENTIFIER:implementation_name LCURLY contract_implementations_list:contract_impls RCURLY
+    IMPLEMENT IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET LCURLY contract_implementations_list:contract_impls RCURLY
     {:
-       RESULT = new ContractImplementationStmt(contract_name.getVal(), implementation_name.getVal(), ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal(), contract_impls.build().reverse());
+       RESULT = new ContractImplementationStmt(contract_name.getVal(), ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal(), contract_impls.build().reverse());
     :}
-  | IMPLEMENT scoped_identifier:dep_contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET AS IDENTIFIER:implementation_name LCURLY contract_implementations_list:contract_impls RCURLY
+  | IMPLEMENT scoped_identifier:dep_contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET LCURLY contract_implementations_list:contract_impls RCURLY
     {:
        RESULT = new ContractImplementationStmt(
           getDisambiguatedExportedIdentifierName(dep_contract_name.getScopeName(), dep_contract_name.getIdentifier()),
-          implementation_name.getVal(),
           ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal(),
           contract_impls.build().reverse());
     :}
