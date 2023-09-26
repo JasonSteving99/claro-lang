@@ -7,6 +7,8 @@ import com.claro.intermediate_representation.ProgramNode;
 import com.claro.intermediate_representation.statements.GenericFunctionDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.InitializersBlockStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UnwrappersBlockStmt;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
@@ -15,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParser;
 
+import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -164,11 +167,33 @@ public class DepModuleMonomorphization {
             genericFunctionDefinitionStmtBuilder.put(
                 ((GenericFunctionDefinitionStmt) currStmt).functionName, (GenericFunctionDefinitionStmt) currStmt);
           }
+          // TODO(steving) THIS NEEDS TO DROP REFLECTION ONCE THE BOOTSTRAPPING COMPILER HAS THESE FIELDS PUBLIC.
+          else if (currStmt instanceof InitializersBlockStmt) {
+            Field reflectedProcDefs = InitializersBlockStmt.class.getField("initializerProcedureDefs");
+            reflectedProcDefs.setAccessible(true);
+            ((ImmutableList<Stmt>) reflectedProcDefs.get(currStmt)).stream()
+                .filter(proc -> proc instanceof GenericFunctionDefinitionStmt)
+                .forEach(
+                    proc -> {
+                      GenericFunctionDefinitionStmt genProc = (GenericFunctionDefinitionStmt) proc;
+                      genericFunctionDefinitionStmtBuilder.put(genProc.functionName, genProc);
+                    });
+          } else if (currStmt instanceof UnwrappersBlockStmt) {
+            Field reflectedProcDefs = UnwrappersBlockStmt.class.getField("unwrapperProcedureDefs");
+            reflectedProcDefs.setAccessible(true);
+            ((ImmutableList<Stmt>) reflectedProcDefs.get(currStmt)).stream()
+                .filter(proc -> proc instanceof GenericFunctionDefinitionStmt)
+                .forEach(
+                    proc -> {
+                      GenericFunctionDefinitionStmt genProc = (GenericFunctionDefinitionStmt) proc;
+                      genericFunctionDefinitionStmtBuilder.put(genProc.functionName, genProc);
+                    });
+          }
           currStmtListNode = currStmtListNode.tail;
         }
-        MonomorphizationRequestProcessing.genericFunctionDefinitionStmtsByName =
-            genericFunctionDefinitionStmtBuilder.build();
       }
+      MonomorphizationRequestProcessing.genericFunctionDefinitionStmtsByName =
+          genericFunctionDefinitionStmtBuilder.build();
     } catch (Exception e) {
       System.err.println("TESTING!! Internal Compiler Error! FAILED RECOMPILATION SOMEHOW:");
       e.printStackTrace();

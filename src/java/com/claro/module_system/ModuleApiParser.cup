@@ -162,7 +162,7 @@ parser code {:
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  SEMICOLON;
-terminal LexedValue<String>  COLON, COLON_COLON;
+terminal LexedValue<String>  COLON;
 terminal LexedValue<String>  COMMA;
 terminal LexedValue<String>  BAR;
 terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET;
@@ -706,26 +706,23 @@ base_builtin_type_without_mutability_modifier ::=
             type_name.getLen())
        );
     :}
-  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name
+  | SCOPED_IDENTIFIER:scoped_identifier
     {:
-       Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright));
-       int startCol = min(dep_module_nameleft, cleft, type_nameleft);
-       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen());
-
        // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
        // the transitive dep module must be marked exported.
-       depModuleTransitiveTypeExports.add(dep_module_name.getVal());
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       depModuleTransitiveTypeExports.add(depModuleName);
 
-       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(
+          depModuleName, scoped_identifier.getVal().getIdentifier());
        RESULT = new Symbol(
           -1,
-          startCol,
-          endCol,
+          scoped_identifierleft,
+          scoped_identifierright, // line number
           LexedValue.create(
             TypeProvider.Util.getTypeByName(disambiguatedDepModuleTypeName, /*isTypeDefinition=*/true),
-            currentLinesSupplier,
-            endCol - startCol)
+            scoped_identifier.getCurrentInputLine(),
+            scoped_identifier.getLen())
        );
     :}
   | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
@@ -754,30 +751,32 @@ base_builtin_type_without_mutability_modifier ::=
             endCol - startCol)
        );
     :}
-  | IDENTIFIER:dep_module_name COLON_COLON:c IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+  | SCOPED_IDENTIFIER:scoped_identifier L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
     {:
        LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
        Supplier<String> currentLinesSupplier =
-          joinExprLines(new Line(dep_module_name.getCurrentInputLine(), dep_module_nameright), new Line(c.getCurrentInputLine(), cright), new Line(type_name.getCurrentInputLine(), type_nameright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
-       int startCol = min(dep_module_nameleft, cleft, type_nameleft, laleft, concrete_type_params.left, raleft);
-       int endCol = max(dep_module_nameleft + dep_module_name.getLen(), cleft + c.getLen(), type_nameleft + type_name.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
+          joinExprLines(new Line(scoped_identifier.getCurrentInputLine(), scoped_identifierright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(scoped_identifierleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(scoped_identifierleft + scoped_identifier.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
 
        // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
        // the transitive dep module must be marked exported.
-       depModuleTransitiveTypeExports.add(dep_module_name.getVal());
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       depModuleTransitiveTypeExports.add(depModuleName);
 
-       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(dep_module_name.getVal(), type_name.getVal());
+       String disambiguatedDepModuleTypeName =
+          getDisambiguatedExportedIdentifierName(depModuleName, scoped_identifier.getVal().getIdentifier());
        RESULT = new Symbol(
           -1,
           startCol,
-          endCol,
+          scoped_identifierright,
           LexedValue.create(
             // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
             // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
             // TODO(steving)    of procedures/types that are actually unusable.
             (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-              type_name.getVal(),
-              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(dep_module_name.getVal())),
+              scoped_identifier.getVal().getIdentifier(),
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleName)),
               concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
             ),
             currentLinesSupplier,

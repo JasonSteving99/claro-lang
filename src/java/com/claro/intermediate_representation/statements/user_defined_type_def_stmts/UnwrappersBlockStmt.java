@@ -16,7 +16,7 @@ import java.util.Optional;
 
 public class UnwrappersBlockStmt extends Stmt {
   private final String unwrappedTypeName;
-  private final ImmutableList<Stmt> unwrapperProcedureDefs;
+  public final ImmutableList<Stmt> unwrapperProcedureDefs;
 
   public UnwrappersBlockStmt(String unwrappedTypeName, ImmutableList<Stmt> unwrapperProcedureDefs) {
     super(ImmutableList.of());

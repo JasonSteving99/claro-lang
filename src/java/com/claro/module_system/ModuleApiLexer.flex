@@ -148,7 +148,6 @@ WhiteSpace     = [ \t\f]
     "->"               { return symbol(Tokens.ARROW, 0, 2, "->"); }
     ";"                { return symbol(Tokens.SEMICOLON, 0, 1, ";"); }
     ":"                { return symbol(Tokens.COLON, 0, 1, ":"); }
-    "::"               { return symbol(Tokens.COLON_COLON, 0, 2, "::"); }
     ","                { return symbol(Tokens.COMMA, 0, 1, ','); }
     "|"                { return symbol(Tokens.BAR, 0, 1, "|"); }
 

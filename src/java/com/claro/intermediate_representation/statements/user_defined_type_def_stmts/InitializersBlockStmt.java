@@ -16,7 +16,7 @@ import java.util.Optional;
 
 public class InitializersBlockStmt extends Stmt {
   private final String initializedTypeName;
-  private final ImmutableList<Stmt> initializerProcedureDefs;
+  public final ImmutableList<Stmt> initializerProcedureDefs;
 
   public InitializersBlockStmt(String initializedTypeName, ImmutableList<Stmt> initializerProcedureDefs) {
     super(ImmutableList.of());
