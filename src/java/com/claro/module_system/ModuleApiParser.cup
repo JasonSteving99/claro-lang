@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.base.Strings;
 import java_cup.runtime.Symbol;
 import java.util.Map;
@@ -168,6 +169,7 @@ terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET;
 terminal LexedValue<String>  ARROW, IMPLICATION_ARROW;
 // A variable identifier is just a sequence of chars.
 terminal LexedValue<String>  IDENTIFIER;
+terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
 // Builtin Types
 terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
                  ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
@@ -175,7 +177,7 @@ terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS;
-terminal LexedValue<String>  CONTRACT;
+terminal LexedValue<String>  CONTRACT, IMPLEMENT;
 terminal LexedValue<String>  REQUIRES;
 terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER, HTTP_RESPONSE;
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
@@ -203,12 +205,14 @@ nonterminal ImmutableMap.Builder<IdentifierReferenceTerm, Object/*oneof<String, 
 nonterminal Symbol/*ImmutableList<ImmutableList.Builder>*/  fmt_string_parts;
 nonterminal ContractDefinitionStmt             contract_definition_stmt;
 nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
+nonterminal Map.Entry/*<IdentifierReferenceTerm, ImmutableList<TypeProvider>>*/ contract_implementation_stmt;
 nonterminal Symbol/*TypeProvider*/             builtin_type;
 nonterminal Symbol/*TypeProvider*/             base_builtin_type_without_mutability_modifier;
 nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
 nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
 nonterminal Expr                               expr;
 nonterminal IdentifierReferenceTerm            identifier;
+nonterminal ScopedIdentifier                   scoped_identifier;
 
 // Lower precedence things at the top, higher precedence things at the bottom.
 // ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
@@ -232,6 +236,7 @@ module ::=
          module_api_defs.getInitializersBlocksByTypeName().build(),
          module_api_defs.getUnwrappersBlocksByTypeName().build(),
          module_api_defs.getContractDefsBuilder().build().reverse(),
+         module_api_defs.getContractImplementationsBuilder().build(),
          module_api_defs.getHttpServiceDefsBuilder().build().reverse(),
          depModuleTransitiveTypeExports.build(),
          moduleName,
@@ -274,6 +279,11 @@ module_api_defs ::=
   | contract_definition_stmt:contract_def module_api_defs:tail
     {:
        tail.getContractDefsBuilder().add(contract_def);
+       RESULT = tail;
+    :}
+  | contract_implementation_stmt:contract_impl module_api_defs:tail
+    {:
+       tail.getContractImplementationsBuilder().put(contract_impl);
        RESULT = tail;
     :}
   | http_service_def_stmt:http_service_def module_api_defs:tail
@@ -322,6 +332,12 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getContractDefsBuilder().add(contract_def);
+       RESULT = res;
+    :}
+  | contract_implementation_stmt:contract_impl
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getContractImplementationsBuilder().put(contract_impl);
        RESULT = res;
     :}
   | http_service_def_stmt:http_service_def
@@ -1337,6 +1353,21 @@ contract_signature_defs_list ::=
     :}
   ;
 
+contract_implementation_stmt ::=
+    IMPLEMENT identifier:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET SEMICOLON
+    {:
+       RESULT = Maps.immutableEntry(contract_name, ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal());
+    :}
+  | IMPLEMENT scoped_identifier:dep_contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET SEMICOLON
+    {:
+       RESULT = Maps.immutableEntry(
+          dep_contract_name.getOverallIdentifierReferenceTerm(
+            getDisambiguatedExportedIdentifierName(dep_contract_name.getScopeName(), dep_contract_name.getIdentifier()),
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.of(dep_contract_name.getScopeName()))),
+          ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal());
+    :}
+  ;
+
 http_service_def_stmt ::=
     HTTP_SERVICE identifier:service_name LCURLY http_endpoints_list:endpoints RCURLY
     {: RESULT = new HttpServiceDefStmt(service_name, endpoints.build()); :}
@@ -1423,5 +1454,16 @@ identifier ::=
        // Use a disambiguation prefix for namespacing required by dep modules.
        String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(identifier.getVal());
        RESULT = new IdentifierReferenceTerm(disambiguatedIdentifierName, identifier.getCurrentInputLine(), identifierright, identifierleft, identifierleft + identifier.getLen());
+    :}
+  ;
+
+scoped_identifier ::=
+    SCOPED_IDENTIFIER:scoped_identifier
+    {:
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       depModuleTransitiveTypeExports.add(depModuleName);
+       RESULT = scoped_identifier.getVal();
     :}
   ;

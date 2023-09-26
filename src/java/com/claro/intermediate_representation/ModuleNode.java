@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.expressions.term.IdentifierReferenc
 import com.claro.intermediate_representation.statements.AtomDefinitionStmt;
 import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.AliasStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.NewTypeDefStmt;
@@ -30,6 +31,7 @@ public class ModuleNode {
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       unwrappersBlocks;
   public final ImmutableList<ContractDefinitionStmt> exportedContractDefs;
+  public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<TypeProvider>> exportedContractImpls;
   public final ImmutableSet<String> depModulesTransitiveTypeExports;
   private final String moduleName;
   public final ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs;
@@ -46,6 +48,7 @@ public class ModuleNode {
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks,
       ImmutableList<ContractDefinitionStmt> exportedContractDefs,
+      ImmutableMap<IdentifierReferenceTerm, ImmutableList<TypeProvider>> exportedContractImpls,
       ImmutableList<HttpServiceDefStmt> exportedHttpServiceDefs,
       ImmutableSet<String> depModulesTransitiveTypeExports,
       String moduleName,
@@ -57,6 +60,7 @@ public class ModuleNode {
     this.initializersBlocks = initializersBlocks;
     this.unwrappersBlocks = unwrappersBlocks;
     this.exportedContractDefs = exportedContractDefs;
+    this.exportedContractImpls = exportedContractImpls;
     this.depModulesTransitiveTypeExports = depModulesTransitiveTypeExports;
     this.moduleName = moduleName;
     this.exportedHttpServiceDefs = exportedHttpServiceDefs;
@@ -269,6 +273,24 @@ public class ModuleNode {
     return errorsFound;
   }
 
+  public void assertExpectedContractImplementationsActuallyExported(ScopedHeap scopedHeap) throws ClaroTypeException {
+    for (Map.Entry<IdentifierReferenceTerm, ImmutableList<TypeProvider>> declaredExportedContractImpl :
+        this.exportedContractImpls.entrySet()) {
+      String contractImplCanonicalName =
+          ContractImplementationStmt.getContractTypeString(
+              declaredExportedContractImpl.getKey().identifier,
+              declaredExportedContractImpl.getValue().stream()
+                  .map(tp -> tp.resolveType(scopedHeap).toString())
+                  .collect(ImmutableList.toImmutableList())
+          );
+      if (!scopedHeap.isIdentifierDeclared(contractImplCanonicalName)) {
+        logError(
+            ClaroTypeException.forModuleExportedContractImplementationNotDefinedInModuleImplFiles(
+                contractImplCanonicalName));
+      }
+    }
+  }
+
   // TODO(steving) TESTING!!! EXTEND THE MODULE PARSER TO ACTUALLY COLLECT LINE INFO FOR EACH SIGNATURE.
   private void logError(ClaroTypeException e) {
     this.errorMessages.push(String.format("%s.claro_module: %s", this.moduleName, e.getMessage()));
@@ -308,11 +330,13 @@ public class ModuleNode {
 
     public abstract ImmutableList.Builder<ContractDefinitionStmt> getContractDefsBuilder();
 
+    public abstract ImmutableMap.Builder<IdentifierReferenceTerm, ImmutableList<TypeProvider>> getContractImplementationsBuilder();
+
     public abstract ImmutableList.Builder<HttpServiceDefStmt> getHttpServiceDefsBuilder();
 
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableList.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableList.builder());
     }
   }
 }

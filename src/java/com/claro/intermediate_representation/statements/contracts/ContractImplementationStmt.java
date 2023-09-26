@@ -182,21 +182,25 @@ public class ContractImplementationStmt extends Stmt {
       }
 
       // Now one final validation, you're only allowed to implement contracts over types that have been defined in the
-      // current compilation unit. *The one exception to this rule* is that, for the sake of convenience only, the
-      // top-level claro_binary() compilation unit may define whatever contract impls that it sees fit since the
+      // current compilation unit. Contracts are also implementable over *ANY* arbitrary type no matter what compilation
+      // unit it was defined in, within the same compilation unit that the contract itself was defined in. This is the
+      // case because anyone that would be attempting to make use of the contract in any way would first need a dep on
+      // that module, so it would be possible to statically rule out the duplicate implementation of any contract for
+      // the same type(s) more than once. *The one exception to this rule* is that, for the sake of convenience only,
+      // the top-level claro_binary() compilation unit may define whatever contract impls that it sees fit since the
       // application of this rule could not possibly result in allowing duplication of the same contract implementation.
-      // TODO(steving) In the future, contracts should also be implementable over *ANY* arbitrary type no matter what
-      //   compilation unit it was defined in, within the same compilation unit that the contract itself was defined in.
-      //   This is the case because anyone that would be attempting to make use of the contract in any way would first
-      //   need a dep on that module, so it would be possible to statically rule out the duplicate implementation of any
-      //   contract for the same type(s) more than once.
       String currCompilationUnitDisambiguator = ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
-      if (!currCompilationUnitDisambiguator.isEmpty()) {
+      if (!(((Types.$Contract) scopedHeap.getValidatedIdentifierType(this.contractName))
+                .getDefiningModuleDisambiguator().equals(currCompilationUnitDisambiguator)
+            || currCompilationUnitDisambiguator.isEmpty())) {
         ImmutableList<Type> implTypeParamsDefinedOutsideCurrentCompilationUnit =
             this.concreteImplementationTypeParams.values().stream()
-                .filter(t -> !(t.baseType().equals(BaseType.USER_DEFINED_TYPE)
-                               && ((Types.UserDefinedType) t).getDefiningModuleDisambiguator()
-                                   .equals(ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()))))
+                .filter(t -> !((t.baseType().equals(BaseType.USER_DEFINED_TYPE)
+                                && ((Types.UserDefinedType) t).getDefiningModuleDisambiguator()
+                                    .equals(currCompilationUnitDisambiguator))
+                               || (t.baseType().equals(BaseType.ATOM) &&
+                                   ((Types.AtomType) t).getDefiningModuleDisambiguator()
+                                       .equals(currCompilationUnitDisambiguator))))
                 .collect(ImmutableList.toImmutableList());
         if (!implTypeParamsDefinedOutsideCurrentCompilationUnit.isEmpty()) {
           throw ClaroTypeException.forIllegalContractImplOverTypesNotDefinedInCurrentCompilationUnit(

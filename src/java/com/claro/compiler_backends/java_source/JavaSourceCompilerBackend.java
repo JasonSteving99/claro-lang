@@ -909,6 +909,17 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                 .collect(Collectors.toList()))
                         .build())
                     .collect(Collectors.toList()))
+            .addAllExportedContractImplementations(
+                ProgramNode.moduleApiDef.get().exportedContractImpls.entrySet().stream()
+                    .map(impl ->
+                             SerializedClaroModule.ExportedContractImplementation.newBuilder()
+                                 .setImplementedContractName(impl.getKey().identifier)
+                                 .addAllConcreteTypeParams(
+                                     impl.getValue().stream()
+                                         .map(tp -> tp.resolveType(scopedHeap).toProto())
+                                         .collect(Collectors.toList()))
+                                 .build())
+                    .collect(ImmutableList.toImmutableList()))
             .addAllExportedHttpServiceDefinitions(
                 ProgramNode.moduleApiDef.get().exportedHttpServiceDefs.stream()
                     .map(

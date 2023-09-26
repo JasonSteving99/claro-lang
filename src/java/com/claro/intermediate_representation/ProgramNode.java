@@ -178,6 +178,7 @@ public class ProgramNode {
     if (ProgramNode.moduleApiDef.isPresent()) {
       try {
         ProgramNode.moduleApiDef.get().assertExpectedProceduresActuallyExported(scopedHeap);
+        ProgramNode.moduleApiDef.get().assertExpectedContractImplementationsActuallyExported(scopedHeap);
         // Here we validate that if this module api actually references any types from dep modules that the dep module
         // is *actually* listed as an `exports` dep.
         ProgramNode.moduleApiDef.get().assertDepModulesTransitiveTypeExportsActuallyExported();

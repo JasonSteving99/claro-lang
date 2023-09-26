@@ -91,6 +91,11 @@ import java.util.Stack;
 // A variable identifier. We'll just do uppercase for vars.
 Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|_|[0-9])*
 
+// An identifier found within an explicitly defined scope. This is explicitly defined in order to avoid running into a
+// situation where the parser's single token lookahead would be insufficient to distinguish between various uses of
+// scoped symbols e.g. `std::Error(std::Nothing)` parsed incorrectly as a syntax error before this change.
+ScopedIdentifier = {Identifier}::{Identifier}
+
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
 
@@ -176,6 +181,7 @@ WhiteSpace     = [ \t\f]
 
     // Contract tokens.
     "contract"         { return symbol(Tokens.CONTRACT, 0, 8, "contract"); }
+    "implement"        { return symbol(Tokens.IMPLEMENT, 0, 9, "implement"); }
     "requires"         { return symbol(Tokens.REQUIRES, 0, 8, "requires"); }
 
      // Symbols related to builtin HTTP support go here.
@@ -199,6 +205,18 @@ WhiteSpace     = [ \t\f]
     {Identifier}       {
                          String lexed = yytext();
                          return symbol(Tokens.IDENTIFIER, 0, lexed.length(), lexed);
+                       }
+    {ScopedIdentifier} {
+                         String lexed = yytext();
+                         String[] split = lexed.split("::");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         return symbol(
+                             Tokens.SCOPED_IDENTIFIER,
+                             0,
+                             lexed.length(),
+                             ScopedIdentifier.forScopeNameAndIdentifier(
+                                 split[0], split[1], () -> currentInputLineBuilder.toString(), yyline, yycolumn)
+                         );
                        }
 
     /* Don't do anything if whitespace is found */

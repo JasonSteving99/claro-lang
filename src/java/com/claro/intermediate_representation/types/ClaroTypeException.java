@@ -473,6 +473,10 @@ public class ClaroTypeException extends Exception {
       "\t\t%s\n" +
       "\tAttempts to implement the contract over the following external types:\n" +
       "\t- %s";
+  private static final String MODULE_EXPORTED_CONTRACT_IMPL_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Contract Implementation Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported contract implementation to be defined:\n" +
+      "\t%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1661,5 +1665,11 @@ public class ClaroTypeException extends Exception {
             Joiner.on("\n\t- ").join(implTypeParamsDefinedOutsideCurrentCompilationUnit)
         )
     );
+  }
+
+  public static ClaroTypeException forModuleExportedContractImplementationNotDefinedInModuleImplFiles(
+      String contractImplCanonicalName) {
+    return new ClaroTypeException(
+        String.format(MODULE_EXPORTED_CONTRACT_IMPL_NOT_DEFINED_IN_MODULE_IMPL_FILES, contractImplCanonicalName));
   }
 }
