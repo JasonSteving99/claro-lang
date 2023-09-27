@@ -14,3 +14,9 @@ consumer myPrint3<T>(t: T) {
   print("myPrint3: {t}");
   Foo::doFoo(t);
 }
+
+implement Foo<string> {
+  consumer doFoo(t: string) {
+    print("Foo<string>::doFoo: {t}");
+  }
+}

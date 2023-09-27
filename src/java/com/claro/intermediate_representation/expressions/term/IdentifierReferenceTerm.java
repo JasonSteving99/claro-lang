@@ -35,6 +35,10 @@ public class IdentifierReferenceTerm extends Term {
     this.optionalDefiningModuleDisambiguator = optionalDefiningModuleDisambiguator;
   }
 
+  public IdentifierReferenceTerm withIdentifier(String identifier) {
+    return new IdentifierReferenceTerm(identifier, this.optionalDefiningModuleDisambiguator, super.currentLine, super.currentLineNumber, super.startCol, super.endCol);
+  }
+
   public String getIdentifier() {
     return identifier;
   }

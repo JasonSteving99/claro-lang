@@ -26,7 +26,9 @@ consumer testRequiringDepModuleContractImpl<T>(t: T) {
   Dep::Foo::doFoo(t);
 }
 
-# It's legal to implement contracts from dep modules.
+# It's legal to implement contracts from dep modules. (In this case this implementation over a type not defined in this
+# module, `int`, is legal because this is the src file of a binary, meaning that there are no possible incoherency
+# issues that could result from this).
 implement Dep::Foo<int> {
   consumer doFoo(t: int) {
     print("Dep::Foo<int>::doFoo: {t}");
@@ -37,6 +39,12 @@ testRequiringDepModuleContractImpl(10);
 
 Dep::Foo::doFoo(99);
 
+# I can call contract implementations exported by a dep module.
+Dep::Foo::doFoo("Calling into dep module contract implementation.");
+
+# I can also indirectly call contract impls from dep modules by going through local generic procedures requiring it.
+testRequiringDepModuleContractImpl("This ends up going through the dep module's Foo<string> impl.");
+
 # TODO(steving) This currently doesn't work. Add support for calling a dep module procedure requiring a contract that
 # TODO(steving)     was implemented outside of the dep module (in this case defined in the current module).
 #Dep::myPrint3(3);
@@ -45,3 +53,5 @@ Dep::Foo::doFoo(99);
 # TODO(steving)     that's implemented in some module other than the current one.
 #Dep::myPrint3(Dep::SomeType("test"));
 #Dep::myPrint3(OtherDep::SomeType("test"));
+
+

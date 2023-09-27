@@ -8,3 +8,5 @@ consumer myPrint2<T>(t: T);
 
 requires(Foo<T>)
 consumer myPrint3<T>(t: T);
+
+implement Foo<string>;

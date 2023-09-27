@@ -2481,7 +2481,7 @@ required_contracts ::=
       ImmutableList<Type> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
           .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
-      RESULT = tail.put(contract_name.getVal(), genericTypesList);
+      RESULT = tail.put(String.format("%s$%s", contract_name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList);
     :}
   | scoped_identifier:dep_contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET COMMA required_contracts:tail
     {:
@@ -2497,7 +2497,7 @@ required_contracts ::=
       ImmutableList<Type> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
           .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
-      RESULT = ImmutableListMultimap.<String, ImmutableList<Type>>builder().put(contract_name.getVal(), genericTypesList);
+      RESULT = ImmutableListMultimap.<String, ImmutableList<Type>>builder().put(String.format("%s$%s", contract_name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList);
     :}
   | scoped_identifier:dep_contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET
     {:
@@ -3371,7 +3371,7 @@ contract_definition_stmt ::=
     {:
       ImmutableList<String> genericTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
-      RESULT = new ContractDefinitionStmt(name.getVal(), genericTypesList, contract_signature_defs_backwards.build().reverse());
+      RESULT = new ContractDefinitionStmt(String.format("%s$%s", name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList, contract_signature_defs_backwards.build().reverse());
     :}
   | CONTRACT IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types IMPLICATION_ARROW identifier_list:implied_types R_ANGLE_BRACKET LCURLY contract_signature_defs_list:contract_signature_defs_backwards RCURLY
     {:
@@ -3379,7 +3379,7 @@ contract_definition_stmt ::=
         ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
       ImmutableList<String> impliedTypesList =
         ((LexedValue<ImmutableList.Builder<String>>)implied_types.value).getVal().build().reverse();
-      RESULT = new ContractDefinitionStmt(name.getVal(), genericTypesList, impliedTypesList, contract_signature_defs_backwards.build().reverse());
+      RESULT = new ContractDefinitionStmt(String.format("%s$%s", name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList, impliedTypesList, contract_signature_defs_backwards.build().reverse());
     :}
   ;
 
@@ -3528,7 +3528,7 @@ contract_procedure_signature_definition_stmt ::=
 contract_implementation_stmt ::=
     IMPLEMENT IDENTIFIER:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET LCURLY contract_implementations_list:contract_impls RCURLY
     {:
-       RESULT = new ContractImplementationStmt(contract_name.getVal(), ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal(), contract_impls.build().reverse());
+       RESULT = new ContractImplementationStmt(String.format("%s$%s", contract_name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal(), contract_impls.build().reverse());
     :}
   | IMPLEMENT scoped_identifier:dep_contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET LCURLY contract_implementations_list:contract_impls RCURLY
     {:
@@ -3656,7 +3656,7 @@ function_call_expr ::=
          // This is in fact a contract procedure call, referencing a contract defined w/in this current compilation unit.
          RESULT =
           new ContractFunctionCallExpr(
-            contractNameStr,
+            contractNameStr.contains("$") ? contractNameStr : String.format("%s$%s", contractNameStr, ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
             scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
             scoped_identifier.getIdentifier(),
             scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),
@@ -3695,7 +3695,7 @@ provider_function_call_expr ::=
          RESULT = new ProviderFunctionCallExpr(contractNameStr, scoped_identifier.getIdentifier(), currentLinesSupplier, rright, startCol, endCol);
        } else {
          RESULT = new ContractProviderFunctionCallExpr(
-           contractNameStr,
+           contractNameStr.contains("$") ? contractNameStr : String.format("%s$%s", contractNameStr, ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
            scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
            scoped_identifier.getIdentifier(),
            scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),
@@ -3726,7 +3726,7 @@ consumer_function_call_stmt ::=
          RESULT = new ConsumerFunctionCallStmt(contractNameStr, scoped_identifier.getIdentifier(), ((LexedValue<ImmutableList.Builder<Expr>>)args.value).getVal().build().reverse());
        } else {
          RESULT = new ContractConsumerFunctionCallStmt(
-           contractNameStr,
+           contractNameStr.contains("$") ? contractNameStr : String.format("%s$%s", contractNameStr, ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
            scoped_identifier.getScopeNameIdentifierReferenceTerm(Optional.empty()),
            scoped_identifier.getIdentifier(),
            scoped_identifier.getIdentifierIdentifierReferenceTerm(Optional.empty()),

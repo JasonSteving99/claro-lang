@@ -692,8 +692,9 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     // Register any ContractDefs found in the module.
     parsedModule.getExportedContractDefinitionsList().forEach(
         contractDef -> {
-          String disambiguatedContractName =
-              String.format("%s$%s", contractDef.getName(), parsedModule.getModuleDescriptor().getUniqueModuleName());
+          // For the sake of all contracts always using a consistent naming across all relative deps, the names of
+          // contracts are disambiguated at all times.
+          String disambiguatedContractName = contractDef.getName();
           // Setup an empty set to collect all implementations in.
           ContractDefinitionStmt.contractImplementationsByContractName.put(disambiguatedContractName, new ArrayList<>());
           // Add the contract itself to the symbol table.
@@ -741,7 +742,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           scopedHeap.putIdentifierValue(
               disambiguatedContractName,
               Types.$Contract.forContractNameTypeParamNamesAndProcedureNames(
-                  disambiguatedContractName,
+                  // Intentionally going to use the original name in the type so that the original name is accessible.
+                  contractDef.getName(),
                   parsedModule.getModuleDescriptor().getUniqueModuleName(),
                   typeParamNamesImmutableList,
                   contractDef.getSignaturesList().stream()
@@ -770,12 +772,9 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                   .stream()
                   .map(Types::parseTypeProto)
                   .collect(ImmutableList.toImmutableList());
-          String disambiguatedContractName =
-              String.format(
-                  "%s$%s",
-                  contractImpl.getImplementedContractName(),
-                  parsedModule.getModuleDescriptor().getUniqueModuleName()
-              );
+          // For the sake of all contracts always using a consistent naming across all relative deps, the names of
+          // contracts are disambiguated at all times.
+          String disambiguatedContractName = contractImpl.getImplementedContractName();
           String disambiguatedContractImplName =
               ContractImplementationStmt.getContractTypeString(
                   disambiguatedContractName,
@@ -787,24 +786,32 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
               disambiguatedContractImplName,
               Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
                   contractImpl.getImplementedContractName(), concreteTypeParams),
-              // TODO(steving) TESTING!!! UPDATE THIS, IT'S DEFINITELY WRONG. At least need proper module scoping.
               String.format(
-                  "ContractImpl__%s",
+                  "%s.%s.ContractImpl__%s",
+                  // TODO(steving) TESTING!!! UPDATE THIS, I NEED TO BE ABLE TO HANDLE THE CASE WHERE THE IMPLEMENTED
+                  //   CONTRACT WAS ACTUALLY DEFINED IN SOME *OTHER* TRANSITIVE DEP MODULE.
+                  //   NOTE: This will probably require some re-ordering such that all contracts from all modules are
+                  //         defined before any implementations are registered.
+                  parsedModule.getModuleDescriptor().getProjectPackage(),
+                  parsedModule.getModuleDescriptor().getUniqueModuleName(),
                   Hashing.sha256().hashUnencodedChars(
-                      contractImpl.getImplementedContractName() + contractImpl.getImplementedContractName())
+                      contractImpl.getImplementedContractName() +
+                      ContractImplementationStmt.getContractTypeString(
+                          contractImpl.getImplementedContractName(),
+                          concreteTypeParams.stream().map(Type::toString).collect(Collectors.toList())
+                      ))
               )
           );
 
           // Register the actual contract implementation procedures.
-          // TODO(steving) TESTING!!! Handle registering the contract impl procedure signatures.
-//          contractImpl.getConcreteSignaturesList().stream()
-//              .forEach(
-//                  contractProcSig ->
-//                      scopedHeap.putIdentifierValue(
-//                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
-//                              disambiguatedContractImplName, concreteTypeParams, contractProcSig.getName()),
-//                          getProcedureTypeFromProto(contractProcSig)
-//                      ));
+          contractImpl.getConcreteSignaturesList()
+              .forEach(
+                  contractProcSig ->
+                      scopedHeap.putIdentifierValue(
+                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                              disambiguatedContractName, concreteTypeParams, contractProcSig.getName()),
+                          getProcedureTypeFromProto(contractProcSig)
+                      ));
         }
     );
 
