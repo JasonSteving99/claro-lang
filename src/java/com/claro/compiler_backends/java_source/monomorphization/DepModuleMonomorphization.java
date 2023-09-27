@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParser;
 
-import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -166,12 +165,8 @@ public class DepModuleMonomorphization {
           if (currStmt instanceof GenericFunctionDefinitionStmt) {
             genericFunctionDefinitionStmtBuilder.put(
                 ((GenericFunctionDefinitionStmt) currStmt).functionName, (GenericFunctionDefinitionStmt) currStmt);
-          }
-          // TODO(steving) THIS NEEDS TO DROP REFLECTION ONCE THE BOOTSTRAPPING COMPILER HAS THESE FIELDS PUBLIC.
-          else if (currStmt instanceof InitializersBlockStmt) {
-            Field reflectedProcDefs = InitializersBlockStmt.class.getField("initializerProcedureDefs");
-            reflectedProcDefs.setAccessible(true);
-            ((ImmutableList<Stmt>) reflectedProcDefs.get(currStmt)).stream()
+          } else if (currStmt instanceof InitializersBlockStmt) {
+            ((InitializersBlockStmt) currStmt).initializerProcedureDefs.stream()
                 .filter(proc -> proc instanceof GenericFunctionDefinitionStmt)
                 .forEach(
                     proc -> {
@@ -179,9 +174,7 @@ public class DepModuleMonomorphization {
                       genericFunctionDefinitionStmtBuilder.put(genProc.functionName, genProc);
                     });
           } else if (currStmt instanceof UnwrappersBlockStmt) {
-            Field reflectedProcDefs = UnwrappersBlockStmt.class.getField("unwrapperProcedureDefs");
-            reflectedProcDefs.setAccessible(true);
-            ((ImmutableList<Stmt>) reflectedProcDefs.get(currStmt)).stream()
+            ((UnwrappersBlockStmt) currStmt).unwrapperProcedureDefs.stream()
                 .filter(proc -> proc instanceof GenericFunctionDefinitionStmt)
                 .forEach(
                     proc -> {

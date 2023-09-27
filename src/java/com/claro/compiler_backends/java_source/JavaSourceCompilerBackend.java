@@ -16,6 +16,7 @@ import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
@@ -28,6 +29,7 @@ import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos
 import com.claro.stdlib.StdLibUtil;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.*;
+import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharSource;
 import com.google.devtools.common.options.OptionsParser;
@@ -760,6 +762,52 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         }
     );
 
+    // Register any contract impls found in the module.
+    parsedModule.getExportedContractImplementationsList().forEach(
+        contractImpl -> {
+          ImmutableList<Type> concreteTypeParams =
+              contractImpl.getConcreteTypeParamsList()
+                  .stream()
+                  .map(Types::parseTypeProto)
+                  .collect(ImmutableList.toImmutableList());
+          String disambiguatedContractName =
+              String.format(
+                  "%s$%s",
+                  contractImpl.getImplementedContractName(),
+                  parsedModule.getModuleDescriptor().getUniqueModuleName()
+              );
+          String disambiguatedContractImplName =
+              ContractImplementationStmt.getContractTypeString(
+                  disambiguatedContractName,
+                  concreteTypeParams.stream().map(Type::toString).collect(Collectors.toList())
+              );
+
+          // Register the contract impl itself.
+          scopedHeap.putIdentifierValue(
+              disambiguatedContractImplName,
+              Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
+                  contractImpl.getImplementedContractName(), concreteTypeParams),
+              // TODO(steving) TESTING!!! UPDATE THIS, IT'S DEFINITELY WRONG. At least need proper module scoping.
+              String.format(
+                  "ContractImpl__%s",
+                  Hashing.sha256().hashUnencodedChars(
+                      contractImpl.getImplementedContractName() + contractImpl.getImplementedContractName())
+              )
+          );
+
+          // Register the actual contract implementation procedures.
+          // TODO(steving) TESTING!!! Handle registering the contract impl procedure signatures.
+//          contractImpl.getConcreteSignaturesList().stream()
+//              .forEach(
+//                  contractProcSig ->
+//                      scopedHeap.putIdentifierValue(
+//                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
+//                              disambiguatedContractImplName, concreteTypeParams, contractProcSig.getName()),
+//                          getProcedureTypeFromProto(contractProcSig)
+//                      ));
+        }
+    );
+
     // Register any HttpServiceDefs found in the module.
     parsedModule.getExportedHttpServiceDefinitionsList().forEach(
         httpServiceDef -> {
@@ -911,14 +959,27 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                     .collect(Collectors.toList()))
             .addAllExportedContractImplementations(
                 ProgramNode.moduleApiDef.get().exportedContractImpls.entrySet().stream()
-                    .map(impl ->
-                             SerializedClaroModule.ExportedContractImplementation.newBuilder()
-                                 .setImplementedContractName(impl.getKey().identifier)
-                                 .addAllConcreteTypeParams(
-                                     impl.getValue().stream()
-                                         .map(tp -> tp.resolveType(scopedHeap).toProto())
-                                         .collect(Collectors.toList()))
-                                 .build())
+                    .map(impl -> {
+                      ImmutableList<Type> concreteTypeParams =
+                          impl.getValue().stream()
+                              .map(tp -> tp.resolveType(scopedHeap))
+                              .collect(ImmutableList.toImmutableList());
+                      return SerializedClaroModule.ExportedContractImplementation.newBuilder()
+                          .setImplementedContractName(impl.getKey().identifier)
+                          .addAllConcreteTypeParams(
+                              concreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
+                          .addAllConcreteSignatures(
+                              ((Types.$Contract) scopedHeap.getValidatedIdentifierType(impl.getKey().identifier))
+                                  .getProcedureNames().stream()
+                                  .map(n -> getProcedureProtoFromProcedureType(
+                                      n,
+                                      (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(
+                                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                                              impl.getKey().identifier, concreteTypeParams, n))
+                                  ))
+                                  .collect(Collectors.toList())
+                          ).build();
+                    })
                     .collect(ImmutableList.toImmutableList()))
             .addAllExportedHttpServiceDefinitions(
                 ProgramNode.moduleApiDef.get().exportedHttpServiceDefs.stream()

@@ -89,6 +89,11 @@ message SerializedClaroModule {
   message ExportedContractImplementation {
     string implemented_contract_name = 1;
     repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+    // Strictly speaking, these concrete signatures should be derivable from the signatures listed in the contract
+    // definition itself. However, as that would require some significantly complex logic to be duplicated, I'm making
+    // the design decision to instead directly encode the concrete signatures to just decode them instead of re-derive
+    // them from scratch.
+    repeated Procedure concrete_signatures = 3;
   }
 
   message ExportedHttpServiceDefinition {
