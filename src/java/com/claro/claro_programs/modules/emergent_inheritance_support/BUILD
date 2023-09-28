@@ -6,5 +6,6 @@ claro_binary(
     deps = {
         "Dog": "//src/java/com/claro/claro_programs/modules/emergent_inheritance_support/animals/dog:Dog",
         "Cat": "//src/java/com/claro/claro_programs/modules/emergent_inheritance_support/animals/cat:Cat",
-    }
+        "Greeter": "//src/java/com/claro/claro_programs/modules/emergent_inheritance_support/animals:Greeter",
+    },
 )

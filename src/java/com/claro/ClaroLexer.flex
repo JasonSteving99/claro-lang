@@ -355,6 +355,8 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                          String lexed = yytext();
                          String[] split = lexed.split("::");
                          final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+                         ScopedHeap.markDepModuleUsed(split[0]);
                          return symbol(
                              Tokens.SCOPED_IDENTIFIER,
                              0,

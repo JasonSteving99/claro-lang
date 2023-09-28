@@ -1,6 +1,36 @@
 
+requires(Greeter::Greeter<T>)
+consumer greet<T>(t: T) {
+  print(Greeter::Greeter::getGreeting(t));
+}
+
 var dog = Dog::Dog({name = "Milo"});
 var cat = Cat::Cat({callSign = "Satan"});
 
+print("----------------------------------------------------------------------------------------------------");
+print("Calling the contract procedure directly:");
 print(Dog::getGreeting(dog));
 print(Cat::getGreeting(cat));
+
+print("----------------------------------------------------------------------------------------------------");
+print("Calling the contract procedure indirectly through a generic procedure requiring the contract impl:");
+greet(dog);
+greet(cat);
+
+print("----------------------------------------------------------------------------------------------------");
+
+# TODO(steving) The commented out code block below would be a demonstration of almost the full expressive power of the
+# TODO(steving)     typical OO-paradigm languages within Claro. There's nothing stopping these TODO's from being
+# TODO(steving)     resolved aside from just getting the time to get to these features. In fact, it should be somewhat
+# TODO(steving)     straightforward to resolve these.
+#var animals: [oneof<Dog::Dog, Cat::Cat>] = [dog, cat];
+#for (animal in animals) {
+#  # TODO(steving) Claro needs to support Dynamic Dispatch over contracts defined/implemented in dep modules.
+#  print(Greeter::Greeter::getGreeting(animal));
+#  # TODO(steving) Claro needs to relax generic procedure call checks to allow the call to be made in this situation.
+#  # TODO(steving)     This is a complex situation to be sure, but the idea here is that since the concrete type given
+#  # TODO(steving)     for the generic type param `T` is a oneof<> where, for all variants the required contract has been
+#  # TODO(steving)     implemented, then by definition, Claro should allow the call and then the monomorphization will
+#  # TODO(steving)     make use of dynamic dispatch over the oneof<>.
+#  greet(animal);
+#}
