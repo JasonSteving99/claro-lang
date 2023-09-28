@@ -27,6 +27,13 @@ message MonomorphizationRequest {
   // to enable the dep module subprocess to make note before it attempts monomorphization. If the concrete_type_params
   // doesn't contain any user-defined types, then this list will be empty.
   repeated UserDefinedTypeMetadata user_defined_type_concrete_type_params_metadata = 3;
+
+  // Because the dep module may not actually know about the contract implementations that the coordinator module knows]
+  // about, the coordinator needs to tell the dep module all the details it may need in order to produce the correct
+  // codegen.
+  // TODO(steving) Giant number to make room for refactoring later switching to a more appropriate single definition of
+  // TODO(steving)   the currently duplicated ExportedContractImplementation message.
+  repeated ExportedContractImplementation required_contract_implementations = 4000;
 }
 
 message MonomorphizationResponse {
@@ -55,4 +62,26 @@ message MonomorphizationResponse {
   // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
   // proceeding.
   string optional_error_message = 3;
+}
+
+
+// TODO(steving) This is a duplicated proto message that already exists in SerializedClaroModule.proto, I don't want
+// TODO(steving)   to continue having duplicated definitions of these structures, refactor so there's a single def.
+message ExportedContractImplementation {
+  message Procedure {
+    string name = 1;
+    oneof procedure_type {
+      claro.module_system.module_serialization.claro_types.FunctionType function = 2;
+      claro.module_system.module_serialization.claro_types.ConsumerType consumer = 3;
+      claro.module_system.module_serialization.claro_types.ProviderType provider = 4;
+    }
+  }
+
+  string implemented_contract_name = 1;
+  repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+  // Strictly speaking, these concrete signatures should be derivable from the signatures listed in the contract
+  // definition itself. However, as that would require some significantly complex logic to be duplicated, I'm making
+  // the design decision to instead directly encode the concrete signatures to just decode them instead of re-derive
+  // them from scratch.
+  repeated Procedure concrete_signatures = 3;
 }
