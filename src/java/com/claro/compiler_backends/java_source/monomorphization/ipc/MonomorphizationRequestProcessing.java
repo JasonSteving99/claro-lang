@@ -75,7 +75,9 @@ public class MonomorphizationRequestProcessing {
           IPCMessages.MonomorphizationResponse.newBuilder()
               .setOptionalErrorMessage(
                   "Internal Compiler Error! Exception thrown during MonomorphizationRequest handling: "
-                  + e.getMessage() + "\n\t" + Joiner.on("\n\t").join(e.getStackTrace()))
+                  + e.getMessage() + "\n\t" + Joiner.on("\n\t").join(e.getStackTrace())
+                  + "\n\tCaused by:\n\t" + Optional.ofNullable(e.getCause())
+                      .map(cause -> Joiner.on("\n\t").join(cause.getStackTrace())).orElse("N/a"))
               .build().toByteArray());
     }
   }

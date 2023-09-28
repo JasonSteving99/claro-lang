@@ -195,7 +195,12 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder(this.referencedContractImplName).append('.'));
+            new StringBuilder(
+                Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+                    .map(m -> m.values().stream().findFirst().get())
+                    .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
+                    .orElse(""))
+                .append(this.referencedContractImplName).append('.'));
 
     // In order to avoid using names that are way too long for Java, we're going to hash all names within this
     // contract implementation. I won't worry about maintaining the old names here, because these variables should
