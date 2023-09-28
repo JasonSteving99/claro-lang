@@ -45,6 +45,9 @@ Dep::Foo::doFoo("Calling into dep module contract implementation.");
 # I can also indirectly call contract impls from dep modules by going through local generic procedures requiring it.
 testRequiringDepModuleContractImpl("This ends up going through the dep module's Foo<string> impl.");
 
+# Since the required contract is implemented over string I can also call the Dep's generic procedures that require that.
+Dep::myPrint3("This went through the dep module's Foo<string> impl via Dep::myPrint3()");
+
 # TODO(steving) This currently doesn't work. Add support for calling a dep module procedure requiring a contract that
 # TODO(steving)     was implemented outside of the dep module (in this case defined in the current module).
 #Dep::myPrint3(3);
