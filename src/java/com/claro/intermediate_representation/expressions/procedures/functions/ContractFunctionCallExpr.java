@@ -685,8 +685,16 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
-                Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
-                    .map(m -> m.values().stream().findFirst().get())
+                ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
+                    ContractImplementationStmt.getContractTypeString(
+                        this.contractName, this.resolvedContractConcreteTypes.stream()
+                            .map(Type::toString)
+                            .collect(Collectors.toList()))))
+                    .getOptionalDefiningModuleDisambiguator()
+                    .flatMap(optionalDefiningModuleDisambiguator -> ScopedHeap.getModuleNameFromDisambiguator(optionalDefiningModuleDisambiguator)
+                        .map(defModuleName ->
+                                 ScopedHeap.currProgramDepModules.rowMap().get(defModuleName)
+                                     .values().stream().findFirst().get()))
                     .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
                     .orElse(""))
                 .append(this.referencedContractImplName).append('.'));

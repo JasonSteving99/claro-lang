@@ -4,6 +4,7 @@ import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.expressions.procedures.functions.ContractFunctionCallExpr;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.ConcreteType;
@@ -143,8 +144,16 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
-                Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
-                    .map(m -> m.values().stream().findFirst().get())
+                ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
+                    ContractImplementationStmt.getContractTypeString(
+                        this.contractName, this.resolvedContractConcreteTypes.stream()
+                            .map(Type::toString)
+                            .collect(Collectors.toList()))))
+                    .getOptionalDefiningModuleDisambiguator()
+                    .flatMap(optionalDefiningModuleDisambiguator -> ScopedHeap.getModuleNameFromDisambiguator(optionalDefiningModuleDisambiguator)
+                        .map(defModuleName ->
+                                 ScopedHeap.currProgramDepModules.rowMap().get(defModuleName)
+                                     .values().stream().findFirst().get()))
                     .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
                     .orElse(""))
                 .append(this.referencedContractImplName).append('.'));

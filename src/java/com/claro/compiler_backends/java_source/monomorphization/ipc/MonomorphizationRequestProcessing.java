@@ -132,23 +132,21 @@ public class MonomorphizationRequestProcessing {
     // this monomorphization request. This may "overwrite" some already-registered contract implementations, but they
     // will be the same, so I'm not going to bother checking first.
     for (IPCMessages.ExportedContractImplementation contractImpl : monomorphizationRequest.getRequiredContractImplementationsList()) {
-      // TODO(steving) Uncomment all of this once the IPCMessages proto is up-to-data in the bootstrapping compiler
-      //   build on the next CL.
-//      JavaSourceCompilerBackend.registerExportedContractImplementation(
-//          contractImpl.getImplementedContractName(),
-//          contractImpl.getContractImplDefiningModuleDescriptor().getProjectPackage(),
-//          contractImpl.getContractImplDefiningModuleDescriptor().getUniqueModuleName(),
-//          contractImpl.getConcreteTypeParamsList()
-//              .stream()
-//              .map(Types::parseTypeProto)
-//              .collect(ImmutableList.toImmutableList()),
-//          contractImpl.getConcreteSignaturesList().stream()
-//              .collect(ImmutableMap.toImmutableMap(
-//                  IPCMessages.ExportedContractImplementation.Procedure::getName,
-//                  MonomorphizationRequestProcessing::getProcedureTypeFromProto
-//              )),
-//          JavaSourceCompilerBackend.scopedHeap
-//      );
+      JavaSourceCompilerBackend.registerExportedContractImplementation(
+          contractImpl.getImplementedContractName(),
+          contractImpl.getContractImplDefiningModuleDescriptor().getProjectPackage(),
+          contractImpl.getContractImplDefiningModuleDescriptor().getUniqueModuleName(),
+          contractImpl.getConcreteTypeParamsList()
+              .stream()
+              .map(Types::parseTypeProto)
+              .collect(ImmutableList.toImmutableList()),
+          contractImpl.getConcreteSignaturesList().stream()
+              .collect(ImmutableMap.toImmutableMap(
+                  IPCMessages.ExportedContractImplementation.Procedure::getName,
+                  MonomorphizationRequestProcessing::getProcedureTypeFromProto
+              )),
+          JavaSourceCompilerBackend.scopedHeap
+      );
     }
 
     ImmutableList.Builder<IPCMessages.MonomorphizationResponse.Monomorphization> resBuilder = ImmutableList.builder();

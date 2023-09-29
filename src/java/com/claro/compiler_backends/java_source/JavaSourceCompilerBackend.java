@@ -1094,9 +1094,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             concreteTypeParams
         ),
         String.format(
-            "%s.%s.ContractImpl__%s",
-            definingModuleProjectPackage,
-            definingModuleUniqueModuleName,
+            "ContractImpl__%s",
             Hashing.sha256().hashUnencodedChars(disambiguatedContractName + disambiguatedContractImplName)
         )
     );

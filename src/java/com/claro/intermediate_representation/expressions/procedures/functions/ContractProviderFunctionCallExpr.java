@@ -3,6 +3,7 @@ package com.claro.intermediate_representation.expressions.procedures.functions;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.Expr;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
   private final String contractName;
@@ -196,8 +198,16 @@ public class ContractProviderFunctionCallExpr extends ProviderFunctionCallExpr {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
-                Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
-                    .map(m -> m.values().stream().findFirst().get())
+                ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
+                    ContractImplementationStmt.getContractTypeString(
+                        this.contractName, this.resolvedContractConcreteTypes.stream()
+                            .map(Type::toString)
+                            .collect(Collectors.toList()))))
+                    .getOptionalDefiningModuleDisambiguator()
+                    .flatMap(optionalDefiningModuleDisambiguator -> ScopedHeap.getModuleNameFromDisambiguator(optionalDefiningModuleDisambiguator)
+                        .map(defModuleName ->
+                                 ScopedHeap.currProgramDepModules.rowMap().get(defModuleName)
+                                     .values().stream().findFirst().get()))
                     .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
                     .orElse(""))
                 .append(this.referencedContractImplName).append('.'));
