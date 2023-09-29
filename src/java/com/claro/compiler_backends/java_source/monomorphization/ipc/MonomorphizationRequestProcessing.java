@@ -33,13 +33,13 @@ public class MonomorphizationRequestProcessing {
   public static String handleMonomorphizationRequest(String base64EncodedMonomorphizationRequest) {
     MonomorphizationRequest monomorphizationRequest;
     try {
-      monomorphizationRequest = MonomorphizationRequest.parseFrom(
-          BaseEncoding.base64().decode(base64EncodedMonomorphizationRequest));
-    } catch (InvalidProtocolBufferException e) {
-      throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationRequest!", e);
-    }
+      try {
+        monomorphizationRequest = MonomorphizationRequest.parseFrom(
+            BaseEncoding.base64Url().decode(base64EncodedMonomorphizationRequest));
+      } catch (InvalidProtocolBufferException e) {
+        throw new RuntimeException("Internal Compiler Error! Failed to parse MonomorphizationRequest!", e);
+      }
 
-    try {
       // First things first, this monomorphization may need its GenericFunctionDefinition type checked as setup in case
       // this is the first monomorphization request coming in for this particular procedure.
       if (!alreadyTypeCheckedGenericFunctionDefinitionStmts.contains(monomorphizationRequest.getProcedureName())) {
@@ -49,7 +49,7 @@ public class MonomorphizationRequestProcessing {
         alreadyTypeCheckedGenericFunctionDefinitionStmts.add(monomorphizationRequest.getProcedureName());
       }
 
-      return BaseEncoding.base64().encode(
+      return BaseEncoding.base64Url().encode(
           IPCMessages.MonomorphizationResponse.newBuilder()
               .addAllLocalModuleMonomorphizations(
                   getLocalMonomorphizationsForMonomorphizationRequest(monomorphizationRequest))
@@ -71,7 +71,7 @@ public class MonomorphizationRequestProcessing {
       // I'll format an error message here and convey the problem to the coordinator via a proper error field in the
       // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
       // proceeding.
-      return BaseEncoding.base64().encode(
+      return BaseEncoding.base64Url().encode(
           IPCMessages.MonomorphizationResponse.newBuilder()
               .setOptionalErrorMessage(
                   "Internal Compiler Error! Exception thrown during MonomorphizationRequest handling: "
@@ -124,6 +124,31 @@ public class MonomorphizationRequestProcessing {
           disambiguatedIdentifier,
           Types.parseTypeProto(userDefinedTypeMetadata.getWrappedType())
       );
+    }
+
+    // Before invoking the codegen, in order to allow for a generic procedure requiring some contract impl to be called
+    // over some contract implementation that is not known by this module in isolation (it comes from some module
+    // "above" it in the dependency tree), I need to do some preliminary setup of the required contract impls used in
+    // this monomorphization request. This may "overwrite" some already-registered contract implementations, but they
+    // will be the same, so I'm not going to bother checking first.
+    for (IPCMessages.ExportedContractImplementation contractImpl : monomorphizationRequest.getRequiredContractImplementationsList()) {
+      // TODO(steving) Uncomment all of this once the IPCMessages proto is up-to-data in the bootstrapping compiler
+      //   build on the next CL.
+//      JavaSourceCompilerBackend.registerExportedContractImplementation(
+//          contractImpl.getImplementedContractName(),
+//          contractImpl.getContractImplDefiningModuleDescriptor().getProjectPackage(),
+//          contractImpl.getContractImplDefiningModuleDescriptor().getUniqueModuleName(),
+//          contractImpl.getConcreteTypeParamsList()
+//              .stream()
+//              .map(Types::parseTypeProto)
+//              .collect(ImmutableList.toImmutableList()),
+//          contractImpl.getConcreteSignaturesList().stream()
+//              .collect(ImmutableMap.toImmutableMap(
+//                  IPCMessages.ExportedContractImplementation.Procedure::getName,
+//                  MonomorphizationRequestProcessing::getProcedureTypeFromProto
+//              )),
+//          JavaSourceCompilerBackend.scopedHeap
+//      );
     }
 
     ImmutableList.Builder<IPCMessages.MonomorphizationResponse.Monomorphization> resBuilder = ImmutableList.builder();
@@ -192,6 +217,25 @@ public class MonomorphizationRequestProcessing {
     }
 
     return resBuilder.build();
+  }
+
+  private static Types.ProcedureType getProcedureTypeFromProto(
+      IPCMessages.ExportedContractImplementation.Procedure procedureProto) {
+    TypeProtos.TypeProto procedureTypeProto;
+    switch (procedureProto.getProcedureTypeCase()) {
+      case FUNCTION:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setFunction(procedureProto.getFunction()).build();
+        break;
+      case CONSUMER:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setConsumer(procedureProto.getConsumer()).build();
+        break;
+      case PROVIDER:
+        procedureTypeProto = TypeProtos.TypeProto.newBuilder().setProvider(procedureProto.getProvider()).build();
+        break;
+      default:
+        throw new RuntimeException("Internal Compiler Error! Encountered unexpected procedure type while parsing newtype definition from .claro_module.");
+    }
+    return (Types.ProcedureType) Types.parseTypeProto(procedureTypeProto);
   }
 
   private static MonomorphizationRequest createMonomorphizationRequest(

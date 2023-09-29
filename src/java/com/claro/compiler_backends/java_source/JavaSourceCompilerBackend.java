@@ -476,7 +476,21 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             // we can trigger dep module monomorphization.
             InternalStaticStateUtil.JavaSourceCompilerBackend_depModuleGenericMonomoprhizationsNeeded.put(
                 depModuleName,
-                getMonomorphizationRequest(depExportedProc, orderedConcreteTypeParams)
+                getMonomorphizationRequest(
+                    depExportedProc,
+                    orderedConcreteTypeParams,
+                    procedureType.getAllTransitivelyRequiredContractNamesToGenericArgs().entries().stream()
+                        .map(e -> Maps.immutableEntry(
+                            e.getKey(),
+                            e.getValue().stream()
+                                .map(t -> concreteTypeParams.get(t))
+                                .collect(ImmutableList.toImmutableList())
+                        ))
+                        .collect(ImmutableMap.toImmutableMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue
+                        ))
+                )
             );
             return monomorphizationName;
           };
@@ -521,7 +535,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     return symbolTableValue;
   }
 
-  private static IPCMessages.MonomorphizationRequest getMonomorphizationRequest(SerializedClaroModule.Procedure depExportedProc, ImmutableList<Type> orderedConcreteTypeParams) {
+  private static IPCMessages.MonomorphizationRequest getMonomorphizationRequest(
+      SerializedClaroModule.Procedure depExportedProc,
+      ImmutableList<Type> orderedConcreteTypeParams,
+      ImmutableMap<String, ImmutableList<Type>> requiredContracts) {
     return IPCMessages.MonomorphizationRequest.newBuilder()
         .setProcedureName(depExportedProc.getName())
         .addAllConcreteTypeParams(
@@ -540,9 +557,48 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                       .setWrappedType(
                           Types.UserDefinedType.$resolvedWrappedTypes.get(disambiguatedIdentifier).toProto())
                       .build();
-                })
-                .collect(Collectors.toList())
-        ).build();
+                }).collect(Collectors.toList()))
+        .addAllRequiredContractImplementations(
+            requiredContracts.entrySet().stream()
+                .map(e -> {
+                  IPCMessages.ExportedContractImplementation.Builder builder =
+                      IPCMessages.ExportedContractImplementation.newBuilder()
+                          .setImplementedContractName(e.getKey())
+                          .addAllConcreteTypeParams(
+                              e.getValue().stream()
+                                  .map(Type::toProto)
+                                  .collect(Collectors.toList()))
+                          .addAllConcreteSignatures(
+                              ((Types.$Contract) scopedHeap.getValidatedIdentifierType(e.getKey()))
+                                  .getProcedureNames().stream()
+                                  .map(n -> getIPCMessagesProcedureProtoFromProcedureType(
+                                      n,
+                                      (Types.ProcedureType) scopedHeap.getValidatedIdentifierType(
+                                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                                              e.getKey(), e.getValue(), n))
+                                  ))
+                                  .collect(Collectors.toList()));
+                  Optional<SerializedClaroModule.UniqueModuleDescriptor> optionalContractImplDefiningModuleDescriptor =
+                      ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
+                          ContractImplementationStmt.getContractTypeString(
+                              e.getKey(), e.getValue().stream().map(Type::toString).collect(Collectors.toList()))))
+                          .getOptionalDefiningModuleDisambiguator()
+                          .map(disambiguator ->
+                                   // This .get() is an assumption that the contract impl is coming from a direct
+                                   // dep with a registered name.
+                                   ScopedHeap.getModuleNameFromDisambiguator(disambiguator).get())
+                          .map(contractImplModuleName ->
+                                   Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap()
+                                                           .get(contractImplModuleName))
+                                       .map(m -> m.values().stream().findFirst().get()).get());
+                  optionalContractImplDefiningModuleDescriptor.ifPresent(
+                      d -> builder.setContractImplDefiningModuleDescriptor(
+                          IPCMessages.ExportedContractImplementation.UniqueModuleDescriptor.newBuilder()
+                              .setProjectPackage(d.getProjectPackage())
+                              .setUniqueModuleName(d.getUniqueModuleName())));
+                  return builder.build();
+                }).collect(Collectors.toList()))
+        .build();
   }
 
   // Register an optionally named module dep's exported type initializers and unwrappers. All direct dep modules will be
@@ -698,7 +754,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           // Setup an empty set to collect all implementations in.
           ContractDefinitionStmt.contractImplementationsByContractName.put(disambiguatedContractName, new ArrayList<>());
           // Add the contract itself to the symbol table.
-          ImmutableList<String> typeParamNamesImmutableList = ImmutableList.copyOf(contractDef.getTypeParamNamesList());
+          ImmutableList<String> typeParamNamesImmutableList =
+              ImmutableList.copyOf(contractDef.getTypeParamNamesList());
           ContractDefinitionStmt contractDefinitionStmt =
               new ContractDefinitionStmt(
                   disambiguatedContractName,
@@ -766,53 +823,25 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     // Register any contract impls found in the module.
     parsedModule.getExportedContractImplementationsList().forEach(
-        contractImpl -> {
-          ImmutableList<Type> concreteTypeParams =
-              contractImpl.getConcreteTypeParamsList()
-                  .stream()
-                  .map(Types::parseTypeProto)
-                  .collect(ImmutableList.toImmutableList());
-          // For the sake of all contracts always using a consistent naming across all relative deps, the names of
-          // contracts are disambiguated at all times.
-          String disambiguatedContractName = contractImpl.getImplementedContractName();
-          String disambiguatedContractImplName =
-              ContractImplementationStmt.getContractTypeString(
-                  disambiguatedContractName,
-                  concreteTypeParams.stream().map(Type::toString).collect(Collectors.toList())
-              );
-
-          // Register the contract impl itself.
-          scopedHeap.putIdentifierValue(
-              disambiguatedContractImplName,
-              Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-                  contractImpl.getImplementedContractName(), concreteTypeParams),
-              String.format(
-                  "%s.%s.ContractImpl__%s",
-                  // TODO(steving) TESTING!!! UPDATE THIS, I NEED TO BE ABLE TO HANDLE THE CASE WHERE THE IMPLEMENTED
-                  //   CONTRACT WAS ACTUALLY DEFINED IN SOME *OTHER* TRANSITIVE DEP MODULE.
-                  //   NOTE: This will probably require some re-ordering such that all contracts from all modules are
-                  //         defined before any implementations are registered.
-                  parsedModule.getModuleDescriptor().getProjectPackage(),
-                  parsedModule.getModuleDescriptor().getUniqueModuleName(),
-                  Hashing.sha256().hashUnencodedChars(
-                      contractImpl.getImplementedContractName() +
-                      ContractImplementationStmt.getContractTypeString(
-                          contractImpl.getImplementedContractName(),
-                          concreteTypeParams.stream().map(Type::toString).collect(Collectors.toList())
-                      ))
-              )
-          );
-
-          // Register the actual contract implementation procedures.
-          contractImpl.getConcreteSignaturesList()
-              .forEach(
-                  contractProcSig ->
-                      scopedHeap.putIdentifierValue(
-                          ContractProcedureImplementationStmt.getCanonicalProcedureName(
-                              disambiguatedContractName, concreteTypeParams, contractProcSig.getName()),
-                          getProcedureTypeFromProto(contractProcSig)
-                      ));
-        }
+        contractImpl -> registerExportedContractImplementation(
+            contractImpl.getImplementedContractName(),
+            // TODO(steving) TESTING!!! UPDATE THIS, I NEED TO BE ABLE TO HANDLE THE CASE WHERE THE IMPLEMENTED
+            //   CONTRACT WAS ACTUALLY DEFINED IN SOME *OTHER* TRANSITIVE DEP MODULE.
+            //   NOTE: This will probably require some re-ordering such that all contracts from all modules are
+            //         defined before any implementations are registered.
+            parsedModule.getModuleDescriptor().getProjectPackage(),
+            parsedModule.getModuleDescriptor().getUniqueModuleName(),
+            contractImpl.getConcreteTypeParamsList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            contractImpl.getConcreteSignaturesList().stream()
+                .collect(ImmutableMap.toImmutableMap(
+                    SerializedClaroModule.Procedure::getName,
+                    JavaSourceCompilerBackend::getProcedureTypeFromProto
+                )),
+            scopedHeap
+        )
     );
 
     // Register any HttpServiceDefs found in the module.
@@ -907,7 +936,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                     newtypeDef -> newtypeDef.typeName,
                                     newtypeDef ->
                                         SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef.newBuilder()
-                                            .setUserDefinedType(newtypeDef.resolvedType.toProto().getUserDefinedType())
+                                            .setUserDefinedType(newtypeDef.resolvedType.toProto()
+                                                                    .getUserDefinedType())
                                             .setWrappedType(
                                                 scopedHeap.getValidatedIdentifierType(newtypeDef.getWrappedTypeIdentifier())
                                                     .toProto())
@@ -1040,15 +1070,83 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     }
   }
 
-  private static SerializedClaroModule.Procedure serializeProcedureSignature(ContractProcedureSignatureDefinitionStmt sig) {
+  public static void registerExportedContractImplementation(
+      String disambiguatedContractName,
+      String definingModuleProjectPackage,
+      String definingModuleUniqueModuleName,
+      ImmutableList<Type> concreteTypeParams,
+      ImmutableMap<String, Types.ProcedureType> concreteSignaturesByName,
+      ScopedHeap scopedHeap) {
+    // For the sake of all contracts always using a consistent naming across all relative deps, the names of
+    // contracts are disambiguated at all times.
+    String disambiguatedContractImplName =
+        ContractImplementationStmt.getContractTypeString(
+            disambiguatedContractName,
+            concreteTypeParams.stream().map(Type::toString).collect(Collectors.toList())
+        );
+
+    // Register the contract impl itself.
+    scopedHeap.putIdentifierValue(
+        disambiguatedContractImplName,
+        Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
+            disambiguatedContractName,
+            Optional.of(definingModuleUniqueModuleName),
+            concreteTypeParams
+        ),
+        String.format(
+            "%s.%s.ContractImpl__%s",
+            definingModuleProjectPackage,
+            definingModuleUniqueModuleName,
+            Hashing.sha256().hashUnencodedChars(disambiguatedContractName + disambiguatedContractImplName)
+        )
+    );
+
+    // Register the actual contract implementation procedures.
+    concreteSignaturesByName.forEach(
+        (key, value) ->
+            scopedHeap.putIdentifierValue(
+                ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                    disambiguatedContractName, concreteTypeParams, key),
+                value
+            ));
+  }
+
+  private static SerializedClaroModule.Procedure serializeProcedureSignature(ContractProcedureSignatureDefinitionStmt
+                                                                                 sig) {
     Types.ProcedureType sigType =
         sig.getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap.of());
     return getProcedureProtoFromProcedureType(sig.procedureName, sigType);
   }
 
-  private static SerializedClaroModule.Procedure getProcedureProtoFromProcedureType(String procedureName, Types.ProcedureType sigType) {
+  private static SerializedClaroModule.Procedure getProcedureProtoFromProcedureType(String
+                                                                                        procedureName, Types.ProcedureType sigType) {
     SerializedClaroModule.Procedure.Builder res =
         SerializedClaroModule.Procedure.newBuilder()
+            .setName(procedureName);
+    switch (sigType.baseType()) {
+      case FUNCTION:
+        res.setFunction(sigType.toProto().getFunction());
+        break;
+      case CONSUMER_FUNCTION:
+        res.setConsumer(sigType.toProto().getConsumer());
+        break;
+      case PROVIDER_FUNCTION:
+        res.setProvider(sigType.toProto().getProvider());
+        break;
+      default:
+        throw new RuntimeException(
+            "Internal Compiler Error! Encountered unexpected procedure type while serializing .claro_module file: " +
+            sigType);
+    }
+    return res.build();
+  }
+
+  // TODO(steving) Refactor and drop this duplicated logic once it's possible for IPCMessages and SerializedClaroModule
+  //   proto defs to be using the same unified definition of ExportedContractImplementation.
+  private static IPCMessages.ExportedContractImplementation.Procedure getIPCMessagesProcedureProtoFromProcedureType
+  (String procedureName, Types.ProcedureType sigType) {
+    IPCMessages.ExportedContractImplementation.Procedure.Builder res =
+        IPCMessages.ExportedContractImplementation.Procedure.newBuilder()
             .setName(procedureName);
     switch (sigType.baseType()) {
       case FUNCTION:

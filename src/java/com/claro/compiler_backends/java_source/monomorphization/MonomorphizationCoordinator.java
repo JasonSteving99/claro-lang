@@ -88,13 +88,13 @@ public class MonomorphizationCoordinator {
       // Make a blocking IPC call to the dep module monomorphization subprocess.
       IPCMessages.MonomorphizationResponse monomorphizationRes =
           IPCMessages.MonomorphizationResponse.parseFrom(
-              BaseEncoding.base64().decode(
+              BaseEncoding.base64Url().decode(
                   Futures.transform(
                       getDepModuleMonomorphizationSubprocessClient(module),
                       depModuleMonomorphizationService ->
                           sendMessageToSubprocess_TriggerMonomorphization.apply(
                               depModuleMonomorphizationService,
-                              BaseEncoding.base64().encode(depModuleMonomorphizationReq.toByteArray())
+                              BaseEncoding.base64Url().encode(depModuleMonomorphizationReq.toByteArray())
                           ).get(),
                       MoreExecutors.directExecutor()
                   ).get()));

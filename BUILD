@@ -21,10 +21,6 @@ alias(
     actual = "@maven//:com_googlecode_lanterna_lanterna",
 )
 alias(
-    name = "javalin",
-    actual = "@maven//:io_javalin_javalin",
-)
-alias(
     name = "slf4j",
     actual = "@maven//:org_slf4j_slf4j_simple",
 )

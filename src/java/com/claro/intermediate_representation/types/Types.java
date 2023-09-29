@@ -1762,12 +1762,16 @@ public final class Types {
   public abstract static class $ContractImplementation extends Type {
     public abstract String getContractName();
 
+    // This disambiguator is necessary in order to tract where this contract implementation lives so that codegen can
+    // target it in the correct namespace. Optional, b/c it's possible the impl lives in the top-level claro_binary().
+    public abstract Optional<String> getOptionalDefiningModuleDisambiguator();
+
     public abstract ImmutableList<Type> getConcreteTypeParams();
 
     public static $ContractImplementation forContractNameAndConcreteTypeParams(
-        String name, ImmutableList<Type> concreteTypeParams) {
+        String name, Optional<String> optionalDefiningModuleDisambiguator, ImmutableList<Type> concreteTypeParams) {
       return new AutoValue_Types_$ContractImplementation(
-          BaseType.$CONTRACT_IMPLEMENTATION, ImmutableMap.of(), name, concreteTypeParams);
+          BaseType.$CONTRACT_IMPLEMENTATION, ImmutableMap.of(), name, optionalDefiningModuleDisambiguator, concreteTypeParams);
     }
 
     @Override

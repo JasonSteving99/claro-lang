@@ -49,8 +49,8 @@ http_file(
     # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
     # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
     # rebuild without manual work.
-    sha256 = "c6859f85fcd7d08a7c2ca6580bfb62bb61e28be5640b7fd4a8747ae7c2a46a04",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.257/claro-cli-install.tar.gz",
+    sha256 = "79f1866cf7ded6d8351e0be7f826e5f1c9951a2a00d3c30952cac48c9355261a",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.259/claro-cli-install.tar.gz",
 )
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
@@ -68,7 +68,6 @@ maven_install(
             "com.google.guava:guava:jar:32.1.2-jre",
             "com.google.protobuf:protobuf-java-util:3.24.3",
             "com.googlecode.lanterna:lanterna:3.1.1",
-            "io.javalin:javalin:4.1.1",
             "com.squareup.okhttp3:okhttp:4.11.0",
             # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.
             # The maintainers responded to this calling it something they explicitly won't fix since it's just a warning

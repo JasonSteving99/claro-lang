@@ -108,7 +108,11 @@ public class ContractImplementationStmt extends Stmt {
     scopedHeap.putIdentifierValue(
         this.canonicalImplementationName,
         Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-            this.contractName, this.concreteImplementationTypeParams.values().asList()),
+            this.contractName,
+            Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+                .map(m -> m.values().stream().findFirst().get().getUniqueModuleName()),
+            this.concreteImplementationTypeParams.values().asList()
+        ),
         this.implementationName
     );
 
@@ -224,17 +228,26 @@ public class ContractImplementationStmt extends Stmt {
       }
 
       // Finally, add this implementation to the scoped heap so that it can't be re-implemented.
+      Optional<String> optionalDefiningModuleDisambiguator =
+          Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+              .map(m -> m.values().stream().findFirst().get().getUniqueModuleName());
       scopedHeap.putIdentifierValue(
           this.canonicalImplementationName,
           Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-              this.contractName, this.concreteImplementationTypeParams.values().asList()),
+              this.contractName,
+              optionalDefiningModuleDisambiguator,
+              this.concreteImplementationTypeParams.values().asList()
+          ),
           this.implementationName
       );
       scopedHeap.markIdentifierUsed(this.canonicalImplementationName);
       scopedHeap.putIdentifierValue(
           this.implementationName,
           Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-              this.contractName, this.concreteImplementationTypeParams.values().asList()),
+              this.contractName,
+              optionalDefiningModuleDisambiguator,
+              this.concreteImplementationTypeParams.values().asList()
+          ),
           null
       );
       scopedHeap.markIdentifierUsed(this.implementationName);

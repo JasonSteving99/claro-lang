@@ -77,6 +77,12 @@ message ExportedContractImplementation {
     }
   }
 
+  // See SerializedClaroModule.proto for docs.
+  message UniqueModuleDescriptor {
+    string project_package = 1;
+    string unique_module_name = 2;
+  }
+
   string implemented_contract_name = 1;
   repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
   // Strictly speaking, these concrete signatures should be derivable from the signatures listed in the contract
@@ -84,4 +90,7 @@ message ExportedContractImplementation {
   // the design decision to instead directly encode the concrete signatures to just decode them instead of re-derive
   // them from scratch.
   repeated Procedure concrete_signatures = 3;
+  // This will be used so that the dep module knows what namespacing to use for the contract impl's codegen as the
+  // contract could actually be originating from some module unknown to the dep module.
+  UniqueModuleDescriptor contract_impl_defining_module_descriptor = 4;
 }
