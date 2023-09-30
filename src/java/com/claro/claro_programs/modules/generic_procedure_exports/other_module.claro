@@ -1,0 +1,6 @@
+
+implement Foo::Foo<SomeType> {
+  consumer doFoo(t: SomeType) {
+    print("Foo::Foo<SomeType>::doFoo: {t}");
+  }
+}

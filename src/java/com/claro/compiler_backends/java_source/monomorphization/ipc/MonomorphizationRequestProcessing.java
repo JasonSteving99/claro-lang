@@ -10,6 +10,7 @@ import com.claro.intermediate_representation.statements.ProcedureDefinitionStmt;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -146,6 +147,20 @@ public class MonomorphizationRequestProcessing {
                   MonomorphizationRequestProcessing::getProcedureTypeFromProto
               )),
           JavaSourceCompilerBackend.scopedHeap
+      );
+      // Now, this dep module monomorphization subprocess has been handed a contract implementation that possibly came
+      // from a module that hasn't been registered yet, so just for the sake of it being accessible, register it. Don't
+      // bother checking if it was already registered, b/c this would just rewrite the same data.
+      ScopedHeap.currProgramDepModules.put(
+          // There's no user-defined name for this module, so just use it's full unique module name. This also avoids
+          // any concerns of accidentally overwriting some other module.
+          contractImpl.getContractImplDefiningModuleDescriptor().getUniqueModuleName(),
+          // Mark it used because we're literally using it right now.
+          /*isUsed=*/true,
+          SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+              .setProjectPackage(contractImpl.getContractImplDefiningModuleDescriptor().getProjectPackage())
+              .setUniqueModuleName(contractImpl.getContractImplDefiningModuleDescriptor().getUniqueModuleName())
+              .build()
       );
     }
 

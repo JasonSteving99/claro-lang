@@ -48,13 +48,12 @@ testRequiringDepModuleContractImpl("This ends up going through the dep module's 
 # Since the required contract is implemented over string I can also call the Dep's generic procedures that require that.
 Dep::myPrint3("This went through the dep module's Foo<string> impl via Dep::myPrint3()");
 
-# TODO(steving) This currently doesn't work. Add support for calling a dep module procedure requiring a contract that
-# TODO(steving)     was implemented outside of the dep module (in this case defined in the current module).
-#Dep::myPrint3(3);
+# I can still call the generic procedure making use of a contract implementation defined in this module, with Claro
+# passing the implementation information down into the dep module.
+Dep::myPrint3(3);
 
-# TODO(steving) This currently doesn't work. Add support for calling generic dep module procedures requiring a contract
-# TODO(steving)     that's implemented in some module other than the current one.
-#Dep::myPrint3(Dep::SomeType("test"));
-#Dep::myPrint3(OtherDep::SomeType("test"));
+# Claro even supports calling generic dep module procedures requiring a contract that's implemented in some third module
+# other than the current one or the one defining the generic procedure.
+Dep::myPrint3(OtherDep::SomeType(10));
 
 

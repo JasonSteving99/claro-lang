@@ -1,0 +1,4 @@
+
+newtype SomeType : int
+
+implement Foo::Foo<SomeType>;

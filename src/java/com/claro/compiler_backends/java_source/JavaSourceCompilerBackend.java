@@ -57,6 +57,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   public static boolean DEP_MODULE_MONOMORPHIZATION_ENABLED = false;
   public static ScopedHeap scopedHeap;
   public static ProgramNode mainSrcFileProgramNode;
+  public static JavaSourceCompilerBackend javaSourceCompilerBackend;
   // ***** END DEP MODULE MONOMORPHIZATION RELATED FIELDS *****
 
   private final String[] COMMAND_LINE_ARGS;
@@ -71,6 +72,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final Optional<String> OPTIONAL_OUTPUT_FILE_PATH;
 
   public JavaSourceCompilerBackend(String... args) {
+    JavaSourceCompilerBackend.javaSourceCompilerBackend = this;
     this.COMMAND_LINE_ARGS = args;
     JavaSourceCompilerBackendCLIOptions options = parseCLIOptions(this.COMMAND_LINE_ARGS);
 
@@ -591,11 +593,28 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                    Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap()
                                                            .get(contractImplModuleName))
                                        .map(m -> m.values().stream().findFirst().get()).get());
-                  optionalContractImplDefiningModuleDescriptor.ifPresent(
-                      d -> builder.setContractImplDefiningModuleDescriptor(
-                          IPCMessages.ExportedContractImplementation.UniqueModuleDescriptor.newBuilder()
-                              .setProjectPackage(d.getProjectPackage())
-                              .setUniqueModuleName(d.getUniqueModuleName())));
+                  if (optionalContractImplDefiningModuleDescriptor.isPresent()) {
+                    builder.setContractImplDefiningModuleDescriptor(
+                        IPCMessages.ExportedContractImplementation.UniqueModuleDescriptor.newBuilder()
+                            .setProjectPackage(
+                                optionalContractImplDefiningModuleDescriptor.get().getProjectPackage())
+                            .setUniqueModuleName(
+                                optionalContractImplDefiningModuleDescriptor.get().getUniqueModuleName()));
+                  } else {
+                    // In this case, the contract was defined in the current compilation unit which happens to be the
+                    // top-level claro_binary(). Typically namespacing isn't needed for these procedures as they can't
+                    // be called from other dep modules. However, in the case of dep module monomorphization over a
+                    // required contract impl defined in the claro_binary(), the scoping is in fact necessary just as
+                    // a quirk of the Java codegen representation.
+                    builder.setContractImplDefiningModuleDescriptor(
+                        IPCMessages.ExportedContractImplementation.UniqueModuleDescriptor.newBuilder()
+                            .setProjectPackage(
+                                JavaSourceCompilerBackend.javaSourceCompilerBackend.PACKAGE_STRING.get())
+                            .setUniqueModuleName(
+                                JavaSourceCompilerBackend.javaSourceCompilerBackend.GENERATED_CLASSNAME.get())
+                    );
+
+                  }
                   return builder.build();
                 }).collect(Collectors.toList()))
         .build();
