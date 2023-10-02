@@ -5,8 +5,9 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 # Users should be unable to access certain config settings and should be required to come through the "front
 # door" of the public claro_module() and claro_binary() rules.
 visibility([
-    "//src/java/com/claro/stdlib/claro/...",
+    "//src/java/com/claro/module_system/clarodocs/...",
     "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
+    "//src/java/com/claro/stdlib/claro/...",
 ])
 
 DEFAULT_CLARO_NAME = "claro"
@@ -191,41 +192,36 @@ def _invoke_claro_compiler_impl(ctx):
             executable = ctx.executable._module_deserialization_util,
         )
 
-    if is_module:
-        return [
-            DefaultInfo(
-                files = depset(
-                    direct = [ctx.outputs.compiler_out],
-                    # Make sure to include the exported dep modules output files in this depset so that the
-                    # .claro_module_api files for transitive dep modules are available to the compiler at build time.
-                    transitive = [dep_module_targets_by_dep_name[export][DefaultInfo].files for export in ctx.attr.exports]
-                ),
-                runfiles = ctx.runfiles(files = dep_module_runfiles),
+    return [
+        DefaultInfo(
+            files = depset(
+                direct = [ctx.outputs.compiler_out],
+                # Make sure to include the exported dep modules output files in this depset so that the
+                # .claro_module_api files for transitive dep modules are available to the compiler at build time.
+                transitive = [dep_module_targets_by_dep_name[export][DefaultInfo].files for export in ctx.attr.exports]
             ),
-            ClaroModuleInfo(
-                info = struct(
-                    unique_module_name = ctx.attr.unique_module_name,
-                    exports = [dep_module_targets_by_dep_name[export] for export in ctx.attr.exports],
-                    path_to_claro_module_file = ctx.outputs.compiler_out,
-                    files = depset(
-                        direct = srcs + [ctx.outputs.compiler_out],
-                        transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
-                    )
-                ),
-                transitive_subgraph_dep_modules = depset(
-                    direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
-                    transitive = [dep[ClaroModuleInfo].transitive_subgraph_dep_modules for dep in ctx.attr.deps]
-                ),
-                optional_stdlib_modules_used_in_transitive_closure = optional_stdlib_modules_used_in_transitive_closure,
-            )
-        ]
-    else:
-        return [
-            DefaultInfo(runfiles = ctx.runfiles(files = dep_module_runfiles)),
-        ]
+            runfiles = ctx.runfiles(files = dep_module_runfiles),
+        ),
+        ClaroModuleInfo(
+            info = struct(
+                unique_module_name = ctx.attr.unique_module_name,
+                exports = [dep_module_targets_by_dep_name[export] for export in ctx.attr.exports],
+                path_to_claro_module_file = ctx.outputs.compiler_out,
+                files = depset(
+                    direct = srcs + [ctx.outputs.compiler_out],
+                    transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
+                )
+            ),
+            transitive_subgraph_dep_modules = depset(
+                direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
+                transitive = [dep[ClaroModuleInfo].transitive_subgraph_dep_modules for dep in ctx.attr.deps]
+            ),
+            optional_stdlib_modules_used_in_transitive_closure = optional_stdlib_modules_used_in_transitive_closure,
+        )
+    ]
 
 
-def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [], debug = False):
+def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [], debug = False, visibility = None):
     main_file_name = main_file[:len(main_file) - len(".claro")]
 
     # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
@@ -241,6 +237,7 @@ def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [
         optional_stdlib_deps = optional_stdlib_deps,
         compiler_out = "{0}.java".format(main_file_name),
         debug = debug,
+        visibility = visibility,
     )
     native.java_binary(
         name = name,

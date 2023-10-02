@@ -1,5 +1,11 @@
 load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary", "claro_module")
+load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
 
+
+clarodocs(
+    name = "generic_procedure_exports_docs",
+    root = ":test_generic_exports",
+)
 
 claro_binary(
     name = "test_generic_exports",

@@ -11,6 +11,7 @@ java_proto_library(
         "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
         "//src/java/com/claro/intermediate_representation/types:__pkg__",
+        "//src/java/com/claro/module_system/clarodocs:__subpackages__",
     ]
 )
 
