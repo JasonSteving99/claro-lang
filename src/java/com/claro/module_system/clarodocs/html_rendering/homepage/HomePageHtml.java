@@ -21,6 +21,18 @@ public class HomePageHtml {
         "<link rel=\"stylesheet\" href=\"https://use.fontawesome.com/releases/v5.0.13/css/all.css\" integrity=\"sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp\" crossorigin=\"anonymous\">\n" +
         "<style>\n" +
         treeJSCSS + "\n" +
+        ".tokenGroup1 {\n" +
+        "  color: #CC7832;\n" +
+        "}\n" +
+        ".tokenGroup2 {\n" +
+        "  color: #3C85BA;\n" +
+        "}\n" +
+        ".tokenGroup3 {\n" +
+        "  color: #0F9795;\n" +
+        "}\n" +
+        ".tokenGroup4 {\n" +
+        "  color: #86A659;\n" +
+        "}\n" +
         ".module-docs {\n" +
         "  margin-left: 300px; /* Same as the width of the sidenav */\n" +
         "  font-family: monospace;\n" +

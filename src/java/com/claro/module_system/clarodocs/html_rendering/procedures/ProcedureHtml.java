@@ -1,12 +1,16 @@
 package com.claro.module_system.clarodocs.html_rendering.procedures;
 
 import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.*;
+
 
 public class ProcedureHtml {
   public static String generateProcedureHtml(SerializedClaroModule.Procedure procedure) {
@@ -21,24 +25,6 @@ public class ProcedureHtml {
         throw new RuntimeException("Internal ClaroDocs Error! Unexpected procedure type case:\n" + procedure);
     }
   }
-
-  private static enum Color {
-    BLUE("#2A73A9"),
-    ORANGE("orange");
-    private final String color;
-
-    Color(String color) {
-      this.color = color;
-    }
-  }
-
-  private static final String FUNCTION = coloredSpan("function", Color.ORANGE);
-  private static final String CONSUMER = coloredSpan("consumer", Color.ORANGE);
-  private static final String PROVIDER = coloredSpan("provider", Color.ORANGE);
-  private static final String ARROW = coloredSpan("->", Color.BLUE);
-  private static final String LT = coloredSpan("&lt;", Color.BLUE);
-  private static final String GT = coloredSpan("&gt;", Color.BLUE);
-  private static final String SEMICOLON = coloredSpan(";", Color.BLUE);
 
   private static final String FUNCTION_TEMPLATE =
       "<pre>\n" +
@@ -71,7 +57,7 @@ public class ProcedureHtml {
         name,
         renderGenericTypeParams(function.getOptionalGenericTypeParamNamesList()),
         renderArgs(function.getArgTypesList()),
-        Types.parseTypeProto(function.getOutputType()).toString()
+        TypeHtml.renderType(new StringBuilder(), Types.parseTypeProto(function.getOutputType()))
     );
   }
 
@@ -91,7 +77,7 @@ public class ProcedureHtml {
         renderRequiresClause(provider.getRequiredContractsList()),
         name,
         renderGenericTypeParams(provider.getOptionalGenericTypeParamNamesList()),
-        Types.parseTypeProto(provider.getOutputType()).toString()
+        TypeHtml.renderType(new StringBuilder(), Types.parseTypeProto(provider.getOutputType()))
     );
   }
 
@@ -108,8 +94,14 @@ public class ProcedureHtml {
   }
 
   private static String renderArgs(List<TypeProtos.TypeProto> argTypeProtos) {
+    StringBuilder placeholder = new StringBuilder();
     return IntStream.range(0, argTypeProtos.size()).boxed()
-        .map(i -> String.format("arg%s: %s", i, Types.parseTypeProto(argTypeProtos.get(i)).toString()))
+        .map(i -> {
+          String fmt = String.format(
+              "arg%s: %s", i, TypeHtml.renderType(placeholder, Types.parseTypeProto(argTypeProtos.get(i))));
+          placeholder.setLength(0);
+          return fmt;
+        })
         .collect(Collectors.joining(", "));
   }
 
@@ -117,10 +109,6 @@ public class ProcedureHtml {
     return genericTypeParams.isEmpty()
            ? ""
            : genericTypeParams.stream()
-               .collect(Collectors.joining(", ", LT, GT));
-  }
-
-  private static String coloredSpan(String toWrap, Color color) {
-    return String.format("<span style=\"color:%s;\">%s</span>", color.color, toWrap);
+               .collect(Collectors.joining(", ", LT.toString(), GT.toString()));
   }
 }
