@@ -28,7 +28,7 @@ public class ProcedureHtml {
 
   private static final String FUNCTION_TEMPLATE =
       "<pre>\n" +
-      "  <code>\n" +
+      "  <code class='procedure-def'>\n" +
       "    %s" +
       "    " + FUNCTION + " %s%s(%s) " + ARROW + " %s" + SEMICOLON + "\n" +
       "  </code>\n" +
@@ -36,7 +36,7 @@ public class ProcedureHtml {
 
   private static final String CONSUMER_TEMPLATE =
       "<pre>\n" +
-      "  <code>\n" +
+      "  <code class='procedure-def'>\n" +
       "    %s" +
       "    " + CONSUMER + " %s%s(%s)" + SEMICOLON + "\n" +
       "  </code>\n" +
@@ -44,7 +44,7 @@ public class ProcedureHtml {
 
   private static final String PROVIDER_TEMPLATE =
       "<pre>\n" +
-      "  <code>\n" +
+      "  <code class='procedure-def'>\n" +
       "    %s" +
       "    " + PROVIDER + " %s%s() " + ARROW + " %s" + SEMICOLON + "\n" +
       "  </code>\n" +

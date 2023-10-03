@@ -3,6 +3,7 @@ package com.claro.module_system.clarodocs.html_rendering.typedefs;
 import com.claro.intermediate_representation.types.SupportsMutableVariant;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.ImmutableList;
 
 import java.util.stream.Collectors;
@@ -11,6 +12,27 @@ import java.util.stream.IntStream;
 import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.*;
 
 public class TypeHtml {
+  private static final String TYPEDEF_TEMPLATE =
+      "<pre>\n" +
+      "  <code class='typedef'>\n" +
+      "    " + NEWTYPE + " " + "%s%s " + COLON + " %s\n" +
+      "  </code>\n" +
+      "</pre>";
+
+  public static StringBuilder renderTypeDef(
+      StringBuilder res, String typeName, SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef newTypeDef) {
+    res.append(
+        String.format(
+            TYPEDEF_TEMPLATE,
+            typeName,
+            newTypeDef.getTypeParamNamesCount() == 0
+            ? ""
+            : String.format("%s%s%s", LT, String.join(", ", newTypeDef.getTypeParamNamesList()), GT),
+            renderType(new StringBuilder(), Types.parseTypeProto(newTypeDef.getWrappedType()))
+        ));
+    return res;
+  }
+
   public static StringBuilder renderType(StringBuilder res, Type type) {
     StringBuilder placeholder = new StringBuilder();
     switch (type.baseType()) {

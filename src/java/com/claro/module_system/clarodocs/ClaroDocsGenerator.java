@@ -2,6 +2,7 @@ package com.claro.module_system.clarodocs;
 
 import com.claro.module_system.clarodocs.html_rendering.homepage.HomePageHtml;
 import com.claro.module_system.clarodocs.html_rendering.procedures.ProcedureHtml;
+import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParser;
@@ -28,9 +29,20 @@ public class ClaroDocsGenerator {
                 .collect(
                     ImmutableMap.toImmutableMap(
                         serializedClaroModule -> serializedClaroModule.getModuleDescriptor().getUniqueModuleName(),
-                        serializedClaroModule -> serializedClaroModule.getExportedProcedureDefinitionsList().stream()
-                            .map(ProcedureHtml::generateProcedureHtml)
-                            .collect(Collectors.joining("\n"))
+                        serializedClaroModule -> {
+                          StringBuilder res = new StringBuilder();
+                          // First, type defs.
+                          serializedClaroModule.getExportedTypeDefinitions()
+                              .getExportedNewtypeDefsByNameMap().entrySet().stream()
+                              .map(e -> TypeHtml.renderTypeDef(res, e.getKey(), e.getValue()))
+                              .collect(Collectors.joining("\n"));
+                          // Top-level procedure defs.
+                          res.append(
+                              serializedClaroModule.getExportedProcedureDefinitionsList().stream()
+                                  .map(ProcedureHtml::generateProcedureHtml)
+                                  .collect(Collectors.joining("\n")));
+                          return res.toString();
+                        }
                     )),
             getFileInputStream(options.treejs),
             getFileInputStream(options.treejs_css)
