@@ -14,7 +14,7 @@ import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.
 public class TypeHtml {
   private static final String TYPEDEF_TEMPLATE =
       "<pre>\n" +
-      "  <code class='typedef'>\n" +
+      "  <code class='typedef' id='%s'>\n" +
       "    " + NEWTYPE + " " + "%s%s " + COLON + " %s\n" +
       "  </code>\n" +
       "</pre>";
@@ -24,6 +24,7 @@ public class TypeHtml {
     res.append(
         String.format(
             TYPEDEF_TEMPLATE,
+            typeName,
             typeName,
             newTypeDef.getTypeParamNamesCount() == 0
             ? ""
@@ -132,7 +133,11 @@ public class TypeHtml {
         break;
       case USER_DEFINED_TYPE:
         // TODO(steving) Need to update this to codegen a link to the type's definition module docs.
-        res.append(((Types.UserDefinedType) type).getTypeName());
+        Types.UserDefinedType userDefinedType = (Types.UserDefinedType) type;
+        res.append("<span class='type-link' onclick=\"renderModule('")
+            .append(userDefinedType.getDefiningModuleDisambiguator()).append("', root)\">")
+            .append(userDefinedType.getTypeName())
+            .append("</span>");
         if (!type.parameterizedTypeArgs().isEmpty()) {
           res.append(
               type.parameterizedTypeArgs().values().stream()

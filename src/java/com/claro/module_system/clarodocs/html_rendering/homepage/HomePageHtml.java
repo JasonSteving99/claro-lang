@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.io.InputStream;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class HomePageHtml {
   public static String renderHomePage(
@@ -32,6 +33,13 @@ public class HomePageHtml {
         "}\n" +
         ".tokenGroup4 {\n" +
         "  color: #86A659;\n" +
+        "}\n" +
+        ".type-link {\n" +
+        "  text-decoration: underline;\n" +
+        "}\n" +
+        ".type-link:hover {\n" +
+        "  cursor: pointer;\n" +
+        "  background-color: #ccc;\n" +
         "}\n" +
         ".module-docs {\n" +
         "  height: 100%;\n" +
@@ -73,16 +81,24 @@ public class HomePageHtml {
         "</div>\n" +
         "<script>" + treeJS + "</script>\n" +
         "<script>\n" +
-        "  function renderModule(moduleName) {\n" +
-        "    console.log(`Called the func ${moduleName}`);\n" +
-        "    // Try swapping out the html for the module-docs div.\n" +
-        "\tlet newElem = moduleContentByModuleName[moduleName];\n" +
-        "    $('#module-view').html(newElem);\n" +
-        "    console.log($('#module-view'));\n" +
-        "    console.log(moduleContentByModuleName[moduleName]);\n" +
-        "    console.log(moduleContentByModuleName);\n" +
+        "  function renderModule(moduleName, rootForExpansion) {\n" +
+        "    console.log(`Opening ClaroDocs for Module: ${moduleName}`);\n" +
+        "    $('#module-view').html(moduleContentByModuleName[moduleName]);\n" +
+        "    if (rootForExpansion) {\n" +
+        "      let moduleNode = nodes[moduleName];\n" +
+        "      new TreePath(rootForExpansion, moduleNode).getPath().forEach(n => {console.log(n.getUserObject()); n.setExpanded(true);});\n" +
+        "      view.getSelectedNodes().forEach(n => n.setSelected(false));\n" +
+        "      moduleNode.setSelected(true);" +
+        "      view.reload();\n" +
+        "    }\n" +
         "  }\n" +
-        SideNavHtml.codegenSideNavTreeSetupJS(moduleDocsByUniqueModuleName) +
+        "let moduleContentByModuleName = {};\n" +
+        moduleDocsByUniqueModuleName.entrySet().stream()
+            .map(moduleEntry ->
+                     String.format(
+                         "moduleContentByModuleName['%s'] = `%s`;", moduleEntry.getKey(), moduleEntry.getValue()))
+            .collect(Collectors.joining("\n", "", "\n\n")) +
+        SideNavHtml.codegenSideNavTreeSetupJS(moduleDocsByUniqueModuleName.keySet().asList()) +
         "</script>\n" +
         "</body>\n" +
         "</html>";

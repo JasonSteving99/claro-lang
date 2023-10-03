@@ -7,16 +7,11 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 public class SideNavHtml {
-  public static String codegenSideNavTreeSetupJS(ImmutableMap<String, String> moduleDocsByUniqueModuleName) {
-    StringBuilder codegen = new StringBuilder(
-        "let moduleContentByModuleName = {};\n" +
-        "var root = new TreeNode(\"\\/\\/\");\n"
-    );
+  public static String codegenSideNavTreeSetupJS(ImmutableList<String> uniqueModuleNamesList) {
+    StringBuilder codegen = new StringBuilder("var root = new TreeNode(\"\\/\\/\");\n");
 
-    Dir rootDir = constructModuleDirStructure(
-        moduleDocsByUniqueModuleName.keySet().stream().sorted().collect(ImmutableList.toImmutableList()),
-        moduleDocsByUniqueModuleName
-    );
+    Dir rootDir =
+        constructModuleDirStructure(uniqueModuleNamesList.stream().sorted().collect(ImmutableList.toImmutableList()));
     codegen.append("nodes = {'\\/\\/': new TreeNode('\\/\\/')};\n");
     codegen.append(rootDir.toTreeJS("\\/\\/"));
 
@@ -33,26 +28,24 @@ public class SideNavHtml {
     ).toString();
   }
 
-  private static Dir constructModuleDirStructure(
-      ImmutableList<String> uniqueModuleNamesList,
-      ImmutableMap<String, String> moduleDocsByUniqueModuleName) {
+  private static Dir constructModuleDirStructure(ImmutableList<String> uniqueModuleNamesList) {
     Dir rootDir = Dir.create("\\/\\/");
     uniqueModuleNamesList.forEach(
-        mod -> addModule(rootDir, ImmutableList.copyOf(mod.split("\\$")), 0, moduleDocsByUniqueModuleName.get(mod))
+        mod -> addModule(rootDir, ImmutableList.copyOf(mod.split("\\$")), 0, mod)
     );
     return rootDir;
   }
 
-  private static void addModule(Dir currDir, ImmutableList<String> modulePath, int pathInd, String moduleDocs) {
+  private static void addModule(Dir currDir, ImmutableList<String> modulePath, int pathInd, String uniqueModuleName) {
     String currModulePathElem = modulePath.get(pathInd);
     if (pathInd == modulePath.size() - 1) {
-      currDir.getModules().put(currModulePathElem, moduleDocs);
+      currDir.getModules().put(currModulePathElem, uniqueModuleName);
     } else {
       Dir currModulePathDir = currDir.getSubDirs().build().get(currModulePathElem);
       if (currModulePathDir == null) {
         currDir.getSubDirs().put(currModulePathElem, currModulePathDir = Dir.create(modulePath.get(pathInd)));
       }
-      addModule(currModulePathDir, modulePath, pathInd + 1, moduleDocs);
+      addModule(currModulePathDir, modulePath, pathInd + 1, uniqueModuleName);
     }
   }
 
@@ -104,11 +97,12 @@ public class SideNavHtml {
       for (Map.Entry<String, String> moduleEntry : currDir.getModules().build().entrySet()) {
         String currSubDirName = java.lang.String.format("%s$%s", currDirName, moduleEntry.getKey());
         codegenNewTreeNodeChild(currDirName, currSubDirName, moduleEntry.getKey(), res);
-        // Register the module content and an onclick callback to render this content.
-        res.append("moduleContentByModuleName['").append(currSubDirName).append("'] ")
-            .append("= `").append(moduleEntry.getValue()).append("`;\n");
+        // Register the module's onclick callback to render this content.
         res.append("nodes['").append(currSubDirName).append("']")
-            .append(".on('click', () => renderModule('").append(currSubDirName).append("'));\n");
+            .append(".on('click', () => renderModule('").append(moduleEntry.getValue()).append("'));\n");
+        // Also create an alias to the new node using the unique module name so that the type-link's can reference it.
+        res.append("nodes['").append(moduleEntry.getValue()).append("']")
+            .append(" = nodes['").append(currSubDirName).append("'];\n");
       }
       return res.toString();
     }
