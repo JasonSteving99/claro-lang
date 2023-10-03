@@ -132,10 +132,14 @@ public class TypeHtml {
             .append(GT);
         break;
       case USER_DEFINED_TYPE:
-        // TODO(steving) Need to update this to codegen a link to the type's definition module docs.
         Types.UserDefinedType userDefinedType = (Types.UserDefinedType) type;
         res.append("<span class='type-link' onclick=\"renderModule('")
-            .append(userDefinedType.getDefiningModuleDisambiguator()).append("', root)\">")
+            .append(userDefinedType.getDefiningModuleDisambiguator()).append("', root)\" ")
+            .append("onmouseover=\"onMouseOverTypeLink(event, '")
+            .append(((Types.UserDefinedType) type).getDefiningModuleDisambiguator()).append("', '")
+            .append(((Types.UserDefinedType) type).getTypeName()).append("')\" ")
+            .append("onmouseout=\"onMouseOutTypeLink(event)\" ")
+            .append(">")
             .append(userDefinedType.getTypeName())
             .append("</span>");
         if (!type.parameterizedTypeArgs().isEmpty()) {

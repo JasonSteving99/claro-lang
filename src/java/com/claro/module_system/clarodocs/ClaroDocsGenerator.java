@@ -5,6 +5,7 @@ import com.claro.module_system.clarodocs.html_rendering.procedures.ProcedureHtml
 import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.common.options.OptionsParser;
 
 import java.io.File;
@@ -22,6 +23,7 @@ public class ClaroDocsGenerator {
   public static void main(String[] args) throws IOException {
     ClaroDocsCLIOptions options = parseCLIOptions(args);
 
+    ImmutableTable.Builder<String, String, String> typeDefHtmlByModuleNameAndTypeNameBuilder = ImmutableTable.builder();
     String renderedHtml =
         HomePageHtml.renderHomePage(
             options.modules.stream()
@@ -34,7 +36,15 @@ public class ClaroDocsGenerator {
                           // First, type defs.
                           serializedClaroModule.getExportedTypeDefinitions()
                               .getExportedNewtypeDefsByNameMap().entrySet().stream()
-                              .map(e -> TypeHtml.renderTypeDef(res, e.getKey(), e.getValue()))
+                              .map(e -> {
+                                String typeDefHtml = TypeHtml.renderTypeDef(res, e.getKey(), e.getValue()).toString();
+                                typeDefHtmlByModuleNameAndTypeNameBuilder.put(
+                                    serializedClaroModule.getModuleDescriptor().getUniqueModuleName(),
+                                    e.getKey(),
+                                    typeDefHtml
+                                );
+                                return typeDefHtml;
+                              })
                               .collect(Collectors.joining("\n"));
                           // Top-level procedure defs.
                           res.append(
@@ -44,6 +54,7 @@ public class ClaroDocsGenerator {
                           return res.toString();
                         }
                     )),
+            typeDefHtmlByModuleNameAndTypeNameBuilder.build(),
             getFileInputStream(options.treejs),
             getFileInputStream(options.treejs_css)
         );
