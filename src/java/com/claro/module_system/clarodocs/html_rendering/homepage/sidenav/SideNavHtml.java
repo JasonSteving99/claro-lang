@@ -67,15 +67,41 @@ public class SideNavHtml {
       return new AutoValue_SideNavHtml_Dir(ImmutableMap.builder(), ImmutableMap.builder());
     }
 
-    public String toTreeJS(String currDirName) {
+    public String toTreeJS(String origCurrDirName) {
       StringBuilder res = new StringBuilder();
-      for (Map.Entry<String, Dir> subdirEntry : this.getSubDirs().build().entrySet()) {
+      Dir currDir = this;
+      ImmutableMap<String, Dir> subDirs = currDir.getSubDirs().build();
+      StringBuilder currDirNameBuilder = new StringBuilder(origCurrDirName);
+      // First things first, I want to auto-collapse any dirs that have only a single child to limit nesting to only
+      // what's absolutely necessary.
+      while (subDirs.size() == 1) {
+        Map.Entry<String, Dir> onlySubDir = subDirs.entrySet().asList().get(0);
+        currDirNameBuilder.append("/").append(onlySubDir.getKey());
+        subDirs = (currDir = onlySubDir.getValue()).getSubDirs().build();
+      }
+      String currDirName = currDirNameBuilder.toString();
+      if (!origCurrDirName.equals(currDirName)) {
+        // Then I actually want to replace the node that was generated previously for the original dir name before
+        // collapsing was done.
+        res.append("nodes['").append(origCurrDirName).append("'].setUserObject('");
+        if (origCurrDirName.equals("\\/\\/")) {
+          res.append(currDirName);
+        } else {
+          res.append(currDirName.substring(currDirName.indexOf('$') + 1));
+        }
+        res.append("');\n")
+            .append("nodes['").append(currDirName).append("']")
+            .append(" = nodes['").append(origCurrDirName).append("'];\n");
+      }
+
+
+      for (Map.Entry<String, Dir> subdirEntry : subDirs.entrySet()) {
         String currSubDirName = java.lang.String.format("%s$%s", currDirName, subdirEntry.getKey());
         codegenNewTreeNodeChild(currDirName, currSubDirName, subdirEntry.getKey(), res);
         // Recursively descend into all of the subdirs first, so that they're grouped at the top above the leaf modules.
         res.append(subdirEntry.getValue().toTreeJS(currSubDirName));
       }
-      for (Map.Entry<String, String> moduleEntry : this.getModules().build().entrySet()) {
+      for (Map.Entry<String, String> moduleEntry : currDir.getModules().build().entrySet()) {
         String currSubDirName = java.lang.String.format("%s$%s", currDirName, moduleEntry.getKey());
         codegenNewTreeNodeChild(currDirName, currSubDirName, moduleEntry.getKey(), res);
         // Register the module content and an onclick callback to render this content.

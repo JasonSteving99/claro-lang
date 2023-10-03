@@ -34,12 +34,14 @@ public class HomePageHtml {
         "  color: #86A659;\n" +
         "}\n" +
         ".module-docs {\n" +
+        "  height: 100%;\n" +
         "  margin-left: 300px; /* Same as the width of the sidenav */\n" +
         "  font-family: monospace;\n" +
         "  white-space: pre;\n" +
         "  tab-size: 4;\n" +
         "  background-color: #272822;\n" +
         "  color: #f8f8f2;\n" +
+        "  overflow-x: scroll;\n" +
         "}\n" +
         "\n" +
         ".tj_container {\n" +
