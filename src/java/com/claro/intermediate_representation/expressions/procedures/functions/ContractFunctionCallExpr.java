@@ -642,7 +642,7 @@ public class ContractFunctionCallExpr extends FunctionCallExpr {
     return true;
   }
 
-  private static List<String> getAllDynamicDispatchConcreteContractProcedureNames(
+  public static List<String> getAllDynamicDispatchConcreteContractProcedureNames(
       String contractName,
       ImmutableCollection<Integer> dynamicDispatchSupportedOverTypeParamIndices,
       ImmutableList<Type> types) {

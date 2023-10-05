@@ -14,14 +14,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 import com.google.common.hash.Hashing;
 
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class FunctionCallExpr extends Expr {
   public Optional<String> optionalOriginatingDepModuleName;
@@ -141,7 +139,7 @@ public class FunctionCallExpr extends Expr {
                ? this.name.substring(this.name.lastIndexOf('$') + 1)
                  + "$"
                  + ScopedHeap.getDefiningModuleDisambiguator(
-                  Optional.of(this.name.substring("$DEP_MODULE$".length(), this.name.lastIndexOf('$'))))
+                  Optional.of(this.name.substring("$DEP_MODULE$" .length(), this.name.lastIndexOf('$'))))
                : String.format(
                    "%s$%s",
                    this.name,
@@ -592,16 +590,35 @@ public class FunctionCallExpr extends Expr {
       for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
         for (ImmutableList<Type> requiredContractTypeParamNames :
             genericFunctionRequiredContractsMap.get(requiredContract)) {
-          ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+          ImmutableList.Builder<Type> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+          ImmutableList.Builder<String> requiredContractConcreteTypeStringsBuilder = ImmutableList.builder();
           for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
-            requiredContractConcreteTypesBuilder.add(
-                genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
+            Type concreteType = genericTypeParamTypeHashMap.get(requiredContractTypeParam);
+            requiredContractConcreteTypesBuilder.add(concreteType);
+            requiredContractConcreteTypeStringsBuilder.add(concreteType.toString());
           }
-          ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
-          if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
-              requiredContract, requiredContractConcreteTypes))) {
-            throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
-                procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get(), requiredContract, requiredContractConcreteTypes);
+          ImmutableList<String> requiredContractConcreteTypeStrings =
+              requiredContractConcreteTypeStringsBuilder.build();
+          if (!scopedHeap.isIdentifierDeclared(
+              ContractImplementationStmt.getContractTypeString(requiredContract, requiredContractConcreteTypeStrings))) {
+            List<String> requiredContractImplsForDynamicDispatchSupport =
+                ContractFunctionCallExpr.getAllDynamicDispatchConcreteContractProcedureNames(
+                    requiredContract,
+                    // Filter the set of supported dispatch args, based on the actual args having tried to nest a oneof.
+                    IntStream.range(0, requiredContractTypeParamNames.size())
+                        .boxed()
+                        .collect(ImmutableList.toImmutableList()),
+                    requiredContractConcreteTypesBuilder.build()
+                );
+            // If it turns out that dynamic dispatch would be possible, then the call to this generic function should be
+            // allowed so that the function body can just go ahead and codegen dynamic dispatch calls.
+            boolean dynamicDispatchIsSupportedOverCurrentContract =
+                !requiredContractImplsForDynamicDispatchSupport.isEmpty()
+                && requiredContractImplsForDynamicDispatchSupport.stream().allMatch(scopedHeap::isIdentifierDeclared);
+            if (!dynamicDispatchIsSupportedOverCurrentContract) {
+              throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
+                  procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get(), requiredContract, requiredContractConcreteTypeStrings);
+            }
           }
         }
       }
