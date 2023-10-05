@@ -144,16 +144,20 @@ public class ContractConsumerFunctionCallStmt extends ConsumerFunctionCallStmt {
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
             new StringBuilder(
-                ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
-                    ContractImplementationStmt.getContractTypeString(
-                        this.contractName, this.resolvedContractConcreteTypes.stream()
-                            .map(Type::toString)
-                            .collect(Collectors.toList()))))
-                    .getOptionalDefiningModuleDisambiguator()
-                    .flatMap(optionalDefiningModuleDisambiguator -> ScopedHeap.getModuleNameFromDisambiguator(optionalDefiningModuleDisambiguator)
-                        .map(defModuleName ->
-                                 ScopedHeap.currProgramDepModules.rowMap().get(defModuleName)
-                                     .values().stream().findFirst().get()))
+                (this.isDynamicDispatch
+                 // If it is dynamic dispatch, then we know that the dynamic dispatch impl is in the current module.
+                 ? ScopedHeap.currProgramDepModules.row("$THIS_MODULE$").values().stream().findFirst()
+                 // Else the impl could be somewhere else.
+                 : ((Types.$ContractImplementation) scopedHeap.getValidatedIdentifierType(
+                     ContractImplementationStmt.getContractTypeString(
+                         this.contractName, this.resolvedContractConcreteTypes.stream()
+                             .map(Type::toString)
+                             .collect(Collectors.toList()))))
+                     .getOptionalDefiningModuleDisambiguator()
+                     .flatMap(optionalDefiningModuleDisambiguator -> ScopedHeap.getModuleNameFromDisambiguator(optionalDefiningModuleDisambiguator)
+                         .map(defModuleName ->
+                                  ScopedHeap.currProgramDepModules.rowMap().get(defModuleName)
+                                      .values().stream().findFirst().get())))
                     .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
                     .orElse(""))
                 .append(this.referencedContractImplName).append('.'));

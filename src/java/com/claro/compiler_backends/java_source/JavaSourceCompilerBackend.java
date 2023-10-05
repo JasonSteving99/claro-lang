@@ -258,21 +258,30 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     this.PACKAGE_STRING.ifPresent(s -> mainSrcFileParser.package_string = s.equals("") ? "" : "package " + s + ";\n\n");
 
     try {
-      // Before even parsing the given .claro files, handle the given dependencies by accounting for all dep modules.
-      // I need to set up the ScopedHeap with all symbols exported by the direct module deps. Additionally, this is
-      // where the parsers will get configured with the necessary state to enable parsing references to bindings
-      // exported by the dep modules (e.g. `MyDep::foo(...)`) as module references rather than contract references.
-      setupModuleDepBindings(scopedHeap, this.MODULE_DEPS);
+      ImmutableList.Builder<ContractDefinitionStmt> importedContractDefinitionStmts = ImmutableList.builder();
       // In addition to the direct module deps, I'll also need to setup the ScopedHeap with all
       // types+initializers+unwrappers that were exported by any transitive dep modules exported by any of this module's
       // direct dep modules. This is in order for compilation to comprehend the transitive exported types that direct
       // dep modules are referencing in its exported types and procedure signatures.
-      for (SrcFile transitiveDepModuleSrcFile : this.TRANSITIVE_MODULE_DEPS) {
-        SerializedClaroModule parsedModule =
-            SerializedClaroModule.parseDelimitedFrom(transitiveDepModuleSrcFile.getFileInputStream());
-        registerDepModuleExportedTypes(scopedHeap, Optional.empty(), parsedModule);
-        registerDepModuleExportedTypeInitializersAndUnwrappers(scopedHeap, Optional.empty(), parsedModule);
+      {
+        ImmutableList.Builder<SerializedClaroModule> transitiveModules = ImmutableList.builder();
+        for (SrcFile transitiveDepModuleSrcFile : this.TRANSITIVE_MODULE_DEPS) {
+          SerializedClaroModule parsedModule =
+              SerializedClaroModule.parseDelimitedFrom(transitiveDepModuleSrcFile.getFileInputStream());
+          transitiveModules.add(parsedModule);
+          importedContractDefinitionStmts.addAll(
+              registerDepModuleExportedTypes(scopedHeap, Optional.empty(), parsedModule));
+          registerDepModuleExportedTypeInitializersAndUnwrappers(scopedHeap, Optional.empty(), parsedModule);
+        }
+        // Ensure the contract impls are all registered *after* modules are defined.
+        transitiveModules.build().forEach(p -> registerDepModuleContractImpls(scopedHeap, p));
       }
+      // Before even parsing the given .claro files, handle the given dependencies by accounting for all dep modules.
+      // I need to set up the ScopedHeap with all symbols exported by the direct module deps. Additionally, this is
+      // where the parsers will get configured with the necessary state to enable parsing references to bindings
+      // exported by the dep modules (e.g. `MyDep::foo(...)`) as module references rather than contract references.
+      importedContractDefinitionStmts.addAll(
+          setupModuleDepBindings(scopedHeap, this.MODULE_DEPS));
 
       // If this is compiled as a module, then to be safe to disambiguate types defined in other modules from this one
       // I'll need to save the unique module name of this module under the special name $THIS_MODULE$.
@@ -294,6 +303,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       }
       // Push these parsed non-main src programs to where they'll be found for type checking and codegen.
       ProgramNode.nonMainFiles = parsedNonMainSrcFilePrograms.build();
+      ProgramNode.importedContractDefinitionStmts = importedContractDefinitionStmts.build();
       // Optionally push the module api file to where it'll be found during type checking to validate that the
       // nonMainSrcFilePrograms actually do export the necessary bindings.
       if (optionalModuleApiParser.isPresent()) {
@@ -393,18 +403,27 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         "Internal Compiler Error! Should be unreachable. JavaSourceCompilerBackend failed to exit with explicit error code.");
   }
 
-  private void setupModuleDepBindings(ScopedHeap scopedHeap, ImmutableMap<String, SrcFile> moduleDeps) throws Exception {
+  private ImmutableList<ContractDefinitionStmt> setupModuleDepBindings(
+      ScopedHeap scopedHeap, ImmutableMap<String, SrcFile> moduleDeps) throws Exception {
     ImmutableMap.Builder<String, SerializedClaroModule> parsedClaroModuleProtosBuilder = ImmutableMap.builder();
+    ImmutableList.Builder<ContractDefinitionStmt> importedContractDefinitionStmts = ImmutableList.builder();
     // Setup dep module exported types.
-    for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
-      SerializedClaroModule parsedModule =
-          SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
-      parsedClaroModuleProtosBuilder.put(moduleDep.getKey(), parsedModule);
+    {
+      ImmutableList.Builder<SerializedClaroModule> parsedModules = ImmutableList.builder();
+      for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
+        SerializedClaroModule parsedModule =
+            SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
+        parsedModules.add(parsedModule);
+        parsedClaroModuleProtosBuilder.put(moduleDep.getKey(), parsedModule);
 
-      // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
-      ScopedHeap.currProgramDepModules.put(moduleDep.getKey(), /*isUsed=*/false, parsedModule.getModuleDescriptor());
+        // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
+        ScopedHeap.currProgramDepModules.put(moduleDep.getKey(), /*isUsed=*/false, parsedModule.getModuleDescriptor());
 
-      registerDepModuleExportedTypes(scopedHeap, Optional.of(moduleDep.getKey()), parsedModule);
+        importedContractDefinitionStmts.addAll(
+            registerDepModuleExportedTypes(scopedHeap, Optional.of(moduleDep.getKey()), parsedModule));
+      }
+      // Ensure the contract impls are all registered *after* modules are defined.
+      parsedModules.build().forEach(p -> registerDepModuleContractImpls(scopedHeap, p));
     }
 
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
@@ -442,6 +461,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             Map.Entry::getKey,
             e -> e.getValue().getExportedTypeDefinitions()
         ));
+
+    return importedContractDefinitionStmts.build();
   }
 
   private static ProcedureDefinitionStmt syntheticProcedureDefStmt = null;
@@ -695,7 +716,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   // transitive exported deps of those direct deps will be unnamed. This is in keeping with Claro enabling module
   // consumers to actually utilize transitive exported types from dep modules w/o actually placing a direct dep on those
   // modules so long as they never try to explicitly *name* any types from those transitive exported dep modules.
-  private static void registerDepModuleExportedTypes(
+  private static ImmutableList<ContractDefinitionStmt> registerDepModuleExportedTypes(
       ScopedHeap scopedHeap, Optional<String> optionalModuleName, SerializedClaroModule parsedModule) {
     // Register any alias defs found in the module.
     for (Map.Entry<String, TypeProtos.TypeProto> exportedAliasDef :
@@ -764,6 +785,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           parsedModule.getModuleDescriptor().getUniqueModuleName(), disambiguatedAtomIdentifier, i);
     }
 
+    ImmutableList.Builder<ContractDefinitionStmt> importedContractDefinitionStmts = ImmutableList.builder();
     // Register any ContractDefs found in the module.
     parsedModule.getExportedContractDefinitionsList().forEach(
         contractDef -> {
@@ -837,30 +859,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 scopedHeap.markIdentifierUsed(normalizedProcedureName);
               }
           );
+          // Keep track of all of these generated ContractDefinitionStmts so that I can register any potential dynamic
+          // dispatch procedures later.
+          importedContractDefinitionStmts.add(contractDefinitionStmt);
         }
-    );
-
-    // Register any contract impls found in the module.
-    parsedModule.getExportedContractImplementationsList().forEach(
-        contractImpl -> registerExportedContractImplementation(
-            contractImpl.getImplementedContractName(),
-            // TODO(steving) TESTING!!! UPDATE THIS, I NEED TO BE ABLE TO HANDLE THE CASE WHERE THE IMPLEMENTED
-            //   CONTRACT WAS ACTUALLY DEFINED IN SOME *OTHER* TRANSITIVE DEP MODULE.
-            //   NOTE: This will probably require some re-ordering such that all contracts from all modules are
-            //         defined before any implementations are registered.
-            parsedModule.getModuleDescriptor().getProjectPackage(),
-            parsedModule.getModuleDescriptor().getUniqueModuleName(),
-            contractImpl.getConcreteTypeParamsList()
-                .stream()
-                .map(Types::parseTypeProto)
-                .collect(ImmutableList.toImmutableList()),
-            contractImpl.getConcreteSignaturesList().stream()
-                .collect(ImmutableMap.toImmutableMap(
-                    SerializedClaroModule.Procedure::getName,
-                    JavaSourceCompilerBackend::getProcedureTypeFromProto
-                )),
-            scopedHeap
-        )
     );
 
     // Register any HttpServiceDefs found in the module.
@@ -893,6 +895,33 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             );
           }
         });
+
+    return importedContractDefinitionStmts.build();
+  }
+
+  private static void registerDepModuleContractImpls(ScopedHeap scopedHeap, SerializedClaroModule parsedModule) {
+    // Register any contract impls found in the module.
+    parsedModule.getExportedContractImplementationsList().forEach(
+        contractImpl -> registerExportedContractImplementation(
+            contractImpl.getImplementedContractName(),
+            // TODO(steving) TESTING!!! UPDATE THIS, I NEED TO BE ABLE TO HANDLE THE CASE WHERE THE IMPLEMENTED
+            //   CONTRACT WAS ACTUALLY DEFINED IN SOME *OTHER* TRANSITIVE DEP MODULE.
+            //   NOTE: This will probably require some re-ordering such that all contracts from all modules are
+            //         defined before any implementations are registered.
+            parsedModule.getModuleDescriptor().getProjectPackage(),
+            parsedModule.getModuleDescriptor().getUniqueModuleName(),
+            contractImpl.getConcreteTypeParamsList()
+                .stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            contractImpl.getConcreteSignaturesList().stream()
+                .collect(ImmutableMap.toImmutableMap(
+                    SerializedClaroModule.Procedure::getName,
+                    JavaSourceCompilerBackend::getProcedureTypeFromProto
+                )),
+            scopedHeap
+        )
+    );
   }
 
   private static Types.ProcedureType getProcedureTypeFromProto(SerializedClaroModule.Procedure procedureProto) {
@@ -1117,6 +1146,13 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             Hashing.sha256().hashUnencodedChars(disambiguatedContractName + disambiguatedContractImplName)
         )
     );
+    ImmutableList<String> contractTypeParamNames =
+        ((Types.$Contract) scopedHeap.getValidatedIdentifierType(disambiguatedContractName)).getTypeParamNames();
+    ContractDefinitionStmt.contractImplementationsByContractName.get(disambiguatedContractName)
+        .add(IntStream.range(0, concreteSignaturesByName.size()).boxed().collect(ImmutableMap.toImmutableMap(
+            contractTypeParamNames::get,
+            concreteTypeParams::get
+        )));
 
     // Register the actual contract implementation procedures.
     concreteSignaturesByName.forEach(

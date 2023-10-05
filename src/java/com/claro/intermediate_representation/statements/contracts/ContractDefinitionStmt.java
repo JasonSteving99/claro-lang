@@ -24,7 +24,7 @@ public class ContractDefinitionStmt extends Stmt {
   public final ImmutableSet<String> impliedTypeParamNames;
   public final ImmutableMap<String, ContractProcedureSignatureDefinitionStmt> declaredContractSignaturesByProcedureName;
 
-  public static Map<String, ArrayList<ImmutableMap<String, Type>>> contractImplementationsByContractName =
+  public static final Map<String, ArrayList<ImmutableMap<String, Type>>> contractImplementationsByContractName =
       Maps.newHashMap();
   public ImmutableMultimap<String, Integer> contractProceduresSupportingDynamicDispatchOverArgs =
       ImmutableMultimap.of();
@@ -709,7 +709,7 @@ public class ContractDefinitionStmt extends Stmt {
     for (int i = 0;
          i < ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName).size();
          i++) {
-      String contractImplCodegenClassName = (String) scopedHeap.getIdentifierValue(
+      ScopedHeap.IdentifierData contractImplIdentifierData = scopedHeap.getIdentifierData(
           ContractImplementationStmt.getContractTypeString(
               this.contractName,
               ContractDefinitionStmt.contractImplementationsByContractName.get(this.contractName)
@@ -720,6 +720,7 @@ public class ContractDefinitionStmt extends Stmt {
                   .collect(ImmutableList.toImmutableList())
           )
       );
+      String contractImplCodegenClassName = (String) contractImplIdentifierData.interpretedValue;
       if (this.declaredContractSignaturesByProcedureName.get(procedureName).optionalGenericTypesList.isPresent()) {
         int finalI = i;
         InternalStaticStateUtil.GenericProcedureDefinitionStmt_monomorphizationsByGenericProcedureCanonName.row(
@@ -771,9 +772,18 @@ public class ContractDefinitionStmt extends Stmt {
             res.append("return (O) ");
           }
         }
+        Optional<String> optionalContractImplDefiningModuleDisambiguator =
+            ((Types.$ContractImplementation) contractImplIdentifierData.type).getOptionalDefiningModuleDisambiguator();
         res.append(
             String.format(
-                "%s.%s__%s.apply(%s);\n",
+                "%s%s.%s__%s.apply(%s);\n",
+                optionalContractImplDefiningModuleDisambiguator
+                    .flatMap(
+                        d ->
+                            ScopedHeap.getModuleNameFromDisambiguator(d)
+                                .map(m -> ScopedHeap.currProgramDepModules.row(m).values().stream().findFirst().get()))
+                    .map(d -> String.format("%s.%s.", d.getProjectPackage(), d.getUniqueModuleName()))
+                    .orElse(""),
                 contractImplCodegenClassName,
                 procedureName,
                 Hashing.sha256().hashUnencodedChars(

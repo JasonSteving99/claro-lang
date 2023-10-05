@@ -25,6 +25,7 @@ public class ProgramNode {
   public StmtListNode stmtListNode;
   public static final Stack<Runnable> miscErrorsFound = new Stack<>();
   public static ImmutableList<ProgramNode> nonMainFiles = ImmutableList.of();
+  public static ImmutableList<ContractDefinitionStmt> importedContractDefinitionStmts;
   public static Optional<ModuleNode> moduleApiDef = Optional.empty();
 
   // By default, don't support any StdLib.
@@ -214,6 +215,11 @@ public class ProgramNode {
         // Drop all javaSourceBody's from each because we actually don't want anything from non-main src files except
         // for things like type/procedure defs.
         programJavaSource.javaSourceBody().setLength(0);
+      }
+      // Make sure to codegen any potential dynamic dispatch handlers from dep contract defs.
+      for (ContractDefinitionStmt importedContractDefinitionStmt : ProgramNode.importedContractDefinitionStmts) {
+        programJavaSource =
+            programJavaSource.createMerged(importedContractDefinitionStmt.generateJavaSourceOutput(scopedHeap));
       }
       // Now do codegen on this current program, implied to be the "main" src file. Do NOT throw away the javaSourceBody
       // on this main src file as this is the actual "program" that the programmer wants to be able to run.
@@ -470,6 +476,9 @@ public class ProgramNode {
 
     // Now we simply need to register the dynamic dispatch handlers for each Contract Procedure.
     for (ContractDefinitionStmt currContract : contractDefinitionStmts.build()) {
+      currContract.registerDynamicDispatchHandlers(scopedHeap);
+    }
+    for (ContractDefinitionStmt currContract : importedContractDefinitionStmts) {
       currContract.registerDynamicDispatchHandlers(scopedHeap);
     }
   }
