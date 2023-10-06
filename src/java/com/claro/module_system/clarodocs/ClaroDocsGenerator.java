@@ -4,8 +4,10 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.module_system.clarodocs.html_rendering.aliases.AliasHtml;
 import com.claro.module_system.clarodocs.html_rendering.contracts.ContractHtml;
 import com.claro.module_system.clarodocs.html_rendering.homepage.HomePageHtml;
+import com.claro.module_system.clarodocs.html_rendering.initializers.InitializersHtml;
 import com.claro.module_system.clarodocs.html_rendering.procedures.ProcedureHtml;
 import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
+import com.claro.module_system.clarodocs.html_rendering.unwrappers.UnwrappersHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
@@ -56,7 +58,17 @@ public class ClaroDocsGenerator {
                           // Render contract impls.
                           serializedClaroModule.getExportedContractImplementationsList().forEach(
                               contractImpl -> ContractHtml.renderContractImplHtml(res, contractImpl));
-                          // Top-level procedure defs.
+                          // Render initializers.
+                          serializedClaroModule.getExportedTypeDefinitions().getInitializersByTypeNameMap()
+                              .forEach(
+                                  (initializedTypeName, procedures) ->
+                                      InitializersHtml.renderInitializersBlock(res, initializedTypeName, procedures));
+                          // Render unwrappers.
+                          serializedClaroModule.getExportedTypeDefinitions().getUnwrappersByTypeNameMap()
+                              .forEach(
+                                  (unwrappedTypeName, procedures) ->
+                                      UnwrappersHtml.renderUnwrappersBlock(res, unwrappedTypeName, procedures));
+                          // Render top-level procedure defs.
                           res.append(
                               serializedClaroModule.getExportedProcedureDefinitionsList().stream()
                                   .map(ProcedureHtml::generateProcedureHtml)
