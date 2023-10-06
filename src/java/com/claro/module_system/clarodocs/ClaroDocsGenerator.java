@@ -1,5 +1,8 @@
 package com.claro.module_system.clarodocs;
 
+import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.clarodocs.html_rendering.aliases.AliasHtml;
+import com.claro.module_system.clarodocs.html_rendering.contracts.ContractHtml;
 import com.claro.module_system.clarodocs.html_rendering.homepage.HomePageHtml;
 import com.claro.module_system.clarodocs.html_rendering.procedures.ProcedureHtml;
 import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
@@ -33,19 +36,26 @@ public class ClaroDocsGenerator {
                         serializedClaroModule -> serializedClaroModule.getModuleDescriptor().getUniqueModuleName(),
                         serializedClaroModule -> {
                           StringBuilder res = new StringBuilder();
-                          // First, type defs.
+                          // Render contract defs.
+                          serializedClaroModule.getExportedContractDefinitionsList()
+                              .forEach(contractDef -> ContractHtml.renderContractDefHtml(res, contractDef));
+                          // Render type defs.
                           serializedClaroModule.getExportedTypeDefinitions()
-                              .getExportedNewtypeDefsByNameMap().entrySet().stream()
-                              .map(e -> {
-                                String typeDefHtml = TypeHtml.renderTypeDef(res, e.getKey(), e.getValue()).toString();
+                              .getExportedNewtypeDefsByNameMap().forEach((typeName, newTypeDef) -> {
+                                String typeDefHtml = TypeHtml.renderTypeDef(res, typeName, newTypeDef).toString();
                                 typeDefHtmlByModuleNameAndTypeNameBuilder.put(
                                     serializedClaroModule.getModuleDescriptor().getUniqueModuleName(),
-                                    e.getKey(),
+                                    typeName,
                                     typeDefHtml
                                 );
-                                return typeDefHtml;
-                              })
-                              .collect(Collectors.joining("\n"));
+                              });
+                          // Render aliases.
+                          serializedClaroModule.getExportedTypeDefinitions().getExportedAliasDefsByNameMap().forEach(
+                              (name, wrappedType) ->
+                                  AliasHtml.renderAliasHtml(res, name, Types.parseTypeProto(wrappedType)));
+                          // Render contract impls.
+                          serializedClaroModule.getExportedContractImplementationsList().forEach(
+                              contractImpl -> ContractHtml.renderContractImplHtml(res, contractImpl));
                           // Top-level procedure defs.
                           res.append(
                               serializedClaroModule.getExportedProcedureDefinitionsList().stream()

@@ -1,5 +1,8 @@
 package com.claro.module_system.clarodocs.html_rendering;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import static com.claro.module_system.clarodocs.html_rendering.Util.CssClass.*;
 
 public class Util {
@@ -74,7 +77,40 @@ public class Util {
     }
   }
 
+  private static final String DEFAULT_CODE_BLOCK_TEMPLATE =
+      "<pre>\n" +
+      "  <code class='%s' id='%s'>\n" +
+      "%s" +
+      "  </code>\n" +
+      "</pre>\n";
+
   public static String highlight(CssClass cssClass, String content) {
     return String.format("<span class='%s'>%s</span>", cssClass, content);
+  }
+
+  public static String wrapAsDefaultCodeBlock(String className, String id, String code) {
+    return wrapAsDefaultCodeBlock(className, id, code, 0);
+  }
+
+  public static String wrapAsDefaultCodeBlockWithIndentationLevel(
+      String className, String id, String code, int indentationLevel) {
+    return wrapAsDefaultCodeBlock(className, id, code, indentationLevel);
+  }
+
+  private static String wrapAsDefaultCodeBlock(String className, String id, String code, int indentationLevel) {
+    final String indentationStr = "    ";
+    StringBuilder indentedPrefix =
+        new StringBuilder(indentationStr.length() * (indentationLevel + 1)).append(indentationStr);
+    while (indentationLevel-- > 0) {
+      indentedPrefix.append(indentationStr);
+    }
+    return String.format(
+        DEFAULT_CODE_BLOCK_TEMPLATE,
+        className,
+        id,
+        Arrays.asList(code.split("\n")).stream()
+            .map(line -> indentedPrefix + line)
+            .collect(Collectors.joining("\n"))
+    );
   }
 }

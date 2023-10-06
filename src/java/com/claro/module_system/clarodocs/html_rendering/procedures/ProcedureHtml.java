@@ -1,6 +1,7 @@
 package com.claro.module_system.clarodocs.html_rendering.procedures;
 
 import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.clarodocs.html_rendering.Util;
 import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
@@ -14,45 +15,35 @@ import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.
 
 public class ProcedureHtml {
   public static String generateProcedureHtml(SerializedClaroModule.Procedure procedure) {
+    return generateProcedureHtml(procedure, 0);
+  }
+
+  public static String generateProcedureHtmlWithIndentationLevel(
+      SerializedClaroModule.Procedure procedure, int indentationLevel) {
+    return generateProcedureHtml(procedure, indentationLevel);
+  }
+
+  private static String generateProcedureHtml(SerializedClaroModule.Procedure procedure, int indentationLevel) {
     switch (procedure.getProcedureTypeCase()) {
       case FUNCTION:
-        return renderFunction(procedure.getName(), procedure.getFunction());
+        return renderFunction(procedure.getName(), procedure.getFunction(), indentationLevel);
       case CONSUMER:
-        return renderConsumer(procedure.getName(), procedure.getConsumer());
+        return renderConsumer(procedure.getName(), procedure.getConsumer(), indentationLevel);
       case PROVIDER:
-        return renderProvider(procedure.getName(), procedure.getProvider());
+        return renderProvider(procedure.getName(), procedure.getProvider(), indentationLevel);
       default:
         throw new RuntimeException("Internal ClaroDocs Error! Unexpected procedure type case:\n" + procedure);
     }
   }
 
-  private static final String FUNCTION_TEMPLATE =
-      "<pre>\n" +
-      "  <code class='procedure-def'>\n" +
-      "    %s" +
-      "    " + FUNCTION + " %s%s(%s) " + ARROW + " %s" + SEMICOLON + "\n" +
-      "  </code>\n" +
-      "</pre>";
+  private static final String PROCEDURE_DEF_CLASS = "procedure-def";
+  private static final String FUNCTION_TEMPLATE = "%s\n" + FUNCTION + " %s%s(%s) " + ARROW + " %s" + SEMICOLON;
+  private static final String CONSUMER_TEMPLATE = "%s\n" + CONSUMER + " %s%s(%s)" + SEMICOLON;
+  private static final String PROVIDER_TEMPLATE = "%s\n" + PROVIDER + " %s%s() " + ARROW + " %s" + SEMICOLON;
 
-  private static final String CONSUMER_TEMPLATE =
-      "<pre>\n" +
-      "  <code class='procedure-def'>\n" +
-      "    %s" +
-      "    " + CONSUMER + " %s%s(%s)" + SEMICOLON + "\n" +
-      "  </code>\n" +
-      "</pre>";
-
-  private static final String PROVIDER_TEMPLATE =
-      "<pre>\n" +
-      "  <code class='procedure-def'>\n" +
-      "    %s" +
-      "    " + PROVIDER + " %s%s() " + ARROW + " %s" + SEMICOLON + "\n" +
-      "  </code>\n" +
-      "</pre>";
-
-  public static String renderFunction(String name, TypeProtos.FunctionType function) {
+  public static String renderFunction(String name, TypeProtos.FunctionType function, int indentationLevel) {
     return String.format(
-        FUNCTION_TEMPLATE,
+        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, FUNCTION_TEMPLATE, indentationLevel),
         renderRequiresClause(function.getRequiredContractsList()),
         name,
         renderGenericTypeParams(function.getOptionalGenericTypeParamNamesList()),
@@ -61,9 +52,9 @@ public class ProcedureHtml {
     );
   }
 
-  public static String renderConsumer(String name, TypeProtos.ConsumerType consumer) {
+  public static String renderConsumer(String name, TypeProtos.ConsumerType consumer, int indentationLevel) {
     return String.format(
-        CONSUMER_TEMPLATE,
+        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, CONSUMER_TEMPLATE, indentationLevel),
         renderRequiresClause(consumer.getRequiredContractsList()),
         name,
         renderGenericTypeParams(consumer.getOptionalGenericTypeParamNamesList()),
@@ -71,9 +62,9 @@ public class ProcedureHtml {
     );
   }
 
-  public static String renderProvider(String name, TypeProtos.ProviderType provider) {
+  public static String renderProvider(String name, TypeProtos.ProviderType provider, int indentationLevel) {
     return String.format(
-        PROVIDER_TEMPLATE,
+        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, PROVIDER_TEMPLATE, indentationLevel),
         renderRequiresClause(provider.getRequiredContractsList()),
         name,
         renderGenericTypeParams(provider.getOptionalGenericTypeParamNamesList()),
