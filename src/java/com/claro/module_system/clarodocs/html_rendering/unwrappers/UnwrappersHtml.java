@@ -25,7 +25,7 @@ public class UnwrappersHtml {
                 UNWRAPPERS_BLOCK_TEMPLATE,
                 unwrappedTypeName,
                 procedures.getProceduresList().stream()
-                    .map(procedure -> ProcedureHtml.generateProcedureHtmlWithIndentationLevel(procedure, 1))
+                    .map(ProcedureHtml::generateProcedureHtml)
                     .collect(Collectors.joining("\n"))
             )
         ));

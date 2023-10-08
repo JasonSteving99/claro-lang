@@ -17,7 +17,7 @@ public class AliasHtml {
     res.append(String.format(
         Util.wrapAsDefaultCodeBlock(ALIAS_DEF_CLASS_NAME, aliasName, ALIAS_DEF_TEMPLATE),
         aliasName,
-        TypeHtml.renderType(new StringBuilder(), wrappedType)
+        TypeHtml.renderTypeHtml(wrappedType)
     ));
   }
 }

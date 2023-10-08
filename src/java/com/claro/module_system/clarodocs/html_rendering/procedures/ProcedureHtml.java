@@ -5,101 +5,90 @@ import com.claro.module_system.clarodocs.html_rendering.Util;
 import com.claro.module_system.clarodocs.html_rendering.typedefs.TypeHtml;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.template.soy.tofu.SoyTofu;
 
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.*;
-
-
+// TODO(steving) Migrate to pre-compiled SoySauce templates instead of slower (hence deprecated) SoyTofu templates.
+@SuppressWarnings("deprecation")
 public class ProcedureHtml {
+  private static final SoyTofu.Renderer PROCEDURES_TEMPLATE =
+      Util.SOY.newRenderer("procedures.exportedProcedure");
+
   public static String generateProcedureHtml(SerializedClaroModule.Procedure procedure) {
-    return generateProcedureHtml(procedure, 0);
-  }
-
-  public static String generateProcedureHtmlWithIndentationLevel(
-      SerializedClaroModule.Procedure procedure, int indentationLevel) {
-    return generateProcedureHtml(procedure, indentationLevel);
-  }
-
-  private static String generateProcedureHtml(SerializedClaroModule.Procedure procedure, int indentationLevel) {
     switch (procedure.getProcedureTypeCase()) {
       case FUNCTION:
-        return renderFunction(procedure.getName(), procedure.getFunction(), indentationLevel);
+        return renderFunction(procedure.getName(), procedure.getFunction());
       case CONSUMER:
-        return renderConsumer(procedure.getName(), procedure.getConsumer(), indentationLevel);
+        return renderConsumer(procedure.getName(), procedure.getConsumer());
       case PROVIDER:
-        return renderProvider(procedure.getName(), procedure.getProvider(), indentationLevel);
+        return renderProvider(procedure.getName(), procedure.getProvider());
       default:
         throw new RuntimeException("Internal ClaroDocs Error! Unexpected procedure type case:\n" + procedure);
     }
   }
 
-  private static final String PROCEDURE_DEF_CLASS = "procedure-def";
-  private static final String FUNCTION_TEMPLATE = "%s\n" + FUNCTION + " %s%s(%s) " + ARROW + " %s" + SEMICOLON;
-  private static final String CONSUMER_TEMPLATE = "%s\n" + CONSUMER + " %s%s(%s)" + SEMICOLON;
-  private static final String PROVIDER_TEMPLATE = "%s\n" + PROVIDER + " %s%s() " + ARROW + " %s" + SEMICOLON;
-
-  public static String renderFunction(String name, TypeProtos.FunctionType function, int indentationLevel) {
-    return String.format(
-        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, FUNCTION_TEMPLATE, indentationLevel),
-        renderRequiresClause(function.getRequiredContractsList()),
-        name,
-        renderGenericTypeParams(function.getOptionalGenericTypeParamNamesList()),
-        renderArgs(function.getArgTypesList()),
-        TypeHtml.renderType(new StringBuilder(), Types.parseTypeProto(function.getOutputType()))
-    );
+  public static String renderFunction(String name, TypeProtos.FunctionType function) {
+    ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
+    args.put("name", name)
+        .put(
+            "argTypes",
+            function.getArgTypesList().stream()
+                .map(Types::parseTypeProto)
+                .map(TypeHtml::renderTypeHtml)
+                .collect(ImmutableList.toImmutableList())
+        )
+        .put("outputType", TypeHtml.renderTypeHtml(Types.parseTypeProto(function.getOutputType())));
+    setOptionalRequiredContracts(function.getRequiredContractsList(), args);
+    setOptionalGenericTypeParams(ImmutableList.copyOf(function.getOptionalGenericTypeParamNamesList()), args);
+    return PROCEDURES_TEMPLATE.setData(args.build()).render();
   }
 
-  public static String renderConsumer(String name, TypeProtos.ConsumerType consumer, int indentationLevel) {
-    return String.format(
-        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, CONSUMER_TEMPLATE, indentationLevel),
-        renderRequiresClause(consumer.getRequiredContractsList()),
-        name,
-        renderGenericTypeParams(consumer.getOptionalGenericTypeParamNamesList()),
-        renderArgs(consumer.getArgTypesList())
-    );
+  public static String renderConsumer(String name, TypeProtos.ConsumerType consumer) {
+    ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
+    args.put("name", name)
+        .put(
+            "argTypes",
+            consumer.getArgTypesList().stream()
+                .map(Types::parseTypeProto)
+                .map(TypeHtml::renderTypeHtml)
+                .collect(ImmutableList.toImmutableList())
+        );
+    setOptionalRequiredContracts(consumer.getRequiredContractsList(), args);
+    setOptionalGenericTypeParams(ImmutableList.copyOf(consumer.getOptionalGenericTypeParamNamesList()), args);
+    return PROCEDURES_TEMPLATE.setData(args.build()).render();
   }
 
-  public static String renderProvider(String name, TypeProtos.ProviderType provider, int indentationLevel) {
-    return String.format(
-        Util.wrapAsDefaultCodeBlockWithIndentationLevel(PROCEDURE_DEF_CLASS, name, PROVIDER_TEMPLATE, indentationLevel),
-        renderRequiresClause(provider.getRequiredContractsList()),
-        name,
-        renderGenericTypeParams(provider.getOptionalGenericTypeParamNamesList()),
-        TypeHtml.renderType(new StringBuilder(), Types.parseTypeProto(provider.getOutputType()))
-    );
+  public static String renderProvider(String name, TypeProtos.ProviderType provider) {
+    ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
+    args.put("name", name)
+        .put("outputType", TypeHtml.renderTypeHtml(Types.parseTypeProto(provider.getOutputType())));
+    setOptionalRequiredContracts(provider.getRequiredContractsList(), args);
+    setOptionalGenericTypeParams(ImmutableList.copyOf(provider.getOptionalGenericTypeParamNamesList()), args);
+    return PROCEDURES_TEMPLATE.setData(args.build()).render();
   }
 
-  private static String renderRequiresClause(List<TypeProtos.RequiredContract> requiredContracts) {
-    if (requiredContracts.size() == 0) {
-      return "";
+  private static void setOptionalGenericTypeParams(
+      List<String> genericTypeParamNames, ImmutableMap.Builder<String, Object> args) {
+    if (genericTypeParamNames.size() > 0) {
+      args.put("genericTypeParams", genericTypeParamNames);
     }
-    return "    requires(" +
-           requiredContracts.stream()
-               .map(req -> String.format(
-                   "%s" + LT + "%s" + GT, req.getName(), String.join(", ", req.getGenericTypeParamsList())))
-               .collect(Collectors.joining(", ")) +
-           ")\n";
   }
 
-  private static String renderArgs(List<TypeProtos.TypeProto> argTypeProtos) {
-    StringBuilder placeholder = new StringBuilder();
-    return IntStream.range(0, argTypeProtos.size()).boxed()
-        .map(i -> {
-          String fmt = String.format(
-              "arg%s: %s", i, TypeHtml.renderType(placeholder, Types.parseTypeProto(argTypeProtos.get(i))));
-          placeholder.setLength(0);
-          return fmt;
-        })
-        .collect(Collectors.joining(", "));
-  }
-
-  private static Object renderGenericTypeParams(List<String> genericTypeParams) {
-    return genericTypeParams.isEmpty()
-           ? ""
-           : genericTypeParams.stream()
-               .collect(Collectors.joining(", ", LT.toString(), GT.toString()));
+  private static void setOptionalRequiredContracts(
+      List<TypeProtos.RequiredContract> requiredContracts, ImmutableMap.Builder<String, Object> args) {
+    if (requiredContracts.size() > 0) {
+      args.put(
+          "requiredContracts",
+          requiredContracts.stream()
+              .map(
+                  r -> ImmutableMap.of(
+                      "contractName", r.getName(),
+                      "genericTypeParams", ImmutableList.copyOf(r.getGenericTypeParamsList())
+                  )).collect(ImmutableList.toImmutableList())
+      );
+    }
   }
 }

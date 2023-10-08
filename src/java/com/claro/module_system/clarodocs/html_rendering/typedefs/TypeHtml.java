@@ -1,17 +1,19 @@
 package com.claro.module_system.clarodocs.html_rendering.typedefs;
 
-import com.claro.intermediate_representation.types.SupportsMutableVariant;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.module_system.clarodocs.html_rendering.Util;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.template.soy.data.SanitizedContent;
+import com.google.template.soy.tofu.SoyTofu;
 
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.*;
 
 public class TypeHtml {
+  private static final SoyTofu SOY = Util.SOY.forNamespace("types");
   private static final String TYPEDEF_TEMPLATE =
       "<pre>\n" +
       "  <code class='typedef' id='%s'>\n" +
@@ -29,171 +31,162 @@ public class TypeHtml {
             newTypeDef.getTypeParamNamesCount() == 0
             ? ""
             : String.format("%s%s%s", LT, String.join(", ", newTypeDef.getTypeParamNamesList()), GT),
-            renderType(new StringBuilder(), Types.parseTypeProto(newTypeDef.getWrappedType()))
+            renderTypeHtml(Types.parseTypeProto(newTypeDef.getWrappedType()))
         ));
     return res;
   }
 
-  public static StringBuilder renderType(StringBuilder res, Type type) {
-    StringBuilder placeholder = new StringBuilder();
+  public static SanitizedContent renderTypeHtml(Type type) {
     switch (type.baseType()) {
       case ATOM:
-        res.append(((Types.AtomType) type).getName());
-        break;
+        return renderSoy("atom", ImmutableMap.of("name", ((Types.AtomType) type).getName()));
       case INTEGER:
-        res.append(INT);
-        break;
+        return renderToken("INT");
       case FLOAT:
-        res.append(FLOAT);
-        break;
+        return renderToken("FLOAT");
       case BOOLEAN:
-        res.append(BOOLEAN);
-        break;
+        return renderToken("BOOLEAN");
       case STRING:
-        res.append(STRING);
-        break;
+        return renderToken("STRING");
       case LIST:
         Types.ListType listType = (Types.ListType) type;
-        maybeRenderMut(res, listType).append("[");
-        renderType(res, listType.getElementType())
-            .append("]");
-        break;
+        return renderSoy(
+            "list",
+            ImmutableMap.of(
+                "elemsType", renderTypeHtml(listType.getElementType()),
+                "isMut", listType.isMutable()
+            )
+        );
       case TUPLE:
         Types.TupleType tupleType = (Types.TupleType) type;
-        maybeRenderMut(res, tupleType).append("tuple").append(LT).append(
-                tupleType.getValueTypes().stream()
-                    .map(t -> {
-                      String fmt = renderType(placeholder, t).toString();
-                      placeholder.setLength(0);
-                      return fmt;
-                    }).collect(Collectors.joining(", ")))
-            .append(GT);
-        break;
+        return renderSoy(
+            "tuple",
+            ImmutableMap.of(
+                "elemsTypes", tupleType.getValueTypes()
+                    .stream()
+                    .map(TypeHtml::renderTypeHtml)
+                    .collect(Collectors.toList()),
+                "isMut", tupleType.isMutable()
+            )
+        );
       case SET:
-        maybeRenderMut(res, (Types.SetType) type).append("{");
-        renderType(res, type.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE))
-            .append("}");
-        break;
+        return renderSoy(
+            "set",
+            ImmutableMap.of(
+                "elemsType", renderTypeHtml(type.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE)),
+                "isMut", ((Types.SetType) type).isMutable()
+            )
+        );
       case MAP:
-        maybeRenderMut(res, (Types.MapType) type).append("{");
-        renderType(res, type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS))
-            .append(COLON).append(" ");
-        renderType(res, type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES))
-            .append("}");
-        break;
+        return renderSoy(
+            "map",
+            ImmutableMap.of(
+                "keyType", renderTypeHtml(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS)),
+                "valueType", renderTypeHtml(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)),
+                "isMut", ((Types.MapType) type).isMutable()
+            )
+        );
       case STRUCT:
         Types.StructType structType = (Types.StructType) type;
-        maybeRenderMut(res, structType).append(STRUCT).append("{");
-        res.append(
-            IntStream.range(0, structType.getFieldTypes().size()).boxed()
-                .map(i -> {
-                  String fmt = String.format(
-                      "%s: %s",
-                      structType.getFieldNames().get(i),
-                      renderType(placeholder, structType.getFieldTypes().get(i)).toString()
-                  );
-                  placeholder.setLength(0);
-                  return fmt;
-                })
-                .collect(Collectors.joining(", ")));
-        res.append("}");
-        break;
+        return renderSoy(
+            "struct",
+            ImmutableMap.<String, Object>builder()
+                .put("fieldNames", structType.getFieldNames())
+                .put(
+                    "fieldTypes",
+                    structType.getFieldTypes()
+                        .stream()
+                        .map(TypeHtml::renderTypeHtml)
+                        .collect(Collectors.toList())
+                ).put("isMut", ((Types.StructType) type).isMutable()).build()
+        );
       case ONEOF:
-        res.append(ONEOF).append(LT).append(
-                ((Types.OneofType) type).getVariantTypes().stream()
-                    .map(t -> {
-                      String fmt = renderType(placeholder, t).toString();
-                      placeholder.setLength(0);
-                      return fmt;
-                    })
-                    .collect(Collectors.joining(", ")))
-            .append(GT);
-        break;
+        return renderSoy(
+            "oneof",
+            ImmutableMap.of(
+                "variantTypes",
+                ((Types.OneofType) type).getVariantTypes()
+                    .stream()
+                    .map(TypeHtml::renderTypeHtml)
+                    .collect(Collectors.toList())
+            )
+        );
       case FUNCTION:
         Types.ProcedureType procedureType = (Types.ProcedureType) type;
-        res.append(FUNCTION).append(LT);
-        renderProcedureTypeArgs(res, placeholder, procedureType.getArgTypes())
-            .append(ARROW).append(" ");
-        renderType(res, procedureType.getReturnType()).append(GT);
-        break;
+        return renderSoy(
+            "function",
+            ImmutableMap.of(
+                "argTypes",
+                procedureType.getArgTypes().stream().map(TypeHtml::renderTypeHtml).collect(Collectors.toList()),
+                "outputType", renderTypeHtml(procedureType.getReturnType())
+            )
+        );
       case CONSUMER_FUNCTION:
         procedureType = (Types.ProcedureType) type;
-        res.append(CONSUMER).append(LT);
-        renderProcedureTypeArgs(res, placeholder, procedureType.getArgTypes()).append(GT);
-        break;
+        return renderSoy(
+            "consumer",
+            ImmutableMap.of(
+                "argTypes",
+                procedureType.getArgTypes().stream().map(TypeHtml::renderTypeHtml).collect(Collectors.toList())
+            )
+        );
       case PROVIDER_FUNCTION:
         procedureType = (Types.ProcedureType) type;
-        res.append(PROVIDER).append(LT);
-        renderType(res, procedureType.getReturnType()).append(GT);
-        break;
+        return renderSoy(
+            "provider",
+            ImmutableMap.of("outputType", renderTypeHtml(procedureType.getReturnType())
+            )
+        );
       case FUTURE:
-        res.append(FUTURE).append(LT);
-        renderType(res, type.parameterizedTypeArgs().get(Types.FutureType.PARAMETERIZED_TYPE_KEY))
-            .append(GT);
-        break;
+        return renderSoy(
+            "future",
+            ImmutableMap.of(
+                "wrappedType",
+                renderTypeHtml(type.parameterizedTypeArgs().get(Types.FutureType.PARAMETERIZED_TYPE_KEY))
+            )
+        );
       case USER_DEFINED_TYPE:
         Types.UserDefinedType userDefinedType = (Types.UserDefinedType) type;
-        res.append("<span class='type-link' onclick=\"renderModule('")
-            .append(userDefinedType.getDefiningModuleDisambiguator()).append("', root)\" ")
-            .append("onmouseover=\"onMouseOverTypeLink(event, '")
-            .append(((Types.UserDefinedType) type).getDefiningModuleDisambiguator()).append("', '")
-            .append(((Types.UserDefinedType) type).getTypeName()).append("')\" ")
-            .append("onmouseout=\"onMouseOutTypeLink(event)\" ")
-            .append(">")
-            .append(userDefinedType.getTypeName())
-            .append("</span>");
-        if (!type.parameterizedTypeArgs().isEmpty()) {
-          res.append(
-              type.parameterizedTypeArgs().values().stream()
-                  .map(t -> {
-                    String fmt = renderType(placeholder, t).toString();
-                    placeholder.setLength(0);
-                    return fmt;
-                  }).collect(Collectors.joining(", ", LT.toString(), GT.toString())));
+        ImmutableMap.Builder<String, Object> args =
+            ImmutableMap.<String, Object>builder()
+                .put("typeName", userDefinedType.getTypeName())
+                .put("definingModuleDisambig", userDefinedType.getDefiningModuleDisambiguator());
+        if (!userDefinedType.parameterizedTypeArgs().isEmpty()) {
+          args.put(
+              "concreteTypeParams",
+              userDefinedType.parameterizedTypeArgs().values().stream()
+                  .map(TypeHtml::renderTypeHtml)
+                  .collect(Collectors.toList())
+          );
         }
-        break;
+        return renderSoy("userDefinedType", args.build());
       case HTTP_SERVICE:
-        res.append("HttpService").append(LT).append(((Types.HttpServiceType) type).getServiceName()).append(GT);
-        break;
-      case HTTP_SERVER:
-        res.append("HttpServer").append(LT);
-        renderType(res, type.parameterizedTypeArgs().get(Types.HttpServerType.HTTP_SERVICE_TYPE)).append(GT);
-        break;
+        return renderSoy(
+            "httpService",
+            ImmutableMap.of("serviceName", ((Types.HttpServiceType) type).getServiceName())
+        );
       case HTTP_CLIENT:
-        res.append("HttpClient").append(LT).append(((Types.HttpClientType) type).getServiceName()).append(GT);
-        break;
+        return renderSoy(
+            "httpClient",
+            ImmutableMap.of("serviceName", ((Types.HttpClientType) type).getServiceName())
+        );
       case HTTP_RESPONSE:
-        res.append("HttpResponse");
-        break;
+        return renderSoy("httpResponse", ImmutableMap.of());
       case $GENERIC_TYPE_PARAM:
-        res.append(((Types.$GenericTypeParam) type).getTypeParamName());
-        break;
+        return renderSoy(
+            "genericTypeParam",
+            ImmutableMap.of("paramName", ((Types.$GenericTypeParam) type).getTypeParamName())
+        );
       default:
         throw new RuntimeException("Internal ClaroDocs Error! Attempt to render unknown type: " + type);
     }
-    return res;
   }
 
-  private static StringBuilder maybeRenderMut(StringBuilder res, SupportsMutableVariant<?> type) {
-    if (type.isMutable()) {
-      res.append(MUT).append(" ");
-    }
-    return res;
+  public static SanitizedContent renderToken(String templateName) {
+    return Util.SOY.newRenderer("tokens." + templateName).renderHtml();
   }
 
-  private static StringBuilder renderProcedureTypeArgs(
-      StringBuilder res, StringBuilder placeholder, ImmutableList<Type> args) {
-    if (args.size() == 1) {
-      return renderType(res, args.get(0));
-    }
-    return res.append(BAR).append(
-        args.stream()
-            .map(t -> {
-              String fmt = renderType(placeholder, t).toString();
-              placeholder.setLength(0);
-              return fmt;
-            })
-            .collect(Collectors.joining(", "))
-    ).append(BAR);
+  public static SanitizedContent renderSoy(String templateName, ImmutableMap<String, Object> args) {
+    return SOY.newRenderer("." + templateName).setData(args).renderHtml();
   }
 }

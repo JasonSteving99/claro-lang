@@ -63,6 +63,27 @@ public class HomePageHtml {
         "  color: #f8f8f2;\n" +
         "  overflow-x: scroll;\n" +
         "}\n" +
+        ".procedure-def {\n" +
+        "  margin-left: 30px;" +
+        "}\n" +
+        ".initializers {\n" +
+        "  margin-left: 30px;" +
+        "}\n" +
+        ".unwrappers {\n" +
+        "  margin-left: 30px;" +
+        "}\n" +
+        ".contract-def {\n" +
+        "  margin-left: 30px;" +
+        "}\n" +
+        ".initializers .procedure-def {\n" +
+        "  margin-left: 60px;" +
+        "}\n" +
+        ".unwrappers .procedure-def {\n" +
+        "  margin-left: 60px;" +
+        "}\n" +
+        ".contract-def .procedure-def {\n" +
+        "  margin-left: 60px;" +
+        "}\n" +
         "\n" +
         ".tj_container {\n" +
         "  height: 100%;\n" +

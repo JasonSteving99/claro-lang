@@ -1,11 +1,25 @@
 package com.claro.module_system.clarodocs.html_rendering;
 
+import com.google.template.soy.SoyFileSet;
+import com.google.template.soy.tofu.SoyTofu;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import static com.claro.module_system.clarodocs.html_rendering.Util.CssClass.*;
 
+// TODO(steving) Migrate to pre-compiled SoySauce templates instead of slower (hence deprecated) SoyTofu templates.
+@SuppressWarnings("deprecation")
 public class Util {
+  public static final SoyTofu SOY =
+      SoyFileSet.builder()
+          .add(Util.class.getResource("code_block.soy"))
+          .add(Util.class.getResource("procedures.soy"))
+          .add(Util.class.getResource("tokens.soy"))
+          .add(Util.class.getResource("types.soy"))
+          .add(Util.class.getResource("utils.soy"))
+          .build()
+          .compileToTofu();
 
   public enum CssClass {
     TOKEN_GROUP_1("tokenGroup1"),

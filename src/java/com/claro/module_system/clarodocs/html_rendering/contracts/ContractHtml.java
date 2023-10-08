@@ -25,7 +25,7 @@ public class ContractHtml {
         contractDef.getName().substring(0, contractDef.getName().indexOf('$')),
         Joiner.on(", ").join(contractDef.getTypeParamNamesList()),
         contractDef.getSignaturesList().stream()
-            .map(proc -> ProcedureHtml.generateProcedureHtmlWithIndentationLevel(proc, 1))
+            .map(ProcedureHtml::generateProcedureHtml)
             .collect(Collectors.joining("\n"))
     ));
   }
@@ -33,16 +33,11 @@ public class ContractHtml {
   public static void renderContractImplHtml(
       StringBuilder res, SerializedClaroModule.ExportedContractImplementation contractImpl) {
     String implementedContractName = contractImpl.getImplementedContractName();
-    StringBuilder placeholder = new StringBuilder();
     res.append(String.format(
         Util.wrapAsDefaultCodeBlock(CONTRACT_IMPL_CLASS_NAME, implementedContractName, CONTRACT_IMPL_TEMPLATE),
         implementedContractName.substring(0, implementedContractName.indexOf('$')),
         contractImpl.getConcreteTypeParamsList().stream()
-            .map(t -> {
-              String typeHtml = TypeHtml.renderType(placeholder, Types.parseTypeProto(t)).toString();
-              placeholder.setLength(0);
-              return typeHtml;
-            })
+            .map(t -> TypeHtml.renderTypeHtml(Types.parseTypeProto(t)).toString())
             .collect(Collectors.joining(", "))
     ));
   }
