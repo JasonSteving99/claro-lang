@@ -7,6 +7,7 @@ import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.template.soy.data.SanitizedContent;
 import com.google.template.soy.tofu.SoyTofu;
 
 import java.util.List;
@@ -17,7 +18,7 @@ public class ProcedureHtml {
   private static final SoyTofu.Renderer PROCEDURES_TEMPLATE =
       Util.SOY.newRenderer("procedures.exportedProcedure");
 
-  public static String generateProcedureHtml(SerializedClaroModule.Procedure procedure) {
+  public static SanitizedContent generateProcedureHtml(SerializedClaroModule.Procedure procedure) {
     switch (procedure.getProcedureTypeCase()) {
       case FUNCTION:
         return renderFunction(procedure.getName(), procedure.getFunction());
@@ -30,7 +31,7 @@ public class ProcedureHtml {
     }
   }
 
-  public static String renderFunction(String name, TypeProtos.FunctionType function) {
+  public static SanitizedContent renderFunction(String name, TypeProtos.FunctionType function) {
     ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
     args.put("name", name)
         .put(
@@ -43,10 +44,10 @@ public class ProcedureHtml {
         .put("outputType", TypeHtml.renderTypeHtml(Types.parseTypeProto(function.getOutputType())));
     setOptionalRequiredContracts(function.getRequiredContractsList(), args);
     setOptionalGenericTypeParams(ImmutableList.copyOf(function.getOptionalGenericTypeParamNamesList()), args);
-    return PROCEDURES_TEMPLATE.setData(args.build()).render();
+    return PROCEDURES_TEMPLATE.setData(args.build()).renderHtml();
   }
 
-  public static String renderConsumer(String name, TypeProtos.ConsumerType consumer) {
+  public static SanitizedContent renderConsumer(String name, TypeProtos.ConsumerType consumer) {
     ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
     args.put("name", name)
         .put(
@@ -58,16 +59,16 @@ public class ProcedureHtml {
         );
     setOptionalRequiredContracts(consumer.getRequiredContractsList(), args);
     setOptionalGenericTypeParams(ImmutableList.copyOf(consumer.getOptionalGenericTypeParamNamesList()), args);
-    return PROCEDURES_TEMPLATE.setData(args.build()).render();
+    return PROCEDURES_TEMPLATE.setData(args.build()).renderHtml();
   }
 
-  public static String renderProvider(String name, TypeProtos.ProviderType provider) {
+  public static SanitizedContent renderProvider(String name, TypeProtos.ProviderType provider) {
     ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
     args.put("name", name)
         .put("outputType", TypeHtml.renderTypeHtml(Types.parseTypeProto(provider.getOutputType())));
     setOptionalRequiredContracts(provider.getRequiredContractsList(), args);
     setOptionalGenericTypeParams(ImmutableList.copyOf(provider.getOptionalGenericTypeParamNamesList()), args);
-    return PROCEDURES_TEMPLATE.setData(args.build()).render();
+    return PROCEDURES_TEMPLATE.setData(args.build()).renderHtml();
   }
 
   private static void setOptionalGenericTypeParams(

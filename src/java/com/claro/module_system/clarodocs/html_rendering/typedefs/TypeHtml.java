@@ -10,36 +10,29 @@ import com.google.template.soy.tofu.SoyTofu;
 
 import java.util.stream.Collectors;
 
-import static com.claro.module_system.clarodocs.html_rendering.Util.GrammarPart.*;
 
 public class TypeHtml {
   private static final SoyTofu SOY = Util.SOY.forNamespace("types");
-  private static final String TYPEDEF_TEMPLATE =
-      "<pre>\n" +
-      "  <code class='typedef' id='%s'>\n" +
-      "    " + NEWTYPE + " " + "%s%s " + COLON + " %s\n" +
-      "  </code>\n" +
-      "</pre>";
 
   public static StringBuilder renderTypeDef(
       StringBuilder res, String typeName, SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef newTypeDef) {
-    res.append(
-        String.format(
-            TYPEDEF_TEMPLATE,
-            typeName,
-            typeName,
-            newTypeDef.getTypeParamNamesCount() == 0
-            ? ""
-            : String.format("%s%s%s", LT, String.join(", ", newTypeDef.getTypeParamNamesList()), GT),
+    ImmutableMap.Builder<String, Object> args = ImmutableMap.builder();
+    args.put("typeName", typeName)
+        .put(
+            "wrappedType",
             renderTypeHtml(Types.parseTypeProto(newTypeDef.getWrappedType()))
-        ));
+        );
+    if (newTypeDef.getTypeParamNamesCount() > 0) {
+      args.put("genericTypeParams", newTypeDef.getTypeParamNamesList());
+    }
+    res.append(Util.renderSoy(SOY, "typedef", args.build()));
     return res;
   }
 
   public static SanitizedContent renderTypeHtml(Type type) {
     switch (type.baseType()) {
       case ATOM:
-        return renderSoy("atom", ImmutableMap.of("name", ((Types.AtomType) type).getName()));
+        return Util.renderSoy(SOY, "atom", ImmutableMap.of("name", ((Types.AtomType) type).getName()));
       case INTEGER:
         return renderToken("INT");
       case FLOAT:
@@ -50,7 +43,8 @@ public class TypeHtml {
         return renderToken("STRING");
       case LIST:
         Types.ListType listType = (Types.ListType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "list",
             ImmutableMap.of(
                 "elemsType", renderTypeHtml(listType.getElementType()),
@@ -59,7 +53,8 @@ public class TypeHtml {
         );
       case TUPLE:
         Types.TupleType tupleType = (Types.TupleType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "tuple",
             ImmutableMap.of(
                 "elemsTypes", tupleType.getValueTypes()
@@ -70,7 +65,8 @@ public class TypeHtml {
             )
         );
       case SET:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "set",
             ImmutableMap.of(
                 "elemsType", renderTypeHtml(type.parameterizedTypeArgs().get(Types.SetType.PARAMETERIZED_TYPE)),
@@ -78,7 +74,8 @@ public class TypeHtml {
             )
         );
       case MAP:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "map",
             ImmutableMap.of(
                 "keyType", renderTypeHtml(type.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS)),
@@ -88,7 +85,8 @@ public class TypeHtml {
         );
       case STRUCT:
         Types.StructType structType = (Types.StructType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "struct",
             ImmutableMap.<String, Object>builder()
                 .put("fieldNames", structType.getFieldNames())
@@ -101,7 +99,8 @@ public class TypeHtml {
                 ).put("isMut", ((Types.StructType) type).isMutable()).build()
         );
       case ONEOF:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "oneof",
             ImmutableMap.of(
                 "variantTypes",
@@ -113,7 +112,8 @@ public class TypeHtml {
         );
       case FUNCTION:
         Types.ProcedureType procedureType = (Types.ProcedureType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "function",
             ImmutableMap.of(
                 "argTypes",
@@ -123,7 +123,8 @@ public class TypeHtml {
         );
       case CONSUMER_FUNCTION:
         procedureType = (Types.ProcedureType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "consumer",
             ImmutableMap.of(
                 "argTypes",
@@ -132,13 +133,15 @@ public class TypeHtml {
         );
       case PROVIDER_FUNCTION:
         procedureType = (Types.ProcedureType) type;
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "provider",
             ImmutableMap.of("outputType", renderTypeHtml(procedureType.getReturnType())
             )
         );
       case FUTURE:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "future",
             ImmutableMap.of(
                 "wrappedType",
@@ -159,21 +162,24 @@ public class TypeHtml {
                   .collect(Collectors.toList())
           );
         }
-        return renderSoy("userDefinedType", args.build());
+        return Util.renderSoy(SOY, "userDefinedType", args.build());
       case HTTP_SERVICE:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "httpService",
             ImmutableMap.of("serviceName", ((Types.HttpServiceType) type).getServiceName())
         );
       case HTTP_CLIENT:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "httpClient",
             ImmutableMap.of("serviceName", ((Types.HttpClientType) type).getServiceName())
         );
       case HTTP_RESPONSE:
-        return renderSoy("httpResponse", ImmutableMap.of());
+        return Util.renderSoy(SOY, "httpResponse", ImmutableMap.of());
       case $GENERIC_TYPE_PARAM:
-        return renderSoy(
+        return Util.renderSoy(
+            SOY,
             "genericTypeParam",
             ImmutableMap.of("paramName", ((Types.$GenericTypeParam) type).getTypeParamName())
         );
@@ -186,7 +192,4 @@ public class TypeHtml {
     return Util.SOY.newRenderer("tokens." + templateName).renderHtml();
   }
 
-  public static SanitizedContent renderSoy(String templateName, ImmutableMap<String, Object> args) {
-    return SOY.newRenderer("." + templateName).setData(args).renderHtml();
-  }
 }

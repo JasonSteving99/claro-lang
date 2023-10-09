@@ -13,9 +13,11 @@ public class HomePageHtml {
       ImmutableMap<String, String> moduleDocsByUniqueModuleName,
       ImmutableTable<String, String, String> typeDefHtmlByModuleNameAndTypeName,
       InputStream treeJSInputStream,
-      InputStream treeJSCSSInputStream) {
+      InputStream treeJSCSSInputStream,
+      InputStream claroDocsCSSInputStream) {
     String treeJS = readInputStream(treeJSInputStream);
     String treeJSCSS = readInputStream(treeJSCSSInputStream);
+    String claroDocsCSS = readInputStream(claroDocsCSSInputStream);
     return
         "<!DOCTYPE html>\n" +
         "<html>\n" +
@@ -24,85 +26,7 @@ public class HomePageHtml {
         "<link rel=\"stylesheet\" href=\"https://use.fontawesome.com/releases/v5.0.13/css/all.css\" integrity=\"sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp\" crossorigin=\"anonymous\">\n" +
         "<style>\n" +
         treeJSCSS + "\n" +
-        ".tokenGroup1 {\n" +
-        "  color: #CC7832;\n" +
-        "}\n" +
-        ".tokenGroup2 {\n" +
-        "  color: #3C85BA;\n" +
-        "}\n" +
-        ".tokenGroup3 {\n" +
-        "  color: #0F9795;\n" +
-        "}\n" +
-        ".tokenGroup4 {\n" +
-        "  color: #86A659;\n" +
-        "}\n" +
-        ".type-link {\n" +
-        "  text-decoration: underline;\n" +
-        "}\n" +
-        ".type-link:hover {\n" +
-        "  cursor: pointer;\n" +
-        "  background-color: #ccc;\n" +
-        "}\n" +
-        ".floating-div {\n" +
-        "  display: none;\n" +
-        "  position: absolute;\n" +
-        "  background-color: #272822;\n" +
-        "  color: #f8f8f2;\n" +
-        "  border: 2px dashed #ccc;\n" +
-        "  font-family: monospace;\n" +
-        "  padding: 10px;\n" +
-        "  z-index: 999;\n" +
-        "}\n" +
-        ".module-docs {\n" +
-        "  height: 100%;\n" +
-        "  margin-left: 300px; /* Same as the width of the sidenav */\n" +
-        "  font-family: monospace;\n" +
-        "  white-space: pre;\n" +
-        "  tab-size: 4;\n" +
-        "  background-color: #272822;\n" +
-        "  color: #f8f8f2;\n" +
-        "  overflow-x: scroll;\n" +
-        "}\n" +
-        ".procedure-def {\n" +
-        "  margin-left: 30px;" +
-        "}\n" +
-        ".initializers {\n" +
-        "  margin-left: 30px;" +
-        "}\n" +
-        ".unwrappers {\n" +
-        "  margin-left: 30px;" +
-        "}\n" +
-        ".contract-def {\n" +
-        "  margin-left: 30px;" +
-        "}\n" +
-        ".initializers .procedure-def {\n" +
-        "  margin-left: 60px;" +
-        "}\n" +
-        ".unwrappers .procedure-def {\n" +
-        "  margin-left: 60px;" +
-        "}\n" +
-        ".contract-def .procedure-def {\n" +
-        "  margin-left: 60px;" +
-        "}\n" +
-        "\n" +
-        ".tj_container {\n" +
-        "  height: 100%;\n" +
-        "  width: 300px;\n" +
-        "  position: fixed;\n" +
-        "  z-index: 1;\n" +
-        "  top: 0;\n" +
-        "  left: 0;\n" +
-        "  background-color: #111;\n" +
-        "  overflow-x: scroll;\n" +
-        "  padding-top: 20px;\n" +
-        "}\n" +
-        ".tj_container li {\n" +
-        "  color: white;\n" +
-        "}\n" +
-        "@media screen and (max-height: 450px) {\n" +
-        "  .sidenav {padding-top: 15px;}\n" +
-        "  .sidenav a {font-size: 18px;}\n" +
-        "}\n" +
+        claroDocsCSS + "\n" +
         "\n" +
         "</style>\n" +
         "</head>\n" +

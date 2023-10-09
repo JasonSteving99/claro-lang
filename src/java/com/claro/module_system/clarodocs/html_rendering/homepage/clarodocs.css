@@ -1,0 +1,85 @@
+.tokenGroup1 {
+  color: #CC7832;
+}
+.tokenGroup2 {
+  color: #3C85BA;
+}
+.tokenGroup3 {
+  color: #0F9795;
+}
+.tokenGroup4 {
+  color: #86A659;
+}
+.type-link {
+  text-decoration: underline;
+}
+.type-link:hover {
+  cursor: pointer;
+  background-color: #ccc;
+}
+.floating-div {
+  display: none;
+  position: absolute;
+  background-color: #272822;
+  color: #f8f8f2;
+  border: 2px dashed #ccc;
+  font-family: monospace;
+  padding: 10px;
+  z-index: 999;
+}
+.module-docs {
+  height: 100%;
+  margin-left: 300px; /* Same as the width of the sidenav */
+  font-family: monospace;
+  white-space: pre;
+  tab-size: 4;
+  background-color: #272822;
+  color: #f8f8f2;
+  overflow-x: scroll;
+}
+.type-def {
+  margin-left: 30px;
+}
+.procedure-def {
+  margin-left: 30px;
+}
+.initializers {
+  margin-left: 30px;
+}
+.unwrappers {
+  margin-left: 30px;
+}
+.contract-def {
+  margin-left: 30px;
+}
+.contract-impl {
+  margin-left: 30px;
+}
+.initializers .procedure-def {
+  margin-left: 60px;
+}
+.unwrappers .procedure-def {
+  margin-left: 60px;
+}
+.contract-def .procedure-def {
+  margin-left: 60px;
+}
+
+.tj_container {
+  height: 100%;
+  width: 300px;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: #111;
+  overflow-x: scroll;
+  padding-top: 20px;
+}
+.tj_container li {
+  color: white;
+}
+@media screen and (max-height: 450px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}

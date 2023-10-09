@@ -1,3 +1,4 @@
+exports_files(["clarodocs.css"])
 
 java_library(
     name = "homepage_html",

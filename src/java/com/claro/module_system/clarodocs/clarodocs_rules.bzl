@@ -24,6 +24,7 @@ def _clarodocs_impl(ctx):
     treejs_deps = {name: path for path, name in ctx.attr._treejs_deps.items()}
     args.add("--treejs", treejs_deps["tree.min.js"].files.to_list()[0])
     args.add("--treejs_css", treejs_deps["treejs.min.css"].files.to_list()[0])
+    args.add("--clarodocs_css", treejs_deps["clarodocs.css"].files.to_list()[0])
 
     args.add("--out", ctx.outputs.out.path)
 
@@ -68,6 +69,7 @@ _clarodocs_rule = rule(
             default = {
                 "//src/java/com/claro/module_system/clarodocs/html_rendering/homepage/treejs:tree.min.js": "tree.min.js",
                 "//src/java/com/claro/module_system/clarodocs/html_rendering/homepage/treejs:treejs.min.css": "treejs.min.css",
+                "//src/java/com/claro/module_system/clarodocs/html_rendering/homepage:clarodocs.css": "clarodocs.css",
             }
         ),
     },

@@ -1,6 +1,8 @@
 package com.claro.module_system.clarodocs.html_rendering;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.template.soy.SoyFileSet;
+import com.google.template.soy.data.SanitizedContent;
 import com.google.template.soy.tofu.SoyTofu;
 
 import java.util.Arrays;
@@ -14,12 +16,17 @@ public class Util {
   public static final SoyTofu SOY =
       SoyFileSet.builder()
           .add(Util.class.getResource("code_block.soy"))
+          .add(Util.class.getResource("contracts.soy"))
           .add(Util.class.getResource("procedures.soy"))
           .add(Util.class.getResource("tokens.soy"))
           .add(Util.class.getResource("types.soy"))
           .add(Util.class.getResource("utils.soy"))
           .build()
           .compileToTofu();
+
+  public static SanitizedContent renderSoy(SoyTofu soy, String templateName, ImmutableMap<String, Object> args) {
+    return soy.newRenderer("." + templateName).setData(args).renderHtml();
+  }
 
   public enum CssClass {
     TOKEN_GROUP_1("tokenGroup1"),

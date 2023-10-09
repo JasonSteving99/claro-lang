@@ -31,6 +31,8 @@ public class InitializersHtml {
                 initializedTypeName,
                 procedures.getProceduresList().stream()
                     .map(ProcedureHtml::generateProcedureHtml)
+                    // TODO(steving) Temporary until migrate to using SanitizedContent here.
+                    .map(Object::toString)
                     .collect(Collectors.joining("\n"))
             )
         ));

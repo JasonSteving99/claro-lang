@@ -31,4 +31,10 @@ public class ClaroDocsCLIOptions extends OptionsBase {
       defaultValue = ""
   )
   public String treejs_css;
+  @Option(
+      name = "clarodocs_css",
+      help = "Path to ClaroDoc's CSS stylesheet.",
+      defaultValue = ""
+  )
+  public String clarodocs_css;
 }

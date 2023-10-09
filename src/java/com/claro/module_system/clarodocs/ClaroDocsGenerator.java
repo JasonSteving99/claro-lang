@@ -72,13 +72,16 @@ public class ClaroDocsGenerator {
                           res.append(
                               serializedClaroModule.getExportedProcedureDefinitionsList().stream()
                                   .map(ProcedureHtml::generateProcedureHtml)
+                                  // TODO(steving) Temporary until migrate to using SanitizedContent here.
+                                  .map(Object::toString)
                                   .collect(Collectors.joining("\n")));
                           return res.toString();
                         }
                     )),
             typeDefHtmlByModuleNameAndTypeNameBuilder.build(),
             getFileInputStream(options.treejs),
-            getFileInputStream(options.treejs_css)
+            getFileInputStream(options.treejs_css),
+            getFileInputStream(options.clarodocs_css)
         );
 
     createOutputFile(options.out);

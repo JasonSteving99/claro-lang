@@ -1,5 +1,26 @@
 {namespace types}
 
+{template .typedef}
+    {@param typeName: string}
+    {@param? genericTypeParams: list<html>}
+    {@param wrappedType: html}
+    {call codeblock.code}
+        {param codeContent kind="html"}
+            {call tokens.NEWTYPE /}{sp}{$typeName}
+            {if $genericTypeParams}
+                {call tokens.LT /}
+                {call utils.commaSep}
+                    {param elems: $genericTypeParams /}
+                {/call}
+                {call tokens.GT /}
+            {/if}
+            {sp}{call tokens.COLON /}{sp}{$wrappedType}
+        {/param}
+        {param class: 'type-def' /}
+        {param id: '{$typeName}' /}
+    {/call}
+{/template}
+
 {template .atom}
     {@param name: string}
     {$name}
