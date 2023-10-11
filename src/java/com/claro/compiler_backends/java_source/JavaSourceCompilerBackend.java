@@ -431,8 +431,27 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     }
 
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
-    // finally register all of their exported procedure signatures.
+    // finally register their remaining exports.
     ImmutableMap<String, SerializedClaroModule> parsedClaroModuleProtos = parsedClaroModuleProtosBuilder.build();
+
+    // Register the exported static values.
+    for (Map.Entry<String, SerializedClaroModule> moduleDep : parsedClaroModuleProtos.entrySet()) {
+      // Setup the regular exported procedures.
+      for (SerializedClaroModule.ExportedStaticValue depExportedStaticValue :
+          moduleDep.getValue().getExportedStaticValuesList()) {
+        String disambiguatedStaticValueIdentifier =
+            String.format(
+                "%s$%s",
+                depExportedStaticValue.getName(),
+                moduleDep.getValue().getModuleDescriptor().getUniqueModuleName()
+            );
+        scopedHeap.observeStaticIdentifierValue(
+            disambiguatedStaticValueIdentifier, Types.parseTypeProto(depExportedStaticValue.getType()));
+        scopedHeap.initializeIdentifier(disambiguatedStaticValueIdentifier);
+      }
+    }
+
+    // Register the exported procedures.
     for (Map.Entry<String, SerializedClaroModule> moduleDep : parsedClaroModuleProtos.entrySet()) {
       // Setup the regular exported procedures.
       for (SerializedClaroModule.Procedure depExportedProc :

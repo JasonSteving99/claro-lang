@@ -8,7 +8,6 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
-import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -221,31 +220,20 @@ public class IdentifierReferenceTerm extends Term {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    scopedHeap.markIdentifierUsed(this.identifier);
+    if (scopedHeap.getIdentifierData(this.identifier).isStaticValue) {
+      System.err.println(
+          "TESTING!!! FOUND STATIC ID REF: " + this.identifier + " " + this.optionalDefiningModuleDisambiguator);
+    }
+    ScopedHeap.IdentifierData identifierData = scopedHeap.getIdentifierData(this.identifier);
+    identifierData.used = true;
     return new StringBuilder(
         this.alternateCodegenString.orElse(
             () -> {
-              if (scopedHeap.getValidatedIdentifierType(this.identifier).baseType().equals(BaseType.ATOM)
-                  && scopedHeap.getIdentifierData(this.identifier).isTypeDefinition) {
+              if (identifierData.type.baseType().equals(BaseType.ATOM) && identifierData.isTypeDefinition) {
                 // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE.
-                Optional<SerializedClaroModule.UniqueModuleDescriptor> uniqueModuleDescriptor =
-                    ScopedHeap.getModuleNameFromDisambiguator(
-                            this.optionalDefiningModuleDisambiguator.orElse("$THIS_MODULE$"))
-                        .map(moduleName ->
-                                 ScopedHeap.currProgramDepModules.rowMap().get(moduleName)
-                                     .values().stream().findFirst().get());
                 return String.format(
-                    "%s%sATOM_CACHE[%s]",
-                    uniqueModuleDescriptor.map(m -> m.getProjectPackage() + '.').orElse(""),
-                    this.optionalDefiningModuleDisambiguator.map(s -> s + '.').orElseGet(
-                        () -> {
-                          String definingModuleDisambiguator =
-                              ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
-                          if (definingModuleDisambiguator.isEmpty()) {
-                            return definingModuleDisambiguator;
-                          }
-                          return definingModuleDisambiguator + '.';
-                        }),
+                    "%sATOM_CACHE[%s]",
+                    getFullySpecifiedIdentifierNamespace(),
                     InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
                         this.optionalDefiningModuleDisambiguator.orElseGet(
                             () -> ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
@@ -256,10 +244,36 @@ public class IdentifierReferenceTerm extends Term {
                 // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to
                 // workaround Java's restriction that all lambda captures must be effectively final.
                 return "$nestedComprehensionState." + this.identifier;
+              } else if (identifierData.isStaticValue) {
+                // To ensure that static values can be referenced across dep module monomorphization boundaries, I need
+                // to fully specify their namespace at all times.
+                return getFullySpecifiedIdentifierNamespace() +
+                       this.optionalDefiningModuleDisambiguator
+                           .map(unused -> {
+                             int identifierEndIndex = this.identifier.indexOf('$');
+                             if (identifierEndIndex == -1) {
+                               return this.identifier;
+                             }
+                             return this.identifier.substring(0, identifierEndIndex);
+                           })
+                           .orElse(this.identifier);
               }
               return this.identifier;
             }
         ).get());
+  }
+
+  // Returns empty only if referencing an identifier from the current compilation unit, and the current compilation unit
+  // is in fact the top-level claro_binary(). Else, returns the actual UniqueModuleDescriptor to explicitly reference
+  // currently identifier.
+  private String getFullySpecifiedIdentifierNamespace() {
+    return ScopedHeap.getModuleNameFromDisambiguator(
+            this.optionalDefiningModuleDisambiguator.orElse("$THIS_MODULE$"))
+        .map(moduleName ->
+                 ScopedHeap.currProgramDepModules.rowMap().get(moduleName)
+                     .values().stream().findFirst().get())
+        .map(m -> String.format("%s.%s.", m.getProjectPackage(), m.getUniqueModuleName()))
+        .orElse("");
   }
 
   @Override

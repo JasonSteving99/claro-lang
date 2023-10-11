@@ -32,8 +32,7 @@ endpoint_handlers MyDemoService {
     root res <- http::getOk200HttpResponseForHtml(@formattedHtml);
     node formattedHtml <- Utils::handleBuggyResponseAsHtmlStrParts(@joinResponse)[0];
     node joinResponse <- BuggyBuggies::friendsJoin(
-      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
-      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
+      BuggyBuggies::HTTP_CLIENT,
       gameId,
       handle
     );
@@ -49,8 +48,7 @@ endpoint_handlers MyDemoService {
     root res <- http::getOk200HttpResponseForJson(@formattedJson);
     node formattedJson <- EndpointHandlers::getBestMovesHandler(@parsedWorld);
     node parsedWorld <- BuggyBuggies::worldInfo(
-      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
-      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
+      BuggyBuggies::HTTP_CLIENT,
       gameId,
       playerSecret
     );
@@ -60,8 +58,7 @@ endpoint_handlers MyDemoService {
     root res <- http::getOk200HttpResponseForJson(@formattedJson);
     node formattedJson <- Utils::handleBuggyResponseAsHtmlStrParts(@resetResponse)[0];
     node resetResponse <- BuggyBuggies::reset(
-      # TODO(steving) Migrate to using a singleton client once Claro's Modules can export static (singleton) values.
-      BuggyBuggies::getClient("https://buggy-buggies.gigalixirapp.com"),
+      BuggyBuggies::HTTP_CLIENT,
       gameId,
       playerSecret
     );

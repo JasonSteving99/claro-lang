@@ -1,4 +1,5 @@
 
-function getClient(url: string) -> HttpClient<BuggyBuggies> {
-  return http::getHttpClient(url);
+provider static_HTTP_CLIENT() -> HttpClient<BuggyBuggies> {
+  # This now only needs to happen once throughout the entire program.
+  return http::getHttpClient("https://buggy-buggies.gigalixirapp.com");
 }

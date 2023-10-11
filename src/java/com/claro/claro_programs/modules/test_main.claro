@@ -28,3 +28,6 @@ TestDep2::addFancyInt(2, 3)
 
 # Demonstrate that dep module types with generic type params can actually be instantiated.
 print(TestDep2::List([1]));
+
+# Demonstrate that static values exported by dep modules can be read.
+print("Here's the definition of `TestDep::PI`: {TestDep::PI}");

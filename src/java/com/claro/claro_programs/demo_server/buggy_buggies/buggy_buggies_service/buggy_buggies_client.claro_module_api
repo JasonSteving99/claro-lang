@@ -10,7 +10,8 @@ HttpService BuggyBuggies {
   reset: "/api/game/{gameId}/player/{secret}/reset"
 }
 
-function getClient(url: string) -> HttpClient<BuggyBuggies>;
+# Now there's a single static definition of which client will be used for sending reqs to the Buggy Buggies server.
+static HTTP_CLIENT: HttpClient<BuggyBuggies>;
 
 # This type models the JSON response from the Buggy-Buggies service as a Claro type to enable parsing the response into
 # something that you can work with programmatically with strict type validation on the edge.
