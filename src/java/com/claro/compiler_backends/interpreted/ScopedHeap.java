@@ -86,6 +86,13 @@ public class ScopedHeap {
     putIdentifierValue(identifier, type);
   }
 
+  public void observeStaticIdentifierValue(String identifier, Type resolvedType) {
+    IdentifierData identifierData = new IdentifierData(resolvedType, null, true);
+    identifierData.isAssignable = false;
+    identifierData.isStaticValue = true;
+    scopeStack.peek().scopedSymbolTable.put(identifier, identifierData);
+  }
+
   public void observeIdentifierAllowingHiding(String identifier, Type type) {
     putIdentifierValueAllowingHiding(identifier, type, null);
   }
@@ -299,9 +306,10 @@ public class ScopedHeap {
                   ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION);
               IdentifierData identifierData = currScope.scopedSymbolTable.get(identifier);
               if (identifierData.isTypeDefinition
+                  || identifierData.isStaticValue
                   || (functionBaseTypes.contains(identifierData.type.baseType()) &&
                       functionBaseTypes.contains(identifierData.type.getPossiblyOverridenBaseType()))) {
-                // In either of these cases, we should accept Function type references and Type definitions.
+                // In any of these cases, we should accept Function type references, Type definitions and static values.
                 return Optional.of(scopeLevel);
               } else if (pastFunctionScopeBoundary.isPresent()) {
                 // Functions may also reference Modules or Contracts defined in outer scopes.
@@ -448,6 +456,9 @@ public class ScopedHeap {
     // This should be set when this identifier is first observed to during the compiler's type checking phase.
     boolean declared;
     public boolean isTypeDefinition;
+    // In particular, static values/procedure definitions/contract definitions are not assignable.
+    public boolean isAssignable = true;
+    public boolean isStaticValue;
 
     public IdentifierData(Type type, Object interpretedValue) {
       this(type, interpretedValue, false);
@@ -463,6 +474,7 @@ public class ScopedHeap {
       IdentifierData shallowCopy = new IdentifierData(this.type, this.interpretedValue, this.declared);
       shallowCopy.used = this.used;
       shallowCopy.isTypeDefinition = this.isTypeDefinition;
+      shallowCopy.isAssignable = this.isAssignable;
       return shallowCopy;
     }
 
@@ -475,6 +487,7 @@ public class ScopedHeap {
       res.append("used = ").append(this.used).append(", ");
       res.append("declared = ").append(this.declared).append(", ");
       res.append("isTypeDefinition = ").append(this.isTypeDefinition);
+      res.append("isAssignable = ").append(this.isAssignable);
 
       return res.append(")").toString();
     }

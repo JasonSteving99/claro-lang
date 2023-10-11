@@ -326,6 +326,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           // procedures requested by the monomorphization coordinator can be selectively type checked and monomorphized.
           // This should account for a significant time savings, going a good ways towards minimizing wasted work.
           mainSrcFileProgramNode.runDiscoveryCompilationPhases(scopedHeap);
+          // Finally just blindly mark all of the static values initialized so that any procedures that end up being a
+          // part of a monomorphization can reference the static values.
+          ProgramNode.moduleApiDef.get().exportedStaticValueDefs.forEach(
+              s -> scopedHeap.initializeIdentifier(s.identifier.identifier));
         } else {
           generateTargetOutputRes =
               mainSrcFileProgramNode.generateTargetOutput(Target.JAVA_SOURCE, scopedHeap, StdLibUtil::registerIdentifiers);

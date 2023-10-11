@@ -169,6 +169,8 @@ WhiteSpace     = [ \t\f]
     "initializers"     { return symbol(Tokens.INITIALIZERS, 0, 12, "initializers"); }
     "unwrappers"       { return symbol(Tokens.UNWRAPPERS, 0, 10, "unwrappers"); }
 
+    "static"           { return symbol(Tokens.STATIC, 0, 6, "static"); }
+
     // Modifiers go here.
     "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }
 

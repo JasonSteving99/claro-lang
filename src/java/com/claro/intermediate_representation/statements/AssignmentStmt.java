@@ -34,7 +34,17 @@ public class AssignmentStmt extends Stmt {
       // Force some more error messages, but at least can continue type checking.
       scopedHeap.putIdentifierValue(this.IDENTIFIER.identifier, Types.UNKNOWABLE);
     }
-    this.identifierValidatedType = scopedHeap.getValidatedIdentifierType(this.IDENTIFIER.identifier);
+    ScopedHeap.IdentifierData identifierData = scopedHeap.getIdentifierData(this.IDENTIFIER.identifier);
+    if (!identifierData.isAssignable) {
+      // This is an illegal assignment.
+      if (identifierData.isStaticValue) {
+        this.IDENTIFIER.logTypeError(ClaroTypeException.forIllegalAssignmentAttemptOnStaticValue());
+      } else {
+        // TODO(steving) Need to ensure that things like procedure/contract defs aren't assignable.
+        throw new ClaroTypeException("Internal Compiler Error! Claro doesn't handle illegal assignments correctly yet.");
+      }
+    }
+    this.identifierValidatedType = identifierData.type;
     if (this.identifierValidatedType.baseType().equals(BaseType.ONEOF)) {
       // Since this is assignment to a oneof type, by definition we'll allow any of the type variants supported
       // by this particular oneof instance.

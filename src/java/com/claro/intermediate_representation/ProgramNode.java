@@ -9,7 +9,10 @@ import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -105,6 +108,11 @@ public class ProgramNode {
     // MODULE TYPE VALIDATION PHASE:
     runPhaseOverAllProgramFiles(p -> p.performModuleTypeValidationPhase(p.stmtListNode, scopedHeap));
 
+    // STATIC VALUE PROVIDER VALIDATION PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      performStaticValueProviderValidationPhase(scopedHeap);
+    }
+
     // PROCEDURE TYPE VALIDATION PHASE:
     runPhaseOverAllProgramFiles(p -> p.performProcedureTypeValidationPhase(p.stmtListNode, scopedHeap));
 
@@ -199,8 +207,12 @@ public class ProgramNode {
       // Begin codegen on all non-main src files.
       Node.GeneratedJavaSource programJavaSource = Node.GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
       if (ProgramNode.moduleApiDef.isPresent()) {
-        // Since we're compiling this source code against a module api, it may actually turn out that there are newtype
-        // defs exported by the module whose constructors require codegen.
+        // Since we're compiling this source code against a module api, start by doing codegen for any exported static
+        // value definitions, so that static initialization later won't run into any "forward declaration" issues.
+        for (StaticValueDefStmt staticValueDefStmt : ProgramNode.moduleApiDef.get().exportedStaticValueDefs) {
+          programJavaSource = programJavaSource.createMerged(staticValueDefStmt.generateJavaSourceOutput(scopedHeap));
+        }
+        // It may turn out that there are newtype defs exported by the module whose constructors require codegen.
         for (NewTypeDefStmt exportedNewTypeDef : ProgramNode.moduleApiDef.get().exportedNewTypeDefs) {
           programJavaSource = programJavaSource.createMerged(exportedNewTypeDef.generateJavaSourceOutput(scopedHeap));
         }
@@ -305,6 +317,22 @@ public class ProgramNode {
           .assertInitializersAndUnwrappersBlocksAreDefinedOnTypesExportedByThisModule(scopedHeap);
     }
     runPhaseOverAllProgramFiles(p -> p.performTypeDiscoveryPhase(p.stmtListNode, scopedHeap));
+
+    // STATIC VALUE DISCOVERY PHASE:
+    if (ProgramNode.moduleApiDef.isPresent()) {
+      // Since we're compiling this source code against a module api, it may actually turn out that there are static
+      // values exported by the module that should be declared for use within the impl sources. However, the static
+      // values will not be initialized yet. We'll use the fact that Claro will error on trying to read uninitialized
+      // values to enforce a strict static initialization ordering between dependent static values (unfortunately, this
+      // ordering is only configurable by users by changing the order the values are declared in the module api file).
+      for (StaticValueDefStmt staticValueDefStmt : ProgramNode.moduleApiDef.get().exportedStaticValueDefs) {
+        try {
+          staticValueDefStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
 
     // PROCEDURE DISCOVERY PHASE:
     if (ProgramNode.moduleApiDef.isPresent()) {
@@ -575,10 +603,8 @@ public class ProgramNode {
   }
 
   private void performProcedureTypeValidationPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
-    // Very first things first, because we want to allow references of user-defined types anywhere in the scope
-    // regardless of what line the type was defined on, we need to first explicitly and pick all of the user-defined
-    // type definition stmts and do a first pass of registering their TypeProviders in the symbol table. These
-    // TypeProviders will be resolved recursively in the immediately following type-validation phase.
+    // Do type validation on all remaining ProcedureDefStmts (note that ProcedureDefStmts automatically short-circuit if
+    // their type validation method is called more than once, so this isn't actually duplicating the above work).
     StmtListNode currStmtListNode = stmtListNode;
     while (currStmtListNode != null) {
       Stmt currStmt = (Stmt) currStmtListNode.getChildren().get(0);
@@ -594,6 +620,55 @@ public class ProgramNode {
       }
       currStmtListNode = currStmtListNode.tail;
     }
+  }
+
+  private static void performStaticValueProviderValidationPhase(ScopedHeap scopedHeap) {
+    // Very first thing, in order to guarantee that static values are correctly initialized, do validation that all
+    // exported static values have a corresponding provider function that can be used to initialize the static value.
+    ProgramNode.moduleApiDef.get().exportedStaticValueDefs.forEach(
+        s -> {
+          if (!s.resolvedType.isPresent()) {
+            // In this case, it turns out that the type was rejected (because it was mutable). No static providers are
+            // necessary for this as an error has already been logged rejecting the static value.
+            return;
+          }
+          Type resolvedStaticValueType = s.resolvedType.get();
+          String expectedStaticValueProvider = String.format("static_%s", s.identifier.identifier);
+          if (!scopedHeap.isIdentifierDeclared(expectedStaticValueProvider)) {
+            // The required static value provider wasn't even defined.
+            miscErrorsFound.push(() -> System.err.println(
+                ClaroTypeException.forModuleExportedStaticValueProviderNotDefinedInModuleImplFiles(
+                    s.identifier.identifier, resolvedStaticValueType).getMessage()));
+            // Just to avoid super noisy cascading failures, just mark the static value initialized and move on.
+            scopedHeap.initializeIdentifier(s.identifier.identifier);
+          } else {
+            Type actualStaticValueProviderType = scopedHeap.getValidatedIdentifierType(expectedStaticValueProvider);
+            if (!actualStaticValueProviderType.baseType().equals(BaseType.PROVIDER_FUNCTION)
+                || !((Types.ProcedureType) actualStaticValueProviderType).getReturnType()
+                .equals(resolvedStaticValueType)) {
+              // The required static value provider was defined with the wrong type.
+              miscErrorsFound.push(() -> System.err.println(
+                  ClaroTypeException.forModuleExportedStaticValueProviderNameBoundToIncorrectImplementationType(
+                      s.identifier.identifier,
+                      resolvedStaticValueType,
+                      ((Types.ProcedureType) actualStaticValueProviderType).getReturnType()
+                  ).getMessage()));
+            } else {
+              // Good programmer! The required static value provider was implemented. Do type validation on it now.
+              try {
+                ((Types.ProcedureType) actualStaticValueProviderType).getProcedureDefStmt()
+                    .assertExpectedExprTypes(scopedHeap);
+              } catch (ClaroTypeException e) {
+                throw new RuntimeException(e);
+              }
+              // Now, finally go ahead and mark the static value initialized manually. This is the only line that is
+              // legally allowed to mark a static value initialized. Doing this here enables the guarantee that
+              // successive static values can legally depend on one another as long as they are well-ordered.
+              scopedHeap.initializeIdentifier(s.identifier.identifier);
+            }
+          }
+        }
+    );
   }
 
   private void performModuleDiscoveryPhase(StmtListNode stmtListNode, ScopedHeap scopedHeap) {
@@ -674,6 +749,11 @@ public class ProgramNode {
           : ""
       );
     }
+    StringBuilder staticValueInitialization = new StringBuilder();
+    ProgramNode.moduleApiDef.ifPresent(
+        m -> m.exportedStaticValueDefs.forEach(
+            s -> s.generateStaticInitialization(staticValueInitialization)
+        ));
     return new StringBuilder(
         String.format(
             "/*******AUTO-GENERATED: DO NOT MODIFY*******/\n\n" +
@@ -722,6 +802,8 @@ public class ProgramNode {
             "public static final $ClaroAtom[] ATOM_CACHE = new $ClaroAtom[]{%s};\n\n" +
             "// Static preamble statements first thing.\n" +
             "%s\n\n" +
+            "// Static Initializers.\n" +
+            "%s\n\n" +
             "// Now the static definitions.\n" +
             "%s\n\n" +
             "// Optionally the main method will be here if this is not a Module.\n" +
@@ -731,6 +813,7 @@ public class ProgramNode {
             this.generatedClassName,
             AtomDefinitionStmt.codegenAtomCacheInit(),
             stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
+            staticValueInitialization,
             stmtListJavaSource.optionalStaticDefinitions().orElse(new StringBuilder()),
             mainMethodCodegen
         )

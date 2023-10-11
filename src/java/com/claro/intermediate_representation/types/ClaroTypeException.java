@@ -477,6 +477,34 @@ public class ClaroTypeException extends Exception {
       "Module Exported Contract Implementation Not Defined In Given Module Implementation Files: The given Module API definition " +
       "expected the following exported contract implementation to be defined:\n" +
       "\t%s";
+  private static final String MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Static Value Provider Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "exports:\n" +
+      "\t\tstatic %s: %s;\n" +
+      "\tExpected the following provider implementation to be defined in the module's implementation:\n" +
+      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}";
+  private static final String MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Static Value Provider Name Bound To Incorrect Implementation Type: The given Module API definition " +
+      "exports:\n" +
+      "\t\tstatic %s: %s;\n" +
+      "\tExpected the following provider implementation to be defined in the module's implementation:\n" +
+      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}\n" +
+      "\tFound:\n" +
+      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}";
+  private static final String ILLEGAL_ASSIGNMENT_ATTEMPT_ON_STATIC_VALUE =
+      "Illegal Assignment to Static Value: Static values are deeply-immutable and may not be reassigned. These " +
+      "restrictions ensure that Claro is able to statically eliminate the possibility of data races over static " +
+      "values in concurrent contexts.";
+  private static final String ILLEGAL_MUTABLE_STATIC_VALUE_DECLARATION =
+      "Illegal Mutable Static Value: Static values are deeply-immutable and may not be reassigned. These " +
+      "restrictions ensure that Claro is able to statically eliminate the possibility of data races over static " +
+      "values in concurrent contexts.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1671,5 +1699,39 @@ public class ClaroTypeException extends Exception {
       String contractImplCanonicalName) {
     return new ClaroTypeException(
         String.format(MODULE_EXPORTED_CONTRACT_IMPL_NOT_DEFINED_IN_MODULE_IMPL_FILES, contractImplCanonicalName));
+  }
+
+  public static ClaroTypeException forModuleExportedStaticValueProviderNotDefinedInModuleImplFiles(
+      String staticValueIdentifier, Type staticValueType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            staticValueIdentifier,
+            staticValueType,
+            staticValueIdentifier,
+            staticValueType
+        ));
+  }
+
+  public static ClaroTypeException forModuleExportedStaticValueProviderNameBoundToIncorrectImplementationType(
+      String staticValueIdentifier, Type staticValueType, Type actualType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            staticValueIdentifier,
+            staticValueType,
+            staticValueIdentifier,
+            staticValueType,
+            staticValueIdentifier,
+            actualType
+        ));
+  }
+
+  public static ClaroTypeException forIllegalAssignmentAttemptOnStaticValue() {
+    return new ClaroTypeException(ILLEGAL_ASSIGNMENT_ATTEMPT_ON_STATIC_VALUE);
+  }
+
+  public static ClaroTypeException forIllegalMutableStaticValueDeclaration() {
+    return new ClaroTypeException(ILLEGAL_MUTABLE_STATIC_VALUE_DECLARATION);
   }
 }

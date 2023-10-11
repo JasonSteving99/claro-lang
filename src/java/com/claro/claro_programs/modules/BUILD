@@ -36,6 +36,7 @@ claro_module(
         "TestModuleImpl.claro",
         "TestModuleImpl2.claro",
     ],
+    debug = True,
 )
 
 # Here's a module with a chain of transitive deps that will all need to pulled up into any consumers for the compiler

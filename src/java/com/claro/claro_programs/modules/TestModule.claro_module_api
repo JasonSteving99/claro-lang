@@ -1,5 +1,18 @@
 # Just a simple test Module Api that I'll use to validate the ability to actually parse type signatures.
 
+# Modules are allowed to export `static` values that are computed on program start and immutable from that point
+# onwards. Their values are set by calling a corresponding provider function that is required to be present in the
+# module's impl srcs by the name `get<static val name>()` returning the static value's type. (In this example, `PI` is
+# initialized by Claro automatically calling the provider `getPI()`.) Other modules depending on this module, can
+# reference this static value via `Dep::PI`. However, static values are *READ-ONLY*. Any attempts to write to a static
+# value are compile-time errors. Note that static values are also required to be of some deeply-immutable type. This
+# restriction is in place in order to ensure that these static values cannot be the source of data races in a concurrent
+# context (directly or indirectly via graph procedures).
+static PI: float;
+
+# This would be illegal as the static value is mutable.
+#static visitingUsers: mut [string];
+
 function intIdentity(i: int) -> int;
 
 function add(lhs: int, rhs: int) -> int;

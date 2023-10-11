@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.statements.StaticValueDefStmt;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.SupportsMutableVariant;
@@ -159,6 +160,7 @@ parser code {:
   }
 :}
 
+terminal LexedValue<String>  STATIC;
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  SEMICOLON;
@@ -185,6 +187,7 @@ terminal LexedValue<String>  STRING, FMT_STRING_PART;
 // Declare which type will be returned by each nonterminal grammar production.
 nonterminal ModuleNode                         module;
 nonterminal ModuleNode.ModuleApiStmtsBuilder   module_api_defs;
+nonterminal StaticValueDefStmt                 static_value_def_stmt;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ImmutableList<String>              generic_blocking_on;
@@ -229,6 +232,7 @@ module ::=
     module_api_defs:module_api_defs
     {:
        RESULT = new ModuleNode(
+         module_api_defs.getStaticValueDefStmtsBuilder().build().reverse(),
          module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
          module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
          module_api_defs.getAtomDefStmtsBuilder().build().reverse(),
@@ -246,7 +250,12 @@ module ::=
   ;
 
 module_api_defs ::=
-    contract_procedure_signature_definition_stmt:exported_procedure module_api_defs:tail
+    static_value_def_stmt:exported_static_val module_api_defs:tail
+    {:
+       tail.getStaticValueDefStmtsBuilder().add(exported_static_val);
+       RESULT = tail;
+    :}
+  | contract_procedure_signature_definition_stmt:exported_procedure module_api_defs:tail
     {:
        tail.getProcedureSignaturesBuilder().add(exported_procedure);
        RESULT = tail;
@@ -292,6 +301,12 @@ module_api_defs ::=
        RESULT = tail;
     :}
 
+  | static_value_def_stmt:exported_static_val
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getStaticValueDefStmtsBuilder().add(exported_static_val);
+       RESULT = res;
+    :}
   | contract_procedure_signature_definition_stmt:exported_procedure
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
@@ -345,6 +360,13 @@ module_api_defs ::=
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getHttpServiceDefsBuilder().add(http_service_def);
        RESULT = res;
+    :}
+  ;
+
+static_value_def_stmt ::=
+    STATIC identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal());
     :}
   ;
 
