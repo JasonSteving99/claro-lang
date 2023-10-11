@@ -22,6 +22,7 @@ option optimize_for = SPEED;
 //       perspective, this means that some fields will have out-of-order field numbers as fields get added in some
 //       semblance of a sensible organization, but this isn't a problem.
 
+// Next id: 13
 message SerializedClaroModule {
   message ClaroSourceFile {
     string original_filename = 1;
@@ -80,6 +81,12 @@ message SerializedClaroModule {
     map<string, ProcedureList> unwrappers_by_type_name = 4;
   }
 
+  message ExportedStaticValue {
+    string name = 1;
+    claro.module_system.module_serialization.claro_types.TypeProto type = 2;
+    bool is_lazy = 3;
+  }
+
   message ExportedContractDefinition {
     string name = 1;
     repeated string type_param_names = 2;
@@ -116,6 +123,8 @@ message SerializedClaroModule {
   ExportedTypeDefinitions exported_type_definitions = 2;
 
   repeated string exported_atom_definitions = 3;
+
+  repeated ExportedStaticValue exported_static_values = 12;
 
   repeated Procedure exported_procedure_definitions = 4;
 
