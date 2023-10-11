@@ -1031,6 +1031,16 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 ProgramNode.moduleApiDef.get().exportedAtomDefs.stream()
                     .map(atomDefinitionStmt -> atomDefinitionStmt.name.identifier)
                     .collect(ImmutableList.toImmutableList()))
+            .addAllExportedStaticValues(
+                ProgramNode.moduleApiDef.get().exportedStaticValueDefs.stream()
+                    .map(s ->
+                             SerializedClaroModule.ExportedStaticValue.newBuilder()
+                                 .setName(s.identifier.identifier)
+                                 .setType(s.resolvedType.get().toProto())
+                                 .setIsLazy(false) // TODO(steving) Support lazy static values.
+                                 .build())
+                    .collect(Collectors.toList())
+            )
             .addAllExportedProcedureDefinitions(
                 ProgramNode.moduleApiDef.get().exportedSignatures.stream()
                     .map(JavaSourceCompilerBackend::serializeProcedureSignature)
