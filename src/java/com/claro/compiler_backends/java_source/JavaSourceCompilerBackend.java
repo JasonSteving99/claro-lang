@@ -446,7 +446,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 moduleDep.getValue().getModuleDescriptor().getUniqueModuleName()
             );
         scopedHeap.observeStaticIdentifierValue(
-            disambiguatedStaticValueIdentifier, Types.parseTypeProto(depExportedStaticValue.getType()));
+            disambiguatedStaticValueIdentifier,
+            Types.parseTypeProto(depExportedStaticValue.getType()),
+            depExportedStaticValue.getIsLazy()
+        );
         scopedHeap.initializeIdentifier(disambiguatedStaticValueIdentifier);
       }
     }
@@ -1056,7 +1059,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                              SerializedClaroModule.ExportedStaticValue.newBuilder()
                                  .setName(s.identifier.identifier)
                                  .setType(s.resolvedType.get().toProto())
-                                 .setIsLazy(false) // TODO(steving) Support lazy static values.
+                                 .setIsLazy(s.isLazy)
                                  .build())
                     .collect(Collectors.toList())
             )

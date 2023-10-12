@@ -160,7 +160,7 @@ parser code {:
   }
 :}
 
-terminal LexedValue<String>  STATIC;
+terminal LexedValue<String>  STATIC, LAZY;
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  SEMICOLON;
@@ -366,7 +366,11 @@ module_api_defs ::=
 static_value_def_stmt ::=
     STATIC identifier:identifier COLON builtin_type:type SEMICOLON
     {:
-       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal());
+       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal(), /*isLazy=*/false);
+    :}
+  | LAZY STATIC identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal(), /*isLazy=*/true);
     :}
   ;
 

@@ -9,6 +9,7 @@
 # restriction is in place in order to ensure that these static values cannot be the source of data races in a concurrent
 # context (directly or indirectly via graph procedures).
 static PI: float;
+lazy static SOME_LAZY_STATIC_VAL: string;
 
 # This would be illegal as the static value is mutable.
 #static visitingUsers: mut [string];

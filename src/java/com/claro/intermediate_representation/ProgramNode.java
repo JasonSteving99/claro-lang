@@ -645,13 +645,19 @@ public class ProgramNode {
             Type actualStaticValueProviderType = scopedHeap.getValidatedIdentifierType(expectedStaticValueProvider);
             if (!actualStaticValueProviderType.baseType().equals(BaseType.PROVIDER_FUNCTION)
                 || !((Types.ProcedureType) actualStaticValueProviderType).getReturnType()
-                .equals(resolvedStaticValueType)) {
+                .equals(resolvedStaticValueType)
+                // Additionally, lazy static values aren't allowed to be provided by blocking procedures as this would
+                // potentially constitute a corner case that breaks Claro's requirement that blocking procedures aren't
+                // called from within concurrent contexts.
+                || (!((Types.ProcedureType) actualStaticValueProviderType).getAnnotatedBlocking().equals(false)
+                    && s.isLazy)) {
               // The required static value provider was defined with the wrong type.
               miscErrorsFound.push(() -> System.err.println(
                   ClaroTypeException.forModuleExportedStaticValueProviderNameBoundToIncorrectImplementationType(
                       s.identifier.identifier,
                       resolvedStaticValueType,
-                      ((Types.ProcedureType) actualStaticValueProviderType).getReturnType()
+                      ((Types.ProcedureType) actualStaticValueProviderType).getReturnType(),
+                      !((Types.ProcedureType) actualStaticValueProviderType).getAnnotatedBlocking().equals(false)
                   ).getMessage()));
             } else {
               // Good programmer! The required static value provider was implemented. Do type validation on it now.

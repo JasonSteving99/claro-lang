@@ -170,6 +170,7 @@ WhiteSpace     = [ \t\f]
     "unwrappers"       { return symbol(Tokens.UNWRAPPERS, 0, 10, "unwrappers"); }
 
     "static"           { return symbol(Tokens.STATIC, 0, 6, "static"); }
+    "lazy"             { return symbol(Tokens.LAZY, 0, 4, "lazy"); }
 
     // Modifiers go here.
     "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }

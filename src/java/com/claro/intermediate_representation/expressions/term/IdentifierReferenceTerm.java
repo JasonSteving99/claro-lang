@@ -225,7 +225,27 @@ public class IdentifierReferenceTerm extends Term {
     return new StringBuilder(
         this.alternateCodegenString.orElse(
             () -> {
-              if (identifierData.type.baseType().equals(BaseType.ATOM) && identifierData.isTypeDefinition) {
+              if (identifierData.isStaticValue) {
+                // To ensure that static values can be referenced across dep module monomorphization boundaries, I need
+                // to fully specify their namespace at all times.
+                String codegenIdentifier = this.optionalDefiningModuleDisambiguator
+                    .map(unused -> {
+                      int identifierEndIndex = this.identifier.indexOf('$');
+                      if (identifierEndIndex == -1) {
+                        return this.identifier;
+                      }
+                      return this.identifier.substring(0, identifierEndIndex);
+                    })
+                    .orElse(this.identifier);
+                if (identifierData.isLazyValue) {
+                  return String.format(
+                      "%slazyStaticInitializer$%s()",
+                      getFullySpecifiedIdentifierNamespace(),
+                      codegenIdentifier
+                  );
+                }
+                return getFullySpecifiedIdentifierNamespace() + codegenIdentifier;
+              } else if (identifierData.type.baseType().equals(BaseType.ATOM) && identifierData.isTypeDefinition) {
                 // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE.
                 return String.format(
                     "%sATOM_CACHE[%s]",
@@ -240,19 +260,6 @@ public class IdentifierReferenceTerm extends Term {
                 // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to
                 // workaround Java's restriction that all lambda captures must be effectively final.
                 return "$nestedComprehensionState." + this.identifier;
-              } else if (identifierData.isStaticValue) {
-                // To ensure that static values can be referenced across dep module monomorphization boundaries, I need
-                // to fully specify their namespace at all times.
-                return getFullySpecifiedIdentifierNamespace() +
-                       this.optionalDefiningModuleDisambiguator
-                           .map(unused -> {
-                             int identifierEndIndex = this.identifier.indexOf('$');
-                             if (identifierEndIndex == -1) {
-                               return this.identifier;
-                             }
-                             return this.identifier.substring(0, identifierEndIndex);
-                           })
-                           .orElse(this.identifier);
               }
               return this.identifier;
             }

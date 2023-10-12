@@ -494,7 +494,7 @@ public class ClaroTypeException extends Exception {
       "\t\t\t...\n" +
       "\t\t}\n" +
       "\tFound:\n" +
-      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t%sprovider static_%s() -> %s {\n" +
       "\t\t\t...\n" +
       "\t\t}";
   private static final String ILLEGAL_ASSIGNMENT_ATTEMPT_ON_STATIC_VALUE =
@@ -1714,7 +1714,7 @@ public class ClaroTypeException extends Exception {
   }
 
   public static ClaroTypeException forModuleExportedStaticValueProviderNameBoundToIncorrectImplementationType(
-      String staticValueIdentifier, Type staticValueType, Type actualType) {
+      String staticValueIdentifier, Type staticValueType, Type actualType, boolean isBlocking) {
     return new ClaroTypeException(
         String.format(
             MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
@@ -1722,6 +1722,7 @@ public class ClaroTypeException extends Exception {
             staticValueType,
             staticValueIdentifier,
             staticValueType,
+            isBlocking ? "blocking " : "",
             staticValueIdentifier,
             actualType
         ));

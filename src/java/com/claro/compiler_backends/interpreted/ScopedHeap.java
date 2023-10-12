@@ -86,10 +86,11 @@ public class ScopedHeap {
     putIdentifierValue(identifier, type);
   }
 
-  public void observeStaticIdentifierValue(String identifier, Type resolvedType) {
+  public void observeStaticIdentifierValue(String identifier, Type resolvedType, boolean isLazy) {
     IdentifierData identifierData = new IdentifierData(resolvedType, null, true);
     identifierData.isAssignable = false;
     identifierData.isStaticValue = true;
+    identifierData.isLazyValue = isLazy;
     scopeStack.peek().scopedSymbolTable.put(identifier, identifierData);
   }
 
@@ -458,7 +459,8 @@ public class ScopedHeap {
     public boolean isTypeDefinition;
     // In particular, static values/procedure definitions/contract definitions are not assignable.
     public boolean isAssignable = true;
-    public boolean isStaticValue;
+    public boolean isStaticValue = false;
+    public boolean isLazyValue = false;
 
     public IdentifierData(Type type, Object interpretedValue) {
       this(type, interpretedValue, false);

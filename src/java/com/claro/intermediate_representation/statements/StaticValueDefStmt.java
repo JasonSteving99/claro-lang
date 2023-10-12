@@ -14,13 +14,15 @@ public class StaticValueDefStmt extends Stmt {
 
   public final IdentifierReferenceTerm identifier;
   private final TypeProvider type;
+  public final boolean isLazy;
   public Optional<Type> resolvedType;
   private boolean alreadyAssertedTypes = false;
 
-  public StaticValueDefStmt(IdentifierReferenceTerm identifier, TypeProvider type) {
+  public StaticValueDefStmt(IdentifierReferenceTerm identifier, TypeProvider type, boolean isLazy) {
     super(ImmutableList.of());
     this.identifier = identifier;
     this.type = type;
+    this.isLazy = isLazy;
   }
 
   @Override
@@ -37,7 +39,7 @@ public class StaticValueDefStmt extends Stmt {
       }
 
       // Now add this new identifier to the symbol table and mark it as a static value.
-      scopedHeap.observeStaticIdentifierValue(this.identifier.identifier, this.resolvedType.get());
+      scopedHeap.observeStaticIdentifierValue(this.identifier.identifier, this.resolvedType.get(), this.isLazy);
 
       // Ensure that the static value is of some deeply immutable type to prevent data races.
       if (!Types.isDeeplyImmutable(this.resolvedType.get())) {
@@ -66,12 +68,41 @@ public class StaticValueDefStmt extends Stmt {
   }
 
   public StringBuilder generateStaticInitialization(StringBuilder res) {
-    return res
-        .append("static {\n\t")
+    StringBuilder staticInit = new StringBuilder()
         .append(this.identifier.identifier)
         .append(" = static_")
         .append(this.identifier.identifier)
-        .append(".apply();\n}\n");
+        .append(".apply();\n");
+
+    if (this.isLazy) {
+      // If the static value is declared lazy, then instead of eagerly initializing its value on startup, declare an
+      // additional boolean to track whether the value has been initialized, and a static init procedure that'll do the
+      // init, IFF it hasn't been done yet.
+      String stateVar = this.identifier.identifier + "$isInitialized";
+      res.append("private static boolean ")
+          .append(stateVar)
+          .append(" = false;\n")
+          .append("public static synchronized ")
+          .append(this.resolvedType.get().getJavaSourceType())
+          .append(" lazyStaticInitializer$")
+          .append(this.identifier.identifier)
+          .append("() {\n" +
+                  "  if (!")
+          .append(stateVar)
+          .append(") {\n")
+          .append(staticInit)
+          .append("\n  ")
+          .append(stateVar)
+          .append(" = true;\n")
+          .append("  }\n" +
+                  "  return ")
+          .append(this.identifier.identifier)
+          .append(";\n}\n");
+    } else {
+      // If the static value isn't declared lazy, then it should be eagerly initialized on program startup.
+      res.append("static {\n\t").append(staticInit).append("}\n");
+    }
+    return res;
   }
 
   @Override
