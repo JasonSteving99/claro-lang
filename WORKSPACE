@@ -69,6 +69,9 @@ load("@io_bazel_rules_closure//closure:repositories.bzl", "rules_closure_depende
 rules_closure_dependencies()
 rules_closure_toolchains()
 
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()
+
 # See this documentation to understand how fetching Maven deps works in Bazel:
 # https://github.com/bazelbuild/rules_jvm_external
 # When you add a new maven dep run the following command to update new deps:

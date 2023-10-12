@@ -220,10 +220,6 @@ public class IdentifierReferenceTerm extends Term {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    if (scopedHeap.getIdentifierData(this.identifier).isStaticValue) {
-      System.err.println(
-          "TESTING!!! FOUND STATIC ID REF: " + this.identifier + " " + this.optionalDefiningModuleDisambiguator);
-    }
     ScopedHeap.IdentifierData identifierData = scopedHeap.getIdentifierData(this.identifier);
     identifierData.used = true;
     return new StringBuilder(
