@@ -86,6 +86,9 @@ message SerializedClaroModule {
       string name = 1;
       claro.module_system.module_serialization.claro_types.TypeProto type = 2;
     }
+    message ExportedFlagsList {
+      repeated ExportedFlag flags = 1;
+    }
 
     // These are the flags actually directly exported by this module. These are separated out from the transitive flags
     // literally just to enable ClaroDocs to correctly attribute flags to their defining module.
@@ -93,7 +96,7 @@ message SerializedClaroModule {
 
     // These are the flags exported by the transitive closure of all of this module's deps. These need to be collected
     // in order for Claro to collect them all at the top-level claro_binary() to codegen parsing logic.
-    map<string, ExportedFlag> transitive_exported_flags_by_defining_module = 2;
+    map<string, ExportedFlagsList> transitive_exported_flags_by_defining_module = 2;
   }
 
   message ExportedStaticValue {
