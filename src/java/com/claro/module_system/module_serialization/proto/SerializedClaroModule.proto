@@ -22,7 +22,7 @@ option optimize_for = SPEED;
 //       perspective, this means that some fields will have out-of-order field numbers as fields get added in some
 //       semblance of a sensible organization, but this isn't a problem.
 
-// Next id: 13
+// Next id: 14
 message SerializedClaroModule {
   message ClaroSourceFile {
     string original_filename = 1;
@@ -81,6 +81,21 @@ message SerializedClaroModule {
     map<string, ProcedureList> unwrappers_by_type_name = 4;
   }
 
+  message ExportedFlagDefinitions {
+    message ExportedFlag {
+      string name = 1;
+      claro.module_system.module_serialization.claro_types.TypeProto type = 2;
+    }
+
+    // These are the flags actually directly exported by this module. These are separated out from the transitive flags
+    // literally just to enable ClaroDocs to correctly attribute flags to their defining module.
+    repeated ExportedFlag direct_exported_flags = 1;
+
+    // These are the flags exported by the transitive closure of all of this module's deps. These need to be collected
+    // in order for Claro to collect them all at the top-level claro_binary() to codegen parsing logic.
+    repeated ExportedFlag transitive_exported_flags = 2;
+  }
+
   message ExportedStaticValue {
     string name = 1;
     claro.module_system.module_serialization.claro_types.TypeProto type = 2;
@@ -123,6 +138,8 @@ message SerializedClaroModule {
   ExportedTypeDefinitions exported_type_definitions = 2;
 
   repeated string exported_atom_definitions = 3;
+
+  ExportedFlagDefinitions exported_flag_definitions = 13;
 
   repeated ExportedStaticValue exported_static_values = 12;
 
