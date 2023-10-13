@@ -93,7 +93,7 @@ message SerializedClaroModule {
 
     // These are the flags exported by the transitive closure of all of this module's deps. These need to be collected
     // in order for Claro to collect them all at the top-level claro_binary() to codegen parsing logic.
-    repeated ExportedFlag transitive_exported_flags = 2;
+    map<string, ExportedFlag> transitive_exported_flags_by_defining_module = 2;
   }
 
   message ExportedStaticValue {
