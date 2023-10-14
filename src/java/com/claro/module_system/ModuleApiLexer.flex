@@ -172,6 +172,8 @@ WhiteSpace     = [ \t\f]
     "static"           { return symbol(Tokens.STATIC, 0, 6, "static"); }
     "lazy"             { return symbol(Tokens.LAZY, 0, 4, "lazy"); }
 
+    "flag"             { return symbol(Tokens.FLAG, 0, 4, "flag"); }
+
     // Modifiers go here.
     "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }
 

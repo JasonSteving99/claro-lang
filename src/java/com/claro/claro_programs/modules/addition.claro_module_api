@@ -1,4 +1,6 @@
 
+flag TEST_FLAG_2: [string];
+
 newtype FancyInt : MultiHopDep::MultiHopInt
 alias IntAlias : int
 

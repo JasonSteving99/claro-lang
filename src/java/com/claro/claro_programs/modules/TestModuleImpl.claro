@@ -3,6 +3,7 @@
 # `static_<static value name>()` that returns the declared type of the static value.
 provider static_PI() -> float {
   print("...computing PI...");
+  print("......checking TEST_FLAG......: <{TEST_FLAG}>");
   return 3.14;
 }
 provider static_SOME_LAZY_STATIC_VAL() -> string {

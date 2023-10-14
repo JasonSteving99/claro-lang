@@ -14,14 +14,16 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.Stack;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ProgramNode {
   private final String packageString, generatedClassName;
@@ -30,6 +32,8 @@ public class ProgramNode {
   public static ImmutableList<ProgramNode> nonMainFiles = ImmutableList.of();
   public static ImmutableList<ContractDefinitionStmt> importedContractDefinitionStmts;
   public static Optional<ModuleNode> moduleApiDef = Optional.empty();
+  public static ImmutableSetMultimap<String, SerializedClaroModule.ExportedFlagDefinitions.ExportedFlag>
+      transitiveExportedFlags;
 
   // By default, don't support any StdLib.
   private Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn = s -> ImmutableList.of();
@@ -107,6 +111,9 @@ public class ProgramNode {
 
     // MODULE TYPE VALIDATION PHASE:
     runPhaseOverAllProgramFiles(p -> p.performModuleTypeValidationPhase(p.stmtListNode, scopedHeap));
+
+    // TRANSITIVE EXPORTED FLAGS VALIDATION PHASE:
+    performTransitiveFlagDefsValidationPhase();
 
     // STATIC VALUE PROVIDER VALIDATION PHASE:
     if (ProgramNode.moduleApiDef.isPresent()) {
@@ -209,6 +216,9 @@ public class ProgramNode {
       if (ProgramNode.moduleApiDef.isPresent()) {
         // Since we're compiling this source code against a module api, start by doing codegen for any exported static
         // value definitions, so that static initialization later won't run into any "forward declaration" issues.
+        for (FlagDefStmt flagDefStmt : ProgramNode.moduleApiDef.get().exportedFlagDefs) {
+          programJavaSource = programJavaSource.createMerged(flagDefStmt.generateJavaSourceOutput(scopedHeap));
+        }
         for (StaticValueDefStmt staticValueDefStmt : ProgramNode.moduleApiDef.get().exportedStaticValueDefs) {
           programJavaSource = programJavaSource.createMerged(staticValueDefStmt.generateJavaSourceOutput(scopedHeap));
         }
@@ -325,6 +335,13 @@ public class ProgramNode {
       // values will not be initialized yet. We'll use the fact that Claro will error on trying to read uninitialized
       // values to enforce a strict static initialization ordering between dependent static values (unfortunately, this
       // ordering is only configurable by users by changing the order the values are declared in the module api file).
+      for (FlagDefStmt flagDefStmt : ProgramNode.moduleApiDef.get().exportedFlagDefs) {
+        try {
+          flagDefStmt.assertExpectedExprTypes(scopedHeap);
+        } catch (ClaroTypeException e) {
+          throw new RuntimeException(e);
+        }
+      }
       for (StaticValueDefStmt staticValueDefStmt : ProgramNode.moduleApiDef.get().exportedStaticValueDefs) {
         try {
           staticValueDefStmt.assertExpectedExprTypes(scopedHeap);
@@ -622,6 +639,38 @@ public class ProgramNode {
     }
   }
 
+  private static void performTransitiveFlagDefsValidationPhase() {
+    ImmutableSetMultimap<String, String> flagsToUniqueModuleNames =
+        ProgramNode.transitiveExportedFlags.entries().stream()
+            .collect(ImmutableSetMultimap.toImmutableSetMultimap(
+                e -> e.getValue().getName(),
+                Map.Entry::getKey
+            ));
+    HashMap<String, List<String>> duplicatedFlags = Maps.newHashMap();
+    for (String flagName : flagsToUniqueModuleNames.keys()) {
+      if (flagsToUniqueModuleNames.get(flagName).size() > 1) {
+        duplicatedFlags.put(flagName, Lists.newArrayList(flagsToUniqueModuleNames.get(flagName)));
+      }
+    }
+    String currModuleDisambiguator =
+        ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
+    ProgramNode.moduleApiDef.ifPresent(m -> m.exportedFlagDefs.forEach(f -> {
+      if (flagsToUniqueModuleNames.containsKey(f.identifier.identifier)) {
+        duplicatedFlags.compute(
+            f.identifier.identifier,
+            (unused, uniqueModuleNames) -> {
+              uniqueModuleNames.add(currModuleDisambiguator);
+              return uniqueModuleNames;
+            }
+        );
+      }
+    }));
+    if (!duplicatedFlags.isEmpty()) {
+      ProgramNode.miscErrorsFound.push(
+          () -> System.err.println(ClaroTypeException.forIllegalDuplicateFlagDefsFound(duplicatedFlags).getMessage()));
+    }
+  }
+
   private static void performStaticValueProviderValidationPhase(ScopedHeap scopedHeap) {
     // Very first thing, in order to guarantee that static values are correctly initialized, do validation that all
     // exported static values have a corresponding provider function that can be used to initialize the static value.
@@ -757,6 +806,10 @@ public class ProgramNode {
     }
     StringBuilder staticValueInitialization = new StringBuilder();
     ProgramNode.moduleApiDef.ifPresent(
+        m -> m.exportedFlagDefs.forEach(
+            s -> s.generateStaticInitialization(staticValueInitialization)
+        ));
+    ProgramNode.moduleApiDef.ifPresent(
         m -> m.exportedStaticValueDefs.forEach(
             s -> s.generateStaticInitialization(staticValueInitialization)
         ));
@@ -793,6 +846,8 @@ public class ProgramNode {
             "import com.google.common.collect.ImmutableSet;\n" +
             "import com.google.common.util.concurrent.Futures;\n" +
             "import com.google.common.util.concurrent.ListenableFuture;\n" +
+            "import com.google.devtools.common.options.Option;\n" +
+            "import com.google.devtools.common.options.OptionsBase;\n" +
             "import java.io.StringReader;\n" +
             "import java.util.ArrayList;\n" +
             "import java.util.List;\n" +
@@ -804,6 +859,10 @@ public class ProgramNode {
             "\n\n" +
             "@SuppressWarnings(\"unchecked\")\n" +
             "public class %s {\n" +
+            "\n" +
+            "// This class will be populated with the definition of any flags that are defined to be parsed\n" +
+            "// anywhere in the overall program.\n" +
+            "%s\n" +
             "// Setup the atom cache so that all atoms are singleton.\n" +
             "public static final $ClaroAtom[] ATOM_CACHE = new $ClaroAtom[]{%s};\n\n" +
             "// Static preamble statements first thing.\n" +
@@ -813,10 +872,24 @@ public class ProgramNode {
             "// Now the static definitions.\n" +
             "%s\n\n" +
             "// Optionally the main method will be here if this is not a Module.\n" +
-            "%s" +
-            "}",
+            "%s\n" +
+            "}\n",
             this.packageString,
             this.generatedClassName,
+            // Only do flag parsing related codegen if we actually need to parse cli flags.
+            !ProgramNode.moduleApiDef.isPresent() && !transitiveExportedFlags.isEmpty()
+            ? ProgramNode.transitiveExportedFlags.values().stream()
+                .map(f ->
+                         FlagDefStmt.generateAnnotatedOptionField(
+                             f.getName(), Types.parseTypeProto(f.getType())))
+                .collect(Collectors.joining(
+                    "\n",
+                    "public static class $FlagsToParse extends OptionsBase {\n",
+                    "\n}\n" +
+                    "// Very first thing to do is statically configure the generated class to be used for parsing flags.\n" +
+                    "  static {\n    com.claro.runtime_utilities.flags.$Flags.$programOptionsClass = $FlagsToParse.class;\n  }\n"
+                ))
+            : "",
             AtomDefinitionStmt.codegenAtomCacheInit(),
             stmtListJavaSource.optionalStaticPreambleStmts().orElse(new StringBuilder()),
             staticValueInitialization,

@@ -44,6 +44,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -326,8 +327,10 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
           // procedures requested by the monomorphization coordinator can be selectively type checked and monomorphized.
           // This should account for a significant time savings, going a good ways towards minimizing wasted work.
           mainSrcFileProgramNode.runDiscoveryCompilationPhases(scopedHeap);
-          // Finally just blindly mark all of the static values initialized so that any procedures that end up being a
-          // part of a monomorphization can reference the static values.
+          // Finally just blindly mark all of the flags and static values initialized so that any procedures that end up
+          // being a part of a monomorphization can reference the static values.
+          ProgramNode.moduleApiDef.get().exportedFlagDefs.forEach(
+              s -> scopedHeap.initializeIdentifier(s.identifier.identifier));
           ProgramNode.moduleApiDef.get().exportedStaticValueDefs.forEach(
               s -> scopedHeap.initializeIdentifier(s.identifier.identifier));
         } else {
@@ -413,11 +416,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     ImmutableList.Builder<ContractDefinitionStmt> importedContractDefinitionStmts = ImmutableList.builder();
     // Setup dep module exported types.
     {
-      ImmutableList.Builder<SerializedClaroModule> parsedModules = ImmutableList.builder();
+      ImmutableList.Builder<SerializedClaroModule> parsedModulesBuilder = ImmutableList.builder();
       for (Map.Entry<String, SrcFile> moduleDep : moduleDeps.entrySet()) {
         SerializedClaroModule parsedModule =
             SerializedClaroModule.parseDelimitedFrom(moduleDep.getValue().getFileInputStream());
-        parsedModules.add(parsedModule);
+        parsedModulesBuilder.add(parsedModule);
         parsedClaroModuleProtosBuilder.put(moduleDep.getKey(), parsedModule);
 
         // First thing, register this dep module somewhere central that can be referenced by both codegen and the parsers.
@@ -427,7 +430,25 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             registerDepModuleExportedTypes(scopedHeap, Optional.of(moduleDep.getKey()), parsedModule));
       }
       // Ensure the contract impls are all registered *after* modules are defined.
-      parsedModules.build().forEach(p -> registerDepModuleContractImpls(scopedHeap, p));
+      ImmutableList<SerializedClaroModule> parsedModules = parsedModulesBuilder.build();
+      parsedModules.forEach(p -> registerDepModuleContractImpls(scopedHeap, p));
+      ProgramNode.transitiveExportedFlags =
+          parsedModules.stream()
+              .flatMap(
+                  m -> {
+                    SerializedClaroModule.ExportedFlagDefinitions f = m.getExportedFlagDefinitions();
+                    return Streams.concat(
+                        f.getDirectExportedFlagsList().stream()
+                            .map(exportedFlag ->
+                                     Maps.immutableEntry(
+                                         m.getModuleDescriptor().getUniqueModuleName(), exportedFlag)),
+                        f.getTransitiveExportedFlagsByDefiningModuleMap().entrySet().stream()
+                            .flatMap(e ->
+                                         e.getValue().getFlagsList().stream()
+                                             .map(flag -> Maps.immutableEntry(e.getKey(), flag)))
+                    );
+                  })
+              .collect(ImmutableSetMultimap.toImmutableSetMultimap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     // After having successfully parsed all dep module files and registered all of their exported types, it's time to
@@ -435,22 +456,35 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     ImmutableMap<String, SerializedClaroModule> parsedClaroModuleProtos = parsedClaroModuleProtosBuilder.build();
 
     // Register the exported static values.
+    BiFunction<Map.Entry<String, SerializedClaroModule>, String, BiConsumer<TypeProtos.TypeProto, Boolean>>
+        registerStaticValue =
+        // God I hate Java lambdas. Just want a lambda with 4 args *facepalm*.
+        (moduleDep, name) -> (type, isLazy) -> {
+          String disambiguatedStaticValueIdentifier =
+              String.format(
+                  "%s$%s",
+                  name,
+                  moduleDep.getValue().getModuleDescriptor().getUniqueModuleName()
+              );
+          JavaSourceCompilerBackend.scopedHeap.observeStaticIdentifierValue(
+              disambiguatedStaticValueIdentifier,
+              Types.parseTypeProto(type),
+              isLazy
+          );
+          JavaSourceCompilerBackend.scopedHeap.initializeIdentifier(disambiguatedStaticValueIdentifier);
+        };
     for (Map.Entry<String, SerializedClaroModule> moduleDep : parsedClaroModuleProtos.entrySet()) {
-      // Setup the regular exported procedures.
+      for (SerializedClaroModule.ExportedFlagDefinitions.ExportedFlag depExportedFlag :
+          moduleDep.getValue().getExportedFlagDefinitions().getDirectExportedFlagsList()) {
+        registerStaticValue
+            .apply(moduleDep, depExportedFlag.getName())
+            .accept(depExportedFlag.getType(), /*isLazy=*/true); // All flags are lazy.
+      }
       for (SerializedClaroModule.ExportedStaticValue depExportedStaticValue :
           moduleDep.getValue().getExportedStaticValuesList()) {
-        String disambiguatedStaticValueIdentifier =
-            String.format(
-                "%s$%s",
-                depExportedStaticValue.getName(),
-                moduleDep.getValue().getModuleDescriptor().getUniqueModuleName()
-            );
-        scopedHeap.observeStaticIdentifierValue(
-            disambiguatedStaticValueIdentifier,
-            Types.parseTypeProto(depExportedStaticValue.getType()),
-            depExportedStaticValue.getIsLazy()
-        );
-        scopedHeap.initializeIdentifier(disambiguatedStaticValueIdentifier);
+        registerStaticValue
+            .apply(moduleDep, depExportedStaticValue.getName())
+            .accept(depExportedStaticValue.getType(), depExportedStaticValue.getIsLazy());
       }
     }
 
@@ -1053,6 +1087,27 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                 ProgramNode.moduleApiDef.get().exportedAtomDefs.stream()
                     .map(atomDefinitionStmt -> atomDefinitionStmt.name.identifier)
                     .collect(ImmutableList.toImmutableList()))
+            .setExportedFlagDefinitions(
+                SerializedClaroModule.ExportedFlagDefinitions.newBuilder()
+                    .addAllDirectExportedFlags(
+                        ProgramNode.moduleApiDef.get().exportedFlagDefs.stream()
+                            .map(f ->
+                                     SerializedClaroModule.ExportedFlagDefinitions.ExportedFlag.newBuilder()
+                                         .setName(f.identifier.identifier)
+                                         .setType(f.resolvedType.toProto())
+                                         .build())
+                            .collect(Collectors.toList()))
+                    .putAllTransitiveExportedFlagsByDefiningModule(
+                        // This has already necessarily been validated, so if we're able to get to this point of
+                        // serialization then we know there's no duplicates.
+                        ProgramNode.transitiveExportedFlags.asMap().entrySet().stream()
+                            .collect(ImmutableMap.toImmutableMap(
+                                Map.Entry::getKey,
+                                e -> SerializedClaroModule.ExportedFlagDefinitions.ExportedFlagsList.newBuilder()
+                                    .addAllFlags(e.getValue())
+                                    .build()
+                            ))
+                    ))
             .addAllExportedStaticValues(
                 ProgramNode.moduleApiDef.get().exportedStaticValueDefs.stream()
                     .map(s ->
@@ -1061,8 +1116,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                  .setType(s.resolvedType.get().toProto())
                                  .setIsLazy(s.isLazy)
                                  .build())
-                    .collect(Collectors.toList())
-            )
+                    .collect(Collectors.toList()))
             .addAllExportedProcedureDefinitions(
                 ProgramNode.moduleApiDef.get().exportedSignatures.stream()
                     .map(JavaSourceCompilerBackend::serializeProcedureSignature)

@@ -505,6 +505,14 @@ public class ClaroTypeException extends Exception {
       "Illegal Mutable Static Value: Static values are deeply-immutable and may not be reassigned. These " +
       "restrictions ensure that Claro is able to statically eliminate the possibility of data races over static " +
       "values in concurrent contexts.";
+  private static final String ILLEGAL_FLAG_TYPE_DECLARATION =
+      "Illegal Flag Type Declaration: Flags must be of one of the following supported types:\n" +
+      "\t- %s";
+  private static final String ILLEGAL_DUPLICATE_FLAG_DEFS_FOUND =
+      "Illegal Duplicate Flag Definitions: Flags names must be globally unique so that they can be specified on the " +
+      "command line.\n" +
+      "\tFound the following flags duplicated in the following modules:\n" +
+      "%s";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1734,5 +1742,32 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forIllegalMutableStaticValueDeclaration() {
     return new ClaroTypeException(ILLEGAL_MUTABLE_STATIC_VALUE_DECLARATION);
+  }
+
+  public static ClaroTypeException forIllegalFlagTypeDeclaration(ImmutableSet<Type> supportedFlagTypes) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_FLAG_TYPE_DECLARATION,
+            Joiner.on("\n\t- ").join(supportedFlagTypes)
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalDuplicateFlagDefsFound(
+      Map<String, List<String>> duplicatedFlagsToUniqueModuleNames) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_DUPLICATE_FLAG_DEFS_FOUND,
+            duplicatedFlagsToUniqueModuleNames.entrySet().stream()
+                .map(e -> {
+                  StringBuilder res = new StringBuilder("\t\t").append(e.getKey()).append(":\n");
+                  for (String definingModule : e.getValue()) {
+                    res.append("\t\t\t- ").append(definingModule).append("\n");
+                  }
+                  return res.toString();
+                })
+                .collect(Collectors.joining("\n"))
+        )
+    );
   }
 }

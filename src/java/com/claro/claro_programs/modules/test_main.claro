@@ -33,3 +33,5 @@ print(TestDep2::List([1]));
 print("Here's the definition of `TestDep::PI`: {TestDep::PI}");
 print("Here's the definition of `TestDep::SOME_LAZY_STATIC_VAL`: {TestDep::SOME_LAZY_STATIC_VAL}");
 print("`TestDep::SOME_LAZY_STATIC_VAL` was already initialized: {TestDep::SOME_LAZY_STATIC_VAL}");
+
+print("Here's a flag defined in a dep module: TEST_FLAG_2 = {Addition::TEST_FLAG_2}");

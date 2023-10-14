@@ -3,6 +3,7 @@ package com.claro.intermediate_representation;
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.statements.AtomDefinitionStmt;
+import com.claro.intermediate_representation.statements.FlagDefStmt;
 import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.StaticValueDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
@@ -23,6 +24,7 @@ import com.google.common.collect.Sets;
 import java.util.*;
 
 public class ModuleNode {
+  public final ImmutableList<FlagDefStmt> exportedFlagDefs;
   public final ImmutableList<StaticValueDefStmt> exportedStaticValueDefs;
   public final ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures;
   public final ImmutableList<AliasStmt> exportedAliasDefs;
@@ -43,6 +45,7 @@ public class ModuleNode {
   private ImmutableMap<String, Types.ProcedureType> moduleExportedProcedureSignatureTypes = null;
 
   public ModuleNode(
+      ImmutableList<FlagDefStmt> exportedFlagDefs,
       ImmutableList<StaticValueDefStmt> exportedStaticValueDefs,
       ImmutableList<ContractProcedureSignatureDefinitionStmt> exportedSignatures,
       ImmutableList<AliasStmt> exportedAliasDefs,
@@ -56,6 +59,7 @@ public class ModuleNode {
       ImmutableSet<String> depModulesTransitiveTypeExports,
       String moduleName,
       String uniqueModuleName) {
+    this.exportedFlagDefs = exportedFlagDefs;
     this.exportedStaticValueDefs = exportedStaticValueDefs;
     this.exportedSignatures = exportedSignatures;
     this.exportedAliasDefs = exportedAliasDefs;
@@ -318,6 +322,8 @@ public class ModuleNode {
 
   @AutoValue
   public static abstract class ModuleApiStmtsBuilder {
+    public abstract ImmutableList.Builder<FlagDefStmt> getFlagDefStmtsBuilder();
+
     public abstract ImmutableList.Builder<StaticValueDefStmt> getStaticValueDefStmtsBuilder();
 
     public abstract ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> getProcedureSignaturesBuilder();
@@ -342,7 +348,7 @@ public class ModuleNode {
 
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableList.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableList.builder());
     }
   }
 }

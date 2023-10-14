@@ -1,5 +1,9 @@
 # Just a simple test Module Api that I'll use to validate the ability to actually parse type signatures.
 
+# Modules are allowed to export Flags which will be lazily auto-parsed from the given cli args. Flags are computed
+# lazily so that you only pay for parsing costs if you actually use it.
+flag TEST_FLAG: string;
+
 # Modules are allowed to export `static` values that are computed on program start and immutable from that point
 # onwards. Their values are set by calling a corresponding provider function that is required to be present in the
 # module's impl srcs by the name `get<static val name>()` returning the static value's type. (In this example, `PI` is

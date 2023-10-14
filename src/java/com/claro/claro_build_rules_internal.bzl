@@ -32,6 +32,7 @@ CLARO_OPTIONAL_STDLIB_MODULE_DEPS = {
     "http": "//src/java/com/claro/stdlib/claro/http:http",
 }
 CLARO_BUILTIN_JAVA_DEPS = [
+    "//:google-options",
     "//:guava",
     "//:gson",
     # This addresses unwanted missing StaticLoggerBinder warning logs from SLF4J. This shouldn't be necessary anymore
@@ -53,6 +54,7 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "//src/java/com/claro/intermediate_representation/types:types",
     "//src/java/com/claro/intermediate_representation/types:type_provider",
     "//src/java/com/claro/runtime_utilities",
+    "//src/java/com/claro/runtime_utilities/flags:flags_util",
     "//src/java/com/claro/runtime_utilities/injector",
     "//src/java/com/claro/runtime_utilities/injector:key",
     "//src/java/com/claro/stdlib/userinput",

@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.statements.FlagDefStmt;
 import com.claro.intermediate_representation.statements.StaticValueDefStmt;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
@@ -161,6 +162,7 @@ parser code {:
 :}
 
 terminal LexedValue<String>  STATIC, LAZY;
+terminal LexedValue<String>  FLAG;
 terminal LexedValue<String>  LPAR, RPAR;
 terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
 terminal LexedValue<String>  SEMICOLON;
@@ -188,6 +190,7 @@ terminal LexedValue<String>  STRING, FMT_STRING_PART;
 nonterminal ModuleNode                         module;
 nonterminal ModuleNode.ModuleApiStmtsBuilder   module_api_defs;
 nonterminal StaticValueDefStmt                 static_value_def_stmt;
+nonterminal FlagDefStmt                        flag_def_stmt;
 nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
 nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
 nonterminal ImmutableList<String>              generic_blocking_on;
@@ -232,6 +235,7 @@ module ::=
     module_api_defs:module_api_defs
     {:
        RESULT = new ModuleNode(
+         module_api_defs.getFlagDefStmtsBuilder().build().reverse(),
          module_api_defs.getStaticValueDefStmtsBuilder().build().reverse(),
          module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
          module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
@@ -250,7 +254,12 @@ module ::=
   ;
 
 module_api_defs ::=
-    static_value_def_stmt:exported_static_val module_api_defs:tail
+    flag_def_stmt:exported_flag_def module_api_defs:tail
+    {:
+       tail.getFlagDefStmtsBuilder().add(exported_flag_def);
+       RESULT = tail;
+    :}
+  | static_value_def_stmt:exported_static_val module_api_defs:tail
     {:
        tail.getStaticValueDefStmtsBuilder().add(exported_static_val);
        RESULT = tail;
@@ -301,6 +310,12 @@ module_api_defs ::=
        RESULT = tail;
     :}
 
+  | flag_def_stmt:exported_flag_def
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getFlagDefStmtsBuilder().add(exported_flag_def);
+       RESULT = res;
+    :}
   | static_value_def_stmt:exported_static_val
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
@@ -360,6 +375,13 @@ module_api_defs ::=
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getHttpServiceDefsBuilder().add(http_service_def);
        RESULT = res;
+    :}
+  ;
+// TODO(steving) Support some syntax for flags having a configurable default value. Also docs that ClaroDocs could render.
+flag_def_stmt ::=
+    FLAG identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new FlagDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal());
     :}
   ;
 
