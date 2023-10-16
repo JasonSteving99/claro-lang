@@ -1,0 +1,8 @@
+
+provider static_SUBJECT() -> string {
+  match (env) {
+    case "dev" -> return "DEVS";
+    case "prod" -> return "Users";
+    case _ -> return env;
+  }
+}
