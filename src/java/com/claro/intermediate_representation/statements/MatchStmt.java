@@ -774,7 +774,8 @@ public class MatchStmt extends Stmt {
     res.javaSourceBody().append("$Match").append(this.matchId).append(" : { // Begin structured type match. \n");
     String syntheticMatchedStructuredTypeIdentifier;
     if (matchedExpr instanceof IdentifierReferenceTerm) {
-      syntheticMatchedStructuredTypeIdentifier = ((IdentifierReferenceTerm) matchedExpr).identifier;
+      syntheticMatchedStructuredTypeIdentifier =
+          matchedExpr.generateJavaSourceOutput(scopedHeap).javaSourceBody().toString();
     } else {
       syntheticMatchedStructuredTypeIdentifier = "$syntheticMatchedStructuredTypeIdentifier_$Match" + this.matchId;
       res.javaSourceBody()
