@@ -429,7 +429,7 @@ public class ClaroTypeException extends Exception {
       "\tName:\n" +
       "\t\t%s\n" +
       "\tSignature:\n" +
-      "\t\t%s\n";
+      "\t\t%s";
   private static final String MODULE_EXPORTED_PROCEDURE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
       "Module Exported Procedure Name Bound To Incorrect Implementation Type: Exported procedure `%s` is bound to " +
       "incorrect type in the given module implementation files.\n" +
@@ -437,6 +437,32 @@ public class ClaroTypeException extends Exception {
       "\t\t%s\n" +
       "\tExpected:\n" +
       "\t\t%s";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Opaque Type Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported opaque type to be defined:\n" +
+      "\tExpected:\n" +
+      "\t\tnewtype %s%s : <some %stype>";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Opaque Type Name Bound To Incorrect Implementation Type: Exported opaque type `%s` is bound to " +
+      "incorrect type in the given module implementation files.\n" +
+      "\tThe exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tExpected:\n" +
+      "\t\tnewtype %s%s : <some %stype>";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_HAS_WRONG_TYPE_PARAMS =
+      "Module Exported Opaque Type's Internal Definition Uses Incorrect Type Params: Exported opaque type's internal " +
+      "definition should use the type params declared in the .claro_module_api file.\n" +
+      "\tThe exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tFound:\n" +
+      "\t\tnewtype %s%s : %s";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_DOES_NOT_MATCH_DECLARED_MUTABILITY =
+      "Module Exported Opaque Type's Internal Definition Does Not Match Declared Mutability: Exported opaque type's " +
+      "internal definition should use the type params declared in the .claro_module_api file.\n" +
+      "\tThe declared mutability of the exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tDoes not match the mutability of the internal definition:\n" +
+      "\t\tnewtype %s%s : %s";
   private static final String MODULE_API_REFERENCES_TYPE_FROM_TRANSITIVE_DEP_MODULE_NOT_EXPLICITLY_EXPORTED =
       "Module API References Type Declared in non-Exported Dep Module: In order for a .claro_module_api to reference a" +
       " type defined in a dep Module, that dep Module must be explicitly included in the " +
@@ -1767,6 +1793,78 @@ public class ClaroTypeException extends Exception {
                   return res.toString();
                 })
                 .collect(Collectors.joining("\n"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeNotDefinedInModuleImplFiles(
+      String typeName, boolean isMutable, ImmutableList<String> parameterizedTypeNames) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            typeName,
+            parameterizedTypeNames.isEmpty()
+            ? ""
+            : String.format("<%s>", Joiner.on(", ").join(parameterizedTypeNames)),
+            isMutable ? "mut " : ""
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeNameBoundToIncorrectImplementationType(
+      String typeName, boolean isMutable, ImmutableList<String> parameterizedTypeNames) {
+    String typeParams =
+        parameterizedTypeNames.isEmpty()
+        ? ""
+        : String.format("<%s>", Joiner.on(", ").join(parameterizedTypeNames));
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            typeName,
+            isMutable ? "mut " : "",
+            typeName,
+            typeParams,
+            typeName,
+            typeParams,
+            isMutable ? "mut " : ""
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeInternalDefinitionHasWrongTypeParams(
+      String identifier, boolean isMutable, ImmutableList<String> expectedParameterizedTypeNames, ImmutableList<String> actualParameterizedTypes, Type actualWrappedType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_HAS_WRONG_TYPE_PARAMS,
+            isMutable ? "mut " : "",
+            identifier,
+            expectedParameterizedTypeNames.isEmpty()
+            ? ""
+            : expectedParameterizedTypeNames.stream().collect(Collectors.joining(", ", "<", ">")),
+            identifier,
+            actualParameterizedTypes.isEmpty()
+            ? ""
+            : actualParameterizedTypes.stream().collect(Collectors.joining(", ", "<", ">")),
+            actualWrappedType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeInternalDefinitionDoesNotMatchDeclaredMutability(
+      String identifier, boolean isMutable, ImmutableList<String> parameterizedTypeNames, Type type) {
+    String typeParams =
+        parameterizedTypeNames.isEmpty()
+        ? ""
+        : parameterizedTypeNames.stream().collect(Collectors.joining(", ", "<", ">"));
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_DOES_NOT_MATCH_DECLARED_MUTABILITY,
+            isMutable ? "mut " : "",
+            identifier,
+            typeParams,
+            identifier,
+            typeParams,
+            type
         )
     );
   }

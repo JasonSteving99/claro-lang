@@ -168,6 +168,7 @@ WhiteSpace     = [ \t\f]
     "newtype"          { return symbol(Tokens.NEWTYPE, 0, 7, "newtype"); }
     "initializers"     { return symbol(Tokens.INITIALIZERS, 0, 12, "initializers"); }
     "unwrappers"       { return symbol(Tokens.UNWRAPPERS, 0, 10, "unwrappers"); }
+    "opaque"           { return symbol(Tokens.OPAQUE, 0, 6, "opaque"); }
 
     "static"           { return symbol(Tokens.STATIC, 0, 6, "static"); }
     "lazy"             { return symbol(Tokens.LAZY, 0, 4, "lazy"); }

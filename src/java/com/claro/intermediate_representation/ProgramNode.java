@@ -193,6 +193,7 @@ public class ProgramNode {
     // actually being correctly satisfied by the given implementation files that were just validated.
     if (ProgramNode.moduleApiDef.isPresent()) {
       try {
+        ProgramNode.moduleApiDef.get().assertOpaqueTypesDefinedInternally(scopedHeap);
         ProgramNode.moduleApiDef.get().assertExpectedProceduresActuallyExported(scopedHeap);
         ProgramNode.moduleApiDef.get().assertExpectedContractImplementationsActuallyExported(scopedHeap);
         // Here we validate that if this module api actually references any types from dep modules that the dep module

@@ -30,6 +30,7 @@ public class ModuleNode {
   public final ImmutableList<AliasStmt> exportedAliasDefs;
   public final ImmutableList<AtomDefinitionStmt> exportedAtomDefs;
   public final ImmutableList<NewTypeDefStmt> exportedNewTypeDefs;
+  private final ImmutableList<OpaqueTypeDef> exportedOpaqueTypeDefs;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       initializersBlocks;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
@@ -51,6 +52,7 @@ public class ModuleNode {
       ImmutableList<AliasStmt> exportedAliasDefs,
       ImmutableList<AtomDefinitionStmt> exportedAtomDefs,
       ImmutableList<NewTypeDefStmt> exportedNewTypeDefs,
+      ImmutableList<OpaqueTypeDef> exportedOpaqueTypeDefs,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> initializersBlocks,
       ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>> unwrappersBlocks,
       ImmutableList<ContractDefinitionStmt> exportedContractDefs,
@@ -65,6 +67,7 @@ public class ModuleNode {
     this.exportedAliasDefs = exportedAliasDefs;
     this.exportedAtomDefs = exportedAtomDefs;
     this.exportedNewTypeDefs = exportedNewTypeDefs;
+    this.exportedOpaqueTypeDefs = exportedOpaqueTypeDefs;
     this.initializersBlocks = initializersBlocks;
     this.unwrappersBlocks = unwrappersBlocks;
     this.exportedContractDefs = exportedContractDefs;
@@ -187,6 +190,78 @@ public class ModuleNode {
       // "orphan rules" for traits.
       initializedTypeIdentfier.logTypeError(
           ClaroTypeException.forIllegalExportedInitializersBlockReferencingTypeFromDepModule(initializers));
+    }
+  }
+
+  public void assertOpaqueTypesDefinedInternally(ScopedHeap scopedHeap) {
+    for (OpaqueTypeDef opaqueTypeDef : this.exportedOpaqueTypeDefs) {
+      if (!scopedHeap.isIdentifierDeclared(opaqueTypeDef.getTypeName().identifier)) {
+        opaqueTypeDef.getTypeName().logTypeError(
+            ClaroTypeException.forModuleExportedOpaqueTypeNotDefinedInModuleImplFiles(
+                opaqueTypeDef.getTypeName().identifier,
+                opaqueTypeDef.getIsMutable(),
+                opaqueTypeDef.getParameterizedTypeNames()
+            ));
+        continue;
+      }
+      ScopedHeap.IdentifierData internalDefinitionIdentifierData =
+          scopedHeap.getIdentifierData(opaqueTypeDef.getTypeName().identifier);
+      if (!(internalDefinitionIdentifierData.isTypeDefinition
+            && internalDefinitionIdentifierData.type.baseType().equals(BaseType.USER_DEFINED_TYPE))) {
+        logError(
+            ClaroTypeException.forModuleExportedOpaqueTypeNameBoundToIncorrectImplementationType(
+                opaqueTypeDef.getTypeName().identifier,
+                opaqueTypeDef.getIsMutable(),
+                opaqueTypeDef.getParameterizedTypeNames()
+            ));
+        continue;
+      }
+
+      {
+        ImmutableList<String> actualTypeParamNames;
+        if (!opaqueTypeDef.getParameterizedTypeNames()
+            .equals(
+                actualTypeParamNames =
+                    Types.UserDefinedType.$typeParamNames.get(
+                        String.format(
+                            "%s$%s",
+                            opaqueTypeDef.getTypeName().identifier,
+                            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+                        )))) {
+          logError(
+              ClaroTypeException.forModuleExportedOpaqueTypeInternalDefinitionHasWrongTypeParams(
+                  opaqueTypeDef.getTypeName().identifier,
+                  opaqueTypeDef.getIsMutable(),
+                  opaqueTypeDef.getParameterizedTypeNames(),
+                  actualTypeParamNames,
+                  scopedHeap.getValidatedIdentifierType(
+                      String.format(
+                          "%s$%s$wrappedType",
+                          opaqueTypeDef.getTypeName().identifier,
+                          ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+                      ))
+              ));
+          continue;
+        }
+      }
+
+      // If the exported opaque type is declared to be mutable then the internal definition must be mutable, and vice
+      // versa.
+      if (opaqueTypeDef.getIsMutable() == Types.isDeeplyImmutable(internalDefinitionIdentifierData.type)) {
+        logError(
+            ClaroTypeException.forModuleExportedOpaqueTypeInternalDefinitionDoesNotMatchDeclaredMutability(
+                opaqueTypeDef.getTypeName().identifier,
+                opaqueTypeDef.getIsMutable(),
+                opaqueTypeDef.getParameterizedTypeNames(),
+                scopedHeap.getValidatedIdentifierType(
+                    String.format(
+                        "%s$%s$wrappedType",
+                        opaqueTypeDef.getTypeName().identifier,
+                        ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+                    ))
+            ));
+        continue;
+      }
     }
   }
 
@@ -334,6 +409,8 @@ public class ModuleNode {
 
     public abstract ImmutableList.Builder<NewTypeDefStmt> getNewTypeDefStmtsBuilder();
 
+    public abstract ImmutableList.Builder<OpaqueTypeDef> getOpaqueTypeDefStmtsBuilder();
+
     public abstract ImmutableMap.Builder<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
     getInitializersBlocksByTypeName();
 
@@ -348,7 +425,21 @@ public class ModuleNode {
 
     public static ModuleApiStmtsBuilder create() {
       return new AutoValue_ModuleNode_ModuleApiStmtsBuilder(
-          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableList.builder());
+          ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableMap.builder(), ImmutableList.builder(), ImmutableMap.builder(), ImmutableList.builder());
+    }
+  }
+
+  @AutoValue
+  public static abstract class OpaqueTypeDef {
+    public abstract IdentifierReferenceTerm getTypeName();
+
+    public abstract boolean getIsMutable();
+
+    public abstract ImmutableList<String> getParameterizedTypeNames();
+
+    public static OpaqueTypeDef create(
+        IdentifierReferenceTerm typeName, boolean isMutable, ImmutableList<String> parameterizedTypeNames) {
+      return new AutoValue_ModuleNode_OpaqueTypeDef(typeName, isMutable, parameterizedTypeNames);
     }
   }
 }

@@ -23,3 +23,12 @@ function intIdentity(i: int) -> int;
 function add(lhs: int, rhs: int) -> int;
 
 function identity<T>(t: T) -> T;
+
+
+# Here's an "Opaque Type" definition. Consumers of this module are not given access to the definition of the type that
+# this wraps. The only detail that's known from this definition is that this type is mutable meaning it can't be shared
+# across nodes in a graph procedure.
+opaque newtype mut OpaqueList<T>
+# This "Opaque Type" is deeply-immutable and thus has no restrictions on usage in graph procedures.
+opaque newtype ImmutableList<T>
+function immutableListOf<T>(elems: [T]) -> ImmutableList<T>;

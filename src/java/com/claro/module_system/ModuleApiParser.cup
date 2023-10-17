@@ -180,7 +180,7 @@ terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TU
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
-terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS;
+terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS, OPAQUE;
 terminal LexedValue<String>  CONTRACT, IMPLEMENT;
 terminal LexedValue<String>  REQUIRES;
 terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER, HTTP_RESPONSE;
@@ -204,6 +204,7 @@ nonterminal ContractProcedureSignatureDefinitionStmt generic_contract_procedure_
 nonterminal AliasStmt                          alias_stmt;
 nonterminal AtomDefinitionStmt                 atom_def_stmt;
 nonterminal NewTypeDefStmt                     newtype_def_stmt;
+nonterminal ModuleNode.OpaqueTypeDef           opaque_type_def_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ initializers_block_stmt;
 nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ unwrappers_block_stmt;
 nonterminal HttpServiceDefStmt                 http_service_def_stmt;
@@ -241,6 +242,7 @@ module ::=
          module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
          module_api_defs.getAtomDefStmtsBuilder().build().reverse(),
          module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
+         module_api_defs.getOpaqueTypeDefStmtsBuilder().build().reverse(),
          module_api_defs.getInitializersBlocksByTypeName().build(),
          module_api_defs.getUnwrappersBlocksByTypeName().build(),
          module_api_defs.getContractDefsBuilder().build().reverse(),
@@ -282,6 +284,11 @@ module_api_defs ::=
   | newtype_def_stmt:newtype_def_stmt module_api_defs:tail
     {:
        tail.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = tail;
+    :}
+  | opaque_type_def_stmt:opaque_type_def_stmt module_api_defs:tail
+    {:
+       tail.getOpaqueTypeDefStmtsBuilder().add(opaque_type_def_stmt);
        RESULT = tail;
     :}
   | initializers_block_stmt:initializers_block module_api_defs:tail
@@ -344,6 +351,12 @@ module_api_defs ::=
     {:
        ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
        res.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = res;
+    :}
+  | opaque_type_def_stmt:opaque_type_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getOpaqueTypeDefStmtsBuilder().add(opaque_type_def_stmt);
        RESULT = res;
     :}
   | initializers_block_stmt:initializers_block
@@ -1355,6 +1368,35 @@ newtype_def_stmt ::=
        LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
        // Use a disambiguation prefix for namespacing required by dep modules.
        RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(uniqueModuleName), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+    :}
+  ;
+
+// These opaque type defs allow modules to export types whose internal representation will not be exposed to consumers.
+// They solely communicate a name, and whether or not the type is deeply-immutable.
+opaque_type_def_stmt ::=
+    OPAQUE NEWTYPE identifier:type_name
+    {:
+      RESULT = ModuleNode.OpaqueTypeDef.create(type_name, /*isMutable=*/false, /*parameterized_type_names=*/ImmutableList.of());
+    :}
+  | OPAQUE NEWTYPE MUT identifier:type_name
+    {:
+      RESULT = ModuleNode.OpaqueTypeDef.create(type_name, /*isMutable=*/true, /*parameterized_type_names=*/ImmutableList.of());
+    :}
+  | OPAQUE NEWTYPE identifier:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET
+    {:
+      ImmutableList<String> parameterizedTypeNames =
+        ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse();
+      RESULT =
+        ModuleNode.OpaqueTypeDef.create(
+          type_name, /*isMutable=*/false, /*parameterized_type_names=*/parameterizedTypeNames);
+    :}
+  | OPAQUE NEWTYPE MUT identifier:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET
+    {:
+      ImmutableList<String> parameterizedTypeNames =
+        ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse();
+      RESULT =
+        ModuleNode.OpaqueTypeDef.create(
+          type_name, /*isMutable=*/true, /*parameterized_type_names=*/parameterizedTypeNames);
     :}
   ;
 

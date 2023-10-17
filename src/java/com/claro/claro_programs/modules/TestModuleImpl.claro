@@ -1,4 +1,8 @@
 
+newtype OpaqueList<T> : mut [T]
+newtype ImmutableList<T> : [T]
+
+
 # For any module exported static value, Claro validates that the the module's sources exports a provider function named
 # `static_<static value name>()` that returns the declared type of the static value.
 provider static_PI() -> float {
@@ -18,6 +22,11 @@ function intIdentity(i: int) -> int {
 function add(lhs: int, rhs: int) -> int {
   print("TESTING!!! HERE'S THE STATIC VALUE `PI`: {PI}");
   return lhs + rhs;
+}
+
+
+function immutableListOf<T>(elems: [T]) -> ImmutableList<T> {
+  return ImmutableList(elems);
 }
 
 print("Just validate that this works.");

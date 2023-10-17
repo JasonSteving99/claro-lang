@@ -19,7 +19,7 @@ public enum BaseType {
   ARRAY,
   LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.
-  TUPLE("(%s)", "ClaroTuple"),
+  TUPLE("tuple<%s>", "ClaroTuple"),
   SET("{%s}", "ClaroSet<%s>"),
   MAP("{%s: %s}", "ClaroMap<%s, %s>"),
   BUILDER(
