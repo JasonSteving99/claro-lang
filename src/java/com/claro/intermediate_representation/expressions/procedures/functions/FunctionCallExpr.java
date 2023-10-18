@@ -139,13 +139,22 @@ public class FunctionCallExpr extends Expr {
                ? this.name.substring(this.name.lastIndexOf('$') + 1)
                  + "$"
                  + ScopedHeap.getDefiningModuleDisambiguator(
-                  Optional.of(this.name.substring("$DEP_MODULE$" .length(), this.name.lastIndexOf('$'))))
+                  Optional.of(this.name.substring("$DEP_MODULE$".length(), this.name.lastIndexOf('$'))))
                : String.format(
                    "%s$%s",
                    this.name,
                    ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)
                ))
               + "$wrappedType"));
+      // Finally, it may be illegal to instantiate this type if it's actually an opaque type.
+      if (this.representsUserDefinedTypeConstructor.get().baseType()
+          .equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+        // There's actually no definition of the constructor function in this module since there was no procedure to
+        // import upon setting up the dep module imports, so log the exception and return.
+        logTypeError(
+            ClaroTypeException.forIllegalUseOfOpaqueUserDefinedTypeDefaultConstructor(referencedUserDefinedType));
+        return Types.UNKNOWABLE;
+      }
       this.name = this.name + "$constructor";
       referencedIdentifierType =
           TypeProvider.Util.getTypeByName(this.name, /*isTypeDefinition=*/false).resolveType(scopedHeap);

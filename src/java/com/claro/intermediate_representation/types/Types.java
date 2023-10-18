@@ -1895,6 +1895,61 @@ public final class Types {
     }
   }
 
+  @AutoValue
+  public abstract static class $SyntheticOpaqueTypeWrappedValueType
+      extends Type implements SupportsMutableVariant<$SyntheticOpaqueTypeWrappedValueType> {
+
+    public abstract boolean getIsMutable();
+
+    // This should *not* be used to expose this implementation detail to consumers of this type as that would validate
+    // the semantic constraints intended by a module's choice to export the type as an opaque type.
+    public abstract Type getActualWrappedTypeForCodegenPurposesOnly();
+
+    public static $SyntheticOpaqueTypeWrappedValueType create(boolean isMutable, Type actualWrappedType) {
+      // This is super trivial, but I may as well cache these. Look at me suddenly pretending like this compiler cares
+      // about performance...
+      return new AutoValue_Types_$SyntheticOpaqueTypeWrappedValueType(
+          BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE,
+          ImmutableMap.of(),
+          isMutable,
+          actualWrappedType
+      );
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
+    }
+
+    // This synthetic type should never show up at runtime.
+    @Override
+    public String getJavaSourceClaroType() {
+      return this.getActualWrappedTypeForCodegenPurposesOnly().getJavaSourceClaroType();
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return this.getActualWrappedTypeForCodegenPurposesOnly().getJavaSourceType();
+    }
+
+    @Override
+    public $SyntheticOpaqueTypeWrappedValueType toShallowlyMutableVariant() {
+      throw new RuntimeException("Internal Compiler Error! $SyntheticOpaqueTypeWrappedValueType::toShallowlyMutableVariant is not supported.");
+    }
+
+    @Override
+    public Optional<$SyntheticOpaqueTypeWrappedValueType> toDeeplyImmutableVariant() {
+      return this.getIsMutable() ? Optional.empty() : Optional.of(this);
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder().setOpaqueWrappedValueType(
+              TypeProtos.SyntheticOpaqueTypeWrappedValueType.newBuilder().setIsMutable(this.getIsMutable()))
+          .build();
+    }
+  }
+
 
   // This is gonna be used to convey to AutoValue that certain values are nullable and it will generate null-friendly
   // constructors and .equals() and .hashCode() methods.
@@ -1923,6 +1978,8 @@ public final class Types {
         case STRUCT:
           return ((StructType) type).getFieldTypes().stream()
               .allMatch(Types::isDeeplyImmutable);
+        case $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE:
+          return true; // Would've already returned false above if it was mutable.
         default:
           throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in isDeeplyImmutable()!");
       }
@@ -2135,6 +2192,11 @@ public final class Types {
                 httpServiceTypeProto.getServiceName(),
                 httpServiceTypeProto.getDefiningModuleDisambiguator()
             ));
+      case OPAQUE_WRAPPED_VALUE_TYPE:
+        return $SyntheticOpaqueTypeWrappedValueType.create(
+            typeProto.getOpaqueWrappedValueType().getIsMutable(),
+            parseTypeProto(typeProto.getOpaqueWrappedValueType().getActualWrappedType())
+        );
       default:
         throw new RuntimeException("Internal Compiler Error: This unknown proto type <" + typeProto.getTypeCase() +
                                    "> could not be deserialized.");

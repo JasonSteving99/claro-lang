@@ -818,15 +818,15 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       scopedHeap.putIdentifierValueAsTypeDef(
           String.format("%s$wrappedType", disambiguatedIdentifier), wrappedType, null);
       Types.UserDefinedType.$resolvedWrappedTypes.put(disambiguatedIdentifier, wrappedType);
-      // Register its constructor.
-      optionalModuleName.ifPresent(
-          moduleName -> {
-            Type cons = getProcedureTypeFromProto(exportedNewTypedef.getValue().getConstructor());
-            scopedHeap.putIdentifierValue(
-                String.format("$DEP_MODULE$%s$%s$constructor", moduleName, exportedNewTypedef.getKey()),
-                cons
-            );
-          });
+      // Register its constructor. However, there may be no constructor in the case of an opaque type that's not allowed
+      // to be constructed by consumers anyways.
+      if (optionalModuleName.isPresent() && exportedNewTypedef.getValue().hasConstructor()) {
+        Type cons = getProcedureTypeFromProto(exportedNewTypedef.getValue().getConstructor());
+        scopedHeap.putIdentifierValue(
+            String.format("$DEP_MODULE$%s$%s$constructor", optionalModuleName.get(), exportedNewTypedef.getKey()),
+            cons
+        );
+      }
     }
 
     // Register any AtomDefinitionStmts found in the module.
@@ -997,7 +997,9 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         procedureTypeProto = TypeProtos.TypeProto.newBuilder().setProvider(procedureProto.getProvider()).build();
         break;
       default:
-        throw new RuntimeException("Internal Compiler Error! Encountered unexpected procedure type while parsing newtype definition from .claro_module.");
+        throw new RuntimeException(
+            "Internal Compiler Error! Encountered unexpected procedure type while parsing newtype definition from .claro_module: " +
+            procedureProto.getProcedureTypeCase());
     }
     return (Types.ProcedureType) Types.parseTypeProto(procedureTypeProto);
   }
@@ -1061,6 +1063,43 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                                                 ))
                                             .build()
                                 )))
+                    // Add all exported Opaque Types as NewTypeDefs wrapping the synthetic opaque wrapped value type.
+                    .putAllExportedNewtypeDefsByName(
+                        ProgramNode.moduleApiDef.get().exportedOpaqueTypeDefs.stream()
+                            .collect(ImmutableMap.toImmutableMap(
+                                opaqueTypeDef -> opaqueTypeDef.getTypeName().identifier,
+                                opaqueTypeDef ->
+                                    SerializedClaroModule.ExportedTypeDefinitions.NewTypeDef.newBuilder()
+                                        .setUserDefinedType(
+                                            TypeProtos.UserDefinedType.newBuilder()
+                                                .setTypeName(opaqueTypeDef.getTypeName().identifier)
+                                                .setDefiningModuleDisambiguator(uniqueModuleName)
+                                                .addAllParameterizedTypes(
+                                                    opaqueTypeDef.getParameterizedTypeNames().stream()
+                                                        .map(n ->
+                                                                 TypeProtos.TypeProto.newBuilder()
+                                                                     .setGenericTypeParam(
+                                                                         TypeProtos.GenericTypeParam.newBuilder()
+                                                                             .setName(n))
+                                                                     .build())
+                                                        .collect(ImmutableList.toImmutableList())))
+                                        .setWrappedType(
+                                            TypeProtos.TypeProto.newBuilder().setOpaqueWrappedValueType(
+                                                TypeProtos.SyntheticOpaqueTypeWrappedValueType.newBuilder()
+                                                    .setIsMutable(opaqueTypeDef.getIsMutable())
+                                                    .setActualWrappedType(
+                                                        scopedHeap.getValidatedIdentifierType(
+                                                                String.format(
+                                                                    "%s$%s$wrappedType",
+                                                                    opaqueTypeDef.getTypeName().identifier,
+                                                                    uniqueModuleName
+                                                                ))
+                                                            .toProto())))
+                                        .addAllTypeParamNames(opaqueTypeDef.getParameterizedTypeNames())
+                                        // Intentionally do not set the constructor as it's illegal to construct an
+                                        // opaque type.
+                                        .build()
+                            )))
                     .putAllInitializersByTypeName(
                         ProgramNode.moduleApiDef.get().initializersBlocks.entrySet().stream()
                             .collect(ImmutableMap.toImmutableMap(

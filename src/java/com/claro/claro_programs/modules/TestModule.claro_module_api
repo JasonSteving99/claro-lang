@@ -31,4 +31,7 @@ function identity<T>(t: T) -> T;
 opaque newtype mut OpaqueList<T>
 # This "Opaque Type" is deeply-immutable and thus has no restrictions on usage in graph procedures.
 opaque newtype ImmutableList<T>
+# In order to interact with the above opaque type, consumers of this module *must* use the below functions. There is no
+# other possible way to actually interact with these types beyond aggregating them and passing them around.
 function immutableListOf<T>(elems: [T]) -> ImmutableList<T>;
+function immutableListHead<T>(list: ImmutableList<T>) -> T;

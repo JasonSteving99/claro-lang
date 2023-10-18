@@ -230,7 +230,12 @@ public enum BaseType {
 
   // These are synthetic types that exist solely for the sake of artificially creating a terminating sentinal type to
   // prevent unbounded recursion within a recursively defined type alias or user-defined type.
-  ALIAS_SELF_REFERENCE;
+  ALIAS_SELF_REFERENCE,
+
+  // This is a synthetic type that exists solely to represent the wrapped type for an opaque type imported from some dep
+  // module that doesn't allow consuming modules to access its definition. This synthetic type is a placeholder whose
+  // only intended usage is to signal whether this opaque type is deeply-immutable.
+  $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE;
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;

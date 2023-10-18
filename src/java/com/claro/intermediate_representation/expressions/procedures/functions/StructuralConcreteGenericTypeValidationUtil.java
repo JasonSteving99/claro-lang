@@ -338,6 +338,23 @@ public class StructuralConcreteGenericTypeValidationUtil {
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");
       }
+    } else if (functionExpectedArgType.baseType().equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+      // Really this path should only ever be taken by CopyExpr.java which needs to support copying opaque types.
+      if (actualArgExprType.baseType().equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+        // Just need to unwrap both opaque types and continue with the established logic as if this opaque layer doesn't
+        // exist.
+        return validateArgExprsAndExtractConcreteGenericTypeParams(
+            genericTypeParamTypeHashMap,
+            ((Types.$SyntheticOpaqueTypeWrappedValueType) functionExpectedArgType).getActualWrappedTypeForCodegenPurposesOnly(),
+            ((Types.$SyntheticOpaqueTypeWrappedValueType) actualArgExprType).getActualWrappedTypeForCodegenPurposesOnly(),
+            inferConcreteTypes,
+            optionalTypeCheckingCodegenForDynamicDispatch,
+            optionalTypeCheckingCodegenPath,
+            optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+            withinNestedCollectionTypeNotSupportingDynDispatch
+        );
+      }
+      throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
     } else {
       // Otherwise, this is not a generic type param position, and we need to validate this arg against the
       // actual concrete type in the function signature.

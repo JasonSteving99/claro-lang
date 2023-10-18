@@ -221,8 +221,6 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String ILLEGAL_EXPORTED_INITIALIZERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE =
       "Illegally Exporting an %s Block for a Type Defined in a Dep Module: In order for Claro's incremental compilation scheme to function properly, a Module may only export %s blocks for their own explicitly exported type definitions.";
-  private static final String ILLEGAL_EXPORTED_UNWRAPPERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE =
-      "Illegally Exporting an Unwrappers Block for a Type Defined in a Dep Module: In order for Claro's incremental compilation scheme to function properly, a Module may only export unwrappers blocks for their own explicitly exported type definitions.";
   private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES =
       "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
       "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
@@ -231,6 +229,11 @@ public class ClaroTypeException extends Exception {
       "Illegal Use of User-Defined Type Unwrapper Outside of Unwrappers Block: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to use the type's default `unwrap()` function directly.\n" +
       "\t\tInstead, to unwrap an instance of this type, consider calling one of the defined unwrappers:\n" +
       "%s";
+  private static final String ILLEGAL_USE_OF_OPAQUE_TYPE_UNWRAPPER =
+      "Illegal Attempted Unwrap of Opaque Type: Direct use of `unwrap()` over opaque types is forbidden. Only the " +
+      "defining module is able to access the internal value of an opaque type. Reference the defining module's api " +
+      "to determine which exported procedures (if any) can be deferred to to operate over this opaque type instead of " +
+      "attempting to unwrap the value directly.";
   private static final String ILLEGAL_IMPLICIT_UNWRAP_OF_OPAQUE_USER_DEFINED_TYPE_IN_MATCH_PATTERN =
       "Illegal Implicit Unwrap of Opaque User-Defined Type in Match Pattern: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to implicitly `unwrap()` values of this type by attempting to pattern match the wrapped value.\n" +
       "\t\tFor example, the following case pattern:\n" +
@@ -539,6 +542,10 @@ public class ClaroTypeException extends Exception {
       "command line.\n" +
       "\tFound the following flags duplicated in the following modules:\n" +
       "%s";
+  private static final String ILLEGAL_USE_OF_OPAQUE_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR =
+      "Illegal Attempt to Initialize Opaque Type: An opaque type may only be instantiated by its defining module. In " +
+      "order to get an instance of `%s`, reference the defining module to find an exported procedure or static value " +
+      "of the desired type.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -1302,6 +1309,9 @@ public class ClaroTypeException extends Exception {
 
   public static ClaroTypeException forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
       Type userDefinedType, Collection<String> unwrapperProcedureTypes) {
+    if (unwrapperProcedureTypes == null) {
+      return new ClaroTypeException(ILLEGAL_USE_OF_OPAQUE_TYPE_UNWRAPPER);
+    }
     return new ClaroTypeException(
         String.format(
             ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_UNWRAPPER_OUTSIDE_OF_UNWRAPPER_PROCEDURES,
@@ -1865,6 +1875,16 @@ public class ClaroTypeException extends Exception {
             identifier,
             typeParams,
             type
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalUseOfOpaqueUserDefinedTypeDefaultConstructor(
+      Type referencedUserDefinedType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_OPAQUE_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR,
+            referencedUserDefinedType
         )
     );
   }

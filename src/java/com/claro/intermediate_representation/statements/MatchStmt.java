@@ -203,7 +203,7 @@ public class MatchStmt extends Stmt {
         return; // Supported!
       case USER_DEFINED_TYPE:
         // Don't want to duplicate the unwrap validation logic, so I'll defer to the Expr node impl.
-        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedExprType)) {
+        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal(scopedHeap, (Types.UserDefinedType) matchedExprType)) {
           invalidTypesFound.add(matchedExprType);
           // Unknowable works since we'll actually only allow wildcard matches of this particular opaque user-defined type.
           flattenedMatchValueTypes.add(Types.UNKNOWABLE);
@@ -1059,7 +1059,7 @@ public class MatchStmt extends Stmt {
             &&
             !((patternParts.get(0) instanceof MaybeWildcardPrimitivePattern
                && !((MaybeWildcardPrimitivePattern) patternParts.get(0)).isWildcardBinding())
-              || UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) matchedType))) {
+              || UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal(scopedHeap, (Types.UserDefinedType) matchedType))) {
           this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
               matchedType,
               ((Types.UserDefinedType) matchedType).getTypeName()
@@ -1113,7 +1113,7 @@ public class MatchStmt extends Stmt {
         // Quickly make sure that unwraps of UserDefinedType variants would be legal.
         for (Type t : actualMatchedTypeVariants) {
           if (t.baseType().equals(BaseType.USER_DEFINED_TYPE)
-              && !UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) t)) {
+              && !UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal(scopedHeap, (Types.UserDefinedType) t)) {
             this.matchedExpr.logTypeError(ClaroTypeException.forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
                 matchedType,
                 ((Types.UserDefinedType) t).getTypeName()
@@ -1133,7 +1133,7 @@ public class MatchStmt extends Stmt {
         AtomicReference<ImmutableList<ImmutableSet<Type>>> invertedOneofFlattenedPatternTypes_OUT_PARAM =
             new AtomicReference<>();
         Type invertedOneofMatchedVariant =
-            invertOneof(actualMatchedTypeVariants, patternMarkedMut, invertedOneofFlattenedPatternTypes_OUT_PARAM);
+            invertOneof(actualMatchedTypeVariants, patternMarkedMut, invertedOneofFlattenedPatternTypes_OUT_PARAM, scopedHeap);
         optionalInvertedOneofMatchedVariant = Optional.of(invertedOneofMatchedVariant);
         optionalInvertedOneofFlattenedPatternTypes =
             Optional.of(invertedOneofFlattenedPatternTypes_OUT_PARAM.get().stream()
@@ -1228,7 +1228,11 @@ public class MatchStmt extends Stmt {
   }
 
   // E.g. oneof<tuple<int, string>, tuple<string, int>>  -> tuple<oneof<int, string>, oneof<string, int>>
-  private static Type invertOneof(ImmutableList<Type> variantsToInvert, boolean patternMarkedMut, AtomicReference<ImmutableList<ImmutableSet<Type>>> invertedOneofFlattenedPatternTypes_OUT_PARAM) {
+  private static Type invertOneof(
+      ImmutableList<Type> variantsToInvert,
+      boolean patternMarkedMut,
+      AtomicReference<ImmutableList<ImmutableSet<Type>>> invertedOneofFlattenedPatternTypes_OUT_PARAM,
+      ScopedHeap scopedHeap) {
     // Easy enough if there's actually only a single variant, then it turns out there's really no inversion to be done.
     Optional<Type> precomputedRes = Optional.empty();
     if (variantsToInvert.size() == 1) {
@@ -1296,7 +1300,7 @@ public class MatchStmt extends Stmt {
                 patternMarkedMut
             ));
       case USER_DEFINED_TYPE:
-        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal((Types.UserDefinedType) variantsToInvert.get(0))) {
+        if (!UnwrapUserDefinedTypeExpr.validateUnwrapIsLegal(scopedHeap, (Types.UserDefinedType) variantsToInvert.get(0))) {
           // Turns out there's no way that the pattern can be anything other than a wildcard anyways so this doesn't matter.
           invertedOneofFlattenedPatternTypes_OUT_PARAM.set(
               ImmutableList.of(ImmutableSet.of(Types.UNKNOWABLE)));

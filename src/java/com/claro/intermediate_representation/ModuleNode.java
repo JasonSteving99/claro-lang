@@ -30,7 +30,7 @@ public class ModuleNode {
   public final ImmutableList<AliasStmt> exportedAliasDefs;
   public final ImmutableList<AtomDefinitionStmt> exportedAtomDefs;
   public final ImmutableList<NewTypeDefStmt> exportedNewTypeDefs;
-  private final ImmutableList<OpaqueTypeDef> exportedOpaqueTypeDefs;
+  public final ImmutableList<OpaqueTypeDef> exportedOpaqueTypeDefs;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>
       initializersBlocks;
   public final ImmutableMap<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>

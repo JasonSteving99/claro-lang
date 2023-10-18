@@ -28,5 +28,8 @@ function add(lhs: int, rhs: int) -> int {
 function immutableListOf<T>(elems: [T]) -> ImmutableList<T> {
   return ImmutableList(elems);
 }
+function immutableListHead<T>(list: ImmutableList<T>) -> T {
+  return unwrap(list)[0];
+}
 
 print("Just validate that this works.");
