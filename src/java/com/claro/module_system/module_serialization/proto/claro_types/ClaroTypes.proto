@@ -110,6 +110,9 @@ message HttpServerType {
 }
 message SyntheticOpaqueTypeWrappedValueType {
   bool is_mutable = 1;
+  // This is only tracked in order for codegen to use correct Java type annotations, this should not be exposed to Claro
+  // users in order to maintain the "opaque" semantics.
+  TypeProto actualWrappedType = 2;
 }
 
 // Placing any utility protos that aren't directly types themselves below this line in order to keep top-level Types
