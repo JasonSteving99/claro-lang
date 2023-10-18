@@ -71,11 +71,6 @@ message SerializedClaroModule {
       repeated string type_param_names = 3;
       Procedure constructor = 4;
     }
-    message OpaqueTypeDef {
-      claro.module_system.module_serialization.claro_types.UserDefinedType user_defined_type = 1;
-      bool is_mutable = 2;
-      repeated string type_param_names = 3;
-    }
     // Literally just a simple wrapper type in order to have a map with list values.
     message ProcedureList {
       repeated Procedure procedures = 1;
@@ -84,7 +79,6 @@ message SerializedClaroModule {
     map<string, NewTypeDef> exported_newtype_defs_by_name = 2;
     map<string, ProcedureList> initializers_by_type_name = 3;
     map<string, ProcedureList> unwrappers_by_type_name = 4;
-    repeated OpaqueTypeDef exported_opaque_type_defs = 5;
   }
 
   message ExportedFlagDefinitions {
