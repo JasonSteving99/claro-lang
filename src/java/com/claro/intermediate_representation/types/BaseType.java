@@ -235,7 +235,16 @@ public enum BaseType {
   // This is a synthetic type that exists solely to represent the wrapped type for an opaque type imported from some dep
   // module that doesn't allow consuming modules to access its definition. This synthetic type is a placeholder whose
   // only intended usage is to signal whether this opaque type is deeply-immutable.
-  $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE;
+  $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE,
+
+  // This is an internal-only type that's used to hold the java type defined by a .claro_internal src file as the
+  // implementation type of an exported opaque type. This is used to enable the creation of officially supported
+  // modules providing access to any manner of pre-existing functionality from the Java ecosystem to the Claro ecosystem
+  // in a curated manner. This obvious workaround allows a standardized approach to exposing Java types to Claro
+  // programs in a way that avoids every single type requiring compiler intrinsics support (e.g. new lexing tokens,
+  // grammar rules, AST nodes etc.). Use of this type is *extremely* unsafe, easily leading to an "unsound" type system
+  // if used incorrectly, so there's no concrete plan to expose this to users in any way.
+  $JAVA_TYPE;
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;

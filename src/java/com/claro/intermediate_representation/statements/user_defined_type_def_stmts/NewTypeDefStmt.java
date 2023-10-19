@@ -50,7 +50,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
 
     // Register the custom type and its corresponding wrapped type *SEPERATELY*! This is the key difference that enables
     // newtype defs to avoid the infinite recursion hell that alias defs run into.
-    scopedHeap.putIdentifierValue(
+    scopedHeap.putIdentifierValueAsTypeDef(
         this.typeName,
         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
             this.typeName,
@@ -60,7 +60,6 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
         ),
         null
     );
-    scopedHeap.markIdentifierAsTypeDefinition(this.typeName);
     // Just so that the codegen later on has access, let's immediately register the type param names.
     if (!this.parameterizedTypeNames.isEmpty()) {
       Types.UserDefinedType.$typeParamNames.put(
@@ -75,8 +74,9 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
 
     // Register a null type since it's not yet resolved, and then abuse its Object value field temporarily to hold the
     // TypeProvider that will be used for type-resolution in the later phase. Mimicking the AliasStmt approach.
+    String wrappedTypeIdentifier = getWrappedTypeIdentifier();
     scopedHeap.putIdentifierValue(
-        getWrappedTypeIdentifier(),
+        wrappedTypeIdentifier,
         null,
         (TypeProvider) (scopedHeap1) -> {
           // In order to identify and reject impossible recursive type definitions, we need to be able to track whether
@@ -127,7 +127,7 @@ public class NewTypeDefStmt extends Stmt implements UserDefinedTypeDefinitionStm
           return res;
         }
     );
-    scopedHeap.markIdentifierAsTypeDefinition(getWrappedTypeIdentifier());
+    scopedHeap.markIdentifierAsTypeDefinition(wrappedTypeIdentifier);
   }
 
   public void registerConstructorTypeProvider(ScopedHeap scopedHeap) {

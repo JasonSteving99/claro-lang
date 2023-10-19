@@ -222,12 +222,14 @@ public class ModuleNode {
         if (!opaqueTypeDef.getParameterizedTypeNames()
             .equals(
                 actualTypeParamNames =
-                    Types.UserDefinedType.$typeParamNames.get(
-                        String.format(
-                            "%s$%s",
-                            opaqueTypeDef.getTypeName().identifier,
-                            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
-                        )))) {
+                    Optional.ofNullable(
+                            Types.UserDefinedType.$typeParamNames.get(
+                                String.format(
+                                    "%s$%s",
+                                    opaqueTypeDef.getTypeName().identifier,
+                                    ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+                                )))
+                        .orElse(ImmutableList.of()))) {
           logError(
               ClaroTypeException.forModuleExportedOpaqueTypeInternalDefinitionHasWrongTypeParams(
                   opaqueTypeDef.getTypeName().identifier,
@@ -275,6 +277,23 @@ public class ModuleNode {
     syntheticModuleAPIScopedHeap.enterNewScope();
     // Setup this synthetic scoped heap with the types that are declared in this module.
     this.registerExportedTypeDefs(syntheticModuleAPIScopedHeap);
+    // Separately register all of the opaque type defs here. This isn't included in the
+    // ModuleNode::registerExportedTypeDefs just because we don't actually want the opaque types from the api file
+    // conflicting with their associated newtype defs in the implementation srcs during the main type validation passes.
+    for (OpaqueTypeDef exportedOpaqueTypeDef : this.exportedOpaqueTypeDefs) {
+      syntheticModuleAPIScopedHeap.putIdentifierValueAsTypeDef(
+          exportedOpaqueTypeDef.getTypeName().identifier,
+          Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              exportedOpaqueTypeDef.getTypeName().identifier,
+              this.uniqueModuleName,
+              exportedOpaqueTypeDef.getParameterizedTypeNames()
+                  .stream()
+                  .map(Types.$GenericTypeParam::forTypeParamName)
+                  .collect(ImmutableList.toImmutableList())
+          ),
+          null
+      );
+    }
     // Register all user-defined-types exported by all the dep modules in the synthetic scoped heap so that the
     // procedure signatures may reference dep module exported types.
     for (Map.Entry<String, SerializedClaroModule.ExportedTypeDefinitions> depModuleExportedTypes :

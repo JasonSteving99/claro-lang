@@ -1921,6 +1921,11 @@ public final class Types {
       return this.getIsMutable();
     }
 
+    @Override
+    public String toString() {
+      return "...";
+    }
+
     // This synthetic type should never show up at runtime.
     @Override
     public String getJavaSourceClaroType() {
@@ -1947,6 +1952,90 @@ public final class Types {
       return TypeProto.newBuilder().setOpaqueWrappedValueType(
               TypeProtos.SyntheticOpaqueTypeWrappedValueType.newBuilder().setIsMutable(this.getIsMutable()))
           .build();
+    }
+  }
+
+  @AutoValue
+  public abstract static class $JavaType extends Type implements SupportsMutableVariant<$JavaType> {
+    public abstract boolean getIsMutable();
+
+    // E.g. For type defined:
+    //     newtype MapFn<In, Out> : $java_type<In, Out>("java.util.function.Function<%s, %s>")
+    // and the following concrete parameterization:
+    //     MapFn<[int], int>
+    // the following codegen will be emitted:
+    //     java.util.function.Function<ClaroList<Integer>, Integer>
+    public abstract String getFullyQualifiedJavaTypeFmtStr();
+
+    public static $JavaType create(boolean isMutable, ImmutableList<Type> parameterizedTypes, String fullyQualifiedJavaTypeFmtStr) {
+      return new AutoValue_Types_$JavaType(
+          BaseType.$JAVA_TYPE,
+          IntStream.range(0, parameterizedTypes.size()).boxed()
+              .collect(ImmutableMap.toImmutableMap(
+                  // This is limiting the usage of these types to parameterizing over generic types.
+                  Object::toString,
+                  parameterizedTypes::get
+              )),
+          isMutable,
+          fullyQualifiedJavaTypeFmtStr
+      );
+    }
+
+    @Override
+    public String toString() {
+      return "...";
+    }
+
+    @Override
+    public String getJavaSourceType() {
+      return String.format(
+          this.getFullyQualifiedJavaTypeFmtStr(),
+          this.parameterizedTypeArgs().values().stream().map(Type::getJavaSourceType).toArray()
+      );
+    }
+
+    @Override
+    public String getJavaSourceClaroType() {
+      return String.format(
+          "Types.$JavaType.create(%s, ImmutableList.of(%s), \"%s\")",
+          this.getIsMutable(),
+          this.parameterizedTypeArgs().values().stream()
+              .map(Type::getJavaSourceClaroType)
+              .collect(Collectors.joining(", ")),
+          this.getFullyQualifiedJavaTypeFmtStr()
+      );
+    }
+
+    @Override
+    public TypeProto toProto() {
+      return TypeProto.newBuilder()
+          .setSyntheticJavaType(
+              TypeProtos.SyntheticJavaType.newBuilder()
+                  .setIsMutable(this.getIsMutable())
+                  .addAllParameterizedTypes(
+                      this.parameterizedTypeArgs().values().stream().map(Type::toProto).collect(Collectors.toList()))
+                  .setFullyQualifiedJavaTypeFmtStr(this.getFullyQualifiedJavaTypeFmtStr())
+          ).build();
+    }
+
+    @Override
+    public boolean isMutable() {
+      return this.getIsMutable();
+    }
+
+    @Override
+    public $JavaType toShallowlyMutableVariant() {
+      return $JavaType.create(
+          /*isMutable=*/true, this.parameterizedTypeArgs().values().asList(), this.getFullyQualifiedJavaTypeFmtStr());
+    }
+
+    @Override
+    public Optional<$JavaType> toDeeplyImmutableVariant() {
+      if (!this.getIsMutable()) {
+        return Optional.of(this);
+      }
+      // There's no way to coerce a $JavaType to be immutable if it isn't already.
+      return Optional.empty();
     }
   }
 
@@ -1979,6 +2068,8 @@ public final class Types {
           return ((StructType) type).getFieldTypes().stream()
               .allMatch(Types::isDeeplyImmutable);
         case $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE:
+          return true; // Would've already returned false above if it was mutable.
+        case $JAVA_TYPE:
           return true; // Would've already returned false above if it was mutable.
         default:
           throw new RuntimeException("Internal Compiler Error: Unsupported structured type found in isDeeplyImmutable()!");
@@ -2193,9 +2284,19 @@ public final class Types {
                 httpServiceTypeProto.getDefiningModuleDisambiguator()
             ));
       case OPAQUE_WRAPPED_VALUE_TYPE:
+        TypeProtos.SyntheticOpaqueTypeWrappedValueType opaqueTypeProto = typeProto.getOpaqueWrappedValueType();
         return $SyntheticOpaqueTypeWrappedValueType.create(
-            typeProto.getOpaqueWrappedValueType().getIsMutable(),
+            opaqueTypeProto.getIsMutable(),
             parseTypeProto(typeProto.getOpaqueWrappedValueType().getActualWrappedType())
+        );
+      case SYNTHETIC_JAVA_TYPE:
+        TypeProtos.SyntheticJavaType javaTypeProto = typeProto.getSyntheticJavaType();
+        return $JavaType.create(
+            javaTypeProto.getIsMutable(),
+            javaTypeProto.getParameterizedTypesList().stream()
+                .map(Types::parseTypeProto)
+                .collect(ImmutableList.toImmutableList()),
+            javaTypeProto.getFullyQualifiedJavaTypeFmtStr()
         );
       default:
         throw new RuntimeException("Internal Compiler Error: This unknown proto type <" + typeProto.getTypeCase() +

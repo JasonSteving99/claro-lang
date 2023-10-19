@@ -341,7 +341,7 @@ terminal LexedValue<String>  FUTURE, BLOCKING_GET, BLOCKING, MAYBE_BLOCKING, GRA
 terminal LexedValue<String>  CONTRACT, IMPLEMENT, REQUIRES;
 terminal LexedValue<String>  CAST;
 terminal LexedValue<String>  HTTP_SERVICE, HTTP_CLIENT, GET_HTTP_CLIENT, HTTP_SERVER, HTTP_RESPONSE, ENDPOINT_HANDLERS, GET_BASIC_HTTP_SERVER_FOR_PORT;
-terminal LexedValue<String>  PRIVILEGED_INLINE_JAVA;
+terminal LexedValue<String>  PRIVILEGED_INLINE_JAVA, SYNTHETIC_JAVA_TYPE;
 
 // DEBUGGING keywords which should be removed when we want a real release....
 terminal LexedValue<String>  DEBUG_DUMP_SCOPE;
@@ -1321,6 +1321,46 @@ base_builtin_type_without_mutability_modifier ::=
               }
               return Types.HttpServerType.forHttpService(resolvedHttpServiceType);
             },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | SYNTHETIC_JAVA_TYPE:j LPAR:lp STRING:fully_qualified_java_type_fmt_str RPAR:rp
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(j.getCurrentInputLine(), jright), new Line(fully_qualified_java_type_fmt_str.getCurrentInputLine(), fully_qualified_java_type_fmt_strright), new Line(lp.getCurrentInputLine(), lpright), new Line(rp.getCurrentInputLine(), rpright));
+       int startCol = min(jleft, lpleft, fully_qualified_java_type_fmt_strleft, rpleft);
+       int endCol = max(jleft + j.getLen(), lpleft + lp.getLen(), fully_qualified_java_type_fmt_strleft + fully_qualified_java_type_fmt_str.getLen(), rpleft + rp.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          jright, // line number
+          LexedValue.create(
+            TypeProvider.ImmediateTypeProvider.of(
+              Types.$JavaType.create(/*isMutable=*/false, ImmutableList.of(), fully_qualified_java_type_fmt_str.getVal())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | SYNTHETIC_JAVA_TYPE:j L_ANGLE_BRACKET:la builtin_types_list:parameterized_type_names R_ANGLE_BRACKET:ra LPAR:lp STRING:fully_qualified_java_type_fmt_str RPAR:rp
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) parameterized_type_names.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(j.getCurrentInputLine(), jright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), parameterized_type_names.right), new Line(ra.getCurrentInputLine(), raright), new Line(fully_qualified_java_type_fmt_str.getCurrentInputLine(), fully_qualified_java_type_fmt_strright), new Line(lp.getCurrentInputLine(), lpright), new Line(rp.getCurrentInputLine(), rpright));
+       int startCol = min(jleft, laleft, parameterized_type_names.left, raleft, lpleft, fully_qualified_java_type_fmt_strleft, rpleft);
+       int endCol = max(jleft + j.getLen(), laleft + la.getLen(), parameterized_type_names.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen(), lpleft + lp.getLen(), fully_qualified_java_type_fmt_strleft + fully_qualified_java_type_fmt_str.getLen(), rpleft + rp.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          jright, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) ->
+              Types.$JavaType.create(
+                /*isMutable=*/false,
+                concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()),
+                fully_qualified_java_type_fmt_str.getVal()),
             currentLinesSupplier,
             endCol - startCol)
        );

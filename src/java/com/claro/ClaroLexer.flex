@@ -234,6 +234,13 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                           handleUnknownToken();
                         }
                       }
+    "$java_type"      {
+                        if (supportPrivilegedInlineJava) {
+                          return symbol(Tokens.SYNTHETIC_JAVA_TYPE, 0, 10, "$java_type");
+                        } else {
+                          handleUnknownToken();
+                        }
+                      }
 
     // Builtin Types.
     "int"              { return symbol(Tokens.INT_TYPE, 0, 3, "int"); }
