@@ -117,7 +117,7 @@ message SyntheticOpaqueTypeWrappedValueType {
 }
 message SyntheticJavaType {
   bool is_mutable = 1;
-  repeated string parameterizedTypeNames = 2;
+  repeated TypeProto parameterizedTypes = 2;
   string fullyQualifiedJavaTypeFmtStr = 3;
 }
 
