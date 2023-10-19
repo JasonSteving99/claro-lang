@@ -26,6 +26,7 @@ message TypeProto {
     HttpClientType http_client = 16;
     HttpServerType http_server = 17;
     SyntheticOpaqueTypeWrappedValueType opaque_wrapped_value_type = 18;
+    SyntheticJavaType synthetic_java_type = 19;
   }
 }
 
@@ -113,6 +114,10 @@ message SyntheticOpaqueTypeWrappedValueType {
   // This is only tracked in order for codegen to use correct Java type annotations, this should not be exposed to Claro
   // users in order to maintain the "opaque" semantics.
   TypeProto actual_wrapped_type = 2;
+}
+message SyntheticJavaType {
+  repeated string parameterizedTypeNames = 1;
+  string fullyQualifiedJavaTypeFmtStr = 2;
 }
 
 // Placing any utility protos that aren't directly types themselves below this line in order to keep top-level Types
