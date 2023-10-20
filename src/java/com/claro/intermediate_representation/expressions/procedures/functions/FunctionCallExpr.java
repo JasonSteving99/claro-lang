@@ -80,7 +80,8 @@ public class FunctionCallExpr extends Expr {
         "No function <%s> within the current scope!",
         this.name
     );
-    Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.name);
+    ScopedHeap.IdentifierData referencedIdentifierData = scopedHeap.getIdentifierData(this.name);
+    Type referencedIdentifierType = referencedIdentifierData.type;
     // It's possible that this is a default constructor call for a custom type. If it's being called textually "before"
     // the definition of the type, then the type may not actually be resolved yet, so resolve it now.
     if (referencedIdentifierType == null) {
@@ -88,12 +89,11 @@ public class FunctionCallExpr extends Expr {
     }
     Preconditions.checkState(
         // Include CONSUMER_FUNCTION just so that later we can throw a more specific error for that case.
-        ImmutableSet.of(
-                BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION,
-                // UserDefinedType's are also valid as references to default constructors.
-                BaseType.USER_DEFINED_TYPE
-            )
-            .contains(referencedIdentifierType.baseType()),
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION)
+            .contains(referencedIdentifierType.baseType())
+        || // UserDefinedType's are also valid as references to default constructors.
+        (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)
+         && referencedIdentifierData.isTypeDefinition),
         "Non-function %s %s cannot be called!",
         referencedIdentifierType,
         this.name

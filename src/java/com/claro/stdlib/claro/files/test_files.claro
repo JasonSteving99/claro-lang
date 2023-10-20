@@ -1,0 +1,7 @@
+
+var resource = resources::TestFile;
+print(resource);
+type(resource);
+
+print("\nFile Contents:\n------------------------------");
+print(files::read(resource));

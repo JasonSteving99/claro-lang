@@ -1,0 +1,16 @@
+
+# Opaque type whose internal representation is not exposed to consumers. This cannot be unwrapped OR initialized by any
+# code outside of this module's srcs.
+opaque newtype Resource
+newtype IOError : string
+
+# Now some claro file could read a resource declared in its build target as:
+#   claro_module(
+#     name = "foo",
+#     module_api_file = "foo.claro_module_api",
+#     srcs = ["foo.claro"],
+#     resources = {"MyFile": "myfile.txt"},
+#   }
+# Inside `foo.claro`:
+#   var fileContents: string = files::read(resources::MyFile);
+function read(resource: Resource) -> oneof<string, std::Error<IOError>>;

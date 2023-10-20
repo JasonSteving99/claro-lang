@@ -1,0 +1,20 @@
+
+newtype Resource : $java_type("java.net.URL")
+
+function read(resource: Resource) -> oneof<string, std::Error<IOError>> {
+  var res: oneof<string, std::Error<IOError>>;
+  var constructIOError = (msg: string) -> std::Error<IOError> { return std::Error(IOError(msg)); };
+
+  $$BEGIN_JAVA
+    try {
+      res = com.google.common.io.Resources.asCharSource(
+        resource.wrappedValue,
+        java.nio.charset.Charset.defaultCharset()
+      ).read();
+    } catch (Exception e) {
+      res = constructIOError.apply(e.getMessage());
+    }
+  $$END_JAVA
+
+  return res;
+}

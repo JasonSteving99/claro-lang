@@ -135,6 +135,8 @@ def _invoke_claro_compiler_impl(ctx):
     for optional_stdlib_module_name in ctx.attr.optional_stdlib_deps:
         args.add("--optional_stdlib_dep", optional_stdlib_module_name)
 
+    for resource, resourceName in ctx.attr.resources.items():
+        args.add("--resource", resource.files.to_list()[0], format = "{0}:%s".format(resourceName))
     for export in ctx.attr.exports:
         args.add("--export", export)
     args.add("--output_file_path", ctx.outputs.compiler_out)
@@ -223,7 +225,7 @@ def _invoke_claro_compiler_impl(ctx):
     ]
 
 
-def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [], debug = False, visibility = None):
+def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional_stdlib_deps = [], debug = False, visibility = None):
     main_file_name = main_file[:len(main_file) - len(".claro")]
 
     # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
@@ -236,6 +238,10 @@ def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [
         main_file = main_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
+        resources = _transpose_module_deps_dict(
+            resources,
+            False #allowDuplicateValues
+        ),
         optional_stdlib_deps = optional_stdlib_deps,
         compiler_out = "{0}.java".format(main_file_name),
         debug = debug,
@@ -252,33 +258,34 @@ def claro_binary(name, main_file, srcs = [], deps = {}, optional_stdlib_deps = [
             {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
             # Add the Stdlib Modules compiled java libs as default deps.
             ["{0}_compiled_claro_module_java_lib".format(Label(stdlib_mod)) for stdlib_mod in CLARO_STDLIB_MODULES.values()],
+        resources = resources.values(),
     )
 
-def claro_module(name, module_api_file, srcs, deps = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
-    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
+def claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
 
-def claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
+def claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
-        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
+        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
-def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
-    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug,
+def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+    _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug,
         claro_compiler = "//:bootstrapping_claro_compiler_binary",
         override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
         **kwargs)
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
-def bootstrapped_claro_module_internal(name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
+def bootstrapped_claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
-        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
+        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
         claro_compiler = "//:bootstrapping_claro_compiler_binary",
         override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
         **kwargs)
 
-def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, exports = [], exported_custom_java_deps = [], optional_stdlib_deps = [], debug = False, add_stdlib_deps = True, **kwargs):
+def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], optional_stdlib_deps = [], debug = False, add_stdlib_deps = True, **kwargs):
     # Leveraging Bazel semantics to produce a unique module name from this target's Bazel package.
     # If this target is declared as //src/com/foo/bar:my_module, then the unique_module_name will be set to
     # 'src$com$foo$bar$my_module' which is guaranteed to be a name that's unique across this entire Bazel project.
@@ -302,6 +309,10 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
         module_api_file = module_api_file,
         srcs = srcs,
         deps = _transpose_module_deps_dict(deps),
+        resources = _transpose_module_deps_dict(
+            resources,
+            False #allowDuplicateValues
+        ),
         exports = exports,
         optional_stdlib_deps = optional_stdlib_deps,
         unique_module_name = unique_module_name,
@@ -322,16 +333,17 @@ def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, sr
             (["{0}_compiled_claro_module_java_lib".format(stdlib_mod) for stdlib_mod in CLARO_STDLIB_MODULES.values()] if add_stdlib_deps else []) +
             # Add any custom Java deps that an internal optional stdlib module might need to add.
             exported_custom_java_deps,
+        resources = resources.values(),
         exports = ["{0}_compiled_claro_module_java_lib".format(deps[export]) for export in exports] + \
                   exported_custom_java_deps,
         # Default attrs like `visibility` will be set here so that Bazel defaults are honored.
         **{k:v for k,v in kwargs.items() if k not in ["stdlib_srcs", "claro_compiler", "override_claro_builtin_java_deps"]}
     )
 
-def _transpose_module_deps_dict(deps):
+def _transpose_module_deps_dict(deps, allowDuplicateValues = True):
     res = {}
     for module_name, target in deps.items():
-        if target in res:
+        if allowDuplicateValues and target in res:
             # Here, in order to allow a claro_*() rule to use the same impl target for multiple different dep modules,
             # I'll use the scheme of concatenating the module names using '$', which is an invalid identifier char in Claro.
             res[target] += "$" + module_name
@@ -353,6 +365,10 @@ INVOKE_CLARO_COMPILER_ATTRS = {
         default = None,
     ),
     "srcs": attr.label_list(allow_files = [".claro"]),
+    "resources": attr.label_keyed_string_dict(
+        doc = "Map of resource files that will be included in the compiled Jar file to be accessed at runtime.",
+        allow_files = True,
+    ),
     "deps": attr.label_keyed_string_dict(
         doc = "An optional set of Modules that this binary's sources directly depend on.",
         providers = [ClaroModuleInfo],

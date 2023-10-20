@@ -226,6 +226,29 @@ public class IdentifierReferenceTerm extends Term {
         this.alternateCodegenString.orElse(
             () -> {
               if (identifierData.isStaticValue) {
+                if (identifierData.type.baseType().equals(BaseType.USER_DEFINED_TYPE) &&
+                    ((Types.UserDefinedType) identifierData.type).getDefiningModuleDisambiguator()
+                        .equals("src$java$com$claro$stdlib$claro$files$files")) {
+                  // If we're dealing with a synthetic resource reference, then instead of codegening a reference to
+                  // some pre-existing identifier, I need to codegen the resource lookup.
+                  String resourceJarLocation = (String) identifierData.interpretedValue;
+                  // Bazel determines resource file location based on project structure, so this canonicalizes that.
+                  //     See: https://bazel.build/reference/be/java#java_binary_args
+                  if (resourceJarLocation.contains("/java/")) {
+                    resourceJarLocation =
+                        resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/java/") + "/java/".length());
+                  } else if (resourceJarLocation.contains("/src/")) {
+                    resourceJarLocation =
+                        resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/src/") + "/src/".length());
+                  }
+                  return String.format(
+                      "new $UserDefinedType(\"Resource\", \"src$java$com$claro$stdlib$claro$files$files\", ImmutableList.of(), %s, %s.class.getResource(\"/%s\"))",
+                      Types.RESOURCE_URL.getJavaSourceClaroType(),
+                      InternalStaticStateUtil.optionalClaroBinaryGeneratedClassName
+                          .orElseGet(this::getFullySpecifiedIdentifierNamespace),
+                      resourceJarLocation
+                  );
+                }
                 // To ensure that static values can be referenced across dep module monomorphization boundaries, I need
                 // to fully specify their namespace at all times.
                 String codegenIdentifier = this.optionalDefiningModuleDisambiguator

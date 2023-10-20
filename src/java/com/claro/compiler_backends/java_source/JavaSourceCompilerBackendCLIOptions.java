@@ -46,6 +46,14 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public String unique_module_name;
 
   @Option(
+      name = "resource",
+      help = "A resource file that will be included in the compiled Jar file to be accessed at runtime.",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> resources;
+
+  @Option(
       name = "dep",
       help = "A string in the format '<module_name>:<claro_module_file_path>' representing the binding of a concrete " +
              "Module dependency directly depended upon by the .claro srcs in this claro_binary() or claro_module().",

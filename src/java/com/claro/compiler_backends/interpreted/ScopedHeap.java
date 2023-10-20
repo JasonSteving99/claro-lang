@@ -87,7 +87,12 @@ public class ScopedHeap {
   }
 
   public void observeStaticIdentifierValue(String identifier, Type resolvedType, boolean isLazy) {
-    IdentifierData identifierData = new IdentifierData(resolvedType, null, true);
+    observeStaticIdentifierValue(identifier, resolvedType, null, isLazy);
+
+  }
+
+  public void observeStaticIdentifierValue(String identifier, Type resolvedType, Object value, boolean isLazy) {
+    IdentifierData identifierData = new IdentifierData(resolvedType, value, true);
     identifierData.isAssignable = false;
     identifierData.isStaticValue = true;
     identifierData.isLazyValue = isLazy;

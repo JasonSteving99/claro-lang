@@ -13,6 +13,7 @@ import com.google.common.collect.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -27,6 +28,22 @@ public final class Types {
   public static final Type HTTP_RESPONSE = ConcreteTypes.HTTP_RESPONSE;
   public static final Type UNDECIDED = ConcreteTypes.UNDECIDED;
   public static final Type UNKNOWABLE = ConcreteTypes.UNKNOWABLE;
+
+  // Stdlib types that get constructed via compiler intrinsics get registered here for a single source of truth.
+  public static final Types.$JavaType RESOURCE_URL =
+      Types.$JavaType.create(false, ImmutableList.of(), "java.net.URL");
+  public static final BiFunction<String, String, Function<ScopedHeap, Types.UserDefinedType>>
+      RESOURCE_TYPE_CONSTRUCTOR =
+      (resourceName, resource) -> (scopedHeap) -> {
+        String definingModuleDisambiguator = "src$java$com$claro$stdlib$claro$files$files$wrappedType";
+        scopedHeap.putIdentifierValueAsTypeDef(
+            String.format("%s$%s$wrappedType", resourceName, definingModuleDisambiguator),
+            Types.$SyntheticOpaqueTypeWrappedValueType.create(false, RESOURCE_URL),
+            resource
+        );
+        return Types.UserDefinedType.forTypeNameAndDisambiguator(
+            "Resource", "src$java$com$claro$stdlib$claro$files$files");
+      };
 
   public interface Collection {
     Type getElementType();

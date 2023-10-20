@@ -15,10 +15,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.*;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -34,6 +31,7 @@ public class ProgramNode {
   public static Optional<ModuleNode> moduleApiDef = Optional.empty();
   public static ImmutableSetMultimap<String, SerializedClaroModule.ExportedFlagDefinitions.ExportedFlag>
       transitiveExportedFlags;
+  public static ImmutableMap<String, String> resourcesByName;
 
   // By default, don't support any StdLib.
   private Function<ScopedHeap, ImmutableList<Stmt>> setupStdLibFn = s -> ImmutableList.of();
@@ -313,6 +311,23 @@ public class ProgramNode {
   public void runDiscoveryCompilationPhases(ScopedHeap scopedHeap) {
     // Setup the StdLib in the current Scope and append any setup Stmts to prefix the given program.
     setupStdLib(scopedHeap);
+
+    // Setup any Resources that the user registered in the current compilation unit's build target.
+    for (Map.Entry<String, String> resourceByName : ProgramNode.resourcesByName.entrySet()) {
+      String disambiguatedResourceName =
+          String.format(
+              "%s$%s",
+              resourceByName.getKey(),
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of("resources"))
+          );
+      scopedHeap.observeStaticIdentifierValue(
+          disambiguatedResourceName,
+          Types.RESOURCE_TYPE_CONSTRUCTOR.apply(resourceByName.getKey(), resourceByName.getValue()).apply(scopedHeap),
+          resourceByName.getValue(),
+          /*isLazy=*/false
+      );
+      scopedHeap.initializeIdentifier(disambiguatedResourceName);
+    }
 
     // TODO(steving) These Type + Procedure Discovery phases do things in O(2n) time, we really should structure
     // TODO(steving) the response from the parser better so that it's not just a denormalized list of stmts,

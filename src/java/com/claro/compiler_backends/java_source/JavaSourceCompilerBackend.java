@@ -64,6 +64,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final String[] COMMAND_LINE_ARGS;
   private final ImmutableMap<String, SrcFile> MODULE_DEPS;
   private final ImmutableSet<SrcFile> TRANSITIVE_MODULE_DEPS;
+  private final ImmutableMap<String, String> RESOURCES;
   private final ImmutableSet<String> EXPORTS;
   private final boolean SILENT;
   private final Optional<String> GENERATED_CLASSNAME;
@@ -111,6 +112,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             .collect(ImmutableList.toImmutableList());
     this.OPTIONAL_UNIQUE_MODULE_NAME =
         Optional.ofNullable(options.unique_module_name.isEmpty() ? null : options.unique_module_name);
+    if (!this.OPTIONAL_UNIQUE_MODULE_NAME.isPresent()) {
+      // We're in a top level claro_binary(). The current class name (which follows a different convention that module
+      // class generated names - for no good reason) may be needed for codegen.
+      InternalStaticStateUtil.optionalClaroBinaryGeneratedClassName = this.GENERATED_CLASSNAME;
+    }
     HashSet<String> directDepPaths = Sets.newHashSet();
     this.MODULE_DEPS =
         options.deps.stream().collect(ImmutableMap.toImmutableMap(
@@ -137,6 +143,12 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                     modulePath
                 ))
             .collect(ImmutableSet.toImmutableSet());
+    this.RESOURCES = options.resources.stream()
+        .map(s -> s.split(":"))
+        .collect(ImmutableMap.toImmutableMap(
+            parts -> parts[0],
+            parts -> parts[1]
+        ));
     this.EXPORTS = options.exports.stream().collect(ImmutableSet.toImmutableSet());
     this.OPTIONAL_OUTPUT_FILE_PATH =
         Optional.ofNullable(options.output_file_path.isEmpty() ? null : options.output_file_path);
@@ -293,6 +305,18 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
                 .setProjectPackage(this.PACKAGE_STRING.get())
                 .setUniqueModuleName(this.OPTIONAL_UNIQUE_MODULE_NAME.get())
+                .build()
+        );
+      }
+      // Register any Resources with the ProgramNode so that it can set them up when necessary.
+      ProgramNode.resourcesByName = this.RESOURCES;
+      if (!this.RESOURCES.isEmpty()) {
+        ScopedHeap.currProgramDepModules.put(
+            "resources",
+            /*isUsed=*/false,
+            SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
+                .setProjectPackage("claro.lang")
+                .setUniqueModuleName("src$java$com$claro$stdlib$claro$resources$resources")
                 .build()
         );
       }
