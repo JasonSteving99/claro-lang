@@ -1,0 +1,8 @@
+
+provider static_gamePageHtml() -> string {
+  var resource = files::read(resources::GamePageHtml);
+  if (resource instanceof string) {
+    return resource;
+  }
+  return "";
+}

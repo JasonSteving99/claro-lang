@@ -1,0 +1,4 @@
+
+provider gamePageHandler() -> future<string> {
+  return futures::immediateFuture(Resources::gamePageHtml);
+}

@@ -115,7 +115,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     if (!this.OPTIONAL_UNIQUE_MODULE_NAME.isPresent()) {
       // We're in a top level claro_binary(). The current class name (which follows a different convention that module
       // class generated names - for no good reason) may be needed for codegen.
-      InternalStaticStateUtil.optionalClaroBinaryGeneratedClassName = this.GENERATED_CLASSNAME;
+      InternalStaticStateUtil.optionalGeneratedClassName = this.GENERATED_CLASSNAME;
     }
     HashSet<String> directDepPaths = Sets.newHashSet();
     this.MODULE_DEPS =

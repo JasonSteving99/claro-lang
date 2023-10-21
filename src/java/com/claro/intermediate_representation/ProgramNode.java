@@ -44,6 +44,7 @@ public class ProgramNode {
     this.stmtListNode = stmtListNode;
     this.packageString = packageString;
     this.generatedClassName = generatedClassName;
+    InternalStaticStateUtil.optionalGeneratedClassName = Optional.of(generatedClassName);
 
     // TODO(steving) Fix this hot garbage.
     Expr.StructuralConcreteGenericTypeValidationUtil_validateArgExprsAndExtractConcreteGenericTypeParams_ONLY_USE_BC_MY_BAZEL_SETUP_IS_BJORKED_AND_I_DONT_HAVE_TIME_TO_FIX_THE_CIRCULAR_DEPS

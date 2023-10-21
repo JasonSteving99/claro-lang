@@ -1,9 +1,0 @@
-
-graph provider gamePageHandler() -> future<string> {
-  # TODO(steving) Claro needs multi-line strings now apparently.
-  root formattedHtml <- Utils::reduce(@htmlStrParts, "", lambda (accum, curr) -> { return "{accum}{curr}"; });
-  node htmlStrParts <- [
-    {GAME_PAGE_HTML} # This line will get substituted out programmatically, templating in the actual .html file contents.
-    ""
-  ];
-}

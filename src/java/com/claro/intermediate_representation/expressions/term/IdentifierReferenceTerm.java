@@ -242,9 +242,9 @@ public class IdentifierReferenceTerm extends Term {
                         resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/src/") + "/src/".length());
                   }
                   return String.format(
-                      "new $UserDefinedType(\"Resource\", \"src$java$com$claro$stdlib$claro$files$files\", ImmutableList.of(), %s, %s.class.getResource(\"/%s\"))",
+                      "new $UserDefinedType(\"Resource\", \"src$java$com$claro$stdlib$claro$files$files\", ImmutableList.of(), %s, %sclass.getResource(\"/%s\"))",
                       Types.RESOURCE_URL.getJavaSourceClaroType(),
-                      InternalStaticStateUtil.optionalClaroBinaryGeneratedClassName
+                      InternalStaticStateUtil.optionalGeneratedClassName.map(s -> s + ".")
                           .orElseGet(this::getFullySpecifiedIdentifierNamespace),
                       resourceJarLocation
                   );
