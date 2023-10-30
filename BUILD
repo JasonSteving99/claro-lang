@@ -10,7 +10,7 @@ alias(
 )
 alias(
     name = "protobuf",
-    actual = "@com_google_protobuf_protobuf_java//:com_google_protobuf_protobuf_java",
+    actual = "@maven//:com_google_protobuf_protobuf_java",
 )
 alias(
     name = "protobuf_java_util",
