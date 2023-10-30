@@ -34,7 +34,7 @@ jobs:
 
           # Create a source archive that will have a stable hash. The one that GitHub automatically produces will not 
           # be able to guarantee a stable hash, see: https://blog.bazel.build/2023/02/15/github-archive-checksum.html.
-          git archive -o claro-source-archive-v${{ github.run_number }}.zip HEAD
+          git archive -o claro-source-archive-v0.1.${{ github.run_number }}.zip HEAD
 
       - name: Create Release
         id: create_release
@@ -52,7 +52,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             claro-cli-install.tar.gz
-            claro-source-archive-v${{ github.run_number }}.zip
+            claro-source-archive-v0.1.${{ github.run_number }}.zip
 
   Deploy-User-Docs-to-GH-Pages:
     runs-on: ubuntu-latest
