@@ -88,7 +88,10 @@ def _invoke_claro_compiler_impl(ctx):
 
     # By deriving the project package from the workspace name, this rule's able to ensure that generated Java sources
     # end up using unique Java packages so that it doesn't conflict with any downstream deps.
-    project_package = ctx.workspace_name.replace('-', '.').replace('_', '.')
+    #     project_package = ctx.label.workspace_name.replace('-', '.').replace('_', '.')
+    # TODO(steving) Figure out how to go back to using the workspace in the new Bzlmod way of the world. For now, it
+    # TODO(steving)   doesn't work as ctx.workspace_name is always returning "_main" for some reason.
+    project_package = "claro.lang"
 
     # Declare an Action to execute the Claro compiler binary over the given srcs.
     # Constructing the args using ctx.actions.args() is Bazel's approach to performance optimization akin to Java's

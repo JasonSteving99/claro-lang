@@ -1,0 +1,5 @@
+module(
+    name = "claro-lang",
+    repo_name = "claro-lang",
+    version = "0.1.299",
+)
