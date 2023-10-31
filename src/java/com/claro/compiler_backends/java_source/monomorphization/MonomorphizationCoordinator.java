@@ -17,7 +17,9 @@ import com.google.devtools.build.runfiles.AutoBazelRepository;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -52,7 +54,7 @@ public class MonomorphizationCoordinator {
 
   // Static iniitialization happening here b/c preloading Bazel's runfiles is notably an expensive operation that should
   // only be done once.
-  private static final String DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH;
+  private static String DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH;
 
   static {
     try {
@@ -66,6 +68,30 @@ public class MonomorphizationCoordinator {
       RUNFILES_ENV_VARS = r.getEnvVars();
     } catch (IOException e) {
       throw new RuntimeException("Internal Compiler Error! Failed to preload Runfiles", e);
+    }
+  }
+
+  // This gets called by the JavaSourceCompilerBackend if it's the main compilation unit so that this setup doesn't get
+  // done in dep module monomorphization subprocesses that won't be using this functionality.
+  public static void setupDepModuleMonomorphizationJar() {
+    // In case we're not building from source, and are instead using the prebuilt compiler for non-dev users, then use
+    // the dep_module_monomorphization_deploy.jar packaged into the current JAR. This is unfortunately going to be a
+    // fairly slow operation. Yet another reason Claro needs a performance-focused rewrite.
+    if (!Files.exists(Paths.get(DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH))) {
+      try (InputStream depModuleMonomorphizationJarInputStream =
+               MonomorphizationCoordinator.class.getResourceAsStream("dep_module_monomorphization_deploy.jar")) {
+        // Writing a tmp file is unfortunate, but, at least it only has to happen once on startup.
+        File tmpFile;
+        com.google.common.io.Files.asByteSink(
+                tmpFile = File.createTempFile("dep_module_monomorphization_deploy", ".jar"))
+            .writeFrom(depModuleMonomorphizationJarInputStream);
+        tmpFile.deleteOnExit();
+        DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH = tmpFile.getPath();
+      } catch (Exception e) {
+        throw new RuntimeException(
+            "Internal Compiler Error! Dep Module Monomorphization Subprocess binary not found at: " +
+            DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH);
+      }
     }
   }
 
@@ -173,19 +199,12 @@ public class MonomorphizationCoordinator {
       // Otherwise, we'll need to actually trigger the subprocess for the dep module and register it.
       registry.put(uniqueModuleName, SubprocessRegistration.DepModuleMonomorphizationSubprocessState.create());
       try {
-        if (!Files.exists(Paths.get(DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH))) {
-          MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
-          throw new RuntimeException(
-              "Internal Compiler Error! Dep Module Monomorphization Subprocess binary not found at: " +
-              DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH);
-        }
-        // TODO(steving) TESTING!!! I FOUND THE ISSUE!! THERE'S A MISSING DEP_GRAPH_CLARO_MODULE_PATHS_BY_UNIQUE_MODULE_NAME!
         ProcessBuilder depModuleSubprocess =
             new ProcessBuilder()
                 .command("java", "-jar", DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH,
                          "--coordinator_port", String.valueOf(coordinatorPort),
                          "--dep_module_file_path", DEP_GRAPH_CLARO_MODULE_PATHS_BY_UNIQUE_MODULE_NAME.get(uniqueModuleName),
-                         // TODO(steving) TESTING! DELETE THIS, The uniqe name should be looked up in the .claro_module.
+                         // TODO(steving) DELETE THIS, The uniqe name should be looked up in the .claro_module.
                          "--dep_module_unique_name", uniqueModuleName
                 )
                 .redirectOutput(ProcessBuilder.Redirect.INHERIT)

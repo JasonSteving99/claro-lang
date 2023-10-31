@@ -163,6 +163,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                   split -> split[0],
                   split -> split[1]
               ));
+      MonomorphizationCoordinator.setupDepModuleMonomorphizationJar();
     }
   }
 

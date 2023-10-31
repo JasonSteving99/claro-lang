@@ -16,7 +16,12 @@ java_library(
         "//src/java/com/claro/runtime_utilities/http",
         "//src/java/com/claro/runtime_utilities/http:http_server",
     ],
+    # Need this binary in both data and resources as I fallback to the one bundled in the jar if the runfiles one isn't
+    # avaialable. This will be the case for the sake of the non-dev usage of the prebuilt compiler outside of this Bazel
+    # project. This simply enables non-Claro-compiler-devs to build Claro projects without needing to rebuild the
+    # compiler from source every time they do a clean build.
     data = ["dep_module_monomorphization_deploy.jar"],
+    resources = ["dep_module_monomorphization_deploy.jar"],
     visibility = [
         "//src/java/com/claro/compiler_backends/java_source:__pkg__",
         "//src/java/com/claro/intermediate_representation:__pkg__",
