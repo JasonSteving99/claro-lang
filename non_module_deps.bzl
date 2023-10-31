@@ -18,8 +18,8 @@ def _non_module_deps_impl(ctx):
   )
   http_file(
     name = "bootstrapping_claro_compiler_tarfile",
-    sha256 = "62352fc3d5dbcc555862c3d3d48c1f0ec5df84a27973edc1858424de4b8a59d1",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.296/claro-cli-install.tar.gz",
+    sha256 = "ffac040f0a9828e84fc8b7423213db438e123d6fe3735e13e9c8fae8fbada442",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.303/claro-cli-install.tar.gz",
   )
 # -- repo definitions -- #
 
