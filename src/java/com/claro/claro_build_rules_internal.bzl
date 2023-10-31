@@ -14,51 +14,51 @@ DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
 CLARO_STDLIB_FILES = [
-    "//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
+    "@claro-lang//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
 ]
 # The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
-    "files": "//src/java/com/claro/stdlib/claro/files:files",
-    "futures": "//src/java/com/claro/stdlib/claro/futures:futures",
-    "lists": "//src/java/com/claro/stdlib/claro/lists:lists",
-    "maps": "//src/java/com/claro/stdlib/claro/maps:maps",
-    "sets": "//src/java/com/claro/stdlib/claro/sets:sets",
-    "std": "//src/java/com/claro/stdlib/claro:std",
+    "files": "@claro-lang//src/java/com/claro/stdlib/claro/files:files",
+    "futures": "@claro-lang//src/java/com/claro/stdlib/claro/futures:futures",
+    "lists": "@claro-lang//src/java/com/claro/stdlib/claro/lists:lists",
+    "maps": "@claro-lang//src/java/com/claro/stdlib/claro/maps:maps",
+    "sets": "@claro-lang//src/java/com/claro/stdlib/claro/sets:sets",
+    "std": "@claro-lang//src/java/com/claro/stdlib/claro:std",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
 # enable Claro to build smaller executables in cases where certain lesser used parts of the stdlib are not actually
 # needed in a given Claro program.
 CLARO_OPTIONAL_STDLIB_MODULE_DEPS = {
-    "http": "//src/java/com/claro/stdlib/claro/http:http",
+    "http": "@claro-lang//src/java/com/claro/stdlib/claro/http:http",
 }
 CLARO_BUILTIN_JAVA_DEPS = [
-    "//:google-options",
-    "//:guava",
-    "//:gson",
+    "@claro-lang//:google-options",
+    "@claro-lang//:guava",
+    "@claro-lang//:gson",
     # This addresses unwanted missing StaticLoggerBinder warning logs from SLF4J. This shouldn't be necessary anymore
     # once Claro has proper logging support. See: https://www.slf4j.org/codes.html#StaticLoggerBinder
-    "//:slf4j_nop",
-    "//src/java/com/claro/stdlib",
-    "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-    "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
-    "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
-    "//src/java/com/claro/intermediate_representation/types:base_type",
-    "//src/java/com/claro/intermediate_representation/types:concrete_type",
-    "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
-    "//src/java/com/claro/intermediate_representation/types:type",
-    "//src/java/com/claro/intermediate_representation/types:types",
-    "//src/java/com/claro/intermediate_representation/types:type_provider",
-    "//src/java/com/claro/runtime_utilities",
-    "//src/java/com/claro/runtime_utilities/flags:flags_util",
-    "//src/java/com/claro/runtime_utilities/injector",
-    "//src/java/com/claro/runtime_utilities/injector:key",
-    "//src/java/com/claro/stdlib/userinput",
+    "@claro-lang//:slf4j_nop",
+    "@claro-lang//src/java/com/claro/stdlib",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/atoms",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:base_type",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:concrete_type",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:type",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:types",
+    "@claro-lang//src/java/com/claro/intermediate_representation/types:type_provider",
+    "@claro-lang//src/java/com/claro/runtime_utilities",
+    "@claro-lang//src/java/com/claro/runtime_utilities/flags:flags_util",
+    "@claro-lang//src/java/com/claro/runtime_utilities/injector",
+    "@claro-lang//src/java/com/claro/runtime_utilities/injector:key",
+    "@claro-lang//src/java/com/claro/stdlib/userinput",
 ]
 
 
@@ -276,8 +276,8 @@ def claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
 def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
     _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug,
-        claro_compiler = "//:bootstrapping_claro_compiler_binary",
-        override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
+        claro_compiler = "@claro-lang//:bootstrapping_claro_compiler_binary",
+        override_claro_builtin_java_deps = ["@claro-lang//:bootstrapping_claro_builtin_java_deps_import"],
         **kwargs)
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
@@ -285,8 +285,8 @@ def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, resources 
 def bootstrapped_claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
         _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
-        claro_compiler = "//:bootstrapping_claro_compiler_binary",
-        override_claro_builtin_java_deps = ["//:bootstrapping_claro_builtin_java_deps_import"],
+        claro_compiler = "@claro-lang//:bootstrapping_claro_compiler_binary",
+        override_claro_builtin_java_deps = ["@claro-lang//:bootstrapping_claro_builtin_java_deps_import"],
         **kwargs)
 
 def _claro_module_internal(invoke_claro_compiler_rule, name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], optional_stdlib_deps = [], debug = False, add_stdlib_deps = True, **kwargs):
@@ -395,13 +395,13 @@ INVOKE_CLARO_COMPILER_ATTRS = {
 
     "unique_module_name": attr.string(),
     "claro_compiler": attr.label(
-        default = Label("//src/java/com/claro:claro_compiler_binary"),
+        default = Label("@claro-lang//src/java/com/claro:claro_compiler_binary"),
         allow_files = True,
         executable = True,
         cfg = "host",
     ),
     "_module_deserialization_util": attr.label(
-        default = Label("//src/java/com/claro/compiler_backends/java_source/deserialization:claro_module_deserialization_util"),
+        default = Label("@claro-lang//src/java/com/claro/compiler_backends/java_source/deserialization:claro_module_deserialization_util"),
         allow_files = True,
         executable = True,
         cfg = "host",
@@ -480,9 +480,9 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         ],
         deps = [
             ":" + name + "_java_parser",
-            "//src/java/com/claro/compiler_backends/interpreted:interpreter",
-            "//src/java/com/claro/compiler_backends/java_source:java_source",
-            "//src/java/com/claro/compiler_backends/repl:repl",
+            "@claro-lang//src/java/com/claro/compiler_backends/interpreted:interpreter",
+            "@claro-lang//src/java/com/claro/compiler_backends/java_source:java_source",
+            "@claro-lang//src/java/com/claro/compiler_backends/repl:repl",
         ],
     )
 
@@ -496,34 +496,34 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
             ":claro_parser_exception",
             ":lexed_value",
             ":scoped_identifier",
-            "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
-            "//src/java/com/claro/intermediate_representation:node",
-            "//src/java/com/claro/intermediate_representation:program_node",
-            "//src/java/com/claro/intermediate_representation/expressions:expr",
-            "//src/java/com/claro/intermediate_representation/expressions:expr_impls",
-            "//src/java/com/claro/intermediate_representation/expressions:lambda_expr_impl",
-            "//src/java/com/claro/intermediate_representation/expressions:unwrap_user_defined_type_expr_impl",
-            "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr",
-            "//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr_impls",
-            "//src/java/com/claro/intermediate_representation/expressions/numeric:numeric_expr_impls",
-            "//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
-            "//src/java/com/claro/intermediate_representation/expressions/term:term",
-            "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
-            "//src/java/com/claro/intermediate_representation/statements:stmt",
-            "//src/java/com/claro/intermediate_representation/statements:stmt_impls",
-            "//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
-            "//src/java/com/claro/intermediate_representation/statements/contracts",
-            "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
-            "//src/java/com/claro/intermediate_representation/types:base_type",
-            "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
-            "//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
-            "//src/java/com/claro/intermediate_representation/types:type_provider",
-            "//src/java/com/claro/intermediate_representation/types:type",
-            "//src/java/com/claro/intermediate_representation/types:types",
-            "//src/java/com/claro/runtime_utilities/injector:injected_key",
-            "//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
-            "//src/java/com/claro/stdlib:module_util",
-            "//:guava",
+            "@claro-lang//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
+            "@claro-lang//src/java/com/claro/intermediate_representation:node",
+            "@claro-lang//src/java/com/claro/intermediate_representation:program_node",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions:expr",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions:expr_impls",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions:lambda_expr_impl",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions:unwrap_user_defined_type_expr_impl",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/bool:bool_expr_impls",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/numeric:numeric_expr_impls",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/procedures/functions",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/term:term",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+            "@claro-lang//src/java/com/claro/intermediate_representation/statements:stmt",
+            "@claro-lang//src/java/com/claro/intermediate_representation/statements:stmt_impls",
+            "@claro-lang//src/java/com/claro/intermediate_representation/statements:stmt_list_node",
+            "@claro-lang//src/java/com/claro/intermediate_representation/statements/contracts",
+            "@claro-lang//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:base_type",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:supports_mutable_variant",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:type_provider",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:type",
+            "@claro-lang//src/java/com/claro/intermediate_representation/types:types",
+            "@claro-lang//src/java/com/claro/runtime_utilities/injector:injected_key",
+            "@claro-lang//src/java/com/claro/runtime_utilities/injector:injected_key_identifier",
+            "@claro-lang//src/java/com/claro/stdlib:module_util",
+            "@claro-lang//:guava",
             "@jflex_rules//third_party/cup",  # the runtime would be sufficient
         ],
     )
@@ -550,7 +550,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         name = "lexed_value",
         srcs = ["LexedValue.java"],
         deps = [
-            "//:autovalue",
+            "@claro-lang//:autovalue",
         ],
     )
 
@@ -558,7 +558,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
         name = "scoped_identifier",
         srcs = ["ScopedIdentifier.java"],
         deps = [
-            "//:autovalue",
-            "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
+            "@claro-lang//:autovalue",
+            "@claro-lang//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
         ],
     )
