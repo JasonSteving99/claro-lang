@@ -1,0 +1,18 @@
+diff --git a/jflex/jflex.bzl b/jflex/jflex.bzl
+index 907ef48..4e74232 100644
+--- a/jflex/jflex.bzl
++++ b/jflex/jflex.bzl
+@@ -11,11 +11,8 @@
+ def _jflex_impl(ctx):
+     """ Generates a Java lexer from a lex definition, using JFlex. """
+
+-    # Output directory is bazel-genfiles/package, regardless of Java package defined in
+-    # the grammar
+-    output_dir = "/".join(
+-        [ctx.configuration.genfiles_dir.path, ctx.label.package],
+-    )
++    ### PATCH FOR CLARO LANG TO BE ABLE TO BUILD VIA DOWNSTREAM DEPENDENCY. ###
++    output_dir = ctx.outputs.outputs[0].path[:-len(ctx.outputs.outputs[0].basename)]
+
+     # TODO(regisd): Add support for JFlex options.
+     maybe_skel = [ctx.file.skeleton] if ctx.file.skeleton else []

@@ -1,8 +1,21 @@
 diff --git a/cup/cup.bzl b/cup/cup.bzl
-index 58f2fa3..c7b8514 100644
+index 58f2fa3..e1a5bc5 100644
 --- a/cup/cup.bzl
 +++ b/cup/cup.bzl
-@@ -21,11 +21,15 @@ def _cup_impl(ctx):
+@@ -11,22 +11,23 @@
+ def _cup_impl(ctx):
+     """ Generates a Java parser from a CUP definition, using Java CUP. """
+
+-    # Output directory is bazel-genfiles/package, regardless of Java package defined in
+-    # the grammar
+-    output_dir = "/".join(
+-        [ctx.configuration.genfiles_dir.path, ctx.label.package],
+-    )
++    ### PATCH FOR CLARO LANG TO BE ABLE TO BUILD VIA DOWNSTREAM DEPENDENCY. ###
++    parser_file = ctx.actions.declare_file(ctx.attr.parser + ".java")
++    output_dir = parser_file.path[:-len(parser_file.basename)]
+     args = []
+     args.extend(["-parser", ctx.attr.parser])
      args.extend(["-symbols", ctx.attr.symbols])
      args.extend(["-destdir", output_dir])
      args.extend(["-nosummary"])
@@ -15,11 +28,12 @@ index 58f2fa3..c7b8514 100644
      args.extend([ctx.file.src.path])
 
 -    # TODO(regisd): Add support for CUP options.
+-    parser_file = ctx.actions.declare_file(ctx.attr.parser + ".java")
 +    # TODO(regisd): Add support for CUP options. YOU'RE WELCOME regisd@ -clarolang
-     parser_file = ctx.actions.declare_file(ctx.attr.parser + ".java")
      sym_file = ctx.actions.declare_file(ctx.attr.symbols + ".java")
      ctx.actions.run(
-@@ -47,12 +51,15 @@ cup = rule(
+         mnemonic = "cup",
+@@ -47,12 +48,15 @@ cup = rule(
              mandatory = True,
              doc = "The CUP grammar specification",
          ),
@@ -37,7 +51,7 @@ index 58f2fa3..c7b8514 100644
          "parser": attr.string(
              default = "parser",
              doc = "Name of the generated parser class",
-@@ -64,6 +71,12 @@ cup = rule(
+@@ -64,6 +68,13 @@ cup = rule(
          "interface": attr.bool(
              doc = "Outputs the symbol constant code as an interface rather than as a class.",
          ),
@@ -50,3 +64,4 @@ index 58f2fa3..c7b8514 100644
      },
      output_to_genfiles = True,  # JFlex generates java files, not bin files
  )
++

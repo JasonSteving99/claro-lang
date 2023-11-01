@@ -47,3 +47,16 @@ concatenation into the constant pool only to find it too large still. I actually
 believe that this is a robust fix that should mean I likely won't need to come
 back to hack on CUP anymore for this same type of code too large error, but I
 guess only time will tell.
+
+*_Update - 11/1/23:_*
+
+As I've been attempting to prepare Claro for consumption as a bazel_dep() using
+Bazel's new Bzlmod external package manager, I've found that the implementation
+of both the CUP and JFLEX rules actually fail to build when run as external
+repo rules (i.e. the command
+bazel build @claro-lang//src/java/com/claro:claro_gen_parser --enable_bzlmod).
+These latest patches to these rules are intended to ensure that the output dirs
+passed to the CUP and JFLEX executables actually match those of the files Bazel
+expects to generate via the ctx.actions.declare_file() call, or by the given
+output file label. The changes have no impact on the build from the perspectice
+of the local claro-lang repo itself, but will ideally fix the problems in the 
