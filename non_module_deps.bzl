@@ -10,7 +10,8 @@ def _non_module_deps_impl(ctx):
     sha256 = "bd41584dd1d9d99ef72909b3c1af8ba301a89c1d8fdc59becab5d2db1d006455",
     strip_prefix = "bazel_rules-1.8.2",
     patches = [
-      "//patched_jcup:cup_rule_diff.patch"
+      "//patched_jcup:cup_rule_diff.patch",
+      "//patched_jcup:flex_rule_diff.patch",
     ],
     patch_args = [
       "-p1"
