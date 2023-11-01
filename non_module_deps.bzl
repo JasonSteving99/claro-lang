@@ -11,7 +11,7 @@ def _non_module_deps_impl(ctx):
     strip_prefix = "bazel_rules-1.8.2",
     patches = [
       "//patched_jcup:cup_rule_diff.patch",
-      "//patched_jcup:flex_rule_diff.patch",
+      "//patched_jcup:jflex_rule_diff.patch",
     ],
     patch_args = [
       "-p1"
