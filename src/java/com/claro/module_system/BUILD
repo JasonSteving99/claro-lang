@@ -73,5 +73,5 @@ cup(
 jflex(
     name = "gen_module_api_lexer",
     srcs = ["ModuleApiLexer.flex"],
-    outputs = ["ModuleApiLexer.java"],
+    lexer = "ModuleApiLexer",
 )

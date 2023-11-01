@@ -543,7 +543,7 @@ def gen_claro_compiler(name = DEFAULT_CLARO_NAME):
     jflex(
         name = name + "_gen_lexer",
         srcs = ["ClaroLexer.flex"],
-        outputs = ["ClaroLexer.java"],
+        lexer = "ClaroLexer",
     )
 
     native.java_library(
