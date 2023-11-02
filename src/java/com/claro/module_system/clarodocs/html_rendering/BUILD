@@ -1,4 +1,4 @@
-load("@io_bazel_rules_closure//closure:defs.bzl", "closure_java_template_library")
+load("@io_bazel_rules_closure//closure/templates:closure_java_template_library.bzl", "closure_java_template_library")
 
 closure_java_template_library(
     name = "html_soy",

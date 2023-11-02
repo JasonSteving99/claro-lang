@@ -183,6 +183,10 @@ public class TypeHtml {
             "genericTypeParam",
             ImmutableMap.of("paramName", ((Types.$GenericTypeParam) type).getTypeParamName())
         );
+      case $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE:
+        return renderToken("SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE");
+      case $JAVA_TYPE:
+        return renderToken("JAVA_TYPE");
       default:
         throw new RuntimeException("Internal ClaroDocs Error! Attempt to render unknown type: " + type);
     }

@@ -22,6 +22,17 @@ def _non_module_deps_impl(ctx):
     sha256 = "70dc17225d48cacfda9d9e2c28742dc7432b4b6b7971646552ab5f592cf1e0e1",
     url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.302/claro-cli-install.tar.gz",
   )
+  # ClaroDocs is built atop Google's Closure Templates in order to ensure that I'm not generating unsafe html since the
+  # intention is for users to be able to trust and host ClaroDocs themselves (particularly relevant since ClaroDocs
+  # automatically generate inlined docs for all of the binaries dependencies, whether first or 3rd party).
+  http_archive(
+    name = "io_bazel_rules_closure",
+    sha256 = "9498e57368efb82b985db1ed426a767cbf1ba0398fd7aed632fc3908654e1b1e",
+    strip_prefix = "rules_closure-0.12.0",
+    urls = [
+      "https://github.com/bazelbuild/rules_closure/archive/0.12.0.tar.gz",
+    ],
+  )
 # -- repo definitions -- #
 
 non_module_deps = module_extension(implementation = _non_module_deps_impl)
