@@ -38,8 +38,8 @@ message SerializedClaroModule {
     // effort towards utilizing Bazel's native Bazelmod as Claro's "package manager".
     string project_package = 1;
     // When building using Claro's Bazel rules, this string will be automatically formatted to be something like
-    // `src$java$com$claro$claro_programs$module_test` for a `claro_library(name = "module_test", ...)` located at the
-    // bazel path //src/java/com/claro/claro_programs:module_test. This ensures that this Module name is unique across
+    // `examples$claro_programs$module_test` for a `claro_module(name = "module_test", ...)` located at the
+    // bazel path //examples/claro_programs:module_test. This ensures that this Module name is unique across
     // the entire Bazel project in which this module is being compiled.
     string unique_module_name = 2;
   }

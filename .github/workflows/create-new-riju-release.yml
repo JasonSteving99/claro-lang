@@ -19,10 +19,10 @@ jobs:
         run: |          
           # In order to be able to run the Claro CLIs users will need the compiler and builtin Java deps Jars.
           bazel build //src/java/com/claro:claro_compiler_binary_deploy.jar
-          bazel build //src/java/com/claro/claro_programs:claro_builtin_java_deps_deploy.jar
+          bazel build //examples/claro_programs:claro_builtin_java_deps_deploy.jar
           # Create a single tar file to encapsulate all CLI resources.
           ln -s bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar claro_compiler_binary_deploy.jar
-          ln -s bazel-bin/src/java/com/claro/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
+          ln -s bazel-bin/examples/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
           ln -s cli/claroc.sh claroc.sh
           ln -s cli/claro.sh claro.sh
           # -h ensures that the above symlinks are actually dereferenced, else they'd be empty symlinks in the tar file.
@@ -45,8 +45,8 @@ jobs:
           tag_name: v0.1.${{ github.run_number }}
           name: v0.1.${{ github.run_number }} Automated Release
           body: |
-            # This is an automated relase of resources needed to install and run Claro locally.
-            Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#try-it-out-locally) to get started!
+            # This is an automated release of resources needed to install and run Claro locally.
+            Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#create-your-own-claro-project-with-bazel) to get started!
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

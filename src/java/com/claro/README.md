@@ -1,47 +1,75 @@
 # Learn the Syntax by Example
-I recommend getting immersed in Claro syntax by just reading (and running) some of the demo programs in `./claro_programs/` [here](https://github.com/JasonSteving99/claro-lang/tree/main/src/java/com/claro/claro_programs).
+
+I recommend getting immersed in Claro syntax by just reading (and running) some of the demo programs
+in [examples/claro_programs/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/claro_programs).
+
+Comprehensive docs are also in progress at https://jasonsteving99.github.io/claro-lang/.
+
+# Create your own Claro Project with Bazel!
+
+Simply install Bazel - instructions to install via Bazelisk can be found [here](https://bazel.build/install/bazelisk).
+
+Then follow the example Claro project configuration
+at [examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod).
+
+# Building Claro Programs
+
+As Claro projects are fundamentally built on the [Bazel build system](https://bazel.build/about/intro), building a Claro
+program simply requires running a single `bazel build ...` command. For example, if you wanted to build the example
+program at `//examples/claro_programs/atoms.claro`, you can simply run the corresponding
+`claro_binary(name = "atoms", ...)` target located at `//examples/claro_programs/BUILD` using the below command from any
+directory within the claro-lang project:
+
+```commandline
+$ bazel build //examples/claro_programs:atoms
+```
+
+This will invoke the claro compiler to do type checking and codegen for the specified Claro program. You can build any
+Bazel target this way.
 
 # Running Claro Programs
 
-You'll have a few options below for running Claro programs, either by building from the latest source directly, or by
-using the online REPL.
+A Claro program can be executed in two different ways:
 
-## Try it Out Online at [riju.codes/claro](https://riju.codes/claro)!
+### Executing via `$ bazel run ...`
 
-Please keep in mind that in the current state of the world, Riju is generally behind the latest state of Claro
-development since I don't control Riju and can't redeploy for each new commit to this repo. If you want the latest of
-the latest then read the below to build Claro locally.
+This is the most straightforward approach, and the one that you'll use most often when in local development. Simply use
+the `bazel run ...` command to have Bazel build the specified executable Claro program, and then immediately run the
+generated executable. Note that this command is only supported on Bazel targets that produce an executable output, in
+Claro's case, that means you can only `bazel run ...` a `claro_binary()` target, and not a `claro_module()` target.
 
-## Build from Source with Bazel (Highly Recommended)
+It's worth noting that this approach prioritizes build time, but does not generate a portable executable. For a portable
+executable, see the section below.
 
-#### Compiler Backends
+### Building and Running a Prebuilt Executable Jar
 
-Claro's compiler is designed from the ground up to support multiple backends to allow for various modes of handling the
-parsed AST Intermediate Representation. For now Claro supports the following Targets:
+In order to build a portable, executable Jar file that can be run anywhere where a JVM is available, you will have to
+`bazel build ...` a "deploy Jar". This can be done by building the `foo_deploy.jar` Bazel target that the
+`claro_binary(name = foo, ...)` rule generates automatically. For example, to build a portable executable for the
+claro_binary() target at `//examples/claro_programs:atoms`:
 
-### Java Source Target Output
-
-```
-$ bazel run claro_compiler_binary -- --java_source --silent
-```
-
-(Fully supported - primary development focus)
-
-### REPL
-
-```
-$ bazel run claro_compiler_binary -- --repl --silent
+```commandline
+$ bazel build //examples/claro_programs:atoms_deploy.jar
 ```
 
-(Note that this works, but when using the `input()` function in the REPL, you won't be able to see what you're typing as
-input, but it will successfully parse it..)
-
-### Interpreted
+The above command will produce output like the following:
 
 ```
-$ bazel run claro_compiler_binary -- --interpreted --silent
+➜  claro-lang git:(main) ✗ bazel build //examples/claro_programs:atoms_deploy.jar                                                                                                                                                                     +
+INFO: Analyzed target //examples/claro_programs:atoms_deploy.jar (0 packages loaded, 0 targets configured).
+INFO: Found 1 target...
+Target //examples/claro_programs:atoms_deploy.jar up-to-date:
+  bazel-bin/examples/claro_programs/atoms_deploy.jar
+INFO: Elapsed time: 0.174s, Critical Path: 0.00s
+INFO: 1 process: 1 internal.
+INFO: Build completed successfully, 1 total action
 ```
 
-(Turns out that this actually broken until we can make a change to allow the interpreted mode to read from files instead
-of System.in...since it steals input from the program itself meaning that any program using the `input()` stmt doesn't
-work...For now it hardcodes using the file `second.claro`.)
+Now, the generated "deploy Jar" is listed as being located at `bazel-bin/examples/claro_programs/atoms_deploy.jar`. You
+can now execute it using the following command:
+
+```commandline
+java -jar bazel-bin/examples/claro_programs/atoms_deploy.jar
+```
+
+That's it! Now, this "deploy Jar" can be taken and run anywhere with a JVM.

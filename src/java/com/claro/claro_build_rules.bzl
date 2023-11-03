@@ -13,5 +13,5 @@ claro_module = _claro_module
 claro_binary = _claro_binary
 
 # TODO(steving) This should be removed from this public .bzl file. It would require updating the GitHub Workflow that
-# TODO(steving)     expects the existence of this target used in "//src/java/com/claro/claro_programs:BUILD".
+# TODO(steving)     expects the existence of this target used in "//examples/claro_programs:BUILD".
 gen_claro_builtin_java_deps_jar = _gen_claro_builtin_java_deps_jar

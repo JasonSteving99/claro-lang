@@ -1,0 +1,4 @@
+
+provider static_HELLO_WORLD_MESSAGE() -> string {
+  return  "Hello, Claro World!";
+}
