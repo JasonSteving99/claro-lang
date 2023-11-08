@@ -2,14 +2,34 @@ package com.claro.intermediate_representation.statements;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
+import java.util.Optional;
 
 public class PrivilegedInlineJavaStmt extends Stmt {
+  private final ImmutableMap<String, TypeProvider> capturedTypeProviders;
+  private ImmutableMap<String, Type> capturedTypes;
   private final String java;
 
-  public PrivilegedInlineJavaStmt(String java) {
+  public PrivilegedInlineJavaStmt(String capturedTypeProviders, String java) {
     super(ImmutableList.of());
+    this.capturedTypeProviders =
+        ImmutableList.copyOf(
+                Optional.ofNullable(capturedTypeProviders)
+                    .orElse("")
+                    .split(","))
+            .stream()
+            .map(String::trim)
+            .filter(n -> !n.isEmpty())
+            .collect(ImmutableMap.toImmutableMap(
+                n -> n,
+                n -> TypeProvider.Util.getTypeByName(n, /*isTypeDefinition=*/ false)
+            ));
     this.java = java;
   }
 
@@ -28,6 +48,12 @@ public class PrivilegedInlineJavaStmt extends Stmt {
               scopedHeap.initializeIdentifier(identifier);
             }
         );
+    // Resolve the captured types.
+    ImmutableMap.Builder<String, Type> capturedTypesBuilder = ImmutableMap.builder();
+    for (Map.Entry<String, TypeProvider> captured : this.capturedTypeProviders.entrySet()) {
+      capturedTypesBuilder.put(captured.getKey(), captured.getValue().resolveType(scopedHeap));
+    }
+    this.capturedTypes = capturedTypesBuilder.build();
   }
 
   @Override
@@ -45,9 +71,24 @@ public class PrivilegedInlineJavaStmt extends Stmt {
               scopedHeap.initializeIdentifier(identifier);
             }
         );
+    String javaWithTypeCapturesFormatted = this.java;
+    for (Map.Entry<String, Type> capturedType : this.capturedTypes.entrySet()) {
+      // First format any usages of the Java type of the captured Claro type.
+      javaWithTypeCapturesFormatted =
+          javaWithTypeCapturesFormatted.replaceAll(
+              String.format("\\$\\$JAVA_TYPE\\(%s\\)", capturedType.getKey()),
+              capturedType.getValue().getJavaSourceType()
+          );
+      // Then format any usages of the Claro type of the captured type.
+      javaWithTypeCapturesFormatted =
+          javaWithTypeCapturesFormatted.replaceAll(
+              String.format("\\$\\$CLARO_TYPE\\(%s\\)", capturedType.getKey()),
+              capturedType.getValue().getJavaSourceClaroType()
+          );
+    }
     return GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder("// BEGIN PRIVILEGED INLINE JAVA\n")
-            .append(this.java)
+            .append(javaWithTypeCapturesFormatted)
             .append("// END PRIVILEGED INLINE JAVA\n"));
   }
 

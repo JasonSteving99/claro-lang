@@ -35,6 +35,9 @@ import java.util.concurrent.atomic.AtomicReference;
     // nested format strings within the
     Stack<AtomicReference<Integer>> fmtStrExprBracketCounterStack = new Stack<>();
 
+    // For the sake of Privileged Inline Java, may need to track type captures.
+    String privilegedInlineJavaTypeCaptures = null;
+
     // Until I find a more efficient way to do this, let's bring the entire file contents into memory in order to give
     // useful error messages that can point at the line. We'll only need to track one at a time because we'll hand off
     // the entire string builder reference to the parser when we're passing off symbols, so we won't reuse the same
@@ -121,7 +124,7 @@ LineTerminator = \r|\n|\r\n
 /* White space is a line terminator, space, tab, or line feed. */
 WhiteSpace     = [ \t\f]
 
-PrivilegedInlineJava = [^]*\$\$END_JAVA
+PrivilegedInlineJavaTypeCaptures = "$$TYPES<"({Identifier},)*{Identifier}>\n
 
 %state LINECOMMENT
 %state STRING
@@ -437,6 +440,13 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
 }
 
 <PRIVILEGED_INLINE_JAVA> {
+    {PrivilegedInlineJavaTypeCaptures} {
+                              // Collect the type captures that should be made available to the inline Java.
+                              String lexed = yytext();
+                              privilegedInlineJavaTypeCaptures = lexed.substring("$$TYPES<".length(), lexed.length() - 2);
+                              currentInputLine.set(new StringBuilder());
+                              yyline++;
+                           }
     [^]                    {
                               // Collect everything into the currentInputLine just for somewhere to keep it.
                               addToLine(yytext());
@@ -455,7 +465,9 @@ PrivilegedInlineJava = [^]*\$\$END_JAVA
                              yyline += lines;
                              yycolumn = 0;
                              currentInputLine.set(new StringBuilder());
-                             return new Symbol(Tokens.PRIVILEGED_INLINE_JAVA, yycolumn, yyline - 1, LexedValue.create(lexed, () -> lexed, lexed.length()));
+                             Symbol res = new Symbol(Tokens.PRIVILEGED_INLINE_JAVA, yycolumn, yyline - 1, LexedValue.create(Optional.ofNullable(privilegedInlineJavaTypeCaptures).orElse(""), () -> lexed, lexed.length()));
+                             privilegedInlineJavaTypeCaptures = null;
+                             return res;
                            }
 }
 

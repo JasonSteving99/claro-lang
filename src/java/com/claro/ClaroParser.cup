@@ -3935,7 +3935,7 @@ get_basic_http_server_for_port_expr ::=
 
 privileged_inline_java ::=
     PRIVILEGED_INLINE_JAVA:java
-    {: RESULT = new PrivilegedInlineJavaStmt(java.getCurrentInputLine().get()); :}
+    {: RESULT = new PrivilegedInlineJavaStmt(java.getVal(), java.getCurrentInputLine().get()); :}
   ;
 
 // The last production 'term' closes the grammar. It's a primitive or identifier reference.
