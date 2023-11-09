@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 
 public class PrivilegedInlineJavaStmt extends Stmt {
   private final ImmutableMap<String, TypeProvider> capturedTypeProviders;
@@ -77,13 +78,13 @@ public class PrivilegedInlineJavaStmt extends Stmt {
       javaWithTypeCapturesFormatted =
           javaWithTypeCapturesFormatted.replaceAll(
               String.format("\\$\\$JAVA_TYPE\\(%s\\)", capturedType.getKey()),
-              capturedType.getValue().getJavaSourceType()
+              Matcher.quoteReplacement(capturedType.getValue().getJavaSourceType())
           );
       // Then format any usages of the Claro type of the captured type.
       javaWithTypeCapturesFormatted =
           javaWithTypeCapturesFormatted.replaceAll(
               String.format("\\$\\$CLARO_TYPE\\(%s\\)", capturedType.getKey()),
-              capturedType.getValue().getJavaSourceClaroType()
+              Matcher.quoteReplacement(capturedType.getValue().getJavaSourceClaroType())
           );
     }
     return GeneratedJavaSource.forJavaSourceBody(
