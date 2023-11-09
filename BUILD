@@ -52,6 +52,14 @@ alias(
     name = "activej_promise",
     actual = "@maven//:io_activej_activej_promise"
 )
+alias(
+    name = "caffeine",
+    actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
+)
+alias(
+    name = "future_converter",
+    actual = "@maven//:net_javacrumbs_future_converter_future_converter_java8_guava",
+)
 
 alias(
     name = "slf4j_nop",

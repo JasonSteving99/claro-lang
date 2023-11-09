@@ -8,6 +8,7 @@ visibility([
     "//src/java/com/claro/module_system/clarodocs/...",
     "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
     "//src/java/com/claro/stdlib/claro/...",
+    "//src/java/com/claro/stdlib/utils/...",
 ])
 
 DEFAULT_CLARO_NAME = "claro"

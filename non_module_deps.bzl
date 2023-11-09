@@ -19,8 +19,8 @@ def _non_module_deps_impl(ctx):
   )
   http_file(
     name = "bootstrapping_claro_compiler_tarfile",
-    sha256 = "7216248d1c98934d385139b54ae6d419f30a8cb8d1b86e7b3e56aa62defdb021",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.321/claro-cli-install.tar.gz",
+    sha256 = "b7281d63081c5474555f7937d39af8ea5e67630d1416dff53c35121281ad502f",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.322/claro-cli-install.tar.gz",
   )
   # ClaroDocs is built atop Google's Closure Templates in order to ensure that I'm not generating unsafe html since the
   # intention is for users to be able to trust and host ClaroDocs themselves (particularly relevant since ClaroDocs

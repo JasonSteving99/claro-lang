@@ -1,0 +1,18 @@
+
+opaque newtype CacheBuilder
+opaque newtype CacheSpec
+
+newtype InvalidCacheSpec : struct {
+  msg: string # Reason for the parsed spec being invalid.
+}
+
+provider builder() -> CacheBuilder;
+
+function parseCacheSpecToBuilder(spec: string) -> oneof<CacheSpec, std::Error<InvalidCacheSpec>>;
+function builderFromSpec(spec: CacheSpec) -> CacheBuilder;
+function builderFromSpecString(spec: string) -> oneof<CacheBuilder, std::Error<InvalidCacheSpec>>;
+
+function expireAfterAccess(builder: CacheBuilder, duration: duration::Duration) -> CacheBuilder;
+function expireAfterWrite(builder: CacheBuilder, duration: duration::Duration) -> CacheBuilder;
+
+function build<K, V>(builder: CacheBuilder, loadingFn: function<K -> future<V>>) -> Cache<K, V>;

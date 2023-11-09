@@ -1,0 +1,41 @@
+
+newtype Cache<K, V>: $java_type<K, V>("com.github.benmanes.caffeine.cache.AsyncLoadingCache<%s, %s>")
+
+function get<K, V>(cache: Cache<K, V>, key: K) -> future<V> {
+  var res: future<V>;
+
+  # TODO(steving) This value is only necessary to be able to use the type that's codegen'd by Claro since I don't
+  # TODO(steving)     have access to it within the inline Java block below. I need the extend inline Java support.
+  var placeholderForTypeCodegen: [V] = [];
+  $$BEGIN_JAVA
+    res =
+      new ClaroFuture(
+        ((Types.ListType) placeholderForTypeCodegen.getClaroType()).getElementType(),
+        net.javacrumbs.futureconverter.java8guava.FutureConverter.toListenableFuture(cache.wrappedValue.get(key))
+      );
+  $$END_JAVA
+
+  return res;
+}
+
+function getAll<K, V>(cache: Cache<K, V>, keys: [K]) -> future<{K: V}> {
+  var res: future<{K: V}>;
+
+  alias MapType : {K: V}
+  # TODO(steving) This value is only necessary to be able to use the type that's codegen'd by Claro since I don't
+  # TODO(steving)     have access to it within the inline Java block below. I need the extend inline Java support.
+  var placeholderForTypeCodegen: {K: V} = {};
+  $$BEGIN_JAVA
+    Types.MapType mapType = (Types.MapType) placeholderForTypeCodegen.getClaroType();
+    res =
+      new ClaroFuture(
+        mapType,
+        net.javacrumbs.futureconverter.java8guava.FutureConverter.toListenableFuture(
+          cache.wrappedValue.getAll(keys)
+            .thenApplyAsync(
+              m -> new ClaroMap(mapType, m),
+              ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)));
+  $$END_JAVA
+
+  return res;
+}

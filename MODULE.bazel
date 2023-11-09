@@ -39,6 +39,8 @@ maven.install(
             # this is resolved. Re: https://github.com/square/retrofit/issues/3341
             "com.squareup.retrofit2:retrofit:2.7.2",
             "com.google.code.gson:gson:2.10.1",
+            "com.github.ben-manes.caffeine:caffeine:3.1.8",
+            "net.javacrumbs.future-converter:future-converter-java8-guava:1.2.0",
 
             ############################################################################################################
             # BEGIN ACTIVE J

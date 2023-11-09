@@ -18,3 +18,20 @@ function read(resource: Resource) -> oneof<string, std::Error<IOError>> {
 
   return res;
 }
+
+function readOrPanic(resource: Resource) -> string {
+  var res: string;
+
+  $$BEGIN_JAVA
+    try {
+      res = com.google.common.io.Resources.asCharSource(
+        resource.wrappedValue,
+        java.nio.charset.Charset.defaultCharset()
+      ).read();
+    } catch (Exception e) {
+      throw new ClaroFuture.Panic(e);
+    }
+  $$END_JAVA
+
+  return res;
+}

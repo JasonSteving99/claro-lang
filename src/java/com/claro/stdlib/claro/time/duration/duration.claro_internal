@@ -1,0 +1,64 @@
+
+alias JavaDuration : $java_type("java.time.Duration")
+newtype Duration : JavaDuration
+
+
+# TODO(steving) Every occurrence of `int` should be converted to `long` once the type is supported.
+function ofDays(days: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofDays(days));
+  $$END_JAVA
+
+  return res;
+}
+function ofHours(hours: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofHours(hours));
+  $$END_JAVA
+
+  return res;
+}
+function ofMillis(millis: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofMillis(millis));
+  $$END_JAVA
+
+  return res;
+}
+function ofMinutes(minutes: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofMinutes(minutes));
+  $$END_JAVA
+
+  return res;
+}
+function ofNanos(nanos: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofNanos(nanos));
+  $$END_JAVA
+
+  return res;
+}
+function ofSeconds(seconds: int) -> Duration {
+  var res: Duration;
+
+  $$BEGIN_JAVA
+    res = wrapJavaDuration.apply(java.time.Duration.ofSeconds(seconds));
+  $$END_JAVA
+
+  return res;
+}
+
+function wrapJavaDuration(javaDuration: JavaDuration) -> Duration {
+  return Duration(javaDuration);
+}

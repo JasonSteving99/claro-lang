@@ -14,3 +14,4 @@ newtype IOError : string
 # Inside `foo.claro`:
 #   var fileContents: string = files::read(resources::MyFile);
 function read(resource: Resource) -> oneof<string, std::Error<IOError>>;
+function readOrPanic(resource: Resource) -> string;
