@@ -271,7 +271,7 @@ def claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports
 
 def claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
-        _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
+        _invoke_claro_compiler_internal_with_stdlib_module_deps, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
@@ -438,6 +438,10 @@ _invoke_claro_compiler = rule(
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS = INVOKE_CLARO_COMPILER_ATTRS
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["srcs"] = attr.label_list(allow_files = [".claro", ".claro_internal"])
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_srcs"] = attr.label_list(default = [], allow_files = [".claro_internal"])
+_invoke_claro_compiler_internal_with_stdlib_module_deps = rule(
+    implementation = _invoke_claro_compiler_impl,
+    attrs = INVOKE_CLARO_COMPILER_INTERNAL_ATTRS,
+)
 INVOKE_CLARO_COMPILER_INTERNAL_ATTRS["_stdlib_module_deps"] = attr.label_keyed_string_dict(default = {}, providers = [ClaroModuleInfo])
 _invoke_claro_compiler_internal = rule(
     implementation = _invoke_claro_compiler_impl,

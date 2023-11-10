@@ -1,0 +1,5 @@
+
+function load(key: K) -> future<V> {
+  print("LOADING {key} FROM CACHE!");
+  return futures::immediateFuture("Value: {key}");
+}

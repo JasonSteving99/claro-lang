@@ -1,0 +1,28 @@
+cache::builder()
+  |> cache::refreshAfterWrite(^, Duration::ofSeconds(5))
+  |> CustomReloadCache::build(^)
+  |> var customReloadCache = ^;
+
+cache::builder()
+  |> cache::refreshAfterWrite(^, Duration::ofSeconds(5))
+  |> DefaultReloadCache::build(^)
+  |> var defaultReloadCache = ^;
+print("--------------------------------------------------");
+
+var cacheRes1 <-| cache::get(customReloadCache, "FirstKey");
+print(cacheRes1);
+
+_ = input("\nAdding some delay...press ENTER after 5 seconds for cache entry to expire:");
+
+var cacheRes2 <-| cache::get(customReloadCache, "FirstKey");
+print(cacheRes2);
+
+print("\n--------------------------------------------------");
+
+var cacheRes3 <-| cache::get(defaultReloadCache, "FirstKey");
+print(cacheRes3);
+
+_ = input("Adding some delay...press ENTER after 5 seconds for cache entry to expire:");
+
+var cacheRes4 <-| cache::get(defaultReloadCache, "FirstKey");
+print(cacheRes4);

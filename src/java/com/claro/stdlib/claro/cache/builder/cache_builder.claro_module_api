@@ -14,5 +14,6 @@ function builderFromSpecString(spec: string) -> oneof<CacheBuilder, std::Error<I
 
 function expireAfterAccess(builder: CacheBuilder, duration: duration::Duration) -> CacheBuilder;
 function expireAfterWrite(builder: CacheBuilder, duration: duration::Duration) -> CacheBuilder;
+function refreshAfterWrite(builder: CacheBuilder, duration: duration::Duration) -> CacheBuilder;
 
 function build<K, V>(builder: CacheBuilder, loadingFn: function<K -> future<V>>) -> Cache<K, V>;

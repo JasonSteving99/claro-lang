@@ -72,6 +72,13 @@ function expireAfterWrite(cacheBuilder: CacheBuilder, duration: duration::Durati
   return cacheBuilder;
 }
 
+function refreshAfterWrite(cacheBuilder: CacheBuilder, duration: duration::Duration) -> CacheBuilder {
+  $$BEGIN_JAVA
+    cacheBuilder.wrappedValue.refreshAfterWrite(duration.wrappedValue);
+  $$END_JAVA
+  return cacheBuilder;
+}
+
 
 function build<K, V>(cacheBuilder: CacheBuilder, loadingFn: function<K -> future<V>>) -> Cache<K, V> {
   # TODO(steving) These aliases are completely just working around some issue with the implementation of `$java_type`
@@ -91,36 +98,3 @@ function build<K, V>(cacheBuilder: CacheBuilder, loadingFn: function<K -> future
 
   return Cache(javaCache);
 }
-
-#function buildWithCacheLoader<K, V>(cacheBuilder: CacheBuilder, cacheLoader: CacheLoader::CacheLoader<K, V>) -> Cache<K, V> {
-#  alias DEFAULT : CacheLoader::DEFAULT_CACHE_LOADER_FN
-#  var unwrappedCacheLoader = unwrap(cacheLoader);
-#  if ((unwrappedCacheLoader.bulkLoadFn instanceof DEFAULT) and (unwrappedCacheLoader.reloadFn instanceof DEFAULT)) {
-#    return build(cacheBuilder, unwrappedCacheLoader.loadFn);
-#  }
-#
-#  # TODO(steving) These aliases are completely just working around some issue with the implementation of `$java_type`
-#  # TODO(steving)     that's preventing the monomorphization subprocess from finding the types `K` and `V`. Fix this.
-#  alias K_alias: K
-#  alias V_alias: V
-#  var javaCache: $java_type<K_alias, V_alias>("com.github.benmanes.caffeine.cache.AsyncLoadingCache<%s, %s>");
-#
-#  if (unwrappedCacheLoader.bulkLoadFn instanceof DEFAULT) {
-#
-#  } else if (unwrappedCacheLoader.reloadFn instanceof DEFAULT) {
-#
-#  } else { # Both overridden.
-#
-#  }
-#
-#  $$BEGIN_JAVA
-#    javaCache = cacheBuilder.wrappedValue
-#      .executor(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
-#      .buildAsync(
-#        (key, executor) ->
-#          net.javacrumbs.futureconverter.java8guava.FutureConverter.toCompletableFuture(loadingFn.apply(key))
-#      );
-#  $$END_JAVA
-#
-#  return Cache(javaCache);
-#}

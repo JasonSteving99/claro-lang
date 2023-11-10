@@ -1,0 +1,5 @@
+
+function reload(key: K, originalValue: V) -> future<V> {
+  _ = originalValue;
+  return load(key);
+}
