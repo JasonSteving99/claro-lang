@@ -1,0 +1,7 @@
+
+newtype AnimalState : struct {
+  name: string,
+  state: State
+}
+
+implement AnimalSounds::AnimalSounds<AnimalState>;

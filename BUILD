@@ -133,3 +133,10 @@ genrule(
 ################################################################################
 # END: Setup Bootstrapping Claro Compiler.
 ################################################################################
+
+genrule(
+    name = "empty_claro_src",
+    outs = ["empty.claro"],
+    # Currently claro doesn't accept empty src files so throw a no-op stmt in there.
+    cmd = "echo '_ = 1;' > $(OUTS)",
+)

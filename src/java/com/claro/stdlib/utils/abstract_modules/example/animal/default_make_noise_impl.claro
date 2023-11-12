@@ -1,0 +1,5 @@
+
+function makeNoiseImpl(state: AnimalState) -> string {
+  _ = state;
+  return "<..This animal doesn't make any noise..>";
+}

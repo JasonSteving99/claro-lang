@@ -266,7 +266,7 @@ def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional
         resources = resources.values(),
     )
 
-def claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+def claro_module(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
     _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
 
 def claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
