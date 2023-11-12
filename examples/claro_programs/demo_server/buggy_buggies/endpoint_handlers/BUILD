@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
+load("//:rules.bzl", "claro_module")
 
 package(default_visibility = ["//examples/claro_programs/demo_server/buggy_buggies:__pkg__"])
 

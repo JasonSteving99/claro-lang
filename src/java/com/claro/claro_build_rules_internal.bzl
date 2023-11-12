@@ -5,6 +5,7 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 # Users should be unable to access certain config settings and should be required to come through the "front
 # door" of the public claro_module() and claro_binary() rules.
 visibility([
+    "//",
     "//src/java/com/claro/module_system/clarodocs/...",
     "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
     "//src/java/com/claro/stdlib/claro/...",

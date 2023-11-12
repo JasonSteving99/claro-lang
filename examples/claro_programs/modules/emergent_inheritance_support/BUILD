@@ -1,5 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary")
-load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
+load("//:rules.bzl", "claro_binary", "claro_docs")
 
 # NOTE: For an even better example of "inheritance" check out the implementation of this same Animals example using the
 #       more advanced usage of "Abstract Modules" in //src/java/com/claro/stdlib/utils/abstract_modules/example:test. In
@@ -14,7 +13,7 @@ claro_binary(
     },
 )
 
-clarodocs(
+claro_docs(
     name = "test_inheritance_docs",
     root = ":test_inheritance",
 )

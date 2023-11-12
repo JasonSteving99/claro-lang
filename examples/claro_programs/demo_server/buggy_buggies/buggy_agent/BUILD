@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module", "claro_binary")
+load("//:rules.bzl", "claro_module", "claro_binary")
 
 
 # TODO(steving) Realistically I'd rather break up this functionality into two separate modules. In particular I don't

@@ -1,5 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary", "claro_module")
-load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
+load("//:rules.bzl", "claro_binary", "claro_module", "claro_docs")
 
 
 clarodocs(

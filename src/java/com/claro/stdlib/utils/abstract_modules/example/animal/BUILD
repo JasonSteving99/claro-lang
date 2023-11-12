@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
+load("//:rules.bzl", "claro_module")
 
 exports_files(glob(["*.claro*"], exclude = ["animal_sounds.claro_module_api"]))
 

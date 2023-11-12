@@ -1,6 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary", "gen_claro_builtin_java_deps_jar")
+load("//:rules.bzl", "claro_binary")
+load("//src/java/com/claro:claro_build_rules.bzl", "gen_claro_builtin_java_deps_jar")
 
 # Generate target for the builtin Java deps that'll be needed by the CLI to build w/o Bazel.
 gen_claro_builtin_java_deps_jar()

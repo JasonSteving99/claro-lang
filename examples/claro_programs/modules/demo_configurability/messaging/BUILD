@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_module")
+load("//:rules.bzl", "claro_module")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 claro_module(

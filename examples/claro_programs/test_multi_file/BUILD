@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary")
+load("//:rules.bzl", "claro_binary")
 
 claro_binary(
     name = "multiple_files",

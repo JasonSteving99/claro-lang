@@ -1,4 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary", "claro_module")
+load("//:rules.bzl", "claro_binary", "claro_module")
 
 ########################################################################################################################
 # Here's a trivial demonstration of how Claro's Module System resolves transitive dependencies.

@@ -1,7 +1,8 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_import_external")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-# -- load statements -- #
+
+visibility("private")
 
 def _non_module_deps_impl(ctx):
   http_archive(

@@ -1,5 +1,5 @@
 load("//src/java/com/claro/stdlib/utils/abstract_modules/example/animal:animal.bzl", "Animal")
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary", "claro_docs")
+load("//:rules.bzl", "claro_binary", "claro_docs")
 
 Animal(
     name = "dog",

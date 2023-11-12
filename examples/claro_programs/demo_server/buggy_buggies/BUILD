@@ -1,5 +1,4 @@
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary")
-load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
+load("//:rules.bzl", "claro_binary", "claro_docs")
 
 
 # This is an in-progress refactoring of Claro's first demo server into something that resembles a well-organized
@@ -15,7 +14,7 @@ claro_binary(
     optional_stdlib_deps = ["http"],
 )
 
-clarodocs(
+claro_docs(
     name = "buggy_buggies_docs",
     root = ":buggy_buggies_http_server",
 )

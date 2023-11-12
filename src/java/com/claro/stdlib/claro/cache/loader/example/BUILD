@@ -1,5 +1,5 @@
 load("//src/java/com/claro/stdlib/claro/cache/loader:custom_cache_loader.bzl", "CacheWithCustomLoader")
-load("//src/java/com/claro:claro_build_rules.bzl", "claro_binary")
+load("//:rules.bzl", "claro_binary")
 
 # This demonstrates the metaprogramming power of the combination of Claro and Bazel. This target is programmatically
 # declaring a totally custom module that builds instances of `cache::Cache<K,V>` that use the customized loaders defined
