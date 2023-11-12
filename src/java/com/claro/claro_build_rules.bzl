@@ -4,6 +4,10 @@ load(
     _claro_module = "claro_module",
     _gen_claro_builtin_java_deps_jar = "gen_claro_builtin_java_deps_jar",
 )
+load(
+    "//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl",
+    _claro_docs = "clarodocs",
+)
 
 visibility("public")
 
@@ -11,6 +15,7 @@ visibility("public")
 # is restricted to the set of rules that have been intentionally crafted for public consumption.
 claro_module = _claro_module
 claro_binary = _claro_binary
+claro_docs = _claro_docs
 
 # TODO(steving) This should be removed from this public .bzl file. It would require updating the GitHub Workflow that
 # TODO(steving)     expects the existence of this target used in "//examples/claro_programs:BUILD".
