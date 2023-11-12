@@ -1608,11 +1608,22 @@ public final class Types {
 
     @Override
     public String toString() {
+      String disambig = this.getDefiningModuleDisambiguator();
+      int i = disambig.lastIndexOf('$');
+      String namespace =
+          disambig.isEmpty()
+          ? ""
+          : String.format(
+              "[module at //%s:%s]::",
+              disambig.substring(0, i).replaceAll("\\$", "/"),
+              disambig.substring(i + 1)
+          );
       if (this.parameterizedTypeArgs().isEmpty()) {
-        return this.getTypeName();
+        return namespace + this.getTypeName();
       }
       return String.format(
-          "%s<%s>",
+          "%s%s<%s>",
+          namespace,
           this.getTypeName(),
           this.parameterizedTypeArgs().values().stream().map(Type::toString).collect(Collectors.joining(", "))
       );
