@@ -4,7 +4,7 @@ load(
     _claro_binary = "claro_binary",
 )
 load(
-    "//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl",
+    "@claro-lang//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl",
     _claro_docs = "clarodocs",
 )
 load(
