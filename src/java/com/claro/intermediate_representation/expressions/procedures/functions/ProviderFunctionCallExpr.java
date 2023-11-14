@@ -161,6 +161,10 @@ public class ProviderFunctionCallExpr extends Expr {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.functionName).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
@@ -212,14 +216,23 @@ public class ProviderFunctionCallExpr extends Expr {
           );
     }
 
-    StringBuilder res =
-        new StringBuilder(String.format(
-            "%s%s.apply()",
-            optionalNormalizedOriginatingDepModulePrefix.orElse(""),
-            this.optionalOriginatingDepModuleName
-                .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
-                .orElse(this.functionName)
-        ));
+    StringBuilder res;
+    if (isStatic) {
+      String procName =
+          this.optionalOriginatingDepModuleName
+              .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+              .orElse(this.functionName);
+      res = new StringBuilder(String.format(
+          "%s$%s.%s()", optionalNormalizedOriginatingDepModulePrefix.orElse(""), procName, procName));
+    } else {
+      res = new StringBuilder(String.format(
+          "%s%s.apply()",
+          optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+          this.optionalOriginatingDepModuleName
+              .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+              .orElse(this.functionName)
+      ));
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset

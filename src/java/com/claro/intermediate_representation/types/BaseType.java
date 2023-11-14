@@ -48,7 +48,7 @@ public enum BaseType {
       "public static final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
       "  private final $%s %s = this;\n" +
-      "  public %s apply(Object... args) {\n" +
+      "  public %s apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "\n%s\n" +
@@ -77,7 +77,7 @@ public enum BaseType {
       "  $%s(%s) { \n" +
       "%s" + // Instantiate instance variables for any/all captured variables.
       "  }\n" +
-      "  public %s apply(Object... args) {\n" +
+      "  public %s apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
@@ -101,7 +101,7 @@ public enum BaseType {
       "public static final class $%s extends ClaroConsumerFunction {\n" +
       "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
-      "  public void apply(Object... args) {\n" +
+      "  public void apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "\n%s\n" +
@@ -130,7 +130,7 @@ public enum BaseType {
       "  $%s(%s) { \n" +
       "%s" + // Instantiate instance variables for any/all captured variables.
       "  }\n" +
-      "  public void apply(Object... args) {\n" +
+      "  public void apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +

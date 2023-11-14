@@ -234,6 +234,10 @@ public class ConsumerFunctionCallStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.consumerName).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
@@ -288,32 +292,47 @@ public class ConsumerFunctionCallStmt extends Stmt {
     AtomicReference<GeneratedJavaSource> argValsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
 
-    GeneratedJavaSource consumerFnGenJavaSource =
-        GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder(
-                String.format(
-                    this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
-                    optionalNormalizedOriginatingDepModulePrefix.orElse(""),
-                    this.optionalOriginatingDepModuleName
-                        .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
-                        .orElse(this.consumerName),
-                    this.argExprs
-                        .stream()
-                        .map(expr -> {
-                          GeneratedJavaSource currArgGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
-                          String currArgJavaSourceBody = currArgGenJavaSource.javaSourceBody().toString();
-                          // We've already consumed the javaSourceBody, so it's safe to clear.
-                          currArgGenJavaSource.javaSourceBody().setLength(0);
-                          argValsGenJavaSource.set(argValsGenJavaSource.get().createMerged(currArgGenJavaSource));
-                          return currArgJavaSourceBody;
-                        })
-                        .collect(Collectors.joining(", ")),
-                    this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
-                    ? ", " + this.optionalExtraArgsCodegen.get()
-                    : ""
-                )
-            )
-        );
+    String argExprsCodegen =
+        this.argExprs
+            .stream()
+            .map(expr -> {
+              GeneratedJavaSource currArgGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+              String currArgJavaSourceBody = currArgGenJavaSource.javaSourceBody().toString();
+              // We've already consumed the javaSourceBody, so it's safe to clear.
+              currArgGenJavaSource.javaSourceBody().setLength(0);
+              argValsGenJavaSource.set(argValsGenJavaSource.get().createMerged(currArgGenJavaSource));
+              return currArgJavaSourceBody;
+            })
+            .collect(Collectors.joining(", "));
+
+    GeneratedJavaSource consumerFnGenJavaSource;
+    if (isStatic) {
+      String procName = this.optionalOriginatingDepModuleName
+          .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+          .orElse(this.consumerName);
+      consumerFnGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  "%s$%s.%s(%s);\n",
+                  optionalNormalizedOriginatingDepModulePrefix.orElse(""), procName, procName, argExprsCodegen
+              )));
+    } else {
+      consumerFnGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
+                  optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                  this.optionalOriginatingDepModuleName
+                      .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                      .orElse(this.consumerName),
+                  argExprsCodegen,
+                  this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                  ? ", " + this.optionalExtraArgsCodegen.get()
+                  : ""
+              )
+          )
+      );
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset

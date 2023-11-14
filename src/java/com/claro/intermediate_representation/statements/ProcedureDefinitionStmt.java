@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ProcedureDefinitionStmt extends Stmt {
 
@@ -155,8 +156,14 @@ public class ProcedureDefinitionStmt extends Stmt {
     // procedure is blocking.
     this.resolvedProcedureType.getIsBlocking().set(false);
 
-    // Finally mark the function declared and initialized within the original calling scope.
-    scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
+    // Finally mark the function declared and initialized within the original calling scope. Marking this symbol table
+    // entry static so that direct calls via this symbol can be identified to codegen more efficient static procedure
+    // calls rather than going through the first-class procedure wrapper.
+    if (this.isLambdaType) {
+      scopedHeap.observeIdentifier(this.procedureName, resolvedProcedureType);
+    } else {
+      scopedHeap.observeStaticIdentifierValue(this.procedureName, resolvedProcedureType, /*isLazy=*/false);
+    }
     scopedHeap.initializeIdentifier(this.procedureName);
 
     // If we're dealing with a blocking-generic prcedure, then we need to type check for blocking/non-blocking
@@ -731,7 +738,7 @@ public class ProcedureDefinitionStmt extends Stmt {
                     argName,
                     argJavaSourceType,
                     isArgsMap
-                    ? String.format("args[%s];\n", i)
+                    ? String.format("$args[%s];\n", i)
                     : String.format(
                         "Injector.bindings.get(Key.create(\"%s\", %s));\n",
                         optionalInjectedKeysToAliasMap.get().keySet().asList().get(i).getName(),
@@ -750,24 +757,19 @@ public class ProcedureDefinitionStmt extends Stmt {
           Optional.of(initializeIdentifiers.apply(/*isArgsMap=*/true, this.optionalArgTypesByNameMap.get()));
     }
     // Similarly, we also need to do the same thing for generating initialization code for injected keys.
-    if (optionalInjectedKeysToAliasMap.isPresent()) {
-      StringBuilder initializeInjectedKeysJavaSource =
-          initializeIdentifiers.apply(
-              /*isArgsMap=*/
-              false,
-              optionalInjectedKeysToAliasMap.get().entrySet().stream()
-                  .collect(
-                      ImmutableMap.toImmutableMap(
-                          entry -> entry.getValue().orElse(entry.getKey().getName()),
-                          entry -> entry.getKey().getType()
-                      ))
-          );
-      if (optionalJavaSourceBodyBuilder.isPresent()) {
-        optionalJavaSourceBodyBuilder.get().append(initializeInjectedKeysJavaSource);
-      } else {
-        optionalJavaSourceBodyBuilder = Optional.of(initializeInjectedKeysJavaSource);
-      }
-    }
+    Optional<StringBuilder> optionalInitializeInjectedKeysJavaSource =
+        optionalInjectedKeysToAliasMap.map(
+            injectedKeysToAliasMap ->
+                initializeIdentifiers.apply(
+                    /*isArgsMap=*/
+                    false,
+                    injectedKeysToAliasMap.entrySet().stream()
+                        .collect(
+                            ImmutableMap.toImmutableMap(
+                                entry -> entry.getValue().orElse(entry.getKey().getName()),
+                                entry -> entry.getKey().getType()
+                            ))
+                ));
 
     // There's a StmtListNode to generate code for.
     GeneratedJavaSource procedureBodyGeneratedJavaSource =
@@ -798,10 +800,42 @@ public class ProcedureDefinitionStmt extends Stmt {
           this.resolvedProcedureType.getJavaNewTypeDefinitionStmt(
               this.procedureName,
               optionalJavaSourceBodyBuilder.orElse(new StringBuilder())
-                  .append(procedureBodyGeneratedJavaSource.javaSourceBody()),
-              optionalHelperGeneratedJavaSource.map(GeneratedJavaSource::javaSourceBody)
+                  .append(this.resolvedProcedureType.hasReturnValue() ? "return " : "")
+                  .append(this.procedureName)
+                  .append("(")
+                  .append(
+                      this.optionalArgTypesByNameMap
+                          .map(argMap -> String.join(", ", argMap.keySet()))
+                          .orElse(""))
+                  .append(");\n"),
+              // Non-lambdas all generate a static procedure implementation that will be called in all cases where the
+              // call isn't done via a first-class reference in the .claro src.
+              Optional.of(
+                  new StringBuilder("\npublic static ")
+                      .append(this.resolvedProcedureType.hasReturnValue()
+                              ? this.resolvedProcedureType.getReturnType().getJavaSourceType()
+                              : "void")
+                      .append(" ")
+                      .append(this.procedureName)
+                      .append("(")
+                      .append(
+                          this.optionalArgTypesByNameMap
+                              .map(argTypesByName ->
+                                       argTypesByName.entrySet().stream()
+                                           .map(e -> String.format("%s %s", e.getValue()
+                                               .getJavaSourceType(), e.getKey()))
+                                           .collect(Collectors.joining(", ")))
+                              .orElse(""))
+                      .append(") {\n")
+                      .append(optionalInitializeInjectedKeysJavaSource.map(StringBuilder::toString).orElse(""))
+                      .append(procedureBodyGeneratedJavaSource.javaSourceBody())
+                      .append("\n}\n")
+                      .append(optionalHelperGeneratedJavaSource.map(GeneratedJavaSource::javaSourceBody)
+                                  .map(StringBuilder::toString)
+                                  .orElse("")))
           );
     }
+
     Optional<StringBuilder> optionalStaticDefinitions =
         procedureBodyGeneratedJavaSource.optionalStaticDefinitions();
 
@@ -821,6 +855,7 @@ public class ProcedureDefinitionStmt extends Stmt {
           new StringBuilder(this.resolvedProcedureType.getStaticFunctionReferenceDefinitionStmt(this.procedureName))
       );
     }
+
   }
 
   @Override

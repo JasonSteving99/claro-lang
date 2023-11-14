@@ -697,6 +697,10 @@ public class FunctionCallExpr extends Expr {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.name).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
@@ -784,21 +788,36 @@ public class FunctionCallExpr extends Expr {
           )
       );
     } else {
-      functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
-          new StringBuilder(
-              String.format(
-                  this.staticDispatchCodegen ? "%s%s(%s%s)" : "%s%s.apply(%s%s)",
-                  optionalNormalizedOriginatingDepModulePrefix.orElse(""),
-                  this.optionalOriginatingDepModuleName
-                      .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
-                      .orElse(this.name),
-                  exprsJavaSourceBodyCodegen,
-                  this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
-                  ? ", " + this.optionalExtraArgsCodegen.get()
-                  : ""
-              )
-          )
-      );
+      if (isStatic) {
+        String procName =
+            this.optionalOriginatingDepModuleName
+                .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                .orElse(this.name);
+        functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(String.format(
+                "%s$%s.%s(%s)",
+                optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                procName,
+                procName,
+                exprsJavaSourceBodyCodegen
+            )));
+      } else {
+        functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(
+                String.format(
+                    this.staticDispatchCodegen ? "%s%s(%s%s)" : "%s%s.apply(%s%s)",
+                    optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                    this.optionalOriginatingDepModuleName
+                        .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                        .orElse(this.name),
+                    exprsJavaSourceBodyCodegen,
+                    this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                    ? ", " + this.optionalExtraArgsCodegen.get()
+                    : ""
+                )
+            )
+        );
+      }
     }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
