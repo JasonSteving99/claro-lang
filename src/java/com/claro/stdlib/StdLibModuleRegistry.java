@@ -6,5 +6,5 @@ public class StdLibModuleRegistry {
   // special language-level semantic is given *only* to that stdlib type, not just any old type named `Error`. Hence,
   // here I hardcode the module disambiguator for the stdlib, so that it can be checked against.
   public static final String STDLIB_MODULE_PACKAGE = "claro.lang";
-  public static final String STDLIB_MODULE_DISAMBIGUATOR = "src$java$com$claro$stdlib$claro$std";
+  public static final String STDLIB_MODULE_DISAMBIGUATOR = "stdlib$std";
 }
