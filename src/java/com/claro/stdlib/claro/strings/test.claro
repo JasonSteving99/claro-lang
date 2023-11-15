@@ -1,0 +1,32 @@
+
+var hello = "Hello, world!";
+var c = strings::charAt(hello, 1);
+print("The 2nd char of {hello} is: {c}");
+
+var i = strings::indexOf(hello, "l");
+print("The index of 'l' in {hello} is: {i}");
+i = strings::indexOf(hello, "y");
+print("The index of 'y' in {hello} is: {i}");
+i = strings::indexOfFromIndex(hello, "o", 5);
+print("The index of 'o' in {hello} starting from index 5 is: {i}");
+
+var replaced = strings::replace(hello, "world", "replaced");
+print("The result of replacing 'world' is: {replaced}");
+
+var commonPrefix = strings::commonPrefix(hello, replaced);
+print("The common prefix between:\n\t\"{hello}\"\n\t\tAND\n\t\"{replaced}\"\n\t\tIS\n\t\"{commonPrefix}\"");
+var commonSuffix = strings::commonSuffix(hello, replaced);
+print("The common suffix between:\n\t\"{hello}\"\n\t\tAND\n\t\"{replaced}\"\n\t\tIS\n\t\"{commonSuffix}\"");
+
+var parts = strings::split(hello, ",");
+print("The split parts are: \"{parts[0]}\" and \"{parts[1]}\"");
+
+var chars = strings::splitChars(hello);
+print("The chars are: {chars}");
+
+var upperCase = strings::toUpperCase(hello);
+print("In all caps: {upperCase}");
+
+strings::padStart("DONE!\n", 10)
+  |> strings::repeated(^, 5)
+  |> print(^);

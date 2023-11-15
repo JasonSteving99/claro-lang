@@ -1,0 +1,284 @@
+
+function charAt(s: string, i: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = String.valueOf(s.charAt(i));
+  $$END_JAVA
+  return res;
+}
+
+function commonPrefix(s: string, other: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = com.google.common.base.Strings.commonPrefix(s, other);
+  $$END_JAVA
+  return res;
+}
+function commonSuffix(s: string, other: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = com.google.common.base.Strings.commonSuffix(s, other);
+  $$END_JAVA
+  return res;
+}
+
+function compareTo(s: string, other: string) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = s.compareTo(other);
+  $$END_JAVA
+  return res;
+}
+function compareToIgnoreCase(s: string, other: string) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = s.compareToIgnoreCase(other);
+  $$END_JAVA
+  return res;
+}
+
+function concat(s: string, other: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.concat(other);
+  $$END_JAVA
+  return res;
+}
+
+function contains(s: string, other: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.contains(other);
+  $$END_JAVA
+  return res;
+}
+
+function endsWith(s: string, other: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.endsWith(other);
+  $$END_JAVA
+  return res;
+}
+
+function equalsIgnoreCase(s: string, other: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.equalsIgnoreCase(other);
+  $$END_JAVA
+  return res;
+}
+
+function indexOf(s: string, of: string) -> oneof<int, NOT_FOUND> {
+  var res: oneof<int, NOT_FOUND>;
+  $$BEGIN_JAVA
+    res = s.indexOf(of);
+  $$END_JAVA
+  if (res == -1) {
+    return NOT_FOUND;
+  }
+  return res;
+}
+function indexOfFromIndex(s: string, of: string, from: int) -> oneof<int, NOT_FOUND> {
+  var res: oneof<int, NOT_FOUND>;
+  $$BEGIN_JAVA
+    res = s.indexOf(of, from);
+  $$END_JAVA
+  if (res == -1) {
+    return NOT_FOUND;
+  }
+  return res;
+}
+
+function isEmpty(s: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.isEmpty();
+  $$END_JAVA
+  return res;
+}
+
+function join(delimiter: string, parts: [string]) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = String.join(delimiter, parts);
+  $$END_JAVA
+  return res;
+}
+
+function lastIndexOf(s: string, of: string) -> oneof<int, NOT_FOUND> {
+  var res: oneof<int, NOT_FOUND>;
+  $$BEGIN_JAVA
+    res = s.lastIndexOf(of);
+  $$END_JAVA
+  if (res == -1) {
+    return NOT_FOUND;
+  }
+  return res;
+}
+function lastIndexOfFromIndex(s: string, of: string, from: int) -> oneof<int, NOT_FOUND> {
+  var res: oneof<int, NOT_FOUND>;
+  $$BEGIN_JAVA
+    res = s.lastIndexOf(of, from);
+  $$END_JAVA
+  if (res == -1) {
+    return NOT_FOUND;
+  }
+  return res;
+}
+
+function matches(s: string, regex: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.matches(regex);
+  $$END_JAVA
+  return res;
+}
+
+function padEnd(s: string, minLength: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = com.google.common.base.Strings.padEnd(s, minLength, ' ');
+  $$END_JAVA
+  return res;
+}
+function padStart(s: string, minLength: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = com.google.common.base.Strings.padStart(s, minLength, ' ');
+  $$END_JAVA
+  return res;
+}
+
+function regionMatches(s: string, s_offset: int, other: string, o_offset: int, regionLen: int) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.regionMatches(s_offset, other, o_offset, regionLen);
+  $$END_JAVA
+  return res;
+}
+function regionMatchesIgnoreCase(ignoreCase: boolean, s: string, s_offset: int, other: string, o_offset: int, regionLen: int) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.regionMatches(ignoreCase, s_offset, other, o_offset, regionLen);
+  $$END_JAVA
+  return res;
+}
+
+function repeated(s: string, count: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = com.google.common.base.Strings.repeat(s, count);
+  $$END_JAVA
+  return res;
+}
+
+function replace(s: string, target: string, replacement: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.replace(target, replacement);
+  $$END_JAVA
+  return res;
+}
+function replaceAll(s: string, regex: string, replacement: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.replaceAll(regex, replacement);
+  $$END_JAVA
+  return res;
+}
+function replaceFirst(s: string, regex: string, replacement: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.replaceFirst(regex, replacement);
+  $$END_JAVA
+  return res;
+}
+
+function split(s: string, regex: string) -> [string] {
+  var res: [string];
+  alias ListType: [string]
+  $$BEGIN_JAVA
+  $$TYPES<ListType>
+    res = ClaroList.initializeList($$CLARO_TYPE(ListType), s.split(regex));
+  $$END_JAVA
+  return res;
+}
+function splitWithLimit(s: string, regex: string, limit: int) -> [string] {
+  var res: [string];
+  alias ListType: [string]
+  $$BEGIN_JAVA
+  $$TYPES<ListType>
+    res = ClaroList.initializeList($$CLARO_TYPE(ListType), s.split(regex, limit));
+  $$END_JAVA
+  return res;
+}
+function splitChars(s: string) -> [string] {
+  var res: [string];
+  alias ListType : [string]
+  $$BEGIN_JAVA
+  $$TYPES<ListType>
+    res = new ClaroList($$CLARO_TYPE(ListType), s.length());
+    for (int i = 0; i < s.length(); i++) {
+      res.add(String.valueOf(s.charAt(i)));
+    }
+  $$END_JAVA
+  return res;
+}
+
+function startsWith(s: string, other: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.startsWith(other);
+  $$END_JAVA
+  return res;
+}
+function startsWithFromIndex(s: string, other: string, from: int) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = s.startsWith(other, from);
+  $$END_JAVA
+  return res;
+}
+
+function substring(s: string, beginInclusive: int, endExclusive: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.substring(beginInclusive, endExclusive);
+  $$END_JAVA
+  return res;
+}
+function suffix(s: string, beginInclusive: int) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.substring(beginInclusive);
+  $$END_JAVA
+  return res;
+}
+
+function toLowerCase(s: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.toLowerCase();
+  $$END_JAVA
+  return res;
+}
+function toUpperCase(s: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.toUpperCase();
+  $$END_JAVA
+  return res;
+}
+
+function trim(s: string) -> string {
+  var res: string;
+  $$BEGIN_JAVA
+    res = s.trim();
+  $$END_JAVA
+  return res;
+}
+
+function valueOf<T>(t: T) -> string {
+  return "{t}";
+}

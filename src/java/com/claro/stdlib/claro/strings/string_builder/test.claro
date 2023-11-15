@@ -1,0 +1,7 @@
+
+var sb = StringBuilder::create();
+StringBuilder::add(sb, "Hello")
+  |> StringBuilder::add(^, ", ")
+  |> StringBuilder::add(^, "from this StringBuilder!")
+  |> StringBuilder::build(^)
+  |> print(^);

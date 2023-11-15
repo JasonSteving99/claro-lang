@@ -27,6 +27,8 @@ CLARO_STDLIB_MODULES = {
     "maps": "@claro-lang//src/java/com/claro/stdlib/claro/maps:maps",
     "sets": "@claro-lang//src/java/com/claro/stdlib/claro/sets:sets",
     "std": "@claro-lang//src/java/com/claro/stdlib/claro:std",
+    "strings": "@claro-lang//src/java/com/claro/stdlib/claro/strings:strings",
+    "StringBuilder": "@claro-lang//src/java/com/claro/stdlib/claro/strings/string_builder:string_builder",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
 # enable Claro to build smaller executables in cases where certain lesser used parts of the stdlib are not actually

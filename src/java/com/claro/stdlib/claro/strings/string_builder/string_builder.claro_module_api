@@ -1,0 +1,8 @@
+
+opaque newtype StringBuilder
+
+provider create() -> StringBuilder;
+
+# Add anything to the end of the StringBuilder. It will be converted to its string representation automatically.
+function add<T>(sb: StringBuilder, toAdd: T) -> StringBuilder;
+function build(sb: StringBuilder) -> string;
