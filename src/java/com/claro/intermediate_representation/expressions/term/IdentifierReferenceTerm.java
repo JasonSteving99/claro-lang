@@ -228,7 +228,7 @@ public class IdentifierReferenceTerm extends Term {
               if (identifierData.isStaticValue) {
                 if (identifierData.type.baseType().equals(BaseType.USER_DEFINED_TYPE) &&
                     ((Types.UserDefinedType) identifierData.type).getDefiningModuleDisambiguator()
-                        .equals("src$java$com$claro$stdlib$claro$files$files")) {
+                        .equals("stdlib$files$files")) {
                   // If we're dealing with a synthetic resource reference, then instead of codegening a reference to
                   // some pre-existing identifier, I need to codegen the resource lookup.
                   String resourceJarLocation = (String) identifierData.interpretedValue;
@@ -242,7 +242,7 @@ public class IdentifierReferenceTerm extends Term {
                         resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/src/") + "/src/".length());
                   }
                   return String.format(
-                      "new $UserDefinedType(\"Resource\", \"src$java$com$claro$stdlib$claro$files$files\", ImmutableList.of(), %s, %sclass.getResource(\"/%s\"))",
+                      "new $UserDefinedType(\"Resource\", \"stdlib$files$files\", ImmutableList.of(), %s, %sclass.getResource(\"/%s\"))",
                       Types.RESOURCE_URL.getJavaSourceClaroType(),
                       InternalStaticStateUtil.optionalGeneratedClassName.map(s -> s + ".")
                           .orElseGet(this::getFullySpecifiedIdentifierNamespace),

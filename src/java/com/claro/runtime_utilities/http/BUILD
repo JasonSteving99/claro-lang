@@ -2,7 +2,7 @@ package(
     default_visibility = [
         "//examples/claro_programs:__subpackages__",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization:__subpackages__",
-        "//src/java/com/claro/stdlib:__subpackages__",
+        "//stdlib:__subpackages__",
     ]
 )
 

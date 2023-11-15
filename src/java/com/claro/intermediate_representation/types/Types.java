@@ -35,14 +35,14 @@ public final class Types {
   public static final BiFunction<String, String, Function<ScopedHeap, Types.UserDefinedType>>
       RESOURCE_TYPE_CONSTRUCTOR =
       (resourceName, resource) -> (scopedHeap) -> {
-        String definingModuleDisambiguator = "src$java$com$claro$stdlib$claro$files$files$wrappedType";
+        String definingModuleDisambiguator = "stdlib$files$files";
         scopedHeap.putIdentifierValueAsTypeDef(
             String.format("%s$%s$wrappedType", resourceName, definingModuleDisambiguator),
             Types.$SyntheticOpaqueTypeWrappedValueType.create(false, RESOURCE_URL),
             resource
         );
         return Types.UserDefinedType.forTypeNameAndDisambiguator(
-            "Resource", "src$java$com$claro$stdlib$claro$files$files");
+            "Resource", "stdlib$files$files");
       };
 
   public interface Collection {

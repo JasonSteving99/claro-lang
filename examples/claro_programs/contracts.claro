@@ -370,7 +370,7 @@ function defaultList<A>(size: int) -> mut [A] {
   var res: mut [A] = mut [];
   var i = 0;
   while (i++ < size) {
-    append(res, Default::get());
+    lists::add(res, Default::get());
   }
   return res;
 }

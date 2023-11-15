@@ -1,6 +1,6 @@
 load("//src/java/com/claro:claro_build_rules_internal.bzl", "claro_module", "claro_module_internal")
 
-visibility(["//src/java/com/claro/stdlib/..."])
+visibility(["//stdlib/..."])
 
 def claro_abstract_module(**kwargs):
     args = dict(kwargs, claro_module_impl = claro_module)

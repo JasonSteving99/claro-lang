@@ -32,7 +32,7 @@ string_flag(
         "dev",
         "prod",
     ],
-    build_setting_default = "prod",
+    build_setting_default = "dev",
 )
 config_setting(
     name = "dev",

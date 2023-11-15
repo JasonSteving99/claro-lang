@@ -45,7 +45,7 @@ print(toAccumulate);
 
 # You can append to a list using the builtin `consumer append<T>([T], T)`.
 var initiallyEmptyList: mut [int] = mut [];
-append(initiallyEmptyList, 3);
-append(initiallyEmptyList, 3);
-append(initiallyEmptyList, 3);
+lists::add(initiallyEmptyList, 3);
+lists::add(initiallyEmptyList, 3);
+lists::add(initiallyEmptyList, 3);
 print(initiallyEmptyList);

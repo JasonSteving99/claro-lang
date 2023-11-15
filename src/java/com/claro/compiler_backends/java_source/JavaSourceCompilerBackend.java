@@ -316,7 +316,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
             /*isUsed=*/false,
             SerializedClaroModule.UniqueModuleDescriptor.newBuilder()
                 .setProjectPackage("claro.lang")
-                .setUniqueModuleName("src$java$com$claro$stdlib$claro$resources$resources")
+                .setUniqueModuleName("stdlib$resources$resources")
                 .build()
         );
       }

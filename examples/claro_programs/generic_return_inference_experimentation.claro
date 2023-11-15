@@ -142,7 +142,10 @@ function Where<C>(table: Table, pred: function<C -> boolean>) -> Table {
   var i = 0;
   while (i < len(table)) {
     if (pred(ColumnAccess::get(table, i))) {
-      append(res, table[i]);
+      # TODO(steving) Need to migrate away from append from builtin_functions.claro_internal once generic procedure exports are fully supported.
+      # TODO(steving)     Currently the issue here is that the UserDefinedType Metadata isn't getting passed down into the
+      # TODO(steving)     dep module monomorphization subprocess since the user-defined types are nested.
+      UNFORTUNATE_DEFAULT_IMPL_OF_append_THAT_WILL_BE_REMOVED_SOON(res, table[i]);
     }
     i++;
   }
@@ -155,9 +158,9 @@ function getTableColumn<C>(table: Table) -> mut [C] {
   var i: ID = 0;
   while (i < len(table)) {
     # TODO(steving) TESTING!!! CLARO'S GENERICS TYPE INFERENCE SUFFERS FROM A LIMITATION THAT WON'T TYPE CHECK THIS:
-    # append(res, ColumnAccess::get(table, i++));
+    # lists::add(res, ColumnAccess::get(table, i++));
     var toAppend: C = ColumnAccess::get(table, i++);
-    append(res, toAppend);
+    lists::add(res, toAppend);
   }
   return res;
 }
@@ -168,7 +171,10 @@ function select<C1, C2>(table: Table) -> mut [tuple<C1, C2>] {
   var res: mut [tuple<C1, C2>] = mut [];
   var i = 0;
   while (i < len(table)) {
-    append(res, (c1[i], c2[i]));
+    # TODO(steving) Need to migrate away from append from builtin_functions.claro_internal once generic procedure exports are fully supported.
+    # TODO(steving)     Currently the issue here is that the UserDefinedType Metadata isn't getting passed down into the
+    # TODO(steving)     dep module monomorphization subprocess since the user-defined types are nested.
+    UNFORTUNATE_DEFAULT_IMPL_OF_append_THAT_WILL_BE_REMOVED_SOON(res, (c1[i], c2[i]));
     ++i;
   }
   return res;

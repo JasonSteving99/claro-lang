@@ -28,7 +28,7 @@ print(l); # [2, 4, 6, 8]
 
 # To construct a mutable collection via comprehension, just throw `mut` in front like you normally would.
 var mutList = mut [x * 2 | x in streamedCollection where x < 10];
-append(mutList, -999);
+lists::add(mutList, -999);
 print(mutList); # [2, 4, 6, 8, -999]
 
 

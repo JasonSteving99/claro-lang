@@ -58,7 +58,7 @@ function map<I, O>(inputList: [I], mapFn: function<I -> O>) -> mut [O] {
   var outputList: mut [O] = mut [];
   var i = 0;
   while (i < len(inputList)) {
-    append(outputList, mapFn(inputList[i++]));
+    lists::add(outputList, mapFn(inputList[i++]));
   }
   return outputList;
 }
@@ -86,7 +86,7 @@ function filter<T>(inputList: [T], predFn: function<T -> boolean>) -> mut [T] {
   while (i < len(inputList)) {
     var curr = inputList[i++];
     if (predFn(curr)) {
-      append(outputList, curr);
+      lists::add(outputList, curr);
     }
   }
   return outputList;
@@ -110,7 +110,7 @@ function mapDeferringToContractImpl<I, O>(inputList: [I]) -> mut [O] {
   var outputList: mut [O] = mut [];
   var i = 0;
   while (i != len(inputList)) {
-    append(outputList, defer(inputList[i++]));
+    lists::add(outputList, defer(inputList[i++]));
   }
   return outputList;
 }
@@ -140,7 +140,7 @@ function mapThroughIntermediate<From, Intermediate, To>(
   var outputList: mut [To] = mut [];
   var i = 0;
   while (i < len(inputList)) {
-    append(outputList, mapFn(Conversion::applyConversion(inputList[i++])));
+    lists::add(outputList, mapFn(Conversion::applyConversion(inputList[i++])));
   }
   return outputList;
 }
@@ -188,11 +188,11 @@ provider list<T>() -> mut [T] {
 print("----------------------------------------------------------");
 print("Testing generic provider list<T>");
 var intList: mut [int] = list();
-append(intList, 1);
+lists::add(intList, 1);
 print(intList);
 type(intList);
 var strList: mut [string] = list();
-append(strList, "one");
+lists::add(strList, "one");
 print(strList);
 type(strList);
 

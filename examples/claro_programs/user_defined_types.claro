@@ -219,7 +219,7 @@ unwrappers FasterLookupEncodedString {
     var values: mut [string] = mut [];
     i = 0;
     while (i < valueCount) {
-      append(values, fastLookupNthCSVValue(encodedCsv, i++));
+      lists::add(values, fastLookupNthCSVValue(encodedCsv, i++));
     }
     return values;
   }
@@ -345,8 +345,8 @@ type(myIntOrList);
 type(unwrap(myIntOrList));
 var unwrappedMyIntOrList = unwrap(myIntOrList);
 if (unwrappedMyIntOrList instanceof mut [IntOrList]) {
-  append(unwrappedMyIntOrList, IntOrList(99));
-  append(unwrappedMyIntOrList, IntOrList(mut [IntOrList(212), IntOrList(313)]));
+  lists::add(unwrappedMyIntOrList, IntOrList(99));
+  lists::add(unwrappedMyIntOrList, IntOrList(mut [IntOrList(212), IntOrList(313)]));
   print("Internal type is: ");
   type(unwrappedMyIntOrList[1]);
   print(unwrap(unwrappedMyIntOrList[1]));
@@ -433,8 +433,8 @@ consumer prettyishPrintTree<T>(currRoot: Node<T>) {
       var unwrappedCurrNode = unwrap(currNode);
       print(unwrappedCurrNode[0]);
       # Add left and right children to fringe.
-      append(fringe, unwrappedCurrNode[1]);
-      append(fringe, unwrappedCurrNode[2]);
+      lists::add(fringe, unwrappedCurrNode[1]);
+      lists::add(fringe, unwrappedCurrNode[2]);
     } else {
       print(currNode);
     }

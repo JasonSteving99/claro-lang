@@ -10,31 +10,32 @@ visibility([
     "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
     "//src/java/com/claro/stdlib/claro/...",
     "//src/java/com/claro/stdlib/utils/...",
+    "//stdlib/...",
 ])
 
 DEFAULT_CLARO_NAME = "claro"
 DEFAULT_PACKAGE_PREFIX = "com.claro"
 
 CLARO_STDLIB_FILES = [
-    "@claro-lang//src/java/com/claro/stdlib/claro:builtin_functions.claro_internal",
+    "@claro-lang//stdlib:builtin_functions.claro_internal",
 ]
 # The names of these modules are going to be considered "reserved", so that language-wide users can become accustomed
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
-    "files": "@claro-lang//src/java/com/claro/stdlib/claro/files:files",
-    "futures": "@claro-lang//src/java/com/claro/stdlib/claro/futures:futures",
-    "lists": "@claro-lang//src/java/com/claro/stdlib/claro/lists:lists",
-    "maps": "@claro-lang//src/java/com/claro/stdlib/claro/maps:maps",
-    "sets": "@claro-lang//src/java/com/claro/stdlib/claro/sets:sets",
-    "std": "@claro-lang//src/java/com/claro/stdlib/claro:std",
-    "strings": "@claro-lang//src/java/com/claro/stdlib/claro/strings:strings",
-    "StringBuilder": "@claro-lang//src/java/com/claro/stdlib/claro/strings/string_builder:string_builder",
+    "files": "@claro-lang//stdlib/files:files",
+    "futures": "@claro-lang//stdlib/futures:futures",
+    "lists": "@claro-lang//stdlib/lists:lists",
+    "maps": "@claro-lang//stdlib/maps:maps",
+    "sets": "@claro-lang//stdlib/sets:sets",
+    "std": "@claro-lang//stdlib:std",
+    "strings": "@claro-lang//stdlib/strings:strings",
+    "StringBuilder": "@claro-lang//stdlib/strings/string_builder:string_builder",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
 # enable Claro to build smaller executables in cases where certain lesser used parts of the stdlib are not actually
 # needed in a given Claro program.
 CLARO_OPTIONAL_STDLIB_MODULE_DEPS = {
-    "http": "@claro-lang//src/java/com/claro/stdlib/claro/http:http",
+    "http": "@claro-lang//stdlib/http:http",
 }
 CLARO_BUILTIN_JAVA_DEPS = [
     "@claro-lang//:google-options",
@@ -272,13 +273,13 @@ def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional
 def claro_module(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
     _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
 
-def claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
+def claro_module_internal(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
         _invoke_claro_compiler_internal_with_stdlib_module_deps, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False, **kwargs)
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
-def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
+def bootstrapped_claro_module(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
     _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug,
         claro_compiler = "@claro-lang//:bootstrapping_claro_compiler_binary",
         override_claro_builtin_java_deps = ["@claro-lang//:bootstrapping_claro_builtin_java_deps_import"],
@@ -286,7 +287,7 @@ def bootstrapped_claro_module(name, module_api_file, srcs, deps = {}, resources 
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
-def bootstrapped_claro_module_internal(name, module_api_file, srcs, deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
+def bootstrapped_claro_module_internal(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
     _claro_module_internal(
         _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
         claro_compiler = "@claro-lang//:bootstrapping_claro_compiler_binary",

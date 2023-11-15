@@ -1,0 +1,10 @@
+########################################################################################################################
+# This file contains simple definitions of builtin functions that come as part of Claro's stdlib. Very likely this will
+# get reorganized over time, for now it's a single centralized dumping ground.
+########################################################################################################################
+
+consumer UNFORTUNATE_DEFAULT_IMPL_OF_append_THAT_WILL_BE_REMOVED_SOON<T>(l: mut [T], toAppend: T) {
+  $$BEGIN_JAVA
+  l.add(toAppend);
+  $$END_JAVA
+}

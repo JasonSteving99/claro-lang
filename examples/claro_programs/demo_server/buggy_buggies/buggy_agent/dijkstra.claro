@@ -1,9 +1,4 @@
 
-####################################################################################################
-# TODO(steving) Claro badly needs a module system!
-# BEGIN Dijkstra.claro
-####################################################################################################
-
 # This is an internal-only alias, as no procedure exported by the module actually references this there's no need to
 # expose this detail in the public api.
 alias DistanceVia : struct {dist: int, via: oneof<Pos::Position, std::Nothing>}
@@ -41,7 +36,7 @@ function rebuildBestPath(world: {Pos::Position: string}, distances: {Pos::Positi
   var route: mut [Pos::Position] = mut [];
   var currPos = findCoinWithLowestScore(world, distances);
   while (true) {
-    append(route, currPos);
+    lists::add(route, currPos);
     var via = distances[currPos].via;
     if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
       break;
@@ -73,7 +68,7 @@ function getWeightedNeighbors(world: {Pos::Position: string}, pos: Pos::Position
       if ((not (n in world)) or (world[n] == "coin")) {
         # TODO(steving) Making every neighbor have equal weight means Dijkstra's is just an extremely complicated BFS...
         # TODO(steving) Soon, update this implementation to actually evaluate a score for moving into this position.
-        append(l, {neighbor = n, weight = 1});
+        lists::add(l, {neighbor = n, weight = 1});
       }
     };
 
@@ -83,8 +78,3 @@ function getWeightedNeighbors(world: {Pos::Position: string}, pos: Pos::Position
 
   return copy(neighbors);
 }
-
-####################################################################################################
-# TODO(steving) Claro badly needs a module system!
-# END Dijkstra.claro
-####################################################################################################

@@ -45,10 +45,10 @@ print(l);
 l[0] = 1;
 print(l);
 
-append(l, 3);
-append(l, "five");
-append(l, 7);
-append(l, "nine");
+lists::add(l, 3);
+lists::add(l, "five");
+lists::add(l, 7);
+lists::add(l, "nine");
 print(l); # [1, 3, five, 7, nine]
 
 var lv = l[0];
@@ -58,13 +58,13 @@ lv = l[2];
 print(lv);
 type(lv);
 
-append(l, lv);
+lists::add(l, lv);
 print(l);
 
 var l2: mut [oneof<[int], [string]>] = mut [];
 print(l2);
-append(l2, [1,2]);
-append(l2, ["three", "four"]);
+lists::add(l2, [1,2]);
+lists::add(l2, ["three", "four"]);
 print(l2);
 
 

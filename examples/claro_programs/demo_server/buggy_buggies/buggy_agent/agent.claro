@@ -13,13 +13,13 @@ function movesFromBestPath(bestPath: BestPath) -> [string] {
     var delta = getDelta(i--);
     # TODO(steving) Exhaustive match would be so nice.
     if (delta == (1, 0)) {
-      append(moves, "E");
+      lists::add(moves, "E");
     } else if (delta == (-1, 0)) {
-      append(moves, "W");
+      lists::add(moves, "W");
     } else if (delta == (0, 1)) {
-      append(moves, "S");
+      lists::add(moves, "S");
     } else {
-      append(moves, "N");
+      lists::add(moves, "N");
     }
   }
   return copy(moves);
@@ -27,24 +27,34 @@ function movesFromBestPath(bestPath: BestPath) -> [string] {
 
 function parseWorldMap(world: {string: string}) -> {Pos::Position: string} {
   var parsePos: function<string -> Pos::Position> = rawPos -> {
-    var xstring = rawPos[0];
+    # Extract X.
     var i = 1;
+    var stringBuilder = StringBuilder::create();
+    _ = StringBuilder::add(stringBuilder, rawPos[0]);
     while (rawPos[i] != ",") {
-      xstring = "{xstring}{rawPos[i++]}";
+      _ = StringBuilder::add(stringBuilder, rawPos[i++]);
     }
-    var ystring = rawPos[i + 1];
+    var xstring = StringBuilder::build(stringBuilder);
+
+    # Extract Y.
+    stringBuilder = StringBuilder::create();
+    _ = StringBuilder::add(stringBuilder, rawPos[i + 1]);
     i = i + 2;
     while (i < len(rawPos)) {
-      ystring = "{ystring}{rawPos[i++]}";
+      _ = StringBuilder::add(stringBuilder, rawPos[i++]);
     }
+    var ystring = StringBuilder::build(stringBuilder);
+
+    # Parse X and Y strings to ints.
     # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
     var x: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(xstring))).result;
     var y: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(ystring))).result;
-    # TODO(steving) I should eventually be able to rewrite this using an exhaustive match over the tuple (x, y).
-    if ((x instanceof int) and (y instanceof int)) {
-      return Pos::Position({x = x, y = y});
+    match ((x, y)) {
+      case (X:int, Y:int) ->
+        return Pos::Position({x = X, y = Y});
+      case _ ->
+        return Pos::Position({x = -1, y = -1});
     }
-    return Pos::Position({x = -1, y = -1});
   };
   return {parsePos(e[0]) : e[1] | e in world};
 }

@@ -223,13 +223,13 @@ function movesFromBestPath(bestPath: BestPath) -> [string] {
     var delta = getDelta(i--);
     # TODO(steving) Exhaustive match would be so nice.
     if (delta == (1, 0)) {
-      append(moves, "E");
+      lists::add(moves, "E");
     } else if (delta == (-1, 0)) {
-      append(moves, "W");
+      lists::add(moves, "W");
     } else if (delta == (0, 1)) {
-      append(moves, "S");
+      lists::add(moves, "S");
     } else {
-      append(moves, "N");
+      lists::add(moves, "N");
     }
   }
   return copy(moves);
@@ -302,7 +302,7 @@ function rebuildBestPath(world: {Position: string}, distances: {Position: Distan
   var route: mut [Position] = mut [];
   var currPos = findCoinWithLowestScore(world, distances);
   while (true) {
-    append(route, currPos);
+    lists::add(route, currPos);
     var via = distances[currPos].via;
     if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
       break;
@@ -334,7 +334,7 @@ function getWeightedNeighbors(world: {Position: string}, pos: Position) -> [stru
       if ((not (n in world)) or (world[n] == "coin")) {
         # TODO(steving) Making every neighbor have equal weight means Dijkstra's is just an extremely complicated BFS...
         # TODO(steving) Soon, update this implementation to actually evaluate a score for moving into this position.
-        append(l, {neighbor = n, weight = 1});
+        lists::add(l, {neighbor = n, weight = 1});
       }
     };
 
@@ -438,7 +438,7 @@ unwrappers Heap {
 
 
   consumer insert(heap: Heap, value: struct {dist: int, pos: Position}) {
-      append(unwrap(heap), value);
+      lists::add(unwrap(heap), value);
       heapify_up(heap, len(unwrap(heap)) - 1);
   }
 
