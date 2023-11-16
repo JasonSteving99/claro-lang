@@ -22,7 +22,7 @@ option optimize_for = SPEED;
 //       perspective, this means that some fields will have out-of-order field numbers as fields get added in some
 //       semblance of a sensible organization, but this isn't a problem.
 
-// Next id: 14
+// Next id: 15
 message SerializedClaroModule {
   message ClaroSourceFile {
     string original_filename = 1;
@@ -131,6 +131,14 @@ message SerializedClaroModule {
     repeated Endpoint endpoints = 2;
   }
 
+  message CodgendMonomorphization {
+    // The name of the generic procedure for which monomorphization is being requested.
+    string procedure_name = 1;
+
+    // The ordered list of concrete types the procedure's generic type params are being bound to.
+    repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+  }
+
   UniqueModuleDescriptor module_descriptor = 1;
 
   // In order for this build to be repeatable (or perhaps, in the future, statically analyzed in some way), here are the
@@ -174,4 +182,11 @@ message SerializedClaroModule {
   // that contain all exported procedure implementations. This way, once all concrete monomorphizations are known, it's
   // possible to re-parse the source file to find the necessary generic procedure defs to codegen monomorphizations for.
   repeated ClaroSourceFile module_impl_files = 8;
+
+  // Mapping of the transitive closure of all monomorphizations already codegen'd by this module and its entire dep
+  // graph. This will be used by any compilation unit depending on this module to determine when it's safe to completely
+  // short-circuit codegen of monomorphizations that will certainly already be included in the final Jar by depending on
+  // this module. This should have a significant compile-time performance benefit while not having any effect on the
+  // running program.
+  map<string, CodgendMonomorphization> codegend_monomorphizations_transitive_closure_by_unique_module_name = 14;
 }
