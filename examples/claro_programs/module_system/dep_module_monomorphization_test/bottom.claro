@@ -1,0 +1,4 @@
+
+function asList<A,B>(a: A, b: B) -> [oneof<A,B>] {
+  return [a, b];
+}

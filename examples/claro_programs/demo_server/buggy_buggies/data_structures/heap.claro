@@ -31,7 +31,7 @@ unwrappers Heap {
 
 
   consumer insert(heap: Heap, value: struct {dist: int, pos: Pos::Position}) {
-      UNFORTUNATE_DEFAULT_IMPL_OF_append_THAT_WILL_BE_REMOVED_SOON(unwrap(heap), value);
+      lists::add(unwrap(heap), value);
       heapify_up(heap, len(unwrap(heap)) - 1);
   }
 

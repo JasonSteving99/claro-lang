@@ -182,12 +182,12 @@ public class ProviderFunctionCallExpr extends Expr {
                   depModDescriptor.getUniqueModuleName()
               );
             });
+    Optional<String> hashedName = Optional.empty();
     if (!this.functionName.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.functionName);
     } else {
       this.hashNameForCodegen = true;
       if (this.optionalOriginatingDepModuleName.isPresent()) {
-        // TODO(steving) TESTING!!! This needs a complete overhaul to correctly point to the codegen in the local file.
         // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
         // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
         // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
@@ -197,9 +197,9 @@ public class ProviderFunctionCallExpr extends Expr {
         optionalNormalizedOriginatingDepModulePrefix =
             Optional.of(
                 String.format(
-                    "%s.$%s.",
-                    "$DepModuleMonomorphizations",
-                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
+                    "$MONOMORPHIZATION$%s$%s.",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    (hashedName = Optional.of(getHashedName())).get()
                 ));
       }
     }
@@ -208,12 +208,7 @@ public class ProviderFunctionCallExpr extends Expr {
       // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
       // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
       // still unique.
-      this.functionName =
-          String.format(
-              "%s__%s",
-              this.originalName,
-              Hashing.sha256().hashUnencodedChars(this.functionName).toString()
-          );
+      this.functionName = hashedName.orElseGet(this::getHashedName);
     }
 
     StringBuilder res;
@@ -240,6 +235,16 @@ public class ProviderFunctionCallExpr extends Expr {
     this.functionName = this.originalName;
 
     return res;
+  }
+
+  private String getHashedName() {
+    return String.format(
+        "%s__%s",
+        this.optionalOriginatingDepModuleName
+            .map(depMod -> this.originalName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+            .orElse(this.originalName),
+        Hashing.sha256().hashUnencodedChars(this.functionName).toString()
+    );
   }
 
   @Override

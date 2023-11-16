@@ -718,12 +718,12 @@ public class FunctionCallExpr extends Expr {
                   depModDescriptor.getUniqueModuleName()
               );
             });
+    Optional<String> hashedName = Optional.empty();
     if (!this.name.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.name);
     } else {
       this.hashNameForCodegen = true;
       if (this.optionalOriginatingDepModuleName.isPresent()) {
-        // TODO(steving) TESTING!!! This needs a complete overhaul to correctly point to the codegen in the local file.
         // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
         // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
         // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
@@ -733,9 +733,9 @@ public class FunctionCallExpr extends Expr {
         optionalNormalizedOriginatingDepModulePrefix =
             Optional.of(
                 String.format(
-                    "%s.$%s.",
-                    "$DepModuleMonomorphizations",
-                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get()))
+                    "$MONOMORPHIZATION$%s$%s.",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    (hashedName = Optional.of(getHashedName())).get()
                 ));
       }
     }
@@ -744,12 +744,7 @@ public class FunctionCallExpr extends Expr {
       // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
       // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
       // still unique.
-      this.name =
-          String.format(
-              "%s__%s",
-              this.originalName,
-              Hashing.sha256().hashUnencodedChars(this.name).toString()
-          );
+      this.name = hashedName.orElseGet(this::getHashedName);
     }
 
     AtomicReference<GeneratedJavaSource> exprsGenJavaSource =
@@ -830,6 +825,16 @@ public class FunctionCallExpr extends Expr {
     // We definitely don't want to be throwing away the static definitions and preambles required for the exprs
     // passed as args to this function call, so ensure that they're correctly collected and passed on here.
     return functionCallJavaSourceBody.createMerged(exprsGenJavaSource.get());
+  }
+
+  private String getHashedName() {
+    return String.format(
+        "%s__%s",
+        this.optionalOriginatingDepModuleName
+            .map(depMod -> this.originalName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+            .orElse(this.originalName),
+        Hashing.sha256().hashUnencodedChars(this.name).toString()
+    );
   }
 
   @Override

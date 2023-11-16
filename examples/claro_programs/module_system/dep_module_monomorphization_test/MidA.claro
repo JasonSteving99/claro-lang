@@ -1,0 +1,5 @@
+
+function asList(a: string, b: int) -> [oneof<string, int>] {
+  return Bottom::asList(a,b);
+}
+print(Bottom::asList(1, "one"));

@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.expressions.procedures.functions.St
 import com.claro.intermediate_representation.statements.*;
 import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractProcedureImplementationStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
@@ -16,6 +17,7 @@ import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.collect.*;
+import com.google.common.hash.Hashing;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -275,17 +277,33 @@ public class ProgramNode {
               depModuleMonomorphization.getValue()
           );
         }
-        res.append("\n// Dep Module Monomorphizations Generated Below:\n")
-            .append("final class $DepModuleMonomorphizations {\n");
+        res.append("\n// Dep Module Monomorphizations Generated Below:\n");
         for (String depModule : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.rowKeySet()) {
-          res.append("static final class $").append(depModule).append(" {\n");
-          for (String monomorphization : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.row(depModule)
-              .values()) {
-            res.append(monomorphization).append("\n");
+          for (Map.Entry<IPCMessages.MonomorphizationRequest, String> entry
+              : MonomorphizationCoordinator.monomorphizationsByModuleAndRequestCache.row(depModule).entrySet()) {
+            IPCMessages.MonomorphizationRequest monomorphizationRequest = entry.getKey();
+            String monomorphizationCodegen = entry.getValue();
+            String genProcName =
+                String.format(
+                    "%s__%s",
+                    monomorphizationRequest.getProcedureName(),
+                    Hashing.sha256().hashUnencodedChars(
+                        ContractProcedureImplementationStmt.getCanonicalProcedureName(
+                            "$MONOMORPHIZATION",
+                            monomorphizationRequest.getConcreteTypeParamsList().stream()
+                                .map(Types::parseTypeProto).collect(ImmutableList.toImmutableList()),
+                            monomorphizationRequest.getProcedureName()
+                        ))
+                );
+            res.append("final class $MONOMORPHIZATION$")
+                .append(depModule)
+                .append('$')
+                .append(genProcName)
+                .append(" {\n");
+            res.append(monomorphizationCodegen).append("\n");
+            res.append("\n}\n");
           }
-          res.append("\n}\n");
         }
-        res.append("}\n");
 
         // Cleanup any threads or subprocesses that got started up by monomorphization.
         MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
