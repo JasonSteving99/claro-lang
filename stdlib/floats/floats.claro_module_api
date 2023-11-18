@@ -1,0 +1,4 @@
+
+newtype InvalidNumberFormat : struct { msg: string }
+
+function parseFloat(s: string) -> oneof<float, std::Error<InvalidNumberFormat>>;

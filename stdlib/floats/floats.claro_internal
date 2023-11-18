@@ -1,0 +1,15 @@
+
+function parseFloat(s: string) -> oneof<float, std::Error<InvalidNumberFormat>> {
+  var res: oneof<float, std::Error<InvalidNumberFormat>>;
+
+  var errCons = (msg: string) -> std::Error<InvalidNumberFormat> { return std::Error(InvalidNumberFormat({msg = msg})); };
+
+  $$BEGIN_JAVA
+    try {
+      res = java.lang.Double.parseDouble(s);
+    } catch (java.lang.NumberFormatException e) {
+      res = errCons.apply(e.getMessage());
+    }
+  $$END_JAVA
+  return res;
+}
