@@ -1,0 +1,21 @@
+var unitIntervalFloat = random::floatInUnitInterval();
+log("Random float in range [0, 1):", unitIntervalFloat);
+
+var rng = random::create();
+
+var b = random::nextBoolean(rng);
+log("Random boolean:", b);
+
+var f = random::nextFloat(rng);
+log("Random float:", f);
+
+var i = random::nextInt(rng);
+log("Random int:", i);
+
+var bounded = random::nextNonNegativeBoundedInt(rng, 10);
+log("Random int in range [0, 10):", bounded);
+
+consumer log<T>(msg: string, val: T) {
+  var paddedMsg = strings::padEnd(msg, 30);
+  print(strings::concat(paddedMsg, "{val}"));
+}
