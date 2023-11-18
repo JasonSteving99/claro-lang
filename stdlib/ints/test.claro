@@ -1,0 +1,42 @@
+
+match (ints::parseInt(input("Give me an int to try parsing:"))) {
+  case parsed:int -> print("Successfully parsed the given int: {parsed}");
+  case ERR -> print("Failed to parse: {ERR}");
+}
+
+print("Let's simulate a shitty calculator that can only do addition or subtraction of two terms...");
+var inputExpr = input("Give me a single addition expression (e.g.: 1 + 1):");
+
+atom ADD
+atom SUBTRACT
+newtype Expr : struct {
+  lhs : int,
+  op: oneof<ADD, SUBTRACT>,
+  rhs : int
+}
+
+var tokens = strings::split(inputExpr, " ");
+if (len(tokens) == 3) {
+  var expr: oneof<Expr, std::Error<string>>;
+  match ((ints::parseInt(tokens[0]), tokens[1], ints::parseInt(tokens[2]))) {
+    case (lhs:int, "+", rhs:int) ->
+      expr = Expr({lhs = lhs, op = ADD, rhs = rhs});
+    case (lhs:int, "-", rhs:int) ->
+      expr = Expr({lhs = lhs, op = SUBTRACT, rhs = rhs});
+    case _ ->
+      expr = std::Error("Error! Expected Expr in the format: <int> <+|-> <int>");
+  }
+  match (expr) {
+    case ERR:std::Error<string> ->
+      print(unwrap(ERR));
+    case _:Expr ->
+      match (unwrap(expr)) {
+        case {lhs = lhs, op = _:ADD, rhs = rhs} ->
+          print("= {lhs + rhs}");
+        case {lhs = lhs, op = _:SUBTRACT, rhs = rhs} ->
+          print("= {lhs - rhs}");
+    }
+  }
+} else {
+  print("Error! Expected 3 tokens separated by whitespace!");
+}

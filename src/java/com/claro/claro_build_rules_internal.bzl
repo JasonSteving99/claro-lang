@@ -24,6 +24,7 @@ CLARO_STDLIB_FILES = [
 CLARO_STDLIB_MODULES = {
     "files": "@claro-lang//stdlib/files:files",
     "futures": "@claro-lang//stdlib/futures:futures",
+    "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",
     "sets": "@claro-lang//stdlib/sets:sets",
