@@ -11,5 +11,4 @@ bootstrapped_claro_module_internal(
 claro_binary(
     name = "test",
     main_file = "test.claro",
-    deps = {"random": ":random"},
 )

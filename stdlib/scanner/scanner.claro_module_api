@@ -1,0 +1,35 @@
+
+# Not thread safe.
+opaque newtype mut Scanner
+
+atom NO_MORE_TOKENS
+atom PATTERN_NOT_FOUND
+atom ILLEGAL_NEGATIVE_HORIZON
+atom INPUT_MISMATCH
+
+provider forStdIn() -> Scanner;
+function forString(toScan: string) -> Scanner;
+
+function useDelimiter(sc: Scanner, pattern: string) -> Scanner;
+function reset(sc: Scanner) -> Scanner;
+
+blocking function findInLine(sc: Scanner, pattern: string) -> oneof<string, PATTERN_NOT_FOUND>;
+blocking function findWithinHorizon(sc: Scanner, pattern: string, horizon: int)
+    -> oneof<string, PATTERN_NOT_FOUND, ILLEGAL_NEGATIVE_HORIZON>;
+
+blocking function hasNextToken(sc: Scanner) -> boolean;
+blocking function hasNextPattern(sc: Scanner, pattern: string) -> boolean;
+blocking function hasNextBoolean(sc: Scanner) -> boolean;
+blocking function hasNextFloat(sc: Scanner) -> boolean;
+blocking function hasNextInt(sc: Scanner) -> boolean;
+blocking function hasNextLine(sc: Scanner) -> boolean;
+
+blocking function nextToken(sc: Scanner) -> oneof<string, NO_MORE_TOKENS>;
+blocking function nextMatch(sc: Scanner, pattern: string) -> oneof<string, NO_MORE_TOKENS>;
+blocking function nextBoolean(sc: Scanner) -> oneof<boolean, INPUT_MISMATCH, NO_MORE_TOKENS>;
+blocking function nextFloat(sc: Scanner) -> oneof<float, INPUT_MISMATCH, NO_MORE_TOKENS>;
+blocking function nextInt(sc: Scanner) -> oneof<int, INPUT_MISMATCH, NO_MORE_TOKENS>;
+blocking function nextLine(sc: Scanner) -> oneof<string, INPUT_MISMATCH, NO_MORE_TOKENS>;
+
+blocking function skipPattern(sc: Scanner, pattern: string)
+    -> struct { scanner: Scanner, res: oneof<std::OK, PATTERN_NOT_FOUND> };

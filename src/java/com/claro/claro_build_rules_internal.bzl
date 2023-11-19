@@ -29,6 +29,8 @@ CLARO_STDLIB_MODULES = {
     "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",
+    "random": "@claro-lang//stdlib/random:random",
+    "scanner": "@claro-lang//stdlib/scanner:scanner",
     "sets": "@claro-lang//stdlib/sets:sets",
     "std": "@claro-lang//stdlib:std",
     "strings": "@claro-lang//stdlib/strings:strings",
