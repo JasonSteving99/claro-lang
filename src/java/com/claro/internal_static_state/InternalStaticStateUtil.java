@@ -17,6 +17,7 @@ import java.util.function.BiFunction;
 // minimal dependencies, specifically none that go into the intermediate_representation/(expressions|statements)
 // packages to avoid all circular deps.
 public class InternalStaticStateUtil {
+  public static boolean DEP_MODULE_MONOMORPHIZATION_ENABLED = false;
   public static Optional<String> optionalGeneratedClassName = Optional.empty();
   public static final ImmutableTable.Builder<String, String, Integer>
       AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME =
