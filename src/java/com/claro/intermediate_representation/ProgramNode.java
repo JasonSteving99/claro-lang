@@ -296,7 +296,9 @@ public class ProgramNode {
                         ))
                 );
             res.append("final class $MONOMORPHIZATION$")
-                .append(depModule)
+                .append(depModule.substring(depModule.lastIndexOf("$") + 1))
+                .append('$')
+                .append(Hashing.sha256().hashUnencodedChars(depModule))
                 .append('$')
                 .append(genProcName)
                 .append(" {\n");

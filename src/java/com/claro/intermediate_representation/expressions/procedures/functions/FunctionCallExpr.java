@@ -139,7 +139,7 @@ public class FunctionCallExpr extends Expr {
                ? this.name.substring(this.name.lastIndexOf('$') + 1)
                  + "$"
                  + ScopedHeap.getDefiningModuleDisambiguator(
-                  Optional.of(this.name.substring("$DEP_MODULE$".length(), this.name.lastIndexOf('$'))))
+                  Optional.of(this.name.substring("$DEP_MODULE$" .length(), this.name.lastIndexOf('$'))))
                : String.format(
                    "%s$%s",
                    this.name,
@@ -723,18 +723,22 @@ public class FunctionCallExpr extends Expr {
       scopedHeap.markIdentifierUsed(this.name);
     } else {
       this.hashNameForCodegen = true;
-      if (this.optionalOriginatingDepModuleName.isPresent()) {
+      if (this.optionalOriginatingDepModuleName.isPresent() ||
+          InternalStaticStateUtil.DEP_MODULE_MONOMORPHIZATION_ENABLED) {
         // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
         // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
         // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
         // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
         // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
         // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        String originatingModuleDisambig =
+            ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName);
         optionalNormalizedOriginatingDepModulePrefix =
             Optional.of(
                 String.format(
-                    "$MONOMORPHIZATION$%s$%s.",
-                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    "$MONOMORPHIZATION$%s$%s$%s.",
+                    originatingModuleDisambig.substring(originatingModuleDisambig.lastIndexOf('$') + 1),
+                    Hashing.sha256().hashUnencodedChars(originatingModuleDisambig),
                     (hashedName = Optional.of(getHashedName())).get()
                 ));
       }
