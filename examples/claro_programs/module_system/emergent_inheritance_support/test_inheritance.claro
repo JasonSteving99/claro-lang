@@ -1,0 +1,38 @@
+
+requires(Greeter::Greeter<T>)
+consumer greet<T>(t: T) {
+  print(Greeter::Greeter::getGreeting(t));
+}
+
+var dog = Dog::Dog({name = "Milo"});
+var cat = Cat::Cat({callSign = "Satan"});
+
+print("----------------------------------------------------------------------------------------------------");
+print("Calling the contract procedure directly:");
+print(Dog::getGreeting(dog));
+print(Cat::getGreeting(cat));
+
+print("----------------------------------------------------------------------------------------------------");
+print("Calling the contract procedure indirectly through a generic procedure requiring the contract impl:");
+greet(dog);
+greet(cat);
+
+print("----------------------------------------------------------------------------------------------------");
+print("Dynamically dispatching to the contract procedure directly:");
+# The below code block is a demonstration of almost the full expressive power of the typical OO-paradigm languages
+# within Claro.
+var animals: [oneof<Dog::Dog, Cat::Cat>] = [dog, cat];
+for (animal in animals) {
+  # Dynamic dispatch over the animals without using any notion of subtyping.
+  print(Greeter::Greeter::getGreeting(animal));
+}
+
+print("----------------------------------------------------------------------------------------------------");
+print("Dynamically dispatching to the contract procedure indirectly through a generic procedure requiring the contract impl:");
+#  This is a complex situation to be sure, but the idea here is that since the concrete type given
+#  for the generic type param `T` is a oneof<> where for all variants the required contract has been
+#  implemented, then by definition, Claro should allow the call and then the monomorphization will
+#  make use of dynamic dispatch over the oneof<>.
+for (animal in animals) {
+  greet(animal);
+}

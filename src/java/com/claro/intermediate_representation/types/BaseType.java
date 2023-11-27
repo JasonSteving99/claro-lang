@@ -11,15 +11,15 @@ public enum BaseType {
   // the Expr type until runtime.
   UNDECIDED("UNDECIDED"),
   UNKNOWABLE("<UNKNOWABLE DUE TO PRIOR TYPE VALIDATION ERROR>"),
+  ATOM("%s", "$ClaroAtom"),
   INTEGER("int", "Integer", Integer.class),
   FLOAT("float", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),
-  NOTHING("NothingType", "$ClaroNothing"),
   ARRAY,
   LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.
-  TUPLE("(%s)", "ClaroTuple"),
+  TUPLE("tuple<%s>", "ClaroTuple"),
   SET("{%s}", "ClaroSet<%s>"),
   MAP("{%s: %s}", "ClaroMap<%s, %s>"),
   BUILDER(
@@ -45,10 +45,10 @@ public enum BaseType {
   FUNCTION(
       "function<%s -> %s>%s",
       "ClaroFunction<%s>",
-      "private static final class $%s extends ClaroFunction<%s> {\n" +
+      "public static final class $%s extends ClaroFunction<%s> {\n" +
       "  private final Types.ProcedureType.FunctionType claroType = %s;\n" +
       "  private final $%s %s = this;\n" +
-      "  public %s apply(Object... args) {\n" +
+      "  public %s apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "\n%s\n" +
@@ -77,7 +77,7 @@ public enum BaseType {
       "  $%s(%s) { \n" +
       "%s" + // Instantiate instance variables for any/all captured variables.
       "  }\n" +
-      "  public %s apply(Object... args) {\n" +
+      "  public %s apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
@@ -98,10 +98,10 @@ public enum BaseType {
   CONSUMER_FUNCTION(
       "consumer<%s>",
       "ClaroConsumerFunction",
-      "private static final class $%s extends ClaroConsumerFunction {\n" +
+      "public static final class $%s extends ClaroConsumerFunction {\n" +
       "  private final Types.ProcedureType.ConsumerType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
-      "  public void apply(Object... args) {\n" +
+      "  public void apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "\n%s\n" +
@@ -130,7 +130,7 @@ public enum BaseType {
       "  $%s(%s) { \n" +
       "%s" + // Instantiate instance variables for any/all captured variables.
       "  }\n" +
-      "  public void apply(Object... args) {\n" +
+      "  public void apply(Object... $args) {\n" +
       "%s\n" +
       "  }\n" +
       "  @Override\n" +
@@ -152,7 +152,7 @@ public enum BaseType {
   PROVIDER_FUNCTION(
       "provider<%s>",
       "ClaroProviderFunction<%s>",
-      "private static final class $%s extends ClaroProviderFunction<%s> {\n" +
+      "public static final class $%s extends ClaroProviderFunction<%s> {\n" +
       "  private final Types.ProcedureType.ProviderType claroType = %s;\n" +
       "  final $%s %s = this;\n" +
       "  public %s apply() {\n" +
@@ -219,8 +219,8 @@ public enum BaseType {
   // will validate that its parameterized type is in fact an HttpService. Other types can only simulate this behavior
   // via initializers.
   HTTP_CLIENT("HttpClient<%s>", "%s"),
-  HTTP_SERVER("HttpServer<%s>", "$ClaroHttpServer"),
-  HTTP_RESPONSE("HttpResponse", "$ClaroHttpResponse"),
+  HTTP_SERVER("HttpServer<%s>", "com.claro.runtime_utilities.http.$ClaroHttpServer"),
+  HTTP_RESPONSE("HttpResponse", "com.claro.intermediate_representation.types.impls.builtins_impls.http.$ClaroHttpResponse"),
 
   // Generic Type Param and Contract are Types that are only modeled internally and shouldn't appear in generated output
   // or in any other user observable way.
@@ -230,7 +230,21 @@ public enum BaseType {
 
   // These are synthetic types that exist solely for the sake of artificially creating a terminating sentinal type to
   // prevent unbounded recursion within a recursively defined type alias or user-defined type.
-  ALIAS_SELF_REFERENCE;
+  ALIAS_SELF_REFERENCE,
+
+  // This is a synthetic type that exists solely to represent the wrapped type for an opaque type imported from some dep
+  // module that doesn't allow consuming modules to access its definition. This synthetic type is a placeholder whose
+  // only intended usage is to signal whether this opaque type is deeply-immutable.
+  $SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE,
+
+  // This is an internal-only type that's used to hold the java type defined by a .claro_internal src file as the
+  // implementation type of an exported opaque type. This is used to enable the creation of officially supported
+  // modules providing access to any manner of pre-existing functionality from the Java ecosystem to the Claro ecosystem
+  // in a curated manner. This obvious workaround allows a standardized approach to exposing Java types to Claro
+  // programs in a way that avoids every single type requiring compiler intrinsics support (e.g. new lexing tokens,
+  // grammar rules, AST nodes etc.). Use of this type is *extremely* unsafe, easily leading to an "unsound" type system
+  // if used incorrectly, so there's no concrete plan to expose this to users in any way.
+  $JAVA_TYPE;
 
   private final String javaSourceFmtStr;
   private final String claroCanonicalTypeNameFmtStr;

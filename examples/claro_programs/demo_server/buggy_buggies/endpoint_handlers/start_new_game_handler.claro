@@ -1,0 +1,5 @@
+
+graph function startNewGameHandler(handle: string) -> future<string> {
+  root joinRes <- Utils::handleBuggyResponseAsHtmlStrParts(@moveBuggyResponse)[0];
+  node moveBuggyResponse <- BuggyBuggies::hostGame(BuggyBuggies::HTTP_CLIENT, handle);
+}

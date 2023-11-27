@@ -16,61 +16,44 @@ jobs:
         uses: actions/checkout@v3
      
       - name: Build Release Artifacts
-        # --incompatible_restrict_string_escapes=false because there's a bug in 
-        # https://github.com/bazelbuild/rules_docker/blob/7da0de3d094aae5601c45ae0855b64fb2771cd72/container/push.bzl#L34
-        # where they're using an invalid escape sequence "\{". Instead of filing a bug on them I'm just working around it...
-        run: |
-          # We must build the Conditions.claro program so that the necessary build artifacts are available.
-          # Note: This --nojava_header_compilation flag is necessary because Lombok
-          #       fails with error "Turbine is not currently supported by lombok."
-          #       Followed the resolution here: https://githubmemory.com/repo/rzwitserloot/lombok/issues/2911
-          #       I don't know what any of this means.... but hey it works now *shrug*
-          bazel build --nojava_header_compilation //src/java/com/claro/claro_programs:conditions_compiled_claro_image
-          cd bazel-bin/src/java/com/claro
+        run: |          
+          # In order to be able to run the Claro CLIs users will need the compiler and builtin Java deps Jars.
+          bazel build //src/java/com/claro:claro_compiler_binary_deploy.jar
+          bazel build //examples/claro_programs:claro_builtin_java_deps_deploy.jar
+          # Create a single tar file to encapsulate all CLI resources.
+          ln -s bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar claro_compiler_binary_deploy.jar
+          ln -s bazel-bin/examples/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
+          ln -s cli/claroc.sh claroc.sh
+          ln -s cli/claro.sh claro.sh
+          # -h ensures that the above symlinks are actually dereferenced, else they'd be empty symlinks in the tar file.
+          tar -hcf claro-cli-install.tar.gz \
+              claro_compiler_binary_deploy.jar \
+              claro_builtin_java_deps_deploy.jar \
+              claroc.sh \
+              claro.sh
 
-          # Copy the AutoValue and Lombok jar deps to the location where Riju expects them to be.
-          cp ../../../../external/maven/v1/https/jcenter.bintray.com/com/google/auto/value/auto-value/1.5.3/auto-value-1.5.3.jar claro_programs
-          cp ../../../../external/maven/v1/https/jcenter.bintray.com/org/projectlombok/lombok/1.18.20/lombok-1.18.20.jar claro_programs
+          # Create a source archive that will have a stable hash. The one that GitHub automatically produces will not 
+          # be able to guarantee a stable hash, see: https://blog.bazel.build/2023/02/15/github-archive-checksum.html.
+          git archive -o claro-source-archive-v0.1.${{ github.run_number }}.zip HEAD
 
-          # Setup a dir where Riju generated code will be placed during Riju deployment.
-          mkdir claro_programs/com
-          mkdir claro_programs/com/claro
-
-          # Now bump the version number that the REPL will show to the user. Put CLARO_VERSION.txt file
-          # in the claro_programs dir because this is the only directory getting packaged up and released
-          # for Riju and it's where the Riju config should be running the code from, making this file
-          # available at runtime to the REPL since in Riju it's being run outside of the Bazel sandbox.
-          echo "v0.1.${{ github.run_number }}" > claro_programs/CLARO_VERSION.txt
-
-          # Now we finally just need to create our tarball release of the claro_programs/ dir.
-          tar --exclude='claro_programs/conditions_compiled_claro_image.runfiles/local_jdk' --exclude='claro_programs/conditions_compiled_claro_image.runfiles/claro-lang/external/local_jdk' -hczvf claro-lang-bazel-bin.tar.gz claro_programs/
-        env:
-          # Github Actions is using Bazelisk to keep Bazel up-to-date by default. Unfortunately I'm not doing this locally yet..
-          # So, in order to make sure this is building with the same version of Bazel I'm using for local development, manually
-          # set the version to what I'm using locally here.
-          # TODO(steving) In the future: upgrade to start using Bazelisk locally and then drop this.
-          USE_BAZEL_VERSION: 3.7.2
-          
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1 
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Adding 240 to compensate for renaming this workflow causing the run_number to reset.
           tag_name: v0.1.${{ github.run_number }}
-          name: v0.1.${{ github.run_number }} Automated Riju Release
+          name: v0.1.${{ github.run_number }} Automated Release
           body: |
-            # This is an automated relase of resources needed to deploy Claro as part of Riju.
-            Check it out online at [riju.codes/claro](https://riju.codes/claro)
-            
-            ## Riju may still be running an old version:
-            Keep in mind that the latest Claro Release is only picked up by Riju when it goes through a redeploy. However, Riju is a project externally developed and maintained, so it generally may take some time for new Claro Releases to reach Riju.
+            # This is an automated release of resources needed to install and run Claro locally.
+            Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#create-your-own-claro-project-with-bazel) to get started!
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
           files: |
-            bazel-bin/src/java/com/claro/claro-lang-bazel-bin.tar.gz
-            bazel-claro-lang/bazel-out/host/bin/src/java/com/claro/claro_compiler_binary_deploy.jar
-          
+            claro-cli-install.tar.gz
+            claro-source-archive-v0.1.${{ github.run_number }}.zip
+
   Deploy-User-Docs-to-GH-Pages:
     runs-on: ubuntu-latest
     steps:

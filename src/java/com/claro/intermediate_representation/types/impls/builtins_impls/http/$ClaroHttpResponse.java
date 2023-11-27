@@ -52,4 +52,9 @@ public abstract class $ClaroHttpResponse implements ClaroBuiltinTypeImplementati
   public Type getClaroType() {
     return Types.HTTP_RESPONSE;
   }
+
+  @Override
+  public String toString() {
+    return "HttpResponse";
+  }
 }

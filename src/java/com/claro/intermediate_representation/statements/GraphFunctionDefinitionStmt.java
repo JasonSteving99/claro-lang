@@ -50,7 +50,9 @@ public class GraphFunctionDefinitionStmt extends GraphProcedureDefinitionStmt {
                                 injectedKeysTypes.stream()
                                     .map(
                                         injectedKey ->
-                                            new Key(injectedKey.name.getIdentifier(), injectedKey.typeProvider.resolveType(scopedHeap)))
+                                            Key.create(injectedKey.getName()
+                                                           .getIdentifier(), injectedKey.getTypeProvider()
+                                                           .resolveType(scopedHeap)))
                                     .collect(Collectors.toSet())
                         )
                         .orElse(Sets.newHashSet()),

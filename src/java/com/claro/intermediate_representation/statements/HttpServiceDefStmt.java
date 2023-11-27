@@ -6,19 +6,21 @@ import com.claro.intermediate_representation.expressions.FormatStringExpr;
 import com.claro.intermediate_representation.expressions.term.IdentifierReferenceTerm;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 public class HttpServiceDefStmt extends Stmt {
-  private final IdentifierReferenceTerm serviceName;
+  public final IdentifierReferenceTerm serviceName;
   private final ImmutableMap<IdentifierReferenceTerm, Object> endpoints;
-  private ArrayList<ProcedureDefinitionStmt> syntheticEndpointProcedures = new ArrayList<>();
+  public ArrayList<ProcedureDefinitionStmt> syntheticEndpointProcedures = new ArrayList<>();
 
   public HttpServiceDefStmt(IdentifierReferenceTerm serviceName, ImmutableMap<IdentifierReferenceTerm, Object> endpoints) {
     super(ImmutableList.of());
@@ -27,6 +29,9 @@ public class HttpServiceDefStmt extends Stmt {
   }
 
   public void registerHttpProcedureTypeProviders(ScopedHeap scopedHeap) {
+    // Make this function idempotent... Claro really needs a rearchitecting away from using Classes. God I hate the way
+    // that using Classes has led me to some horrible design choices regarding lacking idempotency.
+    this.syntheticEndpointProcedures = new ArrayList<>();
     BiFunction<ImmutableList<Expr>, String, StmtListNode> syntheticHttpProcStmtList =
         (argNames, endpointName) ->
             new StmtListNode(
@@ -44,7 +49,10 @@ public class HttpServiceDefStmt extends Stmt {
                                 ImmutableList.of(
                                     Types.STRING,
                                     Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                                        "Error", ImmutableList.of(Types.STRING))
+                                        "Error",
+                                        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                                        ImmutableList.of(Types.STRING)
+                                    )
                                 )));
                       }
 
@@ -58,7 +66,7 @@ public class HttpServiceDefStmt extends Stmt {
 
                         GeneratedJavaSource res =
                             GeneratedJavaSource.forJavaSourceBody(
-                                new StringBuilder("$HttpUtil.executeAsyncHttpRequest($httpClient.")
+                                new StringBuilder("com.claro.runtime_utilities.http.$HttpUtil.executeAsyncHttpRequest($httpClient.")
                                     .append(endpointName).append("("));
                         if (!argNames.isEmpty()) {
                           argNames.subList(0, argNames.size() - 1).forEach(
@@ -83,7 +91,10 @@ public class HttpServiceDefStmt extends Stmt {
                                     ImmutableList.of(
                                         Types.STRING,
                                         Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                                            "Error", ImmutableList.of(Types.STRING))
+                                            "Error",
+                                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                                            ImmutableList.of(Types.STRING)
+                                        )
                                     )))))
                 ));
 
@@ -146,7 +157,10 @@ public class HttpServiceDefStmt extends Stmt {
                       ImmutableList.of(
                           Types.STRING,
                           Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                              "Error", ImmutableList.of(Types.STRING))
+                              "Error",
+                              /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                              ImmutableList.of(Types.STRING)
+                          )
                       )))),
           syntheticHttpProcStmtList.apply(
               endpoint.getValue() instanceof FormatStringExpr
@@ -170,7 +184,13 @@ public class HttpServiceDefStmt extends Stmt {
     }
 
     // Now place this in the symbol table so that nothing else can shadow this name.
-    scopedHeap.putIdentifierValue(this.serviceName.identifier, Types.HttpServiceType.forServiceName(this.serviceName.identifier));
+    scopedHeap.putIdentifierValue(
+        this.serviceName.identifier,
+        Types.HttpServiceType.forServiceNameAndDisambiguator(
+            this.serviceName.identifier,
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())
+        )
+    );
     scopedHeap.markIdentifierAsTypeDefinition(this.serviceName.identifier);
     scopedHeap.markIdentifierUsed(this.serviceName.identifier);
   }
@@ -220,7 +240,7 @@ public class HttpServiceDefStmt extends Stmt {
     this.endpoints.entrySet().forEach(
         e -> {
           finalRes.optionalStaticDefinitions().get()
-              .append("\t@GET(\"");
+              .append("\t@retrofit2.http.GET(\"");
           if (e.getValue() instanceof FormatStringExpr) {
             FormatStringExpr fmt = (FormatStringExpr) e.getValue();
             Streams.forEachPair(
@@ -240,14 +260,14 @@ public class HttpServiceDefStmt extends Stmt {
             finalRes.optionalStaticDefinitions().get().append(e);
           }
           finalRes.optionalStaticDefinitions().get()
-              .append("\")\n\tretrofit2.Call<ResponseBody> ")
+              .append("\")\n\tretrofit2.Call<okhttp3.ResponseBody> ")
               .append(e.getKey().identifier)
               .append("(");
           if (e.getValue() instanceof FormatStringExpr) {
             ImmutableList<Expr> fmtExprArgs = ((FormatStringExpr) e.getValue()).fmtExprArgs;
             fmtExprArgs.subList(0, fmtExprArgs.size() - 1).forEach(
                 pathArg -> finalRes.optionalStaticDefinitions().get()
-                    .append("@Path(\"")
+                    .append("@retrofit2.http.Path(\"")
                     .append(((IdentifierReferenceTerm) pathArg).identifier)
                     .append("\") ")
                     .append("String ")
@@ -255,7 +275,7 @@ public class HttpServiceDefStmt extends Stmt {
                     .append(", ")
             );
             finalRes.optionalStaticDefinitions().get()
-                .append("@Path(\"")
+                .append("@retrofit2.http.Path(\"")
                 .append(((IdentifierReferenceTerm) fmtExprArgs.get(fmtExprArgs.size() - 1)).identifier)
                 .append("\") ")
                 .append("String ")

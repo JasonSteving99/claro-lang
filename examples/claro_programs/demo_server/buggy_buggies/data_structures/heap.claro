@@ -1,0 +1,78 @@
+
+# This implementation is the result of asking Chat GPT to implement it in python for me and reworking it to fit in Claro
+# I'm not thinking too hard about this...
+
+initializers Heap {
+  provider getHeap() -> Heap {
+    return Heap(mut []);
+  }
+}
+
+# Notice that just because this implementation has many unwrappers doesn't mean that they all need to be exported by the
+# public Module providing this functionality to dependents.
+unwrappers Heap {
+  function extract_min(heap: Heap) -> oneof<Pos::Position, std::Error<std::Nothing>> {
+      if (len(unwrap(heap)) == 0) {
+          return std::Error(std::Nothing);
+      }
+      var min_value = unwrap(heap)[0];
+      swap(heap, 0, len(unwrap(heap)) - 1);
+      _ = remove(unwrap(heap), len(unwrap(heap)) - 1);
+      heapify_down(heap, 0);
+
+      return min_value.pos;
+  }
+
+  consumer swap(heap: Heap, i: int, j: int) {
+      var tmp = unwrap(heap)[i];
+      unwrap(heap)[i] = unwrap(heap)[j];
+      unwrap(heap)[j] = tmp;
+  }
+
+
+  consumer insert(heap: Heap, value: struct {dist: int, pos: Pos::Position}) {
+      lists::add(unwrap(heap), value);
+      heapify_up(heap, len(unwrap(heap)) - 1);
+  }
+
+  function heapIsEmpty(heap: Heap) -> boolean {
+    return len(unwrap(heap)) == 0;
+  }
+
+  consumer heapify_up(heap: Heap, i: int) {
+      while ((i > 0) and (unwrap(heap)[i].dist < unwrap(heap)[parent(i)].dist)) {
+          swap(heap, i, parent(i));
+          i = parent(i);
+      }
+  }
+
+  consumer heapify_down(heap: Heap, i: int) {
+      while (true) {
+          var min_index = i;
+          if ((left_child(i) < len(unwrap(heap))) and (unwrap(heap)[left_child(i)].dist < unwrap(heap)[min_index].dist)) {
+              min_index = left_child(i);
+          }
+          if ((right_child(i) < len(unwrap(heap))) and (unwrap(heap)[right_child(i)].dist < unwrap(heap)[min_index].dist)) {
+              min_index = right_child(i);
+          }
+          if (min_index != i) {
+              swap(heap, i, min_index);
+              i = min_index;
+          } else {
+            break;
+          }
+      }
+  }
+}
+
+function parent(i: int) -> int {
+    return (i - 1) / 2;
+}
+
+function left_child(i: int) -> int {
+    return 2 * i + 1;
+}
+
+function right_child(i: int) -> int {
+    return 2 * i + 2;
+}

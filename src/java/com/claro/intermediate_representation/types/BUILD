@@ -1,9 +1,6 @@
 package(
     default_visibility = [
-        "//src/java/com/claro/intermediate_representation:__pkg__",
-        "//src/java/com/claro/intermediate_representation/types/builtins_impls:__pkg__",
-        "//src/java/com/claro/compiler_backends/interpreted:__pkg__",
-        "//src/java/com/claro:__subpackages__",
+        "//visibility:public",
     ]
 )
 
@@ -15,6 +12,7 @@ java_library(
         ":type",
         "//:autovalue",
         "//:guava",
+        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
     ],
 )
 
@@ -25,6 +23,7 @@ java_library(
         ":base_type",
         ":concrete_type",
         ":type",
+        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
     ],
 )
 
@@ -53,6 +52,7 @@ java_library(
     deps = [
         ":base_type",
         ":concrete_type",
+        ":concrete_types",
         ":parameterized_type",
         ":supports_mutable_variant",
         ":type",
@@ -62,10 +62,10 @@ java_library(
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/types:claro_type_exception",
+        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
         "//src/java/com/claro/runtime_utilities/injector:key",
         "//:autovalue",
         "//:guava",
-        "//:lombok",
     ],
 )
 
@@ -76,6 +76,7 @@ java_library(
         ":base_type",
         "//:guava",
         "//src/java/com/claro:claro_parser_exception",
+        "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
     ],
 )
 

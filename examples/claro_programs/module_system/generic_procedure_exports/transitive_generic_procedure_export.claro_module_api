@@ -1,0 +1,2 @@
+
+consumer myTransitivePrint<T>(t: T);

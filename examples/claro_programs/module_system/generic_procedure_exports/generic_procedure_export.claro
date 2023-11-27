@@ -1,0 +1,22 @@
+
+consumer myPrint<T>(t: T) {
+  print(t);
+  # This is used to validate that local transitive monomorphizations work.
+  myPrint2(t);
+}
+consumer myPrint2<T>(t: T) {
+  print("myPrint2: {t}");
+  TransitiveDep::myTransitivePrint(t);
+}
+
+requires(Foo<T>)
+consumer myPrint3<T>(t: T) {
+  print("myPrint3: {t}");
+  Foo::doFoo(t);
+}
+
+implement Foo<string> {
+  consumer doFoo(t: string) {
+    print("Foo<string>::doFoo: {t}");
+  }
+}

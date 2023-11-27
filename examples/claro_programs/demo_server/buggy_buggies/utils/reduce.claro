@@ -1,0 +1,7 @@
+
+function reduce<T, R>(l: [T], accumulated: R, accumulatorFn: function<|R, T| -> R>) -> R {
+  for (elem in l) {
+    accumulated = accumulatorFn(accumulated, elem);
+  }
+  return accumulated;
+}

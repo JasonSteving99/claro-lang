@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture;
 import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.SettableFuture;
@@ -15,7 +16,9 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class $HttpUtil {
 
@@ -24,7 +27,11 @@ public class $HttpUtil {
 
   private static OkHttpClient getOkHttpClient() {
     if ($HttpUtil.OKHTTP_CLIENT == null) {
-      $HttpUtil.OKHTTP_CLIENT = new OkHttpClient.Builder().build();
+      $HttpUtil.OKHTTP_CLIENT = new OkHttpClient.Builder()
+          // TODO(steving) I want to update this to actually allow a user configured timeout and default to 10 OkHttp's
+          //  defualt 10sec read timeout. But for now, hardcoding 0 for NO timeout whatsoever.
+          .readTimeout(0, TimeUnit.SECONDS)
+          .build();
     }
     return $HttpUtil.OKHTTP_CLIENT;
   }
@@ -69,7 +76,10 @@ public class $HttpUtil {
 
       @Override
       public void onFailure(Call<ResponseBody> call, Throwable throwable) {
-        settableFuture.set(getSimpleErrorType(Types.STRING, "HTTP GET FAILURE!: " + throwable));
+        settableFuture.set(getSimpleErrorType(
+            Types.STRING,
+            "HTTP GET FAILURE!: " + throwable.getMessage() + "\n" + Arrays.toString(throwable.getStackTrace())
+        ));
       }
     });
 
@@ -78,13 +88,16 @@ public class $HttpUtil {
             ImmutableList.of(
                 Types.STRING,
                 Types.UserDefinedType.forTypeNameAndParameterizedTypes(
-                    "Error", ImmutableList.of(Types.STRING))
+                    "Error",
+                    StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                    ImmutableList.of(Types.STRING)
+                )
             )),
         settableFuture
     );
   }
 
   private static <T> $UserDefinedType<T> getSimpleErrorType(Type wrappedType, T wrappedValue) {
-    return new $UserDefinedType<>("Error", ImmutableList.of(wrappedType), wrappedType, wrappedValue);
+    return new $UserDefinedType<>("Error", StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR, ImmutableList.of(wrappedType), wrappedType, wrappedValue);
   }
 }

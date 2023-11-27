@@ -2,7 +2,7 @@
 
 <img width=300 src="https://raw.githubusercontent.com/JasonSteving99/claro-lang/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg">
 
-Charo is a statically compiled JVM language whose goal is first and foremost to provide you with the tools for reasoning
+Claro is a statically compiled JVM language whose goal is first and foremost to provide you with the tools for reasoning
 about program design and construction using a very clear and direct mental model - data flowing through a systems of
 steps where new data may be produced, and existing data may be updated by the system at each step. This stated mental
 model is intentionally simple. Where it may be vague, I hope to add clarity in the rest of these intro docs.

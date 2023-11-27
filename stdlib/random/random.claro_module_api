@@ -1,0 +1,15 @@
+
+opaque newtype RandomNumberGenerator
+
+# See: https://docs.oracle.com/javase/8/docs/api/java/lang/Math.html#random--
+provider floatInUnitInterval() -> float;
+
+provider create() -> RandomNumberGenerator;
+# TODO(steving) Update this to take a `long` once supported.
+function forSeed(seed: int) -> RandomNumberGenerator;
+
+function nextBoolean(rng: RandomNumberGenerator) -> boolean;
+function nextFloat(rng: RandomNumberGenerator) -> float;
+function nextInt(rng: RandomNumberGenerator) -> int;
+function nextNonNegativeBoundedInt(rng: RandomNumberGenerator, exclusiveUpperBound: int) -> int;
+

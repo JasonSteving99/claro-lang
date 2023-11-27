@@ -317,6 +317,13 @@ Claro
     filter remove_inline #.*$
     filter remove_matches ^\s*#
     extension claro
+    extension claro_internal
+    3rd_gen_scale 5
+Claro Module API
+    filter call_regexp_common C
+    filter remove_inline #.*$
+    filter remove_matches ^\s*#
+    extension claro_module_api
     3rd_gen_scale 5
 Clean
     filter rm_comments_in_strings " /* */

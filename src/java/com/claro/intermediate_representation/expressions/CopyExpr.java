@@ -286,7 +286,12 @@ public class CopyExpr extends Expr {
           try {
             if (!copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()) {
               ImmutableList<String> typeParamNames =
-                  Types.UserDefinedType.$typeParamNames.get(copiedExprUserDefinedType.getTypeName());
+                  Types.UserDefinedType.$typeParamNames.get(
+                      String.format(
+                          "%s$%s",
+                          copiedExprUserDefinedType.getTypeName(),
+                          copiedExprUserDefinedType.getDefiningModuleDisambiguator()
+                      ));
               Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
                   Optional.of(
                       IntStream.range(0, copiedExprUserDefinedType.parameterizedTypeArgs().size()).boxed()
@@ -297,8 +302,10 @@ public class CopyExpr extends Expr {
               wrappedType =
                   StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
                       Maps.newHashMap(Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.get()),
-                      Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
-                      Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(
+                          String.format("%s$%s", copiedExprUserDefinedType.getTypeName(), copiedExprUserDefinedType.getDefiningModuleDisambiguator())),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(
+                          String.format("%s$%s", copiedExprUserDefinedType.getTypeName(), copiedExprUserDefinedType.getDefiningModuleDisambiguator())),
                       true
                   );
               Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
@@ -311,14 +318,30 @@ public class CopyExpr extends Expr {
               wrappedCoercedType =
                   StructuralConcreteGenericTypeValidationUtil.validateArgExprsAndExtractConcreteGenericTypeParams(
                       Maps.newHashMap(Types.$GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen.get()),
-                      Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName()),
-                      Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName()),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(
+                          String.format(
+                              "%s$%s",
+                              ((Types.UserDefinedType) coercedType).getTypeName(),
+                              ((Types.UserDefinedType) coercedType).getDefiningModuleDisambiguator()
+                          )),
+                      Types.UserDefinedType.$resolvedWrappedTypes.get(
+                          String.format(
+                              "%s$%s",
+                              ((Types.UserDefinedType) coercedType).getTypeName(),
+                              ((Types.UserDefinedType) coercedType).getDefiningModuleDisambiguator()
+                          )),
                       true
                   );
             } else {
-              wrappedType = Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName());
+              wrappedType = Types.UserDefinedType.$resolvedWrappedTypes.get(
+                  String.format("%s$%s", copiedExprUserDefinedType.getTypeName(), copiedExprUserDefinedType.getDefiningModuleDisambiguator()));
               wrappedCoercedType =
-                  Types.UserDefinedType.$resolvedWrappedTypes.get(((Types.UserDefinedType) coercedType).getTypeName());
+                  Types.UserDefinedType.$resolvedWrappedTypes.get(
+                      String.format(
+                          "%s$%s",
+                          ((Types.UserDefinedType) coercedType).getTypeName(),
+                          ((Types.UserDefinedType) coercedType).getDefiningModuleDisambiguator()
+                      ));
             }
           } catch (ClaroTypeException e) {
             throw new RuntimeException("Internal Compiler Error! This should be unreachable. Type validation should've already caught this mismatch.", e);
@@ -339,19 +362,35 @@ public class CopyExpr extends Expr {
           Optional<GeneratedJavaSource> copyUserDefinedTypeCodegenRes =
               optionalWrappedValCopyCodegen
                   .map(
-                      generatedJavaSource -> GeneratedJavaSource.forJavaSourceBody(
-                          new StringBuilder("new $UserDefinedType(\"")
-                              .append(copiedExprUserDefinedType.getTypeName())
-                              .append("\", ")
-                              .append(copiedExprUserDefinedType.parameterizedTypeArgs().values().stream()
-                                          .map(Type::getJavaSourceClaroType)
-                                          .collect(Collectors.joining(", ", "ImmutableList.of(", "), ")))
-                              .append(Types.UserDefinedType.$resolvedWrappedTypes.get(copiedExprUserDefinedType.getTypeName())
-                                          .getJavaSourceClaroType())
-                              .append(", ")
-                              .append(generatedJavaSource.javaSourceBody())
-                              .append(")")
-                      ));
+                      generatedJavaSource -> {
+                        // Depending on whether this type def was parsed from a dep module, this may have been named with a
+                        // disambiguating prefix like "$DEP_MODULE$module$". For the sake of codegen'd values containing consistent
+                        // names everywhere, I need to strip any prefixing here so that instances of this type created ANYWHERE will
+                        // definitely evaluate as having the same type.
+                        String canonicalizedTypeName = copiedExprUserDefinedType.getTypeName()
+                            .substring(copiedExprUserDefinedType.getTypeName().lastIndexOf("$") + 1);
+                        return GeneratedJavaSource.forJavaSourceBody(
+                            new StringBuilder("new $UserDefinedType(\"")
+                                .append(canonicalizedTypeName)
+                                .append("\", \"")
+                                .append(copiedExprUserDefinedType.getDefiningModuleDisambiguator())
+                                .append("\", ")
+                                .append(copiedExprUserDefinedType.parameterizedTypeArgs().values().stream()
+                                            .map(Type::getJavaSourceClaroType)
+                                            .collect(Collectors.joining(", ", "ImmutableList.of(", "), ")))
+                                .append(
+                                    Types.UserDefinedType.$resolvedWrappedTypes.get(
+                                            String.format(
+                                                "%s$%s",
+                                                copiedExprUserDefinedType.getTypeName(),
+                                                copiedExprUserDefinedType.getDefiningModuleDisambiguator()
+                                            ))
+                                        .getJavaSourceClaroType())
+                                .append(", ")
+                                .append(generatedJavaSource.javaSourceBody())
+                                .append(")")
+                        );
+                      });
 
           // Reset GenericTypeParam state.
           if (!copiedExprUserDefinedType.parameterizedTypeArgs().isEmpty()) {

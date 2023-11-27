@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["cup_rule_diff.patch"])
+exports_files(["cup_rule_diff.patch", "jflex_rule_diff.patch"])
 
 ################################################################################
 # BEGIN: Patch CUP. I need it to split do_action method on l.t. the hardcoded

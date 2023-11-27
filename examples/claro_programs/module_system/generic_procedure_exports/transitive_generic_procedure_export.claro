@@ -1,0 +1,3 @@
+consumer myTransitivePrint<T>(t: T) {
+  print("`myTransitivePrint` IN TRANSITIVE DEP MODULE: {t}");
+}

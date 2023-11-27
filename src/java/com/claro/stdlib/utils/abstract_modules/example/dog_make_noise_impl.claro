@@ -1,0 +1,8 @@
+
+function makeNoiseImpl(dog: AnimalState) -> string {
+  # Dogs are usually nice, but they may growl at you if they're unhappy.
+  if (unwrap(dog).state.isHappy) {
+    return "Woof!";
+  }
+  return "Grrrrr...";
+}

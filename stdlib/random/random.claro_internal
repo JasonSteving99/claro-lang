@@ -1,0 +1,58 @@
+
+alias JavaRandomType : $java_type("java.util.Random")
+newtype RandomNumberGenerator : JavaRandomType
+
+provider floatInUnitInterval() -> float {
+  var res: float;
+  $$BEGIN_JAVA
+    res = java.lang.Math.random();
+  $$END_JAVA
+  return res;
+}
+
+provider create() -> RandomNumberGenerator {
+  var res: JavaRandomType;
+  $$BEGIN_JAVA
+    res = new java.util.Random();
+  $$END_JAVA
+  return RandomNumberGenerator(res);
+}
+# TODO(steving) Update this to take a `long` once supported.
+function forSeed(seed: int) -> RandomNumberGenerator {
+  var res: JavaRandomType;
+  $$BEGIN_JAVA
+    res = new java.util.Random((long) seed);
+  $$END_JAVA
+  return RandomNumberGenerator(res);
+}
+
+
+function nextBoolean(rng: RandomNumberGenerator) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = rng.wrappedValue.nextBoolean();
+  $$END_JAVA
+  return res;
+}
+function nextFloat(rng: RandomNumberGenerator) -> float {
+  var res: float;
+  $$BEGIN_JAVA
+    res = rng.wrappedValue.nextDouble();
+  $$END_JAVA
+  return res;
+}
+function nextInt(rng: RandomNumberGenerator) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = rng.wrappedValue.nextInt();
+  $$END_JAVA
+  return res;
+}
+function nextNonNegativeBoundedInt(rng: RandomNumberGenerator, exclusiveUpperBound: int) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = rng.wrappedValue.nextInt(exclusiveUpperBound);
+  $$END_JAVA
+  return res;
+}
+

@@ -8,6 +8,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class ProviderFunctionCallExpr extends Expr {
+  private final Optional<String> optionalOriginatingDepModuleName;
   protected String functionName;
   private final String originalName;
   protected boolean hashNameForCodegen;
@@ -26,8 +28,20 @@ public class ProviderFunctionCallExpr extends Expr {
 
   public ProviderFunctionCallExpr(String functionName, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.functionName = functionName;
     this.originalName = functionName;
+  }
+
+  public ProviderFunctionCallExpr(String depModuleName, String name, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, name);
+    this.functionName = disambiguatedName;
+    this.originalName = disambiguatedName;
   }
 
   @Override
@@ -147,30 +161,73 @@ public class ProviderFunctionCallExpr extends Expr {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.functionName).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix =
+        this.optionalOriginatingDepModuleName
+            // Turns out I need to codegen the Java namespace of the dep module.
+            .map(depMod -> {
+              SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                  ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+              return String.format(
+                  "%s.%s.",
+                  depModDescriptor.getProjectPackage(),
+                  depModDescriptor.getUniqueModuleName()
+              );
+            });
+    Optional<String> hashedName = Optional.empty();
     if (!this.functionName.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.functionName);
     } else {
       this.hashNameForCodegen = true;
+      if (this.optionalOriginatingDepModuleName.isPresent()) {
+        // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
+        // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
+        // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
+        // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
+        // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
+        // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        optionalNormalizedOriginatingDepModulePrefix =
+            Optional.of(
+                String.format(
+                    "$MONOMORPHIZATION$%s$%s.",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    (hashedName = Optional.of(getHashedName())).get()
+                ));
+      }
     }
 
     if (this.hashNameForCodegen) {
       // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
       // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
       // still unique.
-      this.functionName =
-          String.format(
-              "%s__%s",
-              this.originalName,
-              Hashing.sha256().hashUnencodedChars(this.functionName).toString()
-          );
+      this.functionName = hashedName.orElseGet(this::getHashedName);
     }
 
-    StringBuilder res = new StringBuilder(String.format("%s.apply()", this.functionName));
+    StringBuilder res;
+    if (isStatic) {
+      String procName =
+          this.optionalOriginatingDepModuleName
+              .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+              .orElse(this.functionName);
+      res = new StringBuilder(String.format(
+          "%s$%s.%s()", optionalNormalizedOriginatingDepModulePrefix.orElse(""), procName, procName));
+    } else {
+      res = new StringBuilder(String.format(
+          "%s%s.apply()",
+          optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+          this.optionalOriginatingDepModuleName
+              .map(depMod -> this.functionName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+              .orElse(this.functionName)
+      ));
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
@@ -178,6 +235,16 @@ public class ProviderFunctionCallExpr extends Expr {
     this.functionName = this.originalName;
 
     return res;
+  }
+
+  private String getHashedName() {
+    return String.format(
+        "%s__%s",
+        this.optionalOriginatingDepModuleName
+            .map(depMod -> this.originalName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+            .orElse(this.originalName),
+        Hashing.sha256().hashUnencodedChars(this.functionName).toString()
+    );
   }
 
   @Override

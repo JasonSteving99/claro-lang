@@ -11,8 +11,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
 
 import java.util.Map;
+import java.util.Optional;
 
 public class StdLibUtil {
+
+  public static boolean setupBuiltinTypes = false;
 
   public static ImmutableList<Stmt> registerIdentifiers(ScopedHeap scopedHeap) {
     for (Table.Cell<String, Type, Object> stdLibProcedure
@@ -30,29 +33,46 @@ public class StdLibUtil {
           scopedHeap, stdLibTypeDef.getKey(), stdLibTypeDef.getValue(), null, /*isTypeDef=*/true);
     }
 
-    // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
-    return ImmutableList.of(
-        new NewTypeDefStmt("Error", TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")),
-        new NewTypeDefStmt(
-            "ParsedJson",
-            (TypeProvider) (scopedHeap1) ->
-                Types.StructType.forFieldTypes(
-                    ImmutableList.of("result", "rawJson"),
-                    ImmutableList.of(
-                        Types.OneofType.forVariantTypes(
-                            ImmutableList.of(
-                                TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true)
-                                    .resolveType(scopedHeap1),
-                                Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
-                            )
-                        ),
-                        Types.STRING
-                    ),
-                    /*isMutable=*/false
-                ),
-            ImmutableList.of("T")
-        )
-    );
+    // TODO(steving) This is getting overly complicated just b/c I don't want to fix Riju's config. Go update
+    //   Riju so that this can all be simplified.
+    if (StdLibUtil.setupBuiltinTypes) {
+      // These Stmts will get automatically prefixed to the beginning of the program to setup the "stdlib".
+      return ImmutableList.of(
+          new NewTypeDefStmt(
+              "Error",
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR),
+              TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true), ImmutableList.of("T")
+          ),
+          new NewTypeDefStmt(
+              "ParsedJson",
+              /*optionalOriginatingModuleDisambiguator=*/Optional.of(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR),
+              (TypeProvider) (scopedHeap1) ->
+                  Types.StructType.forFieldTypes(
+                      ImmutableList.of("result", "rawJson"),
+                      ImmutableList.of(
+                          Types.OneofType.forVariantTypes(
+                              ImmutableList.of(
+                                  TypeProvider.Util.getTypeByName("T", /*isTypeDefinition=*/true)
+                                      .resolveType(scopedHeap1),
+                                  Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                                      "Error",
+                                      /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                                      ImmutableList.of(Types.STRING)
+                                  )
+                              )
+                          ),
+                          Types.STRING
+                      ),
+                      /*isMutable=*/false
+                  ),
+              ImmutableList.of("T")
+          )
+      );
+    } else {
+      // This is much better handled by using Claro source files instead. These builtin types are actually found at
+      // com/claro/stdlib/std.claro_module_api.
+      return ImmutableList.of();
+    }
   }
 
   private static void registerStdLibSymbolTableEntry(

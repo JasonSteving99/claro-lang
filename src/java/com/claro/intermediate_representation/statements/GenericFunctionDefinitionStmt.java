@@ -32,9 +32,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
 
   private boolean alreadyValidatedTypes = false;
 
-  private static final HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
+  public static final HashBasedTable<String, ImmutableMap<Type, Type>, ProcedureDefinitionStmt>
       monomorphizations = HashBasedTable.create();
-  private static final HashBasedTable<String, ImmutableMap<Type, Type>, String>
+  public static final HashBasedTable<String, ImmutableMap<Type, Type>, String>
       alreadyCodegendMonomorphizations = HashBasedTable.create();
   public static final HashMap<String, GenericFunctionDefinitionStmt> genericFunctionDefStmtsByName = Maps.newHashMap();
 
@@ -284,7 +284,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                                     injectedKeysTypes.stream()
                                         .map(
                                             injectedKey ->
-                                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                                Key.create(injectedKey.getName(), injectedKey.getTypeProvider()
+                                                    .resolveType(scopedHeap)))
                                         .collect(Collectors.toSet())
                             )
                             .orElse(Sets.newHashSet()),
@@ -319,7 +320,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                                     injectedKeysTypes.stream()
                                         .map(
                                             injectedKey ->
-                                                new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                                Key.create(injectedKey.getName(), injectedKey.getTypeProvider()
+                                                    .resolveType(scopedHeap)))
                                         .collect(Collectors.toSet())
                             )
                             .orElse(Sets.newHashSet()),
@@ -355,7 +357,8 @@ public class GenericFunctionDefinitionStmt extends Stmt {
                                   injectedKeysTypes.stream()
                                       .map(
                                           injectedKey ->
-                                              new Key(injectedKey.name, injectedKey.typeProvider.resolveType(scopedHeap)))
+                                              Key.create(injectedKey.getName(), injectedKey.getTypeProvider()
+                                                  .resolveType(scopedHeap)))
                                       .collect(Collectors.toSet())
                           )
                           .orElse(Sets.newHashSet()),
@@ -399,12 +402,9 @@ public class GenericFunctionDefinitionStmt extends Stmt {
       // generic procedure name so that we're able to actually add entries to it uninterrupted during type validation below.
       GenericFunctionDefinitionStmt.monomorphizations.clear();
       for (String currGenericProcedureName : monomorphizationsCopy.rowKeySet()) {
-        ImmutableList<String> currGenericProcedureArgNames =
-            GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.get(currGenericProcedureName).genericProcedureArgNames;
         for (Map.Entry<ImmutableMap<Type, Type>, ProcedureDefinitionStmt> preparedMonomorphization
             : monomorphizationsCopy.row(currGenericProcedureName).entrySet()) {
           ImmutableMap<Type, Type> concreteTypeParams = preparedMonomorphization.getKey();
-          ProcedureDefinitionStmt monomorphization = preparedMonomorphization.getValue();
 
           // This is technically a recursive function, so we need to ensure that we haven't reached a monomorphization
           // that's already been codegen'd.
@@ -413,73 +413,97 @@ public class GenericFunctionDefinitionStmt extends Stmt {
             continue;
           }
 
-          // Now, some initial cleanup based on some unwanted side-effects of the FunctionCallExpr which already
-          // puts the generic function's canonicalized name in the scoped heap in order to reuse the rest of its
-          // non-generic call flow which marks the called function used...So here I'll remove the existing declaration
-          // so that the ProcedureDefinitionStmt we're going to run validation on soon doesn't get tripped up on this.
-          scopedHeap.deleteIdentifierValue(monomorphization.procedureName);
-
-          for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
-            String currContractGenericArg = currGenericProcedureArgNames.get(i);
-            // This is temporary to this specific monomorphization and needs to be removed.
-            scopedHeap.putIdentifierValue(
-                currContractGenericArg,
-                concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg)),
-                null
-            );
-            scopedHeap.markIdentifierAsTypeDefinition(currContractGenericArg);
-          }
-
-          monomorphization.registerProcedureTypeProvider(scopedHeap);
-          try {
-            monomorphization.assertExpectedExprTypes(scopedHeap);
-          } catch (ClaroTypeException e) {
-            throw new RuntimeException(e);
-          }
-          // At the last second, right before doing codegen, I want to actually make codegen simplify the
-          // monomorphization's name into something shorter, but still avoiding collisions with any other identifiers.
-          // For this, I'll use sha256 hashing. The reason is that Java has started to complain about some generated
-          // class names being too long (e.g. one was >550 chars for a monomorphization over a complex data structure).
-          String originalMonomorphizationName = monomorphization.procedureName;
-          // It's possible that this generic procedure was defined w/in a Contract impl, in which case we can't just
-          // codegen directly into the top-level, this GeneratedJavaSource needs to be set aside to be included inline
-          // with the Contract impl's codegen.
-          if (!InternalStaticStateUtil.ContractDefinitionStmt_genericContractImplProceduresCanonicalNames
-              .contains(currGenericProcedureName)) {
-            monomorphization.procedureName = currGenericProcedureName + "__" + Hashing.sha256()
-                .hashUnencodedChars(monomorphization.procedureName)
-                .toString();
-            GeneratedJavaSource currMonomorphizationCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
-            monomorphizationsCodeGen =
-                monomorphizationsCodeGen.createMerged(currMonomorphizationCodeGen);
-          } else {
-            // Need to drop the "$ContractName::<Concrete,Types>___" prefix to make it callable.
-            monomorphization.procedureName =
-                // TODO(steving) This substring approach is fairly hacky...is there a better solution?
-                currGenericProcedureName.substring(currGenericProcedureName.indexOf("___") + 3)
-                + "__" + Hashing.sha256()
-                    .hashUnencodedChars(monomorphization.procedureName)
-                    .toString();
-            GeneratedJavaSource currMonomorphizationCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
-            InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
-                .put(currGenericProcedureName, concreteTypeParams, currMonomorphizationCodeGen);
-          }
-          // We only need the hash name during codegen, we'll keep the readable name during internal evaluation to make
-          // debugging easier.
-          monomorphization.procedureName = originalMonomorphizationName;
-
-          for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
-            // This is temporary to this specific monomorphization and needs to be removed.
-            scopedHeap.deleteIdentifierValue(currGenericProcedureArgNames.get(i));
-          }
-
-          // Mark this as already monomorphized so that if we run across it again in another generic function we can
-          // skip monomorphizing it again.
-          alreadyCodegendMonomorphizations.put(currGenericProcedureName, concreteTypeParams, monomorphization.procedureName);
+          // Do codegen for the current monomorphization and merge it into the running codegen for the current set of
+          // generic procedures.
+          monomorphizationsCodeGen =
+              monomorphizationsCodeGen.createMerged(
+                  getMonomorphizationCodeGen(
+                      scopedHeap,
+                      currGenericProcedureName,
+                      preparedMonomorphization.getKey(),
+                      preparedMonomorphization.getValue()
+                  ));
         }
       }
     }
     scopedHeap.checkUnused = originalCheckUnused;
+    return monomorphizationsCodeGen;
+  }
+
+  public static GeneratedJavaSource getMonomorphizationCodeGen(
+      ScopedHeap scopedHeap,
+      String currGenericProcedureName,
+      ImmutableMap<Type, Type> concreteTypeParams,
+      ProcedureDefinitionStmt monomorphization) {
+    GeneratedJavaSource monomorphizationsCodeGen;
+
+    // Now, some initial cleanup based on some unwanted side-effects of the FunctionCallExpr which already
+    // puts the generic function's canonicalized name in the scoped heap in order to reuse the rest of its
+    // non-generic call flow which marks the called function used...So here I'll remove the existing declaration
+    // so that the ProcedureDefinitionStmt we're going to run validation on soon doesn't get tripped up on this.
+    scopedHeap.deleteIdentifierValue(monomorphization.procedureName);
+
+    ImmutableList<String> currGenericProcedureArgNames =
+        GenericFunctionDefinitionStmt.genericFunctionDefStmtsByName.get(currGenericProcedureName).genericProcedureArgNames;
+
+    for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
+      String currContractGenericArg = currGenericProcedureArgNames.get(i);
+      // This is temporary to this specific monomorphization and needs to be removed.
+      scopedHeap.putIdentifierValue(
+          currContractGenericArg,
+          concreteTypeParams.get(Types.$GenericTypeParam.forTypeParamName(currContractGenericArg)),
+          null
+      );
+      scopedHeap.markIdentifierAsTypeDefinition(currContractGenericArg);
+    }
+
+    monomorphization.registerProcedureTypeProvider(scopedHeap);
+    try {
+      monomorphization.assertExpectedExprTypes(scopedHeap);
+    } catch (ClaroTypeException e) {
+      throw new RuntimeException(e);
+    }
+    // At the last second, right before doing codegen, I want to actually make codegen simplify the
+    // monomorphization's name into something shorter, but still avoiding collisions with any other identifiers.
+    // For this, I'll use sha256 hashing. The reason is that Java has started to complain about some generated
+    // class names being too long (e.g. one was >550 chars for a monomorphization over a complex data structure).
+    String originalMonomorphizationName = monomorphization.procedureName;
+    // It's possible that this generic procedure was defined w/in a Contract impl, in which case we can't just
+    // codegen directly into the top-level, this GeneratedJavaSource needs to be set aside to be included inline
+    // with the Contract impl's codegen.
+    if (!InternalStaticStateUtil.ContractDefinitionStmt_genericContractImplProceduresCanonicalNames
+        .contains(currGenericProcedureName)) {
+      monomorphization.procedureName = currGenericProcedureName + "__" + Hashing.sha256()
+          .hashUnencodedChars(monomorphization.procedureName)
+          .toString();
+      monomorphizationsCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
+    } else {
+      // Need to drop the "$ContractName::<Concrete,Types>___" prefix to make it callable.
+      monomorphization.procedureName =
+          // TODO(steving) This substring approach is fairly hacky...is there a better solution?
+          currGenericProcedureName.substring(currGenericProcedureName.indexOf("___") + 3)
+          + "__" + Hashing.sha256()
+              .hashUnencodedChars(monomorphization.procedureName)
+              .toString();
+      GeneratedJavaSource currMonomorphizationCodeGen = monomorphization.generateJavaSourceOutput(scopedHeap);
+      InternalStaticStateUtil.GenericProcedureDefinitionStmt_alreadyCodegenedContractProcedureMonomorphizations
+          .put(currGenericProcedureName, concreteTypeParams, currMonomorphizationCodeGen);
+
+      // Intentionally not returning any actual monomorphization for this contract procedure.
+      monomorphizationsCodeGen = GeneratedJavaSource.forJavaSourceBody(new StringBuilder());
+    }
+    // We only need the hash name during codegen, we'll keep the readable name during internal evaluation to make
+    // debugging easier.
+    monomorphization.procedureName = originalMonomorphizationName;
+
+    for (int i = 0; i < currGenericProcedureArgNames.size(); i++) {
+      // This is temporary to this specific monomorphization and needs to be removed.
+      scopedHeap.deleteIdentifierValue(currGenericProcedureArgNames.get(i));
+    }
+
+    // Mark this as already monomorphized so that if we run across it again in another generic function we can
+    // skip monomorphizing it again.
+    alreadyCodegendMonomorphizations.put(currGenericProcedureName, concreteTypeParams, monomorphization.procedureName);
     return monomorphizationsCodeGen;
   }
 

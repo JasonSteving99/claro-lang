@@ -1,0 +1,11 @@
+
+function loadAll(keys: {K}) -> future<{K: V}> {
+  var res: future<{K: V}>;
+  $$BEGIN_JAVA
+    if (true)
+      //# Configure CacheLoader to fallback to individual calls to load().
+      throw new java.lang.UnsupportedOperationException();
+    res = null;
+  $$END_JAVA
+  return res;
+}

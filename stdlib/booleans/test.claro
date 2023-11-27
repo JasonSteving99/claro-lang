@@ -1,0 +1,6 @@
+
+var tests = ["true", "false", "True", "yes", "no"];
+for (test in tests) {
+  var parsed = booleans::parseBoolean(test);
+  print("booleans::parseBoolean(\"{test}\") == {parsed}");
+}

@@ -1,0 +1,7 @@
+
+function getName(self: Cat) -> string {
+  return unwrap(self).callSign;
+}
+provider makeNoise() -> string {
+  return "Meow";
+}

@@ -1,0 +1,5 @@
+
+function makeNoiseImpl(cat: AnimalState) -> string {
+  # Cats are mean, they're going to say mean things no matter what.
+  return unwrap(cat).state.favoriteInsult;
+}

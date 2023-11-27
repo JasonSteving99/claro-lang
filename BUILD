@@ -1,20 +1,24 @@
 package(default_visibility = ["//visibility:public"])
 
 alias(
+    name = "google-options",
+    actual = "@maven//:com_github_pcj_google_options",
+)
+alias(
     name = "guava",
     actual = "@maven//:com_google_guava_guava",
 )
 alias(
-    name = "apache_commons_text",
-    actual = "@maven//:org_apache_commons_commons_text",
+    name = "protobuf",
+    actual = "@maven//:com_google_protobuf_protobuf_java",
+)
+alias(
+    name = "protobuf_java_util",
+    actual = "@maven//:com_google_protobuf_protobuf_java_util",
 )
 alias(
     name = "lanterna",
     actual = "@maven//:com_googlecode_lanterna_lanterna",
-)
-alias(
-    name = "javalin",
-    actual = "@maven//:io_javalin_javalin",
 )
 alias(
     name = "slf4j",
@@ -47,6 +51,19 @@ alias(
 alias(
     name = "activej_promise",
     actual = "@maven//:io_activej_activej_promise"
+)
+alias(
+    name = "caffeine",
+    actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
+)
+alias(
+    name = "future_converter",
+    actual = "@maven//:net_javacrumbs_future_converter_future_converter_java8_guava",
+)
+
+alias(
+    name = "slf4j_nop",
+    actual = "@maven//:org_slf4j_slf4j_nop"
 )
 
 exports_files(["CLARO_VERSION.txt"])
@@ -81,30 +98,45 @@ java_library(
 
 
 ################################################################################
-# BEGIN: Setup Lombok.
+# BEGIN: Setup Bootstrapping Claro Compiler.
 ################################################################################
-
-# Export the lombok plugin as a simple java_library dep.
-java_plugin(
-    name = "lombok_plugin",
-    processor_class = "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
-    generates_api = True,
-    deps = [
-        "@maven//:org_projectlombok_lombok",
-    ],
+java_binary(
+    name = "bootstrapping_claro_compiler_binary",
+    main_class = "com.claro.ClaroCompilerMain",
+    srcs = [":_dummy"], # java_binary() requires some source file, so giving a dummy file.
+    deps = [":bootstrapping_claro_compiler_import"],
 )
-
-java_library(
-    name = "lombok",
-    exported_plugins = [
-        ":lombok_plugin",
-    ],
-    neverlink = 1,
-    exports = [
-        "@maven//:org_projectlombok_lombok"
-    ],
+genrule(
+    name = "_dummy",
+    outs = ["dummy.java"],
+    cmd = "echo 'public class dummy {}' > $(OUTS)",
 )
+java_import(
+    name = "bootstrapping_claro_compiler_import",
+    jars = [":bootstrapping_claro_compiler.jar"],
+)
+java_import(
+    name = "bootstrapping_claro_builtin_java_deps_import",
+    jars = [":bootstrapping_claro_builtin_java_deps_deploy.jar"],
+)
+genrule(
+    name = "bootstrapping_claro_compiler",
+    srcs = ["@bootstrapping_claro_compiler_tarfile//file"],
+    outs = [
+        "bootstrapping_claro_compiler.jar",
+        "bootstrapping_claro_builtin_java_deps_deploy.jar",
+    ],
+    cmd = "tar -xpf $(location @bootstrapping_claro_compiler_tarfile//file) " +
+          "&& cat claro_compiler_binary_deploy.jar > $(location bootstrapping_claro_compiler.jar)" +
+          "&& cat claro_builtin_java_deps_deploy.jar > $(location bootstrapping_claro_builtin_java_deps_deploy.jar)",
+)
+################################################################################
+# END: Setup Bootstrapping Claro Compiler.
+################################################################################
 
-################################################################################
-# END: Setup Lombok.
-################################################################################
+genrule(
+    name = "empty_claro_src",
+    outs = ["empty.claro"],
+    # Currently claro doesn't accept empty src files so throw a no-op stmt in there.
+    cmd = "echo '_ = 1;' > $(OUTS)",
+)

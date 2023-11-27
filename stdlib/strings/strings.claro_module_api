@@ -1,0 +1,64 @@
+# Simply exposing the functionality documented at the links below to Claro programs:
+#   - https://docs.oracle.com/javase/8/docs/api/java/lang/String.html
+#   - https://guava.dev/releases/31.1-jre/api/docs/com/google/common/base/Strings.html
+# TODO(steving) Make this api safe so that nothing can throw a runtime exception.
+
+atom NOT_FOUND
+
+# TODO(steving) Revisit this once Claro has support for chars.
+function charAt(s: string, i: int) -> string;
+
+function commonPrefix(s: string, other: string) -> string;
+function commonSuffix(s: string, other: string) -> string;
+
+function compareTo(s: string, other: string) -> int;
+function compareToIgnoreCase(s: string, other: string) -> int;
+
+function concat(s: string, other: string) -> string;
+
+function contains(s: string, other: string) -> boolean;
+
+function endsWith(s: string, other: string) -> boolean;
+
+function equalsIgnoreCase(s: string, other: string) -> boolean;
+
+function indexOf(s: string, of: string) -> oneof<int, NOT_FOUND>;
+function indexOfFromIndex(s: string, of: string, from: int) -> oneof<int, NOT_FOUND>;
+
+function isEmpty(s: string) -> boolean;
+
+function join(delimiter: string, parts: [string]) -> string;
+
+function lastIndexOf(s: string, of: string) -> oneof<int, NOT_FOUND>;
+function lastIndexOfFromIndex(s: string, of: string, from: int) -> oneof<int, NOT_FOUND>;
+
+function matches(s: string, regex: string) -> boolean;
+
+# TODO(steving) Revisit this once Claro has support for chars. Should support configurable padding char.
+function padEnd(s: string, minLength: int) -> string;
+function padStart(s: string, minLength: int) -> string;
+
+function regionMatches(s: string, s_offset: int, other: string, o_offset: int, regionLen: int) -> boolean;
+function regionMatchesIgnoreCase(ignoreCase: boolean, s: string, s_offset: int, other: string, o_offset: int, regionLen: int) -> boolean;
+
+function repeated(s: string, count: int) -> string;
+
+function replace(s: string, target: string, replacement: string) -> string;
+function replaceAll(s: string, regex: string, replacement: string) -> string;
+function replaceFirst(s: string, regex: string, replacement: string) -> string;
+
+function split(s: string, regex: string) -> [string];
+function splitWithLimit(s: string, regex: string, limit: int) -> [string];
+# TODO(steving) Revisit this once Claro has support for chars.
+function splitChars(s: string) -> [string];
+
+function startsWith(s: string, other: string) -> boolean;
+function startsWithFromIndex(s: string, other: string, from: int) -> boolean;
+
+function substring(s: string, beginInclusive: int, endExclusive: int) -> string;
+function suffix(s: string, beginInclusive: int) -> string;
+
+function toLowerCase(s: string) -> string;
+function toUpperCase(s: string) -> string;
+
+function trim(s: string) -> string;

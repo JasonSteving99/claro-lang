@@ -1,0 +1,100 @@
+
+alias CacheBuilderJavaType : $java_type("com.github.benmanes.caffeine.cache.Caffeine<Object, Object>")
+
+newtype CacheBuilder : CacheBuilderJavaType
+newtype CacheSpec : $java_type("com.github.benmanes.caffeine.cache.CaffeineSpec")
+
+
+provider builder() -> CacheBuilder {
+  var res: CacheBuilder;
+  var constructCacheBuilder =
+    (javaCacheBuilder: CacheBuilderJavaType) -> CacheBuilder { return CacheBuilder(javaCacheBuilder); };
+
+  $$BEGIN_JAVA
+    res = constructCacheBuilder.apply(com.github.benmanes.caffeine.cache.Caffeine.newBuilder());
+  $$END_JAVA
+
+  return res;
+}
+
+
+function parseCacheSpecToBuilder(spec: string) -> oneof<CacheSpec, std::Error<InvalidCacheSpec>> {
+  var res: oneof<CacheSpec, std::Error<InvalidCacheSpec>>;
+  var constructCacheSpec =
+    (javaCacheSpec: $java_type("com.github.benmanes.caffeine.cache.CaffeineSpec")) -> CacheSpec {
+      return CacheSpec(javaCacheSpec);
+    };
+  var constructError =
+    (msg: string) -> std::Error<InvalidCacheSpec> { return std::Error(InvalidCacheSpec({msg = msg})); };
+
+  $$BEGIN_JAVA
+    try {
+      res =
+        constructCacheSpec.apply(
+          com.github.benmanes.caffeine.cache.CaffeineSpec.parse(spec));
+    } catch (IllegalArgumentException e) {
+      res = constructError.apply(e.getMessage());
+    }
+  $$END_JAVA
+
+  return res;
+}
+
+function builderFromSpec(spec: CacheSpec) -> CacheBuilder {
+  var res: CacheBuilder;
+  var constructCacheBuilder =
+    (javaCacheBuilder: CacheBuilderJavaType) -> CacheBuilder { return CacheBuilder(javaCacheBuilder); };
+
+  $$BEGIN_JAVA
+    res = constructCacheBuilder.apply(com.github.benmanes.caffeine.cache.Caffeine.from(spec.wrappedValue));
+  $$END_JAVA
+
+  return res;
+}
+
+function builderFromSpecString(spec: string) -> oneof<CacheBuilder, std::Error<InvalidCacheSpec>> {
+  var cacheSpec ?= parseCacheSpecToBuilder(spec);
+  return builderFromSpec(cacheSpec);
+}
+
+
+function expireAfterAccess(cacheBuilder: CacheBuilder, duration: duration::Duration) -> CacheBuilder {
+  $$BEGIN_JAVA
+    cacheBuilder.wrappedValue.expireAfterAccess(duration.wrappedValue);
+  $$END_JAVA
+  return cacheBuilder;
+}
+
+function expireAfterWrite(cacheBuilder: CacheBuilder, duration: duration::Duration) -> CacheBuilder {
+  $$BEGIN_JAVA
+    cacheBuilder.wrappedValue.expireAfterWrite(duration.wrappedValue);
+  $$END_JAVA
+  return cacheBuilder;
+}
+
+function refreshAfterWrite(cacheBuilder: CacheBuilder, duration: duration::Duration) -> CacheBuilder {
+  $$BEGIN_JAVA
+    cacheBuilder.wrappedValue.refreshAfterWrite(duration.wrappedValue);
+  $$END_JAVA
+  return cacheBuilder;
+}
+
+
+function build<K, V>(cacheBuilder: CacheBuilder, loadingFn: function<K -> future<V>>) -> Cache<K, V> {
+  # TODO(steving) These aliases are completely just working around some issue with the implementation of `$java_type`
+  # TODO(steving)     that's preventing the monomorphization subprocess from finding the types `K` and `V`. Fix this.
+  alias K_alias: K
+  alias V_alias: V
+  var javaCache: $java_type<K_alias, V_alias>("com.github.benmanes.caffeine.cache.AsyncLoadingCache<%s, %s>");
+
+  $$BEGIN_JAVA
+    javaCache = cacheBuilder.wrappedValue
+      .executor(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+      .buildAsync(
+        (key, executor) ->
+          net.javacrumbs.futureconverter.java8guava.FutureConverter.toCompletableFuture(loadingFn.apply(key))
+      );
+  $$END_JAVA
+
+  return Cache(javaCache);
+}

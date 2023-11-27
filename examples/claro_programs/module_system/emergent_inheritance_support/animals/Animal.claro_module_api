@@ -1,0 +1,6 @@
+
+function getGreeting(self: Animal) -> string;
+provider makeNoise() -> string;
+function getName(self: Animal) -> string;
+
+implement Greeter::Greeter<Animal>;

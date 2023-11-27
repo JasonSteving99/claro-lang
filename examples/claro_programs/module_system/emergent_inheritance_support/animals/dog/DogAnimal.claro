@@ -1,0 +1,7 @@
+
+function getName(self: Dog) -> string {
+  return unwrap(self).name;
+}
+provider makeNoise() -> string {
+  return "Woof";
+}

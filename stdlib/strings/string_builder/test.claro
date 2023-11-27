@@ -1,0 +1,7 @@
+
+var sb = string_builder::create();
+string_builder::add(sb, "Hello")
+  |> string_builder::add(^, ", ")
+  |> string_builder::add(^, "from this StringBuilder!")
+  |> string_builder::build(^)
+  |> print(^);

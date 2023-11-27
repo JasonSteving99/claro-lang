@@ -1,0 +1,4 @@
+
+function registerDepModuleSubprocessPort(unique_module_name: string, port: string) -> string;
+
+function markDepModuleSubprocessReady(uniqueModuleName: string) -> future<string>;

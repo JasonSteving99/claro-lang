@@ -1,0 +1,87 @@
+{namespace procedures}
+
+
+{template .exportedProcedure}
+    {@param name: string}
+    {@param? requiredContracts: list<[contractName: string, genericTypeParams: list<string>]>}
+    {@param? genericTypeParams: list<string>}
+    {@param? argTypes: list<html>}
+    {@param? outputType: html}
+
+    {call codeblock.code}
+        {param codeContent kind="html"}
+            {call .procedureSignature data="all" /}
+        {/param}
+        {param class kind="text"}{call .procedureDefClass /}{/param}
+        {param id: $name /}
+    {/call}
+{/template}
+
+{template .procedureDefClass kind="text" visibility="private"}
+    procedure-def
+{/template}
+
+{template .requires visibility="private"}
+    {@param requiredContracts: list<[contractName: string, genericTypeParams: list<string>]>}
+    {call tokens.REQUIRES /}(
+    {for $contract in $requiredContracts}
+        {$contract.contractName}{call tokens.LT /}
+        {for $genericTypeParam, $i in $contract.genericTypeParams}
+            {if $i > 0}, {/if} // Comma after all but first.
+            {$genericTypeParam}
+        {/for}
+        {call tokens.GT /}
+    {/for}
+    )
+{/template}
+
+{template .args visibility="private"}
+    {@param argTypes: list<html>}
+    {for $arg, $i in $argTypes}
+        {if $i > 0}, {/if}
+        arg{$i}{call tokens.COLON /} {$arg}
+    {/for}
+{/template}
+
+{template .procedureSignature visibility="private"}
+    {@param name: string}
+    {@param? requiredContracts: list<[contractName: string, genericTypeParams: list<string>]>}
+    {@param? genericTypeParams: list<string>}
+    {@param? argTypes: list<html>}
+    {@param? outputType: html}
+
+    {if $requiredContracts}
+        {call .requires}
+            {param requiredContracts: $requiredContracts /}
+        {/call}<br>
+    {/if}
+    {if $argTypes}
+        {if $outputType}
+            {call tokens.FUNCTION /}
+        {else}
+            {call tokens.CONSUMER /}
+        {/if}
+    {else}
+        {call tokens.PROVIDER /}
+    {/if}
+    {sp}{$name}
+    {if $genericTypeParams}
+        {call tokens.LT /}
+        {for $genericTypeParam, $i in $genericTypeParams}
+            {if $i > 0}, {/if}
+            {$genericTypeParam}
+        {/for}
+        {call tokens.GT /}
+    {/if}
+    (
+    {if $argTypes}
+        {call .args}
+            {param argTypes: $argTypes /}
+        {/call}
+    {/if}
+    )
+    {if $outputType}
+        {sp}{call tokens.ARROW /}{sp}{$outputType}
+    {/if}
+    {call tokens.SEMICOLON /}
+{/template}

@@ -7,6 +7,7 @@ package(
         "//src/java/com/claro/intermediate_representation/statements:__subpackages__",
         "//src/java/com/claro/intermediate_representation/types:__pkg__",
         "//src/java/com/claro/intermediate_representation:__pkg__",
+        "//src/java/com/claro/module_system:__pkg__",
         "//src/java/com/claro/stdlib:__subpackages__",
     ]
 )
@@ -46,6 +47,8 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/internal_static_state",
+        "//src/java/com/claro/stdlib:stdlib_module_registry",
+        "//src/java/com/claro/stdlib:module_util",
     ],
 )
 

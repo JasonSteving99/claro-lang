@@ -1,0 +1,4 @@
+
+contract AnimalSounds<AnimalState> {
+  function makeNoise(state: AnimalState) -> string;
+}

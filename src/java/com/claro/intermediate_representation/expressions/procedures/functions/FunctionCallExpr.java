@@ -8,21 +8,21 @@ import com.claro.intermediate_representation.statements.UsingBlockStmt;
 import com.claro.intermediate_representation.statements.contracts.ContractImplementationStmt;
 import com.claro.intermediate_representation.types.*;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.injector.Key;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 import com.google.common.hash.Hashing;
 
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class FunctionCallExpr extends Expr {
+  public Optional<String> optionalOriginatingDepModuleName;
   public String name;
   public boolean hashNameForCodegen = false;
   public boolean staticDispatchCodegen = false;
@@ -35,8 +35,29 @@ public class FunctionCallExpr extends Expr {
 
   public FunctionCallExpr(String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.name = name;
     this.originalName = name;
+    this.argExprs = args;
+  }
+
+  // Use this factory literally just to simplify calls that hinge on optionally setting an originating dep module.
+  public static FunctionCallExpr getFunctionCallExprForOptionalOriginatingDepModule(Optional<String> optionalOriginatingDepModuleName, String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    if (optionalOriginatingDepModuleName.isPresent()) {
+      return new FunctionCallExpr(optionalOriginatingDepModuleName.get(), name, args, currentLine, currentLineNumber, startCol, endCol);
+    }
+    return new FunctionCallExpr(name, args, currentLine, currentLineNumber, startCol, endCol);
+  }
+
+  public FunctionCallExpr(String depModuleName, String name, ImmutableList<Expr> args, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, name);
+    this.name = disambiguatedName;
+    this.originalName = disambiguatedName;
     this.argExprs = args;
   }
 
@@ -59,7 +80,8 @@ public class FunctionCallExpr extends Expr {
         "No function <%s> within the current scope!",
         this.name
     );
-    Type referencedIdentifierType = scopedHeap.getValidatedIdentifierType(this.name);
+    ScopedHeap.IdentifierData referencedIdentifierData = scopedHeap.getIdentifierData(this.name);
+    Type referencedIdentifierType = referencedIdentifierData.type;
     // It's possible that this is a default constructor call for a custom type. If it's being called textually "before"
     // the definition of the type, then the type may not actually be resolved yet, so resolve it now.
     if (referencedIdentifierType == null) {
@@ -67,28 +89,30 @@ public class FunctionCallExpr extends Expr {
     }
     Preconditions.checkState(
         // Include CONSUMER_FUNCTION just so that later we can throw a more specific error for that case.
-        ImmutableSet.of(
-                BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION,
-                // UserDefinedType's are also valid as references to default constructors.
-                BaseType.USER_DEFINED_TYPE
-            )
-            .contains(referencedIdentifierType.baseType()),
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.CONSUMER_FUNCTION)
+            .contains(referencedIdentifierType.baseType())
+        || // UserDefinedType's are also valid as references to default constructors.
+        (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)
+         && referencedIdentifierData.isTypeDefinition),
         "Non-function %s %s cannot be called!",
         referencedIdentifierType,
         this.name
     );
     if (referencedIdentifierType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
-      if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.containsKey(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+      Types.UserDefinedType referencedUserDefinedType = (Types.UserDefinedType) referencedIdentifierType;
+      if (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+              .contains(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
           &&
           !(InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.isPresent()
-            && (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                    .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+            && (InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                    .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
                     .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get()).procedureName)
                 ||
                 (((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
                      .procedureName.contains("$$MONOMORPHIZATION")
-                 && InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType
-                     .get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                 &&
+                 InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                     .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
                      .contains(((ProcedureDefinitionStmt) InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt.get())
                                    .procedureName
                                    // Monomorphization names are formatted like "$$MONOMORPHIZATION::<TypeParam>___FooFunc";
@@ -104,14 +128,33 @@ public class FunctionCallExpr extends Expr {
         this.logTypeError(
             ClaroTypeException.forIllegalUseOfUserDefinedTypeDefaultConstructorOutsideOfInitializerProcedures(
                 referencedIdentifierType,
-                InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedType.get(((Types.UserDefinedType) referencedIdentifierType).getTypeName())
+                InternalStaticStateUtil.InitializersBlockStmt_initializersByInitializedTypeNameAndModuleDisambiguator
+                    .get(referencedUserDefinedType.getTypeName(), referencedUserDefinedType.getDefiningModuleDisambiguator())
             ));
       }
       // Swap out a synthetic constructor function.
       this.representsUserDefinedTypeConstructor =
-          Optional.of(
-              scopedHeap.getValidatedIdentifierType(
-                  ((Types.UserDefinedType) referencedIdentifierType).getTypeName() + "$wrappedType"));
+          Optional.of(scopedHeap.getValidatedIdentifierType(
+              (this.name.startsWith("$DEP_MODULE$")
+               ? this.name.substring(this.name.lastIndexOf('$') + 1)
+                 + "$"
+                 + ScopedHeap.getDefiningModuleDisambiguator(
+                  Optional.of(this.name.substring("$DEP_MODULE$".length(), this.name.lastIndexOf('$'))))
+               : String.format(
+                   "%s$%s",
+                   this.name,
+                   ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)
+               ))
+              + "$wrappedType"));
+      // Finally, it may be illegal to instantiate this type if it's actually an opaque type.
+      if (this.representsUserDefinedTypeConstructor.get().baseType()
+          .equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+        // There's actually no definition of the constructor function in this module since there was no procedure to
+        // import upon setting up the dep module imports, so log the exception and return.
+        logTypeError(
+            ClaroTypeException.forIllegalUseOfOpaqueUserDefinedTypeDefaultConstructor(referencedUserDefinedType));
+        return Types.UNKNOWABLE;
+      }
       this.name = this.name + "$constructor";
       referencedIdentifierType =
           TypeProvider.Util.getTypeByName(this.name, /*isTypeDefinition=*/false).resolveType(scopedHeap);
@@ -556,16 +599,35 @@ public class FunctionCallExpr extends Expr {
       for (String requiredContract : genericFunctionRequiredContractsMap.keySet()) {
         for (ImmutableList<Type> requiredContractTypeParamNames :
             genericFunctionRequiredContractsMap.get(requiredContract)) {
-          ImmutableList.Builder<String> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+          ImmutableList.Builder<Type> requiredContractConcreteTypesBuilder = ImmutableList.builder();
+          ImmutableList.Builder<String> requiredContractConcreteTypeStringsBuilder = ImmutableList.builder();
           for (Type requiredContractTypeParam : requiredContractTypeParamNames) {
-            requiredContractConcreteTypesBuilder.add(
-                genericTypeParamTypeHashMap.get(requiredContractTypeParam).toString());
+            Type concreteType = genericTypeParamTypeHashMap.get(requiredContractTypeParam);
+            requiredContractConcreteTypesBuilder.add(concreteType);
+            requiredContractConcreteTypeStringsBuilder.add(concreteType.toString());
           }
-          ImmutableList<String> requiredContractConcreteTypes = requiredContractConcreteTypesBuilder.build();
-          if (!scopedHeap.isIdentifierDeclared(ContractImplementationStmt.getContractTypeString(
-              requiredContract, requiredContractConcreteTypes))) {
-            throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
-                procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get(), requiredContract, requiredContractConcreteTypes);
+          ImmutableList<String> requiredContractConcreteTypeStrings =
+              requiredContractConcreteTypeStringsBuilder.build();
+          if (!scopedHeap.isIdentifierDeclared(
+              ContractImplementationStmt.getContractTypeString(requiredContract, requiredContractConcreteTypeStrings))) {
+            List<String> requiredContractImplsForDynamicDispatchSupport =
+                ContractFunctionCallExpr.getAllDynamicDispatchConcreteContractProcedureNames(
+                    requiredContract,
+                    // Filter the set of supported dispatch args, based on the actual args having tried to nest a oneof.
+                    IntStream.range(0, requiredContractTypeParamNames.size())
+                        .boxed()
+                        .collect(ImmutableList.toImmutableList()),
+                    requiredContractConcreteTypesBuilder.build()
+                );
+            // If it turns out that dynamic dispatch would be possible, then the call to this generic function should be
+            // allowed so that the function body can just go ahead and codegen dynamic dispatch calls.
+            boolean dynamicDispatchIsSupportedOverCurrentContract =
+                !requiredContractImplsForDynamicDispatchSupport.isEmpty()
+                && requiredContractImplsForDynamicDispatchSupport.stream().allMatch(scopedHeap::isIdentifierDeclared);
+            if (!dynamicDispatchIsSupportedOverCurrentContract) {
+              throw ClaroTypeException.forGenericProcedureCallForConcreteTypesWithRequiredContractImplementationMissing(
+                  procedureName_OUT_PARAM.get(), referencedIdentifierType_OUT_PARAM.get(), requiredContract, requiredContractConcreteTypeStrings);
+            }
           }
         }
       }
@@ -635,27 +697,54 @@ public class FunctionCallExpr extends Expr {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.name).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix =
+        this.optionalOriginatingDepModuleName
+            // Turns out I need to codegen the Java namespace of the dep module.
+            .map(depMod -> {
+              SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                  ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+              return String.format(
+                  "%s.%s.",
+                  depModDescriptor.getProjectPackage(),
+                  depModDescriptor.getUniqueModuleName()
+              );
+            });
+    Optional<String> hashedName = Optional.empty();
     if (!this.name.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.name);
     } else {
       this.hashNameForCodegen = true;
+      if (this.optionalOriginatingDepModuleName.isPresent()) {
+        // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
+        // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
+        // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
+        // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
+        // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
+        // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        optionalNormalizedOriginatingDepModulePrefix =
+            Optional.of(
+                String.format(
+                    "$MONOMORPHIZATION$%s$%s.",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    (hashedName = Optional.of(getHashedName())).get()
+                ));
+      }
     }
 
     if (this.hashNameForCodegen) {
       // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
       // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
       // still unique.
-      this.name =
-          String.format(
-              "%s__%s",
-              this.originalName,
-              Hashing.sha256().hashUnencodedChars(this.name).toString()
-          );
+      this.name = hashedName.orElseGet(this::getHashedName);
     }
 
     AtomicReference<GeneratedJavaSource> exprsGenJavaSource =
@@ -674,11 +763,17 @@ public class FunctionCallExpr extends Expr {
             .collect(Collectors.joining(", "));
     GeneratedJavaSource functionCallJavaSourceBody;
     if (this.representsUserDefinedTypeConstructor.isPresent()) {
+      // Depending on whether this type def was parsed from a dep module, this may have been named with a
+      // disambiguating prefix like "$DEP_MODULE$module$". For the sake of codegen'd values containing consistent
+      // names everywhere, I need to strip any prefixing here so that instances of this type created ANYWHERE will
+      // definitely evaluate as having the same type.
+      String canonicalizedTypeName = this.originalName.substring(this.originalName.lastIndexOf("$") + 1);
       functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
           new StringBuilder(
               String.format(
-                  "new $UserDefinedType(\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
-                  this.originalName,
+                  "new $UserDefinedType(\"%s\", /*definingModuleDisambiguator=*/\"%s\", /*parameterizedTypes=*/%s, /*wrappedType=*/%s, /*wrappedValue=*/%s)",
+                  canonicalizedTypeName,
+                  ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName),
                   this.optionalConcreteGenericTypeParams.orElse(ImmutableList.of()).stream()
                       .map(Type::getJavaSourceClaroType)
                       .collect(Collectors.joining(", ", "ImmutableList.of(", ")")),
@@ -688,28 +783,58 @@ public class FunctionCallExpr extends Expr {
           )
       );
     } else {
-      functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
-          new StringBuilder(
-              String.format(
-                  this.staticDispatchCodegen ? "%s(%s%s)" : "%s.apply(%s%s)",
-                  this.name,
-                  exprsJavaSourceBodyCodegen,
-                  this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
-                  ? ", " + this.optionalExtraArgsCodegen.get()
-                  : ""
-              )
-          )
-      );
+      if (isStatic) {
+        String procName =
+            this.optionalOriginatingDepModuleName
+                .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                .orElse(this.name);
+        functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(String.format(
+                "%s$%s.%s(%s)",
+                optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                procName,
+                procName,
+                exprsJavaSourceBodyCodegen
+            )));
+      } else {
+        functionCallJavaSourceBody = GeneratedJavaSource.forJavaSourceBody(
+            new StringBuilder(
+                String.format(
+                    this.staticDispatchCodegen ? "%s%s(%s%s)" : "%s%s.apply(%s%s)",
+                    optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                    this.optionalOriginatingDepModuleName
+                        .map(depMod -> this.name.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                        .orElse(this.name),
+                    exprsJavaSourceBodyCodegen,
+                    this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                    ? ", " + this.optionalExtraArgsCodegen.get()
+                    : ""
+                )
+            )
+        );
+      }
     }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
     // the name now.
     this.name = this.originalName;
+    this.optionalConcreteGenericTypeParams = Optional.empty();
+    this.assertedOutputTypeForGenericFunctionCallUse = null;
 
     // We definitely don't want to be throwing away the static definitions and preambles required for the exprs
     // passed as args to this function call, so ensure that they're correctly collected and passed on here.
     return functionCallJavaSourceBody.createMerged(exprsGenJavaSource.get());
+  }
+
+  private String getHashedName() {
+    return String.format(
+        "%s__%s",
+        this.optionalOriginatingDepModuleName
+            .map(depMod -> this.originalName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+            .orElse(this.originalName),
+        Hashing.sha256().hashUnencodedChars(this.name).toString()
+    );
   }
 
   @Override

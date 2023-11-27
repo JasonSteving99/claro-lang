@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Game Page</title>
+  <style>
+    /* CSS styling */
+    body {
+      font-family: "Arial", sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    .button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 15px 30px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .button.up,
+    .button.down,
+    .button.left,
+    .button.right {
+      width: 100px;
+    }
+    .button.left,
+    .button.right {
+      margin: 0 10px;
+    }
+    .plus-sign {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .button-section {
+      margin-top: 20px;
+    }
+
+  </style>
+</head>
+<body>
+<h1>Welcome to the Game!</h1>
+<div class="button-section">
+  <button class="button" id="startButton">Start New Game</button>
+  <button class="button" id="resetButton">Reset Game</button>
+</div>
+<div class="plus-sign">
+  <button class="button up">Up</button>
+  <div>
+    <button class="button left">Left</button>
+    <button class="button right">Right</button>
+  </div>
+  <button class="button down">Down</button>
+</div>
+<div class="button-section">
+  <button class="button" id="startAiButton">Start AI</button>
+  <button class="button" id="stopAiButton">Stop AI</button>
+</div>
+<div class="join-game-section">
+  <input type="text" id="gameIdInput" placeholder="Enter game id" onfocus="this.style.color='black'">
+  <input type="text" id="handleInput" placeholder="Enter your handle" onfocus="this.style.color='black'">
+  <button class="button" id="joinButton">Join Existing Game</button>
+</div>
+<div id="messageSection"></div>
+<script>
+    // JSON data
+    var gameData = {
+      "baseUrl": "http://localhost:8080/",
+      "runAI": true,
+      "gameId": "",
+      "playerSecret": "",
+    };
+
+    // JavaScript code
+    var startButton = document.getElementById("startButton");
+    startButton.addEventListener("click", function() {
+      // Send request
+      sendRequest(gameData.baseUrl + "startNewGame")
+        .then(data => {
+          var joinResponse = JSON.parse(data);
+          gameData.gameId = joinResponse.result.game_id;
+          gameData.playerSecret = joinResponse.result.secret;
+          console.log(gameData);
+          // Render message section
+          var messageSection = document.getElementById("messageSection");
+          if (messageSection) {
+            messageSection.innerHTML = '<p class="message">' + data + '</p>';
+          }
+        })
+        .catch(error => console.log(error));
+    });
+    var resetGameButton = document.getElementById("resetButton");
+    resetGameButton.addEventListener("click", function() {
+      var resetUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/reset";
+      sendRequest(resetUrl);
+    });
+
+    var directionalButtons = document.querySelectorAll(".plus-sign button");
+    directionalButtons.forEach(function(button) {
+      button.addEventListener("click", function() {
+        var dir = button.textContent.toLowerCase();
+        var dirUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/" + dir;
+
+        sendRequest(dirUrl);
+      });
+    });
+
+    function sendRequest(url) {
+      // Send request
+      return fetch(url)
+        .then(response => response.text())
+        .then(data => {
+          // Render message section
+          var messageSection = document.getElementById("messageSection");
+          if (messageSection) {
+            messageSection.innerHTML = '<p class="message">' + data + '</p>';
+          }
+          return data;
+        })
+        .catch(error => console.log(error));
+    }
+
+    var startAiButton = document.getElementById("startAiButton");
+    startAiButton.addEventListener("click", async function() {
+      gameData.runAI = true;
+      var aiUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/getBestMoves";
+      while (gameData.runAI) {
+        await sendRequest(aiUrl)
+          .then(async (data) => {
+            console.log("Going to automatically execute the best moves in order");
+            console.log(data);
+            var bestMoves = JSON.parse(data);
+            console.log(bestMoves);
+            var dirsMap = {'N':'up', 'S': 'down', 'E': 'right', 'W': 'left'};
+            for (let dir of JSON.parse(data)) {
+              if (!gameData.runAI) return;
+              var dirUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/";
+              sendRequest(dirUrl + dirsMap[dir]);
+              await new Promise(r => setTimeout(r, 100));
+            }
+          });
+      }
+    });
+    var stopAiButton = document.getElementById("stopAiButton");
+    stopAiButton.addEventListener("click", function() {
+      gameData.runAI = false;
+    });
+    var joinButton = document.getElementById("joinButton");
+    joinButton.addEventListener("click", function() {
+      gameData.gameId = document.getElementById("gameIdInput").value;
+      var handle = document.getElementById("handleInput").value;
+      var joinUrl = gameData.baseUrl + "game/" + gameData.gameId + "/join/" + handle;
+      sendRequest(joinUrl)
+        .then(data => {
+          var joinResponse = JSON.parse(data);
+          gameData.playerSecret = joinResponse.result.secret;
+        });
+    });
+    document.addEventListener("keydown", function(event) {
+      switch (event.key) {
+        case "ArrowUp":
+          var upButton = document.querySelector(".button.up");
+          upButton.classList.add("active");
+          var upUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/up";
+          sendRequest(upUrl);
+          break;
+        case "ArrowDown":
+          var downButton = document.querySelector(".button.down");
+          downButton.classList.add("active");
+          var downUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/down";
+          sendRequest(downUrl);
+          break;
+        case "ArrowLeft":
+          var leftButton = document.querySelector(".button.left");
+          leftButton.classList.add("active");
+          var leftUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/left";
+          sendRequest(leftUrl);
+          break;
+        case "ArrowRight":
+          var rightButton = document.querySelector(".button.right");
+          rightButton.classList.add("active");
+          var rightUrl = gameData.baseUrl + "game/" + gameData.gameId + "/player/" + gameData.playerSecret + "/right";
+          sendRequest(rightUrl);
+          break;
+      }
+    });
+
+    document.addEventListener("keyup", function(event) {
+      switch (event.key) {
+        case "ArrowUp":
+          var upButton = document.querySelector(".button.up");
+          upButton.classList.remove("active");
+          break;
+        case "ArrowDown":
+          var downButton = document.querySelector(".button.down");
+          downButton.classList.remove("active");
+          break;
+        case "ArrowLeft":
+          var leftButton = document.querySelector(".button.left");
+          leftButton.classList.remove("active");
+          break;
+        case "ArrowRight":
+          var rightButton = document.querySelector(".button.right");
+          rightButton.classList.remove("active");
+          break;
+      }
+    });
+
+</script>
+</body>
+</html>

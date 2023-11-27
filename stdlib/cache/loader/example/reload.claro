@@ -1,0 +1,11 @@
+
+graph function reload(key: K, originalValue: V) -> future<V> {
+  root res <- "Reloaded: {@loaded}";
+  node loaded <- reload_internal(key, originalValue);
+}
+
+function reload_internal(key: K, originalValue: V) -> future<V> {
+  print("Reloading Key: {key} - Original Value: {originalValue}");
+  _ = originalValue;
+  return load(key);
+}

@@ -1,0 +1,50 @@
+
+function build(cacheBuilder: cache::CacheBuilder) -> cache::Cache<K, V> {
+  # TODO(steving) These aliases are completely just working around some issue with the implementation of `$java_type`
+  # TODO(steving)     that's preventing the monomorphization subprocess from finding the types `K` and `V`. Fix this.
+  alias K_alias: K
+  alias V_alias: V
+  alias JavaCacheType: $java_type<K_alias, V_alias>("com.github.benmanes.caffeine.cache.AsyncLoadingCache<%s, %s>")
+
+  alias CacheType : cache::Cache<K,V>
+
+  var res: cache::Cache<K, V>;
+
+  # Technically this stdlib module is breaking Claro's rules of not being allowed to directly construct instances of
+  # opaque types so I need to manually build the $UserDefinedType.
+  $$BEGIN_JAVA
+  $$TYPES<K,V,CacheType,JavaCacheType>
+    Types.UserDefinedType userDefinedType = $$CLARO_TYPE(CacheType);
+    res =
+      new $UserDefinedType(
+        userDefinedType.getTypeName(),
+        userDefinedType.getDefiningModuleDisambiguator(),
+        ImmutableList.of($$CLARO_TYPE(K), $$CLARO_TYPE(V)),
+        $$CLARO_TYPE(JavaCacheType),
+        cacheBuilder.wrappedValue
+          .executor(ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+          .buildAsync(
+            new com.github.benmanes.caffeine.cache.AsyncCacheLoader<$$JAVA_TYPE(K), $$JAVA_TYPE(V)>() {
+              @Override
+              public java.util.concurrent.CompletableFuture<$$JAVA_TYPE(V)> asyncLoad(
+                  $$JAVA_TYPE(K) key, java.util.concurrent.Executor executor) {
+                return net.javacrumbs.futureconverter.java8guava.FutureConverter.toCompletableFuture(load.apply(key));
+              }
+              @Override
+              public java.util.concurrent.CompletableFuture<? extends java.util.Map<$$JAVA_TYPE(K), $$JAVA_TYPE(V)>> asyncLoadAll(
+                  java.util.Set<? extends $$JAVA_TYPE(K)> keys, java.util.concurrent.Executor executor) {
+                return net.javacrumbs.futureconverter.java8guava.FutureConverter.toCompletableFuture(loadAll.apply(keys));
+              }
+              @Override
+              public java.util.concurrent.CompletableFuture<$$JAVA_TYPE(V)> asyncReload(
+                  $$JAVA_TYPE(K) key, $$JAVA_TYPE(V) originalValue, java.util.concurrent.Executor executor) {
+                return net.javacrumbs.futureconverter.java8guava.FutureConverter.toCompletableFuture(
+                  reload.apply(key, originalValue));
+              }
+            }
+          )
+    );
+  $$END_JAVA
+
+  return res;
+}

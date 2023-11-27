@@ -19,13 +19,23 @@ import java.util.function.Supplier;
 public class IdentifierReferenceTerm extends Term {
 
   public final String identifier;
+  private final Optional<String> optionalDefiningModuleDisambiguator;
   private Optional<Supplier<String>> alternateCodegenString = Optional.empty();
   private boolean contextualTypeAsserted = false;
 
   public IdentifierReferenceTerm(String identifier, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
+    this(identifier, Optional.empty(), currentLine, currentLineNumber, startCol, endCol);
+  }
+
+  public IdentifierReferenceTerm(String identifier, Optional<String> optionalDefiningModuleDisambiguator, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(currentLine, currentLineNumber, startCol, endCol);
     // Hold onto the relevant data for code-gen later.
     this.identifier = identifier;
+    this.optionalDefiningModuleDisambiguator = optionalDefiningModuleDisambiguator;
+  }
+
+  public IdentifierReferenceTerm withIdentifier(String identifier) {
+    return new IdentifierReferenceTerm(identifier, this.optionalDefiningModuleDisambiguator, super.currentLine, super.currentLineNumber, super.startCol, super.endCol);
   }
 
   public String getIdentifier() {
@@ -210,11 +220,66 @@ public class IdentifierReferenceTerm extends Term {
 
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    scopedHeap.markIdentifierUsed(this.identifier);
+    ScopedHeap.IdentifierData identifierData = scopedHeap.getIdentifierData(this.identifier);
+    identifierData.used = true;
     return new StringBuilder(
         this.alternateCodegenString.orElse(
             () -> {
-              if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
+              if (identifierData.isStaticValue) {
+                if (identifierData.type.baseType().equals(BaseType.USER_DEFINED_TYPE) &&
+                    ((Types.UserDefinedType) identifierData.type).getDefiningModuleDisambiguator()
+                        .equals("stdlib$files$files")) {
+                  // If we're dealing with a synthetic resource reference, then instead of codegening a reference to
+                  // some pre-existing identifier, I need to codegen the resource lookup.
+                  String resourceJarLocation = (String) identifierData.interpretedValue;
+                  // Bazel determines resource file location based on project structure, so this canonicalizes that.
+                  //     See: https://bazel.build/reference/be/java#java_binary_args
+                  if (resourceJarLocation.contains("/java/")) {
+                    resourceJarLocation =
+                        resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/java/") + "/java/".length());
+                  } else if (resourceJarLocation.contains("/src/")) {
+                    resourceJarLocation =
+                        resourceJarLocation.substring(resourceJarLocation.lastIndexOf("/src/") + "/src/".length());
+                  }
+                  return String.format(
+                      "new $UserDefinedType(\"Resource\", \"stdlib$files$files\", ImmutableList.of(), %s, %sclass.getResource(\"/%s\"))",
+                      Types.RESOURCE_URL.getJavaSourceClaroType(),
+                      InternalStaticStateUtil.optionalGeneratedClassName.map(s -> s + ".")
+                          .orElseGet(this::getFullySpecifiedIdentifierNamespace),
+                      resourceJarLocation
+                  );
+                }
+                // To ensure that static values can be referenced across dep module monomorphization boundaries, I need
+                // to fully specify their namespace at all times.
+                String codegenIdentifier = this.optionalDefiningModuleDisambiguator
+                    .map(unused -> {
+                      int identifierEndIndex = this.identifier.indexOf('$');
+                      if (identifierEndIndex == -1) {
+                        return this.identifier;
+                      }
+                      return this.identifier.substring(0, identifierEndIndex);
+                    })
+                    .orElse(this.identifier);
+                if (identifierData.isLazyValue) {
+                  return String.format(
+                      "%slazyStaticInitializer$%s()",
+                      getFullySpecifiedIdentifierNamespace(),
+                      codegenIdentifier
+                  );
+                }
+                return getFullySpecifiedIdentifierNamespace() + codegenIdentifier;
+              } else if (identifierData.type.baseType().equals(BaseType.ATOM) && identifierData.isTypeDefinition) {
+                // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE.
+                return String.format(
+                    "%sATOM_CACHE[%s]",
+                    getFullySpecifiedIdentifierNamespace(),
+                    InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                        this.optionalDefiningModuleDisambiguator.orElseGet(
+                            () -> ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())),
+                        this.identifier
+                    )
+                );
+              } else if (InternalStaticStateUtil.ComprehensionExpr_nestedComprehensionIdentifierReferences.contains(this.identifier)) {
                 // Nested comprehension Exprs depend on a synthetic class wrapping the nested identifier refs to
                 // workaround Java's restriction that all lambda captures must be effectively final.
                 return "$nestedComprehensionState." + this.identifier;
@@ -222,6 +287,19 @@ public class IdentifierReferenceTerm extends Term {
               return this.identifier;
             }
         ).get());
+  }
+
+  // Returns empty only if referencing an identifier from the current compilation unit, and the current compilation unit
+  // is in fact the top-level claro_binary(). Else, returns the actual UniqueModuleDescriptor to explicitly reference
+  // currently identifier.
+  private String getFullySpecifiedIdentifierNamespace() {
+    return ScopedHeap.getModuleNameFromDisambiguator(
+            this.optionalDefiningModuleDisambiguator.orElse("$THIS_MODULE$"))
+        .map(moduleName ->
+                 ScopedHeap.currProgramDepModules.rowMap().get(moduleName)
+                     .values().stream().findFirst().get())
+        .map(m -> String.format("%s.%s.", m.getProjectPackage(), m.getUniqueModuleName()))
+        .orElse("");
   }
 
   @Override

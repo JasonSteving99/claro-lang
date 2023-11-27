@@ -1,0 +1,30 @@
+
+var pq: priority_queue::PriorityQueue<int> = priority_queue::create();
+type(pq);
+print(pq);
+
+pq = priority_queue::withInitialCapacity(30);
+type(pq);
+print(pq);
+
+pq = priority_queue::of([3, 1, 2]);
+type(pq);
+print(pq);
+
+var min = priority_queue::peek(pq);
+print("Peeking min element: {min}");
+print("After peek: {pq}");
+
+min = priority_queue::poll(pq);
+print("Polling min element: {min}");
+print("After poll: {pq}");
+
+priority_queue::add(pq, 1);
+print("After adding min elem back: {pq}");
+
+var removed = priority_queue::removeElement(pq, 2);
+if (removed) {
+  print("After removing 2: {pq}");
+}
+
+print(priority_queue::size(pq));

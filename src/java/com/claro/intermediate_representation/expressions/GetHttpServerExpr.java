@@ -6,6 +6,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.stdlib.StdLibModuleUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -21,12 +22,12 @@ public class GetHttpServerExpr extends Expr {
           ImmutableList.of(Types.INTEGER),
           Types.HttpServerType.forHttpService(
               // Hack. No need to actually model the generic type param here.
-              Types.HttpServiceType.forServiceName("T")),
+              Types.HttpServiceType.forServiceNameAndDisambiguator("T", "")),
           /*explicitlyAnnotatedBlocking=*/false,
           /*optionalAnnotatedBlockingGenericOverArgs=*/Optional.empty(),
           /*optionalGenericProcedureArgNames=*/Optional.of(ImmutableList.of("T"))
       );
-  private Optional<String> assertedHttpServiceName = Optional.empty();
+  private Optional<Types.HttpServiceType> assertedHttpService = Optional.empty();
 
   public GetHttpServerExpr(Expr portNumber, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
     super(ImmutableList.of(), currentLine, currentLineNumber, startCol, endCol);
@@ -36,22 +37,24 @@ public class GetHttpServerExpr extends Expr {
   @Override
   public void assertExpectedExprType(ScopedHeap scopedHeap, Type expectedExprType) throws ClaroTypeException {
     if (expectedExprType.baseType().equals(BaseType.HTTP_SERVER)) {
-      this.assertedHttpServiceName = Optional.of(
-          ((Types.HttpServiceType) expectedExprType.parameterizedTypeArgs().get(Types.HttpServerType.HTTP_SERVICE_TYPE))
-              .getServiceName());
+      this.assertedHttpService = Optional.of(
+          ((Types.HttpServiceType) expectedExprType.parameterizedTypeArgs()
+              .get(Types.HttpServerType.HTTP_SERVICE_TYPE)));
     } else {
-      this.assertedHttpServiceName = null;
+      this.assertedHttpService = null;
     }
 
     super.assertExpectedExprType(scopedHeap, expectedExprType);
+
+    StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http", Optional.of(this));
   }
 
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
-    if (this.assertedHttpServiceName == null) {
+    if (this.assertedHttpService == null) {
       // Some type was asserted but it's not an HttpServer<T> so I can't infer the service to generate a server for.
       return Types.HttpServerType.forHttpService(Types.$GenericTypeParam.forTypeParamName("T"));
-    } else if (!this.assertedHttpServiceName.isPresent()) {
+    } else if (!this.assertedHttpService.isPresent()) {
       this.logTypeError(
           ClaroTypeException.forGenericProcedureCallWithoutOutputTypeSufficientlyConstrainedByArgsAndContext(
               "getBasicHttpServerForPort", GetHttpServerExpr.GENERIC_PROCEDURE_TYPE));
@@ -62,12 +65,16 @@ public class GetHttpServerExpr extends Expr {
 
     // Now I need to finally assert that the requested HttpService has actually had endpoint handlers configured.
     if (!InternalStaticStateUtil.HttpServiceDef_servicesWithValidEndpointHandlersDefined
-        .contains(this.assertedHttpServiceName.get())) {
+        .contains(String.format(
+            "%s$%s",
+            this.assertedHttpService.get().getServiceName(),
+            this.assertedHttpService.get().getDefiningModuleDisambiguator()
+        ))) {
       this.logTypeError(
           ClaroTypeException.forInvalidHttpServerGenerationRequestedWithNoHttpServiceEndpointHandlersDefined(
-              this.assertedHttpServiceName.get(),
+              this.assertedHttpService.get().getServiceName(),
               InternalStaticStateUtil.HttpServiceDef_endpointProcedureSignatures.row(
-                      this.assertedHttpServiceName.get())
+                      this.assertedHttpService.get().getServiceName())
                   .entrySet().stream()
                   .collect(ImmutableMap.toImmutableMap(
                       Map.Entry::getKey,
@@ -77,25 +84,28 @@ public class GetHttpServerExpr extends Expr {
     }
 
     return Types.HttpServerType.forHttpService(
-        Types.HttpServiceType.forServiceName(this.assertedHttpServiceName.get()));
+        Types.HttpServiceType.forServiceNameAndDisambiguator(
+            this.assertedHttpService.get().getServiceName(),
+            this.assertedHttpService.get().getDefiningModuleDisambiguator()
+        ));
   }
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(
         new StringBuilder()
-            .append("\n\tnew $ClaroHttpServer(\n\t\t$ClaroHttpServer.getRoutingServlet()"));
+            .append("\n\tnew com.claro.runtime_utilities.http.$ClaroHttpServer(\n\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getRoutingServlet()"));
 
 
-    InternalStaticStateUtil.HttpServiceDef_endpointPaths.row(this.assertedHttpServiceName.get())
+    InternalStaticStateUtil.HttpServiceDef_endpointPaths.row(this.assertedHttpService.get().getServiceName())
         .entrySet().stream()
         .map(
             e ->
                 String.format(
                     "\n\t\t\t.map(" +
-                    "\n\t\t\t\t$ClaroHttpServer.GET," +
+                    "\n\t\t\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.GET," +
                     "\n\t\t\t\t\"%s\"," +
-                    "\n\t\t\t\t$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply(%s))" +
+                    "\n\t\t\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getBasicAsyncServlet(\"%s\", httpRequest -> %s$EndpointHandler.apply(%s))" +
                     "\n\t)",
                     e.getValue(),
                     e.getValue(),
@@ -108,7 +118,7 @@ public class GetHttpServerExpr extends Expr {
                 ))
         .forEach(res.javaSourceBody()::append);
     res.javaSourceBody()
-        .append(",\n\t\t$ClaroHttpServer.getInetSocketAddressForPort(");
+        .append(",\n\t\tcom.claro.runtime_utilities.http.$ClaroHttpServer.getInetSocketAddressForPort(");
     res = res.createMerged(this.portNumber.generateJavaSourceOutput(scopedHeap));
     res.javaSourceBody().append(")\n\t)");
 

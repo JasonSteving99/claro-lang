@@ -1,0 +1,186 @@
+function immediateFuture<T>(t: T) -> future<T> {
+  var res: future<T>;
+  $$BEGIN_JAVA
+  res = new ClaroFuture(
+    ClaroRuntimeUtilities.getClaroType(t),
+    com.google.common.util.concurrent.Futures.immediateFuture(t));
+  $$END_JAVA
+  return res;
+}
+
+
+provider immediateCancelledFuture<T>() -> future<T> {
+  var res: future<T>;
+  var emptyListForTheSakeOfGettingThisClaroType: [T] = [];
+  $$BEGIN_JAVA
+  res = new ClaroFuture(
+    emptyListForTheSakeOfGettingThisClaroType.getClaroType().parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY),
+    com.google.common.util.concurrent.Futures.immediateCancelledFuture());
+  $$END_JAVA
+  return res;
+}
+
+
+function cancel<T>(f: future<T>, mayInterrupt: boolean) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = f.cancel(mayInterrupt);
+  $$END_JAVA
+  return res;
+}
+
+
+function isCancelled<T>(f: future<T>) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = f.isCancelled();
+  $$END_JAVA
+  return res;
+}
+
+
+function isDone<T>(f: future<T>) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = f.isDone();
+  $$END_JAVA
+  return res;
+}
+
+
+function allAsList<T>(futures: [future<T>]) -> future<[T]> {
+  var emptyList: [T] = [];
+  if (len(futures) == 0) {
+    $$BEGIN_JAVA
+    return new ClaroFuture(
+      emptyList.getClaroType(),
+      com.google.common.util.concurrent.Futures.immediateFuture(emptyList));
+    $$END_JAVA
+  }
+  var res: future<[T]>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      emptyList.getClaroType(),
+      com.google.common.util.concurrent.Futures.transform(
+        com.google.common.util.concurrent.Futures.allAsList(futures),
+        l -> new ClaroList(Types.ListType.forValueType(ClaroRuntimeUtilities.getClaroType(l.get(0))), l),
+        ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+
+
+function whenAllComplete<T, V>(futures: [future<T>], action: provider<V>) -> future<V> {
+  var res: future<V>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      ((Types.ProcedureType.ProviderType) action.getClaroType()).getReturnType(),
+      com.google.common.util.concurrent.Futures.whenAllComplete(futures)
+        .call(
+          () -> action.apply(),
+          ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+function whenAllCompleteAsync<T, V>(futures: [future<T>], action: provider<future<V>>) -> future<V> {
+  var res: future<V>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      ((Types.FutureType)
+        ((Types.ProcedureType.ProviderType) action.getClaroType()).getReturnType()).parameterizedTypeArgs()
+          .get(Types.FutureType.PARAMETERIZED_TYPE_KEY),
+      com.google.common.util.concurrent.Futures.whenAllComplete(futures)
+        .callAsync(
+          () -> action.apply().defer,
+          ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+
+
+function whenAllSucceed<T, V>(futures: [future<T>], action: provider<V>) -> future<V> {
+  var res: future<V>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      ((Types.ProcedureType.ProviderType) action.getClaroType()).getReturnType(),
+      com.google.common.util.concurrent.Futures.whenAllSucceed(futures)
+        .call(
+          () -> action.apply(),
+          ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+function whenAllSucceedAsync<T, V>(futures: [future<T>], action: provider<future<V>>) -> future<V> {
+  var res: future<V>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      ((Types.FutureType)
+        ((Types.ProcedureType.ProviderType) action.getClaroType()).getReturnType()).parameterizedTypeArgs()
+          .get(Types.FutureType.PARAMETERIZED_TYPE_KEY),
+      com.google.common.util.concurrent.Futures.whenAllSucceed(futures)
+        .callAsync(
+          () -> action.apply().defer,
+          ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+
+
+function successfulAsList<T>(futures: [future<T>]) -> future<[T]> {
+  var emptyList: [T] = [];
+  if (len(futures) == 0) {
+    $$BEGIN_JAVA
+    return new ClaroFuture(
+      emptyList.getClaroType(),
+      com.google.common.util.concurrent.Futures.immediateFuture(emptyList));
+    $$END_JAVA
+  }
+  var res: future<[T]>;
+  $$BEGIN_JAVA
+  res =
+    new ClaroFuture(
+      emptyList.getClaroType(),
+      com.google.common.util.concurrent.Futures.transform(
+        com.google.common.util.concurrent.Futures.successfulAsList(futures),
+        l -> new ClaroList(Types.ListType.forValueType(ClaroRuntimeUtilities.getClaroType(l.get(0))), l),
+        ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE)
+    );
+  $$END_JAVA
+  return res;
+}
+
+
+function inCompletionOrder<T>(futures: [future<T>]) -> [future<T>] {
+  var emptyList: [future<T>] = [];
+  if (len(futures) == 0) {
+    return emptyList;
+  }
+  var res: [future<T>];
+  $$BEGIN_JAVA
+  Type futureType = emptyList.getClaroType().parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY);
+  res =
+    new ClaroList(
+      Types.ListType.forValueType(futureType),
+      com.google.common.util.concurrent.Futures.inCompletionOrder(futures).stream()
+        .map(
+          listenableFuture ->
+            new ClaroFuture(
+              ((Types.FutureType) futureType).parameterizedTypeArgs().get(Types.FutureType.PARAMETERIZED_TYPE_KEY),
+              listenableFuture
+            )
+         )
+        .collect(Collectors.toList())
+    );
+  $$END_JAVA
+  return res;
+}

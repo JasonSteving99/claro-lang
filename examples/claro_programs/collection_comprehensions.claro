@@ -1,0 +1,112 @@
+
+########################################################################################################################
+# DEMONSTRATE LIST COMPREHENSION!
+#
+# Credit where it's due, this is directly inspired by Python as one of its greatest selling points for ease of use in my
+# personal opinion. There are superficial syntactic differences, but otherwise, if you know Python comprehensions, you
+# should largely be able to jump right into using Claro's comprehensions.
+#
+# Claro's comprehensions can be used to construct mutable or immutable collections. You'll notice that in the context of
+# *immutable* collection comprehensions, this is (until I introduce copy-free "builders" via `unique_ref<T>`) the *only*
+# way to actually initialize an immutable list with any runtime determined size or contents.
+########################################################################################################################
+print("----------------------------------------");
+var streamedCollection = [1,2,3,99,4];
+print("Testing list-comprehensions over {streamedCollection}:");
+
+# The most basic form just gives you a new collection with the same elements as the streamed collection.
+var l = [x | x in streamedCollection];
+print(l); # [1, 2, 3, 99, 4]
+
+# You can also map the items in the streamed collection.
+l = [x * 2 | x in streamedCollection];
+print(l); # [2, 4, 6, 198, 8]
+
+# The optional `where` clause filters the streamed collection.
+l = [x * 2 | x in streamedCollection where x < 10];
+print(l); # [2, 4, 6, 8]
+
+# To construct a mutable collection via comprehension, just throw `mut` in front like you normally would.
+var mutList = mut [x * 2 | x in streamedCollection where x < 10];
+lists::add(mutList, -999);
+print(mutList); # [2, 4, 6, 8, -999]
+
+
+########################################################################################################################
+# DEMONSTRATE SET COMPREHENSION!
+########################################################################################################################
+
+print("----------------------------------------");
+streamedCollection = [1,2,2,2,2,3,99,4];
+print("Testing set-comprehensions over {streamedCollection}:");
+
+var s = {x | x in streamedCollection};
+print(s); # [1, 2, 3, 99, 4]
+
+# You can also map the items in the streamed collection.
+s = {x * 2 | x in streamedCollection};
+print(s); # [2, 4, 6, 198, 8]
+
+# The optional `where` clause filters the streamed collection.
+s = {x * 2 | x in streamedCollection where x < 10};
+print(s); # [2, 4, 6, 8]
+
+# To construct a mutable collection via comprehension, just throw `mut` in front like you normally would.
+var mutSet: mut {int} = mut {x * 2 | x in streamedCollection where x < 10};
+print(mutSet); # [2, 4, 6, 8, -999]
+
+########################################################################################################################
+# DEMONSTRATE MAP COMPREHENSION!
+########################################################################################################################
+
+print("----------------------------------------");
+streamedCollection = [1,2,3,99,4];
+print("Testing map-comprehensions over {streamedCollection}:");
+
+var m = {x : x | x in streamedCollection};
+print(m); # {1: 1, 2: 2, 3: 3, 99: 99, 4: 4}
+
+# You can also map the items in the streamed collection.
+m = {x + 1 : x * 2 | x in streamedCollection};
+print(m); # {2: 2, 3: 4, 4: 6, 100: 198, 5: 8}
+
+# The optional `where` clause filters the streamed collection.
+m = {x : x * 2 | x in streamedCollection where x < 10};
+print(m); # {1: 2, 2: 4, 3: 6, 4: 8}
+
+# To construct a mutable collection via comprehension, just throw `mut` in front like you normally would.
+var mutMap: mut {int: int} = mut {x : x * 2 | x in streamedCollection where x < 10};
+print(mutMap); # mut {1: 2, 2: 4, 3: 6, 4: 8}
+
+########################################################################################################################
+# DEMONSTRATE COMPREHENSION OVER SET AND MAP COLLECTIONS
+#
+# All of the prior examples simply operated over a `[int]`, below I'll demonstrate that you can also do comprehension
+# over sets and maps.
+########################################################################################################################
+
+print("----------------------------------------");
+var streamedMap = m;
+print("Testing list-comprehensions over {streamedMap}:");
+
+var mapElemsAsStrings = ["(Key: {e[0]}, Val: {e[1]})" | e in streamedMap where e[0] < 4];
+print(mapElemsAsStrings);
+
+print("----------------------------------------");
+var streamedSet = s;
+print("Testing list-comprehensions over {streamedSet}:");
+
+var setElemsAsStrings = ["(Elem: {e})" | e in streamedSet where e < 8];
+print(setElemsAsStrings);
+
+########################################################################################################################
+# DEMONSTRATE NESTED COMPREHENSIONS!
+#
+# As collection comprehensions are expressions in Claro, they can be used anywhere where a value of that type is
+# accepted. This is a neat demonstration, but the code is certainly more complex to follow. Use good judgement.
+########################################################################################################################
+
+print("----------------------------------------");
+print("Testing nested list-comprehensions over {streamedCollection}:");
+var nestedColl = [[y | y in streamedCollection] | x in streamedCollection];
+print(nestedColl);

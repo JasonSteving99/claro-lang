@@ -1,0 +1,82 @@
+
+# This is the HttpService definition that we are going to serve responses for.
+HttpService MyDemoService {
+  gamePage: "/",
+  startNewGame: "/startNewGame",
+  joinGame: "/game/{gameId}/join/{handle}",
+  gameMove: "/game/{gameId}/player/{secret}/{dir}",
+  getBestMoves: "/game/{gameId}/player/{secret}/getBestMoves",
+  resetGame: "/game/{gameId}/player/{secret}/reset"
+}
+
+########################################################################################################################
+# For each HttpService definition, Claro you may either generate a client to communicate with a remote server, OR
+# declare an `endpoint_handlers` block for the service in order to be able to generate a server that implements the
+# service. This is the key power of the language's server definitions as each endpoint handler is statically *REQUIRED*
+# to be implemented in a non-blocking manner to fully leverage 100% of Claro's extremely efficient multithreaded
+# concurrency model.
+########################################################################################################################
+
+endpoint_handlers MyDemoService {
+  graph provider gamePage() -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForHtml(@formattedHtml);
+    node formattedHtml <- EndpointHandlers::gamePageHandler();
+  }
+
+  graph provider startNewGame() -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedJson);
+    node formattedJson <- EndpointHandlers::startNewGameHandler("Jason");
+  }
+
+  graph function joinGame(gameId: string, handle: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForHtml(@formattedHtml);
+    node formattedHtml <- Utils::handleBuggyResponseAsHtmlStrParts(@joinResponse)[0];
+    node joinResponse <- BuggyBuggies::friendsJoin(
+      BuggyBuggies::HTTP_CLIENT,
+      gameId,
+      handle
+    );
+  }
+
+  graph function gameMove(gameId: string, playerSecret: string, dir: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForHtml(@formattedHtml);
+    node formattedHtml <- EndpointHandlers::gameMoveHandler(gameId, playerSecret, @dirsMap[dir]);
+    node dirsMap <- {"up": "N", "down": "S", "right": "E", "left": "W"};
+  }
+
+  graph function getBestMoves(gameId: string, playerSecret: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedJson);
+    node formattedJson <- EndpointHandlers::getBestMovesHandler(@parsedWorld);
+    node parsedWorld <- BuggyBuggies::worldInfo(
+      BuggyBuggies::HTTP_CLIENT,
+      gameId,
+      playerSecret
+    );
+  }
+
+  graph function resetGame(gameId: string, playerSecret: string) -> future<HttpResponse> {
+    root res <- http::getOk200HttpResponseForJson(@formattedJson);
+    node formattedJson <- Utils::handleBuggyResponseAsHtmlStrParts(@resetResponse)[0];
+    node resetResponse <- BuggyBuggies::reset(
+      BuggyBuggies::HTTP_CLIENT,
+      gameId,
+      playerSecret
+    );
+  }
+}
+
+########################################################################################################################
+# The function `http::getBasicHttpServerForPort()` in the optional stdlib module `http` has the following signature:
+#     function getBasicHttpServerForPort<T>(port: int) -> HttpServer<T>;
+#
+# As you can tell by the lack of a requires clause, this particular contract definition does rely on compiler magic that
+# you couldn't directly implement in user-space in Claro in order to enforce the requirement that each concrete `T` is
+# actually an HttpService. To achieve exactly this outside of the compiler, you'd need to actually do some codegen
+# yourself to dynamically generate a contract definition. Claro won't support macros so this would be done at the Bazel
+# genrule level. Instead, Claro provides this powerful building block out of the box!
+########################################################################################################################
+
+var myDemoServer: HttpServer<MyDemoService> = http::getBasicHttpServerForPort(8080);
+http::startServerAndAwaitShutdown(myDemoServer);
+
+

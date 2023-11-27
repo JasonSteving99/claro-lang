@@ -1,29 +1,18 @@
-/*
- * Copyright (C) 2018 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.claro;
 
+import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.stdlib.StdLibModuleUtil;
+import com.google.common.base.Strings;
+
 import java_cup.runtime.Symbol;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * A simple lexer/parser for basic arithmetic expressions.
+ * The Lexer for the fully fledged Claro programming language.
  *
- * @author Jason Steving, derived from a simpler example by Régis Décamps
+ * @author Jason Steving
  */
 
 %%
@@ -37,11 +26,17 @@ import java.util.concurrent.atomic.AtomicReference;
 %unicode
 
 %{
+    // Use this for more precise error messaging.
+    public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
+
     // This will be used to accumulate all string characters during the STRING state.
     StringBuffer string = new StringBuffer();
     // Because we're going to support format strings over arbitrary expressions, that means we need to support
     // nested format strings within the
     Stack<AtomicReference<Integer>> fmtStrExprBracketCounterStack = new Stack<>();
+
+    // For the sake of Privileged Inline Java, may need to track type captures.
+    String privilegedInlineJavaTypeCaptures = null;
 
     // Until I find a more efficient way to do this, let's bring the entire file contents into memory in order to give
     // useful error messages that can point at the line. We'll only need to track one at a time because we'll hand off
@@ -62,7 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
     private <T> Symbol symbol(int type, int lines, int columns, T value) {
         addToLine(value);
         final StringBuilder currentInputLineBuilder = currentInputLine.get();
-        Symbol res = new Symbol(type, yycolumn, yyline, new LexedValue<T>(value, () -> currentInputLineBuilder.toString(), columns));
+        Symbol res = new Symbol(type, yycolumn, yyline, LexedValue.create(value, () -> currentInputLineBuilder.toString(), columns));
         yyline += lines;
         yycolumn += columns;
         return res;
@@ -76,6 +71,32 @@ import java.util.concurrent.atomic.AtomicReference;
         s.append(specialChar);
       }
     }
+
+    // This will be used to signal whether or not the PRIVILEGED_INLINE_JAVA token should actually be supported or not.
+    // This allows me to create a mechanism that will only enable this unsafe feature for special .claro_internal files
+    // that are used to implement the stdlib.
+    public boolean supportPrivilegedInlineJava = false;
+
+    private void handleUnknownToken() {
+        String lexed = yytext();
+        addToLine(lexed);
+        int line = yyline + 1;
+        int column = yycolumn;
+        yycolumn += lexed.length();
+        StringBuilder lineToPointAt = currentInputLine.get();
+        ClaroParser.errorMessages.push(
+            () -> {
+              String currStringLineToPointAt = lineToPointAt.toString();
+              int trailingWhitespaceStart = currStringLineToPointAt.length();
+              // This is just cute for the sake of it....barf...but I'm keeping it lol.
+              while (Character.isWhitespace(currStringLineToPointAt.charAt(--trailingWhitespaceStart)));
+              System.err.println(
+                  generatedClassName + ".claro:" + line + ": Unexpected token <" + lexed.charAt(0) + ">\n" + currStringLineToPointAt.substring(0, trailingWhitespaceStart + 1));
+              System.err.println(Strings.repeat(" ", column) + '^');
+            }
+        );
+        yybegin(IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR);
+    }
 %}
 
 // A (integer) number is a sequence of digits.
@@ -87,14 +108,27 @@ Float          = {Integer}\.{Integer}
 // A variable identifier. We'll just do uppercase for vars.
 Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|_|[0-9])*
 
+// An identifier found within an explicitly defined scope. This is explicitly defined in order to avoid running into a
+// situation where the parser's single token lookahead would be insufficient to distinguish between various uses of
+// scoped symbols e.g. `std::Error(std::Nothing)` parsed incorrectly as a syntax error before this change.
+ScopedIdentifier = {Identifier}::{Identifier}
+
+// An identifier that explicitly references a contract procedure from some contract defined in a dep module. Follows the
+// scoping as follows:
+//    <dep module name>::<contract name>::<procedure name>
+DepModuleContractProcedure = {Identifier}::{Identifier}::{Identifier}
+
 // A line terminator is a \r (carriage return), \n (line feed), or \r\n. */
 LineTerminator = \r|\n|\r\n
 
 /* White space is a line terminator, space, tab, or line feed. */
 WhiteSpace     = [ \t\f]
 
+PrivilegedInlineJavaTypeCaptures = "$$TYPES<"({Identifier},)*{Identifier}>\n
+
 %state LINECOMMENT
 %state STRING
+%state PRIVILEGED_INLINE_JAVA
 %state IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR
 
 %%
@@ -107,21 +141,21 @@ WhiteSpace     = [ \t\f]
 <YYINITIAL> {
 
     /* Create a new parser symbol for the lexem. */
-    "+"                { return symbol(Calc.PLUS, 0, 1, '+'); }
-    "++"               { return symbol(Calc.INCREMENT, 0, 2, "++"); }
-    "--"               { return symbol(Calc.DECREMENT, 0, 2, "--"); }
-    "-"                { return symbol(Calc.MINUS, 0, 1, "-"); }
-    "*"                { return symbol(Calc.MULTIPLY, 0, 1, "*"); }
-    "**"                { return symbol(Calc.EXPONENTIATE, 0, 2, "**"); }
-    "/"                { return symbol(Calc.DIVIDE, 0, 1, "/");}
-    "%"                { return symbol(Calc.MODULUS, 0, 1, "%");}
-    "("                { return symbol(Calc.LPAR, 0, 1, "("); }
-    ")"                { return symbol(Calc.RPAR, 0, 1, ")"); }
+    "+"                { return symbol(Tokens.PLUS, 0, 1, '+'); }
+    "++"               { return symbol(Tokens.INCREMENT, 0, 2, "++"); }
+    "--"               { return symbol(Tokens.DECREMENT, 0, 2, "--"); }
+    "-"                { return symbol(Tokens.MINUS, 0, 1, "-"); }
+    "*"                { return symbol(Tokens.MULTIPLY, 0, 1, "*"); }
+    "**"                { return symbol(Tokens.EXPONENTIATE, 0, 2, "**"); }
+    "/"                { return symbol(Tokens.DIVIDE, 0, 1, "/");}
+    "%"                { return symbol(Tokens.MODULUS, 0, 1, "%");}
+    "("                { return symbol(Tokens.LPAR, 0, 1, "("); }
+    ")"                { return symbol(Tokens.RPAR, 0, 1, ")"); }
     "{"                {
                          if (!fmtStrExprBracketCounterStack.isEmpty()) {
                            fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i+1);
                          }
-                         return symbol(Calc.LCURLY, 0, 1, "{");
+                         return symbol(Tokens.LCURLY, 0, 1, "{");
                        }
     "}"                {
                          if (!fmtStrExprBracketCounterStack.isEmpty()) {
@@ -134,126 +168,156 @@ WhiteSpace     = [ \t\f]
                              addToLine("}");
                            } else {
                              fmtStrExprBracketCounterStack.peek().updateAndGet(i -> i-1);
-                             return symbol(Calc.RCURLY, 0, 1, "}");
+                             return symbol(Tokens.RCURLY, 0, 1, "}");
                            }
                          } else {
-                           return symbol(Calc.RCURLY, 0, 1, "}");
+                           return symbol(Tokens.RCURLY, 0, 1, "}");
                          }
                        }
-    "["                { return symbol(Calc.LBRACKET, 0, 1, "["); }
-    "]"                { return symbol(Calc.RBRACKET, 0, 1, "]"); }
-    "=="               { return symbol(Calc.EQUALS, 0, 2, "=="); }
-    "!="               { return symbol(Calc.NOT_EQUALS, 0, 2, "!="); }
-    "<"                { return symbol(Calc.L_ANGLE_BRACKET, 0, 1, "<"); }
-    ">"                { return symbol(Calc.R_ANGLE_BRACKET, 0, 1, ">"); }
-    "<="               { return symbol(Calc.LTE, 0, 2, "<="); }
-    ">="               { return symbol(Calc.GTE, 0, 2, ">="); }
-    "or"               { return symbol(Calc.OR, 0, 2, "or"); }
-    "and"              { return symbol(Calc.AND, 0, 3, "and"); }
-    "not"              { return symbol(Calc.NOT, 0, 3, "not"); }
-    "->"               { return symbol(Calc.ARROW, 0, 2, "->"); }
-    "|>"               { return symbol(Calc.PIPE_ARROW, 0, 2, "|>"); }
-    "=>"               { return symbol(Calc.IMPLICATION_ARROW, 0, 2, "=>"); }
-    "nothing"          { return symbol(Calc.NOTHING, 0, 7, "nothing"); }
-    "true"             { return symbol(Calc.TRUE, 0, 4, true); }
-    "false"            { return symbol(Calc.FALSE, 0, 5, false); }
-    "var"              { return symbol(Calc.VAR, 0, 3, "var"); }
-    "="                { return symbol(Calc.ASSIGNMENT, 0, 1, "="); }
-    ";"                { return symbol(Calc.SEMICOLON, 0, 1, ";"); }
-    ":"                { return symbol(Calc.COLON, 0, 1, ":"); }
-    ","                { return symbol(Calc.COMMA, 0, 1, ','); }
-    "."                { return symbol(Calc.DOT, 0, 1, "."); }
-    "|"                { return symbol(Calc.BAR, 0, 1, "|"); }
-    "if"               { return symbol(Calc.IF, 0, 2, "if"); }
-    "else"             { return symbol(Calc.ELSE, 0, 4, "else"); }
-    "while"            { return symbol(Calc.WHILE, 0, 5, "while"); }
-    "for"              { return symbol(Calc.FOR, 0, 3, "for"); }
-    "repeat"           { return symbol(Calc.REPEAT, 0, 6, "repeat"); }
-    "break"            { return symbol(Calc.BREAK, 0, 5, "break"); }
-    "continue"         { return symbol(Calc.CONTINUE, 0, 8, "continue"); }
-    "where"            { return symbol(Calc.WHERE, 0, 5, "where"); }
-    "return"           { return symbol(Calc.RETURN, 0, 6, "return"); }
-    "?="               { return symbol(Calc.QUESTION_MARK_ASSIGNMENT, 0, 2, "?="); }
+    "["                { return symbol(Tokens.LBRACKET, 0, 1, "["); }
+    "]"                { return symbol(Tokens.RBRACKET, 0, 1, "]"); }
+    "=="               { return symbol(Tokens.EQUALS, 0, 2, "=="); }
+    "!="               { return symbol(Tokens.NOT_EQUALS, 0, 2, "!="); }
+    "<"                { return symbol(Tokens.L_ANGLE_BRACKET, 0, 1, "<"); }
+    ">"                { return symbol(Tokens.R_ANGLE_BRACKET, 0, 1, ">"); }
+    "<="               { return symbol(Tokens.LTE, 0, 2, "<="); }
+    ">="               { return symbol(Tokens.GTE, 0, 2, ">="); }
+    "or"               { return symbol(Tokens.OR, 0, 2, "or"); }
+    "and"              { return symbol(Tokens.AND, 0, 3, "and"); }
+    "not"              { return symbol(Tokens.NOT, 0, 3, "not"); }
+    "->"               { return symbol(Tokens.ARROW, 0, 2, "->"); }
+    "|>"               { return symbol(Tokens.PIPE_ARROW, 0, 2, "|>"); }
+    "=>"               { return symbol(Tokens.IMPLICATION_ARROW, 0, 2, "=>"); }
+    "true"             { return symbol(Tokens.TRUE, 0, 4, true); }
+    "false"            { return symbol(Tokens.FALSE, 0, 5, false); }
+    "var"              { return symbol(Tokens.VAR, 0, 3, "var"); }
+    "="                { return symbol(Tokens.ASSIGNMENT, 0, 1, "="); }
+    ";"                { return symbol(Tokens.SEMICOLON, 0, 1, ";"); }
+    ":"                { return symbol(Tokens.COLON, 0, 1, ":"); }
+    ","                { return symbol(Tokens.COMMA, 0, 1, ','); }
+    "."                { return symbol(Tokens.DOT, 0, 1, "."); }
+    "|"                { return symbol(Tokens.BAR, 0, 1, "|"); }
+    "if"               { return symbol(Tokens.IF, 0, 2, "if"); }
+    "else"             { return symbol(Tokens.ELSE, 0, 4, "else"); }
+    "match"            { return symbol(Tokens.MATCH, 0, 5, "match"); }
+    "case"             { return symbol(Tokens.CASE, 0, 4, "case"); }
+    "while"            { return symbol(Tokens.WHILE, 0, 5, "while"); }
+    "for"              { return symbol(Tokens.FOR, 0, 3, "for"); }
+    "repeat"           { return symbol(Tokens.REPEAT, 0, 6, "repeat"); }
+    "break"            { return symbol(Tokens.BREAK, 0, 5, "break"); }
+    "continue"         { return symbol(Tokens.CONTINUE, 0, 8, "continue"); }
+    "where"            { return symbol(Tokens.WHERE, 0, 5, "where"); }
+    "return"           { return symbol(Tokens.RETURN, 0, 6, "return"); }
+    "?="               { return symbol(Tokens.QUESTION_MARK_ASSIGNMENT, 0, 2, "?="); }
 
     // Builtin functions are currently processed at the grammar level.. maybe there's a better generalized way.
-    "log_"             { return symbol(Calc.LOG_PREFIX, 0, 4, "log_"); }
-    "print"            { return symbol(Calc.PRINT, 0, 5, "print"); }
-    "numeric_bool"     { return symbol(Calc.NUMERIC_BOOL, 0, 12, "numeric_bool"); }
-    "input"            { return symbol(Calc.INPUT, 0, 5, "input"); }
-    "isInputReady"     { return symbol(Calc.IS_INPUT_READY, 0, 12, "isInputReady"); }
-    "len"              { return symbol(Calc.LEN, 0, 3, "len"); }
-    "type"             { return symbol(Calc.TYPE, 0, 4, "type"); }
-    "append"           { return symbol(Calc.APPEND, 0, 6, "append"); }
-    "remove"           { return symbol(Calc.REMOVE, 0, 6, "remove"); }
-    "in"               { return symbol(Calc.IN, 0, 2, "in"); }
-    "instanceof"       { return symbol(Calc.INSTANCEOF, 0, 10, "instanceof"); }
-    "copy"             { return symbol(Calc.COPY, 0, 4, "copy"); }
-    "fromJson"         { return symbol(Calc.FROM_JSON, 0, 8, "fromJson"); }
-    "sleep"            { return symbol(Calc.SLEEP, 0, 5, "sleep"); }
+    "log_"             { return symbol(Tokens.LOG_PREFIX, 0, 4, "log_"); }
+    "print"            { return symbol(Tokens.PRINT, 0, 5, "print"); }
+    "numeric_bool"     { return symbol(Tokens.NUMERIC_BOOL, 0, 12, "numeric_bool"); }
+    "input"            { return symbol(Tokens.INPUT, 0, 5, "input"); }
+    "isInputReady"     { return symbol(Tokens.IS_INPUT_READY, 0, 12, "isInputReady"); }
+    "len"              { return symbol(Tokens.LEN, 0, 3, "len"); }
+    "type"             { return symbol(Tokens.TYPE, 0, 4, "type"); }
+    "remove"           { return symbol(Tokens.REMOVE, 0, 6, "remove"); }
+    "in"               { return symbol(Tokens.IN, 0, 2, "in"); }
+    "instanceof"       { return symbol(Tokens.INSTANCEOF, 0, 10, "instanceof"); }
+    "copy"             { return symbol(Tokens.COPY, 0, 4, "copy"); }
+    "fromJson"         { return symbol(Tokens.FROM_JSON, 0, 8, "fromJson"); }
+    "sleep"            { return symbol(Tokens.SLEEP, 0, 5, "sleep"); }
 
     // DEBUGGING keywords that should be removed when we want a real release...
-    "$dumpscope"       { return symbol(Calc.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
+    "$dumpscope"       { return symbol(Tokens.DEBUG_DUMP_SCOPE, 0, 10, "$dumpscope"); }
+
+    // This is an internal-only feature, reserved for implementing the stdlib.
+    "$$BEGIN_JAVA\n"  { if (supportPrivilegedInlineJava) {
+                          yyline++;
+                          yycolumn=0;
+                          yybegin(PRIVILEGED_INLINE_JAVA);
+                        } else {
+                          handleUnknownToken();
+                        }
+                      }
+    "$java_type"      {
+                        if (supportPrivilegedInlineJava) {
+                          return symbol(Tokens.SYNTHETIC_JAVA_TYPE, 0, 10, "$java_type");
+                        } else {
+                          handleUnknownToken();
+                        }
+                      }
 
     // Builtin Types.
-    "NothingType"      { return symbol(Calc.NOTHING_TYPE, 0, 11, "NothingType"); }
-    "int"              { return symbol(Calc.INT_TYPE, 0, 3, "int"); }
-    "float"            { return symbol(Calc.FLOAT_TYPE, 0, 5, "float"); }
-    "boolean"          { return symbol(Calc.BOOLEAN_TYPE, 0, 7, "boolean"); }
-    "string"           { return symbol(Calc.STRING_TYPE, 0, 6, "string"); }
-    "tuple"            { return symbol(Calc.TUPLE_TYPE, 0, 5, "tuple"); }
-    "oneof"            { return symbol(Calc.ONEOF, 0, 5, "oneof"); }
-    "struct"           { return symbol(Calc.STRUCT_TYPE, 0, 6, "struct"); }
-    "function"         { return symbol(Calc.FUNCTION_TYPE, 0, 8, "function"); }
-    "consumer"         { return symbol(Calc.CONSUMER_FUNCTION_TYPE, 0, 8, "consumer"); }
-    "provider"         { return symbol(Calc.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
-    "lambda"           { return symbol(Calc.LAMBDA, 0, 6, "lambda"); }
-    "alias"            { return symbol(Calc.ALIAS, 0, 5, "alias"); }
-    "newtype"          { return symbol(Calc.NEWTYPE, 0, 7, "newtype"); }
-    "unwrap"           { return symbol(Calc.UNWRAP, 0, 6, "unwrap"); }
-    "initializers"     { return symbol(Calc.INITIALIZERS, 0, 12, "initializers"); }
-    "unwrappers"       { return symbol(Calc.UNWRAPPERS, 0, 10, "unwrappers"); }
+    "int"              { return symbol(Tokens.INT_TYPE, 0, 3, "int"); }
+    "float"            { return symbol(Tokens.FLOAT_TYPE, 0, 5, "float"); }
+    "boolean"          { return symbol(Tokens.BOOLEAN_TYPE, 0, 7, "boolean"); }
+    "string"           { return symbol(Tokens.STRING_TYPE, 0, 6, "string"); }
+    "tuple"            { return symbol(Tokens.TUPLE_TYPE, 0, 5, "tuple"); }
+    "oneof"            { return symbol(Tokens.ONEOF, 0, 5, "oneof"); }
+    "struct"           { return symbol(Tokens.STRUCT_TYPE, 0, 6, "struct"); }
+    "function"         { return symbol(Tokens.FUNCTION_TYPE, 0, 8, "function"); }
+    "consumer"         { return symbol(Tokens.CONSUMER_FUNCTION_TYPE, 0, 8, "consumer"); }
+    "provider"         { return symbol(Tokens.PROVIDER_FUNCTION_TYPE, 0, 8, "provider"); }
+    "lambda"           { return symbol(Tokens.LAMBDA, 0, 6, "lambda"); }
+    "alias"            { return symbol(Tokens.ALIAS, 0, 5, "alias"); }
+    "atom"             { return symbol(Tokens.ATOM, 0, 4, "atom"); }
+    "newtype"          { return symbol(Tokens.NEWTYPE, 0, 7, "newtype"); }
+    "unwrap"           { return symbol(Tokens.UNWRAP, 0, 6, "unwrap"); }
+    "initializers"     { return symbol(Tokens.INITIALIZERS, 0, 12, "initializers"); }
+    "unwrappers"       { return symbol(Tokens.UNWRAPPERS, 0, 10, "unwrappers"); }
 
     // Modifiers go here.
-    "mut"              { return symbol(Calc.MUT, 0, 3, "mut"); }
+    "mut"              { return symbol(Tokens.MUT, 0, 3, "mut"); }
 
     // Module related bindings go here.
-    "module"           { return symbol(Calc.MODULE, 0, 6, "module"); }
-    "bind"             { return symbol(Calc.BIND, 0, 4, "bind"); }
-    "to"               { return symbol(Calc.TO, 0, 2, "to"); }
-    "as"               { return symbol(Calc.AS, 0, 2, "as"); }
-    "using"            { return symbol(Calc.USING, 0, 5, "using"); }
+    "module"           { return symbol(Tokens.MODULE, 0, 6, "module"); }
+    "bind"             { return symbol(Tokens.BIND, 0, 4, "bind"); }
+    "to"               { return symbol(Tokens.TO, 0, 2, "to"); }
+    "as"               { return symbol(Tokens.AS, 0, 2, "as"); }
+    "using"            { return symbol(Tokens.USING, 0, 5, "using"); }
 
-    "cast"             { return symbol(Calc.CAST, 0, 4, "cast"); }
+    "cast"             { return symbol(Tokens.CAST, 0, 4, "cast"); }
 
     // Graph related things go here.
-    "future"           { return symbol(Calc.FUTURE, 0, 6, "future"); }
-    "graph"            { return symbol(Calc.GRAPH, 0, 5, "graph"); }
-    "root"             { return symbol(Calc.ROOT, 0, 4, "root"); }
-    "node"             { return symbol(Calc.NODE, 0, 4, "node"); }
-    "blocking"         { return symbol(Calc.BLOCKING, 0, 8, "blocking"); }
-    "blocking?"        { return symbol(Calc.MAYBE_BLOCKING, 0, 9, "blocking?"); }
-    "<-"               { return symbol(Calc.LEFT_ARROW, 0, 2, "<-"); }
-    "@"                { return symbol(Calc.AT, 0, 1, "@"); }
-    "<-|"              { return symbol(Calc.BLOCKING_GET, 0, 3, "<-|"); }
+    "future"           { return symbol(Tokens.FUTURE, 0, 6, "future"); }
+    "graph"            { return symbol(Tokens.GRAPH, 0, 5, "graph"); }
+    "root"             { return symbol(Tokens.ROOT, 0, 4, "root"); }
+    "node"             { return symbol(Tokens.NODE, 0, 4, "node"); }
+    "blocking"         { return symbol(Tokens.BLOCKING, 0, 8, "blocking"); }
+    "blocking?"        { return symbol(Tokens.MAYBE_BLOCKING, 0, 9, "blocking?"); }
+    "<-"               { return symbol(Tokens.LEFT_ARROW, 0, 2, "<-"); }
+    "@"                { return symbol(Tokens.AT, 0, 1, "@"); }
+    "<-|"              { return symbol(Tokens.BLOCKING_GET, 0, 3, "<-|"); }
 
     // This up arrow is used for the pipe chain backreference term.
-    "^"                { return symbol(Calc.UP_ARROW, 0, 1, "^"); }
+    "^"                { return symbol(Tokens.UP_ARROW, 0, 1, "^"); }
 
     // Contract tokens.
-    "contract"         { return symbol(Calc.CONTRACT, 0, 8, "contract"); }
-    "implement"        { return symbol(Calc.IMPLEMENT, 0, 9, "implement"); }
-    "requires"         { return symbol(Calc.REQUIRES, 0, 8, "requires"); }
-    "::"               { return symbol(Calc.COLON_COLON, 0, 2, "::"); }
+    "contract"         { return symbol(Tokens.CONTRACT, 0, 8, "contract"); }
+    "implement"        { return symbol(Tokens.IMPLEMENT, 0, 9, "implement"); }
+    "requires"         { return symbol(Tokens.REQUIRES, 0, 8, "requires"); }
 
-    "_"                { return symbol(Calc.UNDERSCORE, 0, 1, "_"); }
+    "_"                { return symbol(Tokens.UNDERSCORE, 0, 1, "_"); }
 
      // Symbols related to builtin HTTP support go here.
-     "HttpService"     { return symbol(Calc.HTTP_SERVICE, 0, 11, "HttpService"); }
-     "HttpClient"      { return symbol(Calc.HTTP_CLIENT, 0, 10, "HttpClient"); }
-     "getHttpClient"   { return symbol(Calc.GET_HTTP_CLIENT, 0, 13, "getHttpClient"); }
-     "getBasicHttpServerForPort"  { return symbol(Calc.GET_BASIC_HTTP_SERVER_FOR_PORT, 0, 25, "getBasicHttpServerForPort"); }
-     "HttpServer"      { return symbol(Calc.HTTP_SERVER, 0, 10, "HttpServer"); }
-     "endpoint_handlers" { return symbol(Calc.ENDPOINT_HANDLERS, 0, 17, "endpoint_handlers"); }
+     // TODO(steving) The Http related types should all also require http:: namespacing.
+     // TODO(steving) This `http` module should be completely reimplemented as a proper claro_module_internal() target once possible.
+     "HttpService"     { return symbol(Tokens.HTTP_SERVICE, 0, 11, "HttpService"); }
+     "HttpClient"      { return symbol(Tokens.HTTP_CLIENT, 0, 10, "HttpClient"); }
+     "http::getHttpClient"   {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.GET_HTTP_CLIENT, 0, 19, "http::getHttpClient");
+     }
+     "http::getBasicHttpServerForPort"  {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.GET_BASIC_HTTP_SERVER_FOR_PORT, 0, 31, "http::getBasicHttpServerForPort");
+     }
+     // This is a major hack that simply allows the detection of the synthetic http optional stdlib module for which extra java deps will need to be added to the build.
+     "http::startServerAndAwaitShutdown"  {
+         StdLibModuleUtil.validateRequiredOptionalStdlibModuleDepIsPresentAndMarkUsedIfSo("http");
+         return symbol(Tokens.IDENTIFIER, 0, 33, "com.claro.runtime_utilities.http.$ClaroHttpServer.startServerAndAwaitShutdown");
+     }
+     "HttpResponse"      { return symbol(Tokens.HTTP_RESPONSE, 0, 12, "HttpResponse"); }
+     "HttpServer"      { return symbol(Tokens.HTTP_SERVER, 0, 10, "HttpServer"); }
+     "endpoint_handlers" { return symbol(Tokens.ENDPOINT_HANDLERS, 0, 17, "endpoint_handlers"); }
 
     \"                 {
                          // There may have already been another string accumulated into this buffer.
@@ -271,19 +335,50 @@ WhiteSpace     = [ \t\f]
     // the integer that is held in the string yytext
     {Integer}          {
                          String lexed = yytext();
-                         return symbol(Calc.INTEGER, 0, lexed.length(), Integer.parseInt(lexed));
+                         return symbol(Tokens.INTEGER, 0, lexed.length(), Integer.parseInt(lexed));
                        }
 
     // If float is found, return the token FLOAT that represents a float and the value of
     // the float that is held in the string yytext
     {Float}            {
                          String lexed = yytext();
-                         return symbol(Calc.FLOAT, 0, lexed.length(), Double.parseDouble(lexed));
+                         return symbol(Tokens.FLOAT, 0, lexed.length(), Double.parseDouble(lexed));
                        }
 
     {Identifier}       {
                          String lexed = yytext();
-                         return symbol(Calc.IDENTIFIER, 0, lexed.length(), lexed);
+                         return symbol(Tokens.IDENTIFIER, 0, lexed.length(), lexed);
+                       }
+    {ScopedIdentifier} {
+                         String lexed = yytext();
+                         String[] split = lexed.split("::");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         return symbol(
+                             Tokens.SCOPED_IDENTIFIER,
+                             0,
+                             lexed.length(),
+                             ScopedIdentifier.forScopeNameAndIdentifier(
+                                 split[0], split[1], () -> currentInputLineBuilder.toString(), yyline, yycolumn)
+                         );
+                       }
+    {DepModuleContractProcedure} {
+                         String lexed = yytext();
+                         String[] split = lexed.split("::");
+                         final StringBuilder currentInputLineBuilder = currentInputLine.get();
+                         // Mark this dep as used, so that we can track whether the program's declared deps are *actually* necessary.
+                         ScopedHeap.markDepModuleUsed(split[0]);
+                         return symbol(
+                             Tokens.SCOPED_IDENTIFIER,
+                             0,
+                             lexed.length(),
+                             ScopedIdentifier.forScopeNameAndIdentifier(
+                                 String.format(
+                                     "%s$%s",
+                                     split[1],
+                                     ScopedHeap.getDefiningModuleDisambiguator(Optional.of(split[0]))),
+                                 split[2],
+                                 () -> currentInputLineBuilder.toString(), yyline, yycolumn)
+                         );
                        }
 
     /* Don't do anything if whitespace is found */
@@ -310,7 +405,7 @@ WhiteSpace     = [ \t\f]
                           string.setLength(0);
                           addToLine("\"");
                           final StringBuilder currentInputLineBuilder = currentInputLine.get();
-                          return new Symbol(Calc.STRING, ++yycolumn - matchedString.length() - 2 , yyline, new LexedValue(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
+                          return new Symbol(Tokens.STRING, ++yycolumn - matchedString.length() - 2 , yyline, LexedValue.create(matchedString, () -> currentInputLineBuilder.toString(), matchedString.length() + 2));
                        }
     [^\n\r\"\\{]+      {
                          String parsed = yytext();
@@ -340,8 +435,40 @@ WhiteSpace     = [ \t\f]
                          yycolumn++;
                          addToLine("{");
                          final StringBuilder currentInputLineBuilder = currentInputLine.get();
-                         return new Symbol(Calc.FMT_STRING_PART, yycolumn, yyline, new LexedValue<String>(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
+                         return new Symbol(Tokens.FMT_STRING_PART, yycolumn, yyline, LexedValue.create(fmtStringPart, () -> currentInputLineBuilder.toString(), fmtStringPart.length() + 1));
                        }
+}
+
+<PRIVILEGED_INLINE_JAVA> {
+    {PrivilegedInlineJavaTypeCaptures} {
+                              // Collect the type captures that should be made available to the inline Java.
+                              String lexed = yytext();
+                              privilegedInlineJavaTypeCaptures = lexed.substring("$$TYPES<".length(), lexed.length() - 2);
+                              currentInputLine.set(new StringBuilder());
+                              yyline++;
+                           }
+    [^]                    {
+                              // Collect everything into the currentInputLine just for somewhere to keep it.
+                              addToLine(yytext());
+                           }
+    "$$END_JAVA\n"           {
+                             yybegin(YYINITIAL);
+                             String lexed = currentInputLine.get().toString();
+                             // Just want to make sure line numbers are still tracked properly.
+                             int lines = 0;
+                             int i = 0;
+                             while (i < lexed.length()) {
+                               if (lexed.charAt(i++) == '\n') {
+                                 lines++;
+                               }
+                             }
+                             yyline += lines;
+                             yycolumn = 0;
+                             currentInputLine.set(new StringBuilder());
+                             Symbol res = new Symbol(Tokens.PRIVILEGED_INLINE_JAVA, yycolumn, yyline - 1, LexedValue.create(Optional.ofNullable(privilegedInlineJavaTypeCaptures).orElse(""), () -> lexed, lexed.length()));
+                             privilegedInlineJavaTypeCaptures = null;
+                             return res;
+                           }
 }
 
 // This lexing state is literally just a mimimum-effort approach to trying to give more useful errors. Instead of just
@@ -355,7 +482,7 @@ WhiteSpace     = [ \t\f]
     [^]                { yycolumn++; addToLine(yytext()); /* Swallow all other chars. */ }
 }
 
-// We have changed the default symbol in the bazel `cup()` rule from "sym" to "Calc", so we need to
+// We have changed the default symbol in the bazel `cup()` rule from "sym" to "Tokens", so we need to
 // change how JFlex handles the end of file.
 // See http://jflex.de/manual.html#custom-symbol-interface
 <<EOF>>                {
@@ -373,17 +500,9 @@ WhiteSpace     = [ \t\f]
                                  )
                            );
                          }
-                         return symbol(Calc.EOF);
+                         return symbol(Tokens.EOF);
                        }
 
 /* Catch-all the rest, i.e. unknown character. */
-[^]  {
-        yybegin(IGNORE_REMAINING_CHARS_UNTIL_STMT_OR_PAIRED_BRACE_TERMINATOR);
-        String lexed = yytext();
-        addToLine(lexed);
-        ClaroParser.errorMessages.push(
-            () ->
-              System.err.println(
-                  "Illegal character <" + lexed + "> found at line: " + (yyline + 1) + " column: " + ++yycolumn));
-     }
+[^]  { handleUnknownToken(); }
 

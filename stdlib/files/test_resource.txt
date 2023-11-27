@@ -1,0 +1,4 @@
+This is just a test
+resource file.
+I'm gonna try to see if
+this can be read at runtime.

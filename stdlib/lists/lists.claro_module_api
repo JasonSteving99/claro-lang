@@ -1,0 +1,139 @@
+# This module simply provides access to the functionality described in:
+#   - https://docs.oracle.com/javase/8/docs/api/java/util/ArrayList.html
+# The signatures found here in this module are not a 1:1 match with the signatures in their Java equivalents, however,
+# as all error cases have been intentionally modelled as proper return values wrapped in std::Error<...>. In this way,
+# interacting with any procedures defined in this module will be inherently safe.
+
+# TODO(steving) Claro needs some sort of Collection<T> contract or something so that duplicated procedures aren't needed
+# TODO(steving)     for mut/immut cases.
+
+# TODO(steving) If at all possible, ClaroList.java should be refactored so that it *contains* a List rather than extends
+# TODO(steving)     ArrayList directly so that functionality directly from Guava's Lists class can be directly added to
+# TODO(steving)     this module w/o losing the performance wins of their "views".
+# TODO(steving)   - https://guava.dev/releases/23.0/api/docs/com/google/common/collect/Lists.html
+
+newtype IndexOutOfBounds : struct {index: int, size: int}
+newtype IndicesOutOfOrder : struct {invalidLowerBound: int, invalidUpperBound: int}
+newtype InvalidCapacity : int
+newtype ElementNotFound<T> : T
+
+# Appends the specified element to the end of this list.
+consumer add<T>(l: mut [T], toAdd: T);
+
+# Appends all of the elements in the second list to the end of the first list, in the order they appear in the second.
+# The behavior of this call is undefined if both args reference the same non-empty list.
+#
+# Returns: `true` if this list changed as a result of the call, else `false`.
+function addAll<T>(l: mut [T], toAdd: [T]) -> boolean;
+function addAllFromMut<T>(l: mut [T], toAdd: mut [T]) -> boolean;
+
+# Removes all of the elements from this list. The list will be empty after this call returns.
+consumer clear<T>(l: mut [T]);
+
+# Returns: true if this list contains the specified element, else `false`.
+function contains<T>(l: [T], elem: T) -> boolean;
+function containsInMut<T>(l: mut [T], elem: T) -> boolean;
+
+# Returns: true if this list contains all of the elements of the specified collection, else `false`.
+function containsAll<T>(l: [T], elems: [T]) -> boolean;
+function containsAllFromMut<T>(l: [T], elems: mut [T]) -> boolean;
+function containsAllInMut<T>(l: mut [T], elems: [T]) -> boolean;
+function containsAllInMutFromMut<T>(l: mut [T], elems: mut [T]) -> boolean;
+
+# Increases the capacity of this list instance, if necessary, to ensure that it can hold at least the number of elements
+# specified by the minimum capacity argument.
+consumer ensureCapacity<T>(l: mut [T], minCapacity: int);
+
+# Performs the given action for each element.
+consumer forEach<T>(l: [T], action: consumer<T>);
+consumer forEachInMut<T>(l: mut [T], action: consumer<T>);
+
+# Returns the element at the specified position in this list. This is a bounds-checked alternative to directly accessing
+# via the unsafe `[]` which may result in a runtime Panic.
+function getAt<T>(l: [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>>;
+function getAtInMut<T>(l: mut [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>>;
+
+# Returns: the index of the first occurrence of the specified element in this list, or -1 if this list does not contain
+#          the element.
+function indexOf<T>(l: [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>>;
+function indexOfInMut<T>(l: mut [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>>;
+
+# Inserts all of the elements in the second list into the first list, starting at the specified position. Shifts the
+# element currently at that position (if any) and any subsequent elements to the right (increases their indices). The
+# new elements will appear in the first list in the order that they occur in the second list.
+#
+# Returns: `true` if this list changed as a result of the call, else `false`.
+function insertAllAt<T>(l: mut [T], index: int, elems: [T]) -> oneof<boolean, std::Error<IndexOutOfBounds>>;
+function insertAllAtFromMut<T>(l: mut [T], index: int, elems: mut [T]) -> oneof<boolean, std::Error<IndexOutOfBounds>>;
+
+# Inserts the specified element at the specified position in this list. Shifts the element currently at that position
+# (if any) and any subsequent elements to the right (adds one to their indices).
+function insertAt<T>(l: mut [T], index: int, t: T) -> oneof<std::OK, std::Error<IndexOutOfBounds>>;
+
+# Returns: `true` if this list contains no elements, else `false`.
+function isEmpty<T>(l: [T]) -> boolean;
+function isEmptyInMut<T>(l: mut [T]) -> boolean;
+
+# Returns: the index of the last occurrence of the specified element in this list, or -1 if this list does not contain
+#          the element.
+function lastIndexOf<T>(l: [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>>;
+function lastIndexOfInMut<T>(l: mut [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>>;
+
+# Removes from this list all of its elements that are contained in the specified collection.
+#
+# Returns: `true` if this list changed as a result of the call, else `false`.
+function removeAll<T>(l: mut [T], toRemove: [T]) -> boolean;
+function removeAllFromMut<T>(l: mut [T], toRemove: mut [T]) -> boolean;
+
+# TODO(steving) Drop `remove()` as builtin token from lexer/parser so that this isn't duplicated.
+# Removes the element at the specified position in this list. Shifts any subsequent elements to the left (subtracts one
+# from their indices).
+#
+# Returns: the element that was removed from the list.
+function removeAt<T>(l: mut [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>>;
+
+# Removes the first occurrence of the specified element from this list, if it is present. If the list does not contain
+# the element, it is unchanged.
+#
+# Returns: `true` if this list contained the specified element, else `false`.
+function removeFirst<T>(l: mut [T], t: T) -> boolean;
+
+# Removes all of the elements of this list that satisfy the given predicate.
+#
+# Returns: `true` if any elements were removed, else `false`.
+function removeIf<T>(l: mut [T], pred: function<T -> boolean>) -> boolean;
+
+# Replaces each element of this list with the result of applying the operator to that element.
+consumer replaceAll<T>(l: mut [T], operator: function<T -> T>);
+
+# Retains only the elements in the first list that are contained in the second list. In other words, removes from the
+# first list all of its elements that are not contained in the second list.
+#
+# Returns: `true` if this list changed as a result of the call, else `false`.
+function retainAll<T>(l: mut [T], toRetain: [T]) -> boolean;
+function retainAllFromMut<T>(l: mut [T], toRetain: mut [T]) -> boolean;
+
+# Replaces the element at the specified position in this list with the specified element. This is a bounds-checked
+# alternative to directly setting via the unsafe `l[index] = ...` which may result in a runtime Panic.
+function setAt<T>(l: mut [T], index: int, t: T) -> oneof<T, std::Error<IndexOutOfBounds>>;
+
+# Sorts this list according to the order induced by the specified comparator.
+# For detailed explanation of "comparators", see: https://docs.oracle.com/javase/8/docs/api/java/util/Comparator.html
+consumer sort<T>(l: mut [T], comparator: function<|T, T| -> int>);
+
+# Returns a view of the portion of this list between the specified fromIndex, inclusive, and toIndex, exclusive. (If
+# `fromInclusive` and `toExclusive` are equal, the returned list is empty.)
+function subList<T>(l: [T], fromInclusive: int, toExclusive: int)
+    -> oneof<[T], std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>>;
+# TODO(steving) If at all possible, ClaroList.java should be refactored so that it *contains* a List rather than extends
+# TODO(steving)     ArrayList directly so that subListOfMut() can return a proper "view".
+# TODO(steving)   - https://docs.oracle.com/javase/8/docs/api/java/util/ArrayList.html#addAll-int-java.util.Collection-:~:text=This%20method%20eliminates,from%2C%20to).clear()%3B
+function subListOfMut<T>(l: mut [T], fromInclusive: int, toExclusive: int)
+    -> oneof<mut [T], std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>>;
+
+# Trims the capacity of this list instance to be the list's current size. An application can use this operation to
+# minimize the storage of a list instance.
+consumer trimToSize<T>(l: mut [T]);
+
+# Constructs an empty list with the specified initial capacity.
+function withInitialCapacity<T>(capacity: int) -> oneof<mut [T], std::Error<InvalidCapacity>>;

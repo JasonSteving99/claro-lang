@@ -1,0 +1,8 @@
+
+function parseBoolean(s: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = java.lang.Boolean.parseBoolean(s);
+  $$END_JAVA
+  return res;
+}

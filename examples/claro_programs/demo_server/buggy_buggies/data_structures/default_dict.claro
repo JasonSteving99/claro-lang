@@ -1,0 +1,26 @@
+initializers DefaultDict {
+  function create<K,V>(defaultPr: provider<V>) -> DefaultDict<K,V> {
+    return DefaultDict({defaultPr = defaultPr, dict = mut {}});
+  }
+}
+
+# TODO(steving) Claro really needs to support overloading operator[] via some Contract.
+unwrappers DefaultDict {
+  function get<K,V>(d: DefaultDict<K,V>, key: K) -> V {
+    var dict = unwrap(d).dict;
+    if (not (key in dict)) {
+      var defPr = unwrap(d).defaultPr; # TODO(steving) Tracking bug in: https://docs.google.com/spreadsheets/d/1PvMoLlIKfcq41F0tn0WRlBsamJ_gq_3dvEIKmoOlBqk/edit#gid=0&range=C7
+      dict[key] = defPr();
+    }
+    return dict[key];
+  }
+
+  consumer put<K,V>(d: DefaultDict<K,V>, key: K, value: V) {
+    var dict = unwrap(d).dict;
+    dict[key] = value;
+  }
+
+  function asMap<K,V>(d: DefaultDict<K,V>) -> {K: V} {
+    return copy(unwrap(d).dict);
+  }
+}

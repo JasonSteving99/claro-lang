@@ -1,0 +1,6 @@
+
+alias BestPath : [Pos::Position]
+
+function parseWorldMap(world: {string: string}) -> {Pos::Position: string};
+function dijkstra(world: {Pos::Position: string}, start: Pos::Position) -> BestPath;
+function movesFromBestPath(bestPath: BestPath) -> [string];

@@ -1,0 +1,9 @@
+{namespace utils}
+
+{template .commaSep}
+    {@param elems: list<?>}
+    {for $e, $i in $elems}
+        {if $i > 0}, {/if}
+        {$e}
+    {/for}
+{/template}

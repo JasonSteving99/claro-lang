@@ -1,0 +1,265 @@
+{namespace tokens}
+
+
+{template .highlight}
+    {@param token: string}
+    {@param groupNum: int}
+    {let $tokenGroup kind="text"}
+        {call .tokenGroup}
+            {param groupNum: $groupNum /}
+        {/call}
+    {/let}
+    <span class="{$tokenGroup}">{$token}</span>
+{/template}
+
+{template .tokenGroup kind="text"}
+    {@param groupNum: int}
+    tokenGroup{$groupNum}
+{/template}
+
+{template .highlightGroup1}
+    {@param token: string}
+    {call .highlight}
+        {param token: $token /}
+        {param groupNum: 1 /}
+    {/call}
+{/template}
+
+{template .highlightGroup2}
+    {@param token: string}
+    {call .highlight}
+        {param token: $token /}
+        {param groupNum: 2 /}
+    {/call}
+{/template}
+
+{template .highlightGroup3}
+    {@param token: string}
+    {call .highlight}
+        {param token: $token /}
+        {param groupNum: 3 /}
+    {/call}
+{/template}
+
+{template .highlightGroup4}
+    {@param token: string}
+    {call .highlight}
+        {param token: $token /}
+        {param groupNum: 4 /}
+    {/call}
+{/template}
+
+// GROUP 1
+
+{template .ALIAS}
+    {call .highlightGroup1}
+        {param token: 'alias' /}
+    {/call}
+{/template}
+
+{template .ATOM}
+    {call .highlightGroup1}
+        {param token: 'atom' /}
+    {/call}
+{/template}
+
+{template .BLOCKING}
+    {call .highlightGroup1}
+        {param token: 'blocking' /}
+    {/call}
+{/template}
+
+{template .FUNCTION}
+    {call .highlightGroup1}
+        {param token: 'function' /}
+    {/call}
+{/template}
+
+{template .CONSUMER}
+    {call .highlightGroup1}
+        {param token: 'consumer' /}
+    {/call}
+{/template}
+
+{template .PROVIDER}
+    {call .highlightGroup1}
+        {param token: 'provider' /}
+    {/call}
+{/template}
+
+{template .GRAPH}
+    {call .highlightGroup1}
+        {param token: 'graph' /}
+    {/call}
+{/template}
+
+{template .NEWTYPE}
+    {call .highlightGroup1}
+        {param token: 'newtype' /}
+    {/call}
+{/template}
+
+
+// GROUP 2
+
+{template .COMMA}
+    {call .highlightGroup2}
+        {param token: ',' /}
+    {/call}
+{/template}
+
+{template .ARROW}
+    {call .highlightGroup2}
+        {param token: '->' /}
+    {/call}
+{/template}
+
+{template .COLON}
+    {call .highlightGroup2}
+        {param token: ':' /}
+    {/call}
+{/template}
+
+{template .SEMICOLON}
+    {call .highlightGroup2}
+        {param token: ';' /}
+    {/call}
+{/template}
+
+{template .LT}
+    {call .highlightGroup2}
+        {param token: '<' /}
+    {/call}
+{/template}
+
+{template .GT}
+    {call .highlightGroup2}
+        {param token: '>' /}
+    {/call}
+{/template}
+
+{template .CONTRACT}
+    {call .highlightGroup2}
+        {param token: 'contract' /}
+    {/call}
+{/template}
+
+{template .ENDPOINT_HANDLERS}
+    {call .highlightGroup2}
+        {param token: 'endpoint_handlers' /}
+    {/call}
+{/template}
+
+{template .IMPLEMENT}
+    {call .highlightGroup2}
+        {param token: 'implement' /}
+    {/call}
+{/template}
+
+{template .INITIALIZERS}
+    {call .highlightGroup2}
+        {param token: 'initializers' /}
+    {/call}
+{/template}
+
+{template .UNWRAPPERS}
+    {call .highlightGroup2}
+        {param token: 'unwrappers' /}
+    {/call}
+{/template}
+
+{template .MUT}
+    {call .highlightGroup2}
+        {param token: 'mut' /}
+    {/call}
+{/template}
+
+{template .REQUIRES}
+    {call .highlightGroup2}
+        {param token: 'requires' /}
+    {/call}
+{/template}
+
+
+// GROUP 3
+
+{template .UNDERSCORE}
+    {call .highlightGroup3}
+        {param token: '_' /}
+    {/call}
+{/template}
+
+{template .BOOLEAN}
+    {call .highlightGroup3}
+        {param token: 'boolean' /}
+    {/call}
+{/template}
+
+{template .FLOAT}
+    {call .highlightGroup3}
+        {param token: 'float' /}
+    {/call}
+{/template}
+
+{template .FUTURE}
+    {call .highlightGroup3}
+        {param token: 'future' /}
+    {/call}
+{/template}
+
+{template .INT}
+    {call .highlightGroup3}
+        {param token: 'int' /}
+    {/call}
+{/template}
+
+{template .ONEOF}
+    {call .highlightGroup3}
+        {param token: 'oneof' /}
+    {/call}
+{/template}
+
+{template .STRING}
+    {call .highlightGroup3}
+        {param token: 'string' /}
+    {/call}
+{/template}
+
+{template .STRUCT}
+    {call .highlightGroup3}
+        {param token: 'struct' /}
+    {/call}
+{/template}
+
+{template .TUPLE}
+    {call .highlightGroup3}
+        {param token: 'tuple' /}
+    {/call}
+{/template}
+
+
+// GROUP 4
+
+{template .QUESTION_MARK}
+    {call .highlightGroup3}
+        {param token: '?' /}
+    {/call}
+{/template}
+
+{template .BAR}
+    {call .highlightGroup3}
+        {param token: '|' /}
+    {/call}
+{/template}
+
+{template .JAVA_TYPE}
+    {call .highlightGroup3}
+        {param token: '...' /}
+    {/call}
+{/template}
+
+{template .SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE}
+    {call .highlightGroup3}
+        {param token: '...' /}
+    {/call}
+{/template}

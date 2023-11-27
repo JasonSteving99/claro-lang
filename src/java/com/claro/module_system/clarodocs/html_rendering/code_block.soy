@@ -1,0 +1,13 @@
+{namespace codeblock}
+
+
+{template .code}
+    {@param codeContent: html}
+    {@param class: string}
+    {@param id: string}
+    <pre>
+    <code class="{$class}" id="{$id}">
+        {$codeContent}
+    </code>
+  </pre>
+{/template}

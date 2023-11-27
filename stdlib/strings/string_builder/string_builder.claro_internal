@@ -1,0 +1,34 @@
+
+alias SBJavaType : $java_type("java.lang.StringBuilder")
+
+newtype StringBuilder : SBJavaType
+
+provider create() -> StringBuilder {
+  var res: SBJavaType;
+
+  $$BEGIN_JAVA
+    res = new java.lang.StringBuilder();
+  $$END_JAVA
+
+  return internalCreate(res);
+}
+function internalCreate(javaType: SBJavaType) -> StringBuilder {
+  return StringBuilder(javaType);
+}
+
+# Add anything to the end of the StringBuilder. It will be converted to its string representation automatically.
+function add<T>(sb: StringBuilder, toAdd: T) -> StringBuilder {
+  $$BEGIN_JAVA
+    sb.wrappedValue.append(toAdd);
+  $$END_JAVA
+  return sb;
+}
+function build(sb: StringBuilder) -> string {
+  var res: string;
+
+  $$BEGIN_JAVA
+    res = sb.wrappedValue.toString();
+  $$END_JAVA
+
+  return res;
+}

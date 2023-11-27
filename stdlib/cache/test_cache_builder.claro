@@ -1,0 +1,43 @@
+
+var CACHE_SPEC_STRING = "maximumSize=1000";
+
+append(mut [1], 2);
+
+print("--------------------------------------------------");
+print("Creating CacheBuilder:");
+var cacheBuilder = cache::builderFromSpecString(CACHE_SPEC_STRING);
+if (cacheBuilder instanceof cache::CacheBuilder) {
+  # Configure this cache's values to expire a few seconds after their loaded. This keeps the values fresh (and makes
+  # this example program a bit more interesting).
+  cacheBuilder = cache::expireAfterWrite(cacheBuilder, duration::ofSeconds(5));
+
+  # Build the cache by providing the cache loader fn.
+  var strCache: cache::Cache<string, string> =
+    cache::build(
+      cacheBuilder,
+      (key: string) -> future<string> {
+        print("LOADING {key} FROM CACHE!");
+        return futures::immediateFuture("VALUE: {key}");
+      }
+    );
+
+  print("--------------------------------------------------");
+  # The cache is currently empty so there's definitely going to be a load.
+  var cacheVal <-| cache::get(strCache, "testKey");
+  print(cacheVal);
+
+  print("--------------------------------------------------");
+  _ = input("Adding some delay...");
+  print("--------------------------------------------------");
+
+  # This will only reload the value if more than 5 seconds have passed since the last load.
+  var cacheVal2 <-| cache::get(strCache, "testKey");
+  print(cacheVal2);
+
+  print("--------------------------------------------------");
+  print("Bulk load multiple keys:");
+  print("--------------------------------------------------");
+  # This will definitely load "testKey2", but "testKey" is already in the cache.
+  var cachedVals <-| cache::getAll(strCache, ["testKey", "testKey2"]);
+  print(cachedVals);
+}

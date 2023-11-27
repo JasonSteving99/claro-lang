@@ -114,7 +114,7 @@ public class ClaroTypeException extends Exception {
   private static final String CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS =
       "Invalid Contract Implementation: %s does not have the correct number of type params required by %s.";
   private static final String DUPLICATE_CONTRACT_IMPLEMENTATION =
-      "Invalid Contract Implementation: %s is a duplicate of existing implementation %s.";
+      "Invalid Contract Implementation: %s is a duplicate of existing implementation.";
   private static final String CONTRACT_IMPLEMENTATION_MISSION_REQUIRED_PROCEDURE_DEFS =
       "Invalid Contract Implementation: %s is missing definitions for the following required procedures %s.";
   private static final String CONTRACT_IMPLEMENTATION_WITH_EXTRA_PROCEDURE_DEFS =
@@ -214,11 +214,13 @@ public class ClaroTypeException extends Exception {
       "\t\tFound:\n" +
       "\t\t\t%s";
   private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE =
-      "Illegal Initializers Block for Undeclared Type: No custom type named `%s` declared within the current scope!";
+      "Illegal %s Block for Undeclared Type: No custom type named `%s` declared within the current scope!";
   private static final String ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE =
-      "Illegal Initializers Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
+      "Illegal %s Block for Non-User-Defined Type: `%s` does not reference a user-defined type!\n" +
       "\t\tFound:\n" +
       "\t\t\t%s";
+  private static final String ILLEGAL_EXPORTED_INITIALIZERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE =
+      "Illegally Exporting an %s Block for a Type Defined in a Dep Module: In order for Claro's incremental compilation scheme to function properly, a Module may only export %s blocks for their own explicitly exported type definitions.";
   private static final String ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR_OUTSIDE_OF_INITIALIZER_PROCEDURES =
       "Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.\n" +
       "\t\tInstead, to get an instance of this type, consider calling one of the defined initializers:\n" +
@@ -227,6 +229,22 @@ public class ClaroTypeException extends Exception {
       "Illegal Use of User-Defined Type Unwrapper Outside of Unwrappers Block: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to use the type's default `unwrap()` function directly.\n" +
       "\t\tInstead, to unwrap an instance of this type, consider calling one of the defined unwrappers:\n" +
       "%s";
+  private static final String ILLEGAL_USE_OF_OPAQUE_TYPE_UNWRAPPER =
+      "Illegal Attempted Unwrap of Opaque Type: Direct use of `unwrap()` over opaque types is forbidden. Only the " +
+      "defining module is able to access the internal value of an opaque type. Reference the defining module's api " +
+      "to determine which exported procedures (if any) can be deferred to to operate over this opaque type instead of " +
+      "attempting to unwrap the value directly.";
+  private static final String ILLEGAL_IMPLICIT_UNWRAP_OF_OPAQUE_USER_DEFINED_TYPE_IN_MATCH_PATTERN =
+      "Illegal Implicit Unwrap of Opaque User-Defined Type in Match Pattern: An unwrappers block has been defined for the custom type `%s`, so, in order to maintain any semantic constraints that the unwrappers are intended to impose on the type, you aren't allowed to implicitly `unwrap()` values of this type by attempting to pattern match the wrapped value.\n" +
+      "\t\tFor example, the following case pattern:\n" +
+      "\t\t\tcase %s(X) -> ...use X...;\n" +
+      "\t\tis equivalent to the following use of unwrap:\n" +
+      "\t\t\tcase Matched%s ->\n" +
+      "\t\t\t\tvar X = unwrap(Matched%s);\n" +
+      "\t\t\t\t...use X...;\n\n" +
+      "\t\tInstead, to match on an instance of this type you must use a wildcard as in one of the below options:\n" +
+      "\t\t\t- case %s(_) -> ...;\n" +
+      "\t\t\t- case _ -> ...;";
   private static final String ILLEGAL_AUTOMATIC_ERROR_PROPAGATION =
       "Illegal Use of Automatic Error Propagation: Automatic Error Propagation only applies to oneofs containing at least one `Error<T>` variant and one non-`Error<T>` variant.\n" +
       "\t\tFound:\n" +
@@ -309,7 +327,7 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_TYPE =
       "Illegal Attempt To Parse JSON String to Unsupported Target Type: Claro can only generate Automatic JSON parsing code for types structurally matching the following (pseudocode) type definition:\n" +
-      "\t\tnewtype JSON : oneof<NothingType, boolean, int, float, string, [JSON], struct{field1: JSON, ..., fieldN: JSON}, {string: JSON}>\n" +
+      "\t\tnewtype JSON : oneof<Nothing, boolean, int, float, string, [JSON], struct{field1: JSON, ..., fieldN: JSON}, {string: JSON}>\n" +
       "\tFound the following type:\n" +
       "\t\t%s";
   private static final String ILLEGAL_PARSE_FROM_JSON_FOR_UNSUPPORTED_TARGET_ONEOF_TYPE =
@@ -361,6 +379,173 @@ public class ClaroTypeException extends Exception {
       "Illegally Ignoring Value Returned From Function Call: The result of call to %s must not be silently ignored.\n" +
       "\t\tIf you really don't need to use the result, you may explicitly discard it using the \"trashcan operator\" (note this only makes sense if your function is side-effecting):\n" +
       "\t\t\t_ = fnWhoseResultIWantToThrowAway(foo);";
+  private static final String MATCH_OVER_UNSUPPORTED_TYPE =
+      "Illegal Match Over Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
+      "\t\tFound:\n" +
+      "\t\t\t%s";
+  private static final String MATCH_OVER_UNSUPPORTED_WRAPPED_TYPE =
+      "Illegal Match Over User-Defined Type Wrapping Unsupported Type: Claro *CURRENTLY* only supports matching over primitive types.\n" +
+      "\t\tFound User-Defined type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tWrapping unsupported type:\n" +
+      "\t\t\t%s";
+  private static final String MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES =
+      "Illegal Match Over Type Entirely Composed of Base Types For Which Exact Matches are Impossible to Evaluate.\n" +
+      "\t\tMatched Expression Type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tContains the following unsupported base types:\n" +
+      "\t\t\t- %s";
+  private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
+      "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
+  private static final String NON_EXHAUSTIVE_MATCH =
+      "Non-exhaustive Match: The given cases do not match every possible value of the matched type `%s`.\n" +
+      "\t\tFor example the following case is unhandled:\n" +
+      "\t\t\t%s\n" +
+      "\t\tYou can also ensure that all possible cases are being handled by adding a final fallback case as below:\n" +
+      "\t\t\tcase _ -> ...;";
+  private static final String DUPLICATE_MATCH_CASE =
+      "Illegal Duplicate Match Case: All case patterns should be unique within a match block.";
+  private static final String USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE =
+      "Uselessly Matching Against Single Wildcard Case: Use of match is just unwanted noise when matching over a single wildcard pattern. Remove the match and just write the logic directly:\n" +
+      "\t\tE.g. Instead of:\n" +
+      "\t\t\tvar toMatch = getVal(...);\n" +
+      "\t\t\tmatch (toMatch) {\n\t\t\t\tcase _ -> handleVal(toMatch);\n\t\t\t}\n" +
+      "\t\tRewrite as the following:\n" +
+      "\t\t\thandleVal(getVal(...));";
+  private static final String USELESS_MATCH_CASE_TYPE_LITERAL_PATTERN_FOR_NON_ONEOF_MATCHED_VAL =
+      "Uselessly Matching Non-Oneof Typed Value Against Type Literal: The type of the matched Expr is statically known to be %s, it's useless to match against the type.";
+  private static final String USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH =
+      "Useless Default Case: The given patterns exhaustively match every possible value of the matched type. Remove the branch matching against the wildcard pattern, as it is dead code.";
+  private static final String ILLEGAL_PROCEDURE_CALL_IN_MATCH_CASE_PATTERN =
+      "Illegal Match Case Pattern: Unexpected attempt to call a procedure as a Match case pattern. Match case patterns must be compile-time constant values, or wildcards.";
+  private static final String ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING =
+      "Wildcard Binding Shadows Declared Variable: Names of wildcard bindings in Match case patterns must not shadow any already-declared variable in scope.";
+  private static final String INVALID_PATTERN_MATCHING_WRONG_TYPE =
+      "Invalid Pattern Matching Wrong Type: This pattern is unable to match against values of the matched expression type.\n" +
+      "\t\tMatched Expression Type:\n" +
+      "\t\t\t%s\n" +
+      "\t\tPattern Type:\n" +
+      "\t\t\t%s";
+  private static final String MODULE_EXPORTED_PROCEDURE_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Procedure Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported procedure to be defined:\n" +
+      "\tName:\n" +
+      "\t\t%s\n" +
+      "\tSignature:\n" +
+      "\t\t%s";
+  private static final String MODULE_EXPORTED_PROCEDURE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Procedure Name Bound To Incorrect Implementation Type: Exported procedure `%s` is bound to " +
+      "incorrect type in the given module implementation files.\n" +
+      "\tFound:\n" +
+      "\t\t%s\n" +
+      "\tExpected:\n" +
+      "\t\t%s";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Opaque Type Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported opaque type to be defined:\n" +
+      "\tExpected:\n" +
+      "\t\tnewtype %s%s : <some %stype>";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Opaque Type Name Bound To Incorrect Implementation Type: Exported opaque type `%s` is bound to " +
+      "incorrect type in the given module implementation files.\n" +
+      "\tThe exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tExpected:\n" +
+      "\t\tnewtype %s%s : <some %stype>";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_HAS_WRONG_TYPE_PARAMS =
+      "Module Exported Opaque Type's Internal Definition Uses Incorrect Type Params: Exported opaque type's internal " +
+      "definition should use the type params declared in the .claro_module_api file.\n" +
+      "\tThe exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tFound:\n" +
+      "\t\tnewtype %s%s : %s";
+  private static final String MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_DOES_NOT_MATCH_DECLARED_MUTABILITY =
+      "Module Exported Opaque Type's Internal Definition Does Not Match Declared Mutability: Exported opaque type's " +
+      "internal definition should use the type params declared in the .claro_module_api file.\n" +
+      "\tThe declared mutability of the exported opaque type definition:\n" +
+      "\t\topaque newtype %s%s%s\n" +
+      "\tDoes not match the mutability of the internal definition:\n" +
+      "\t\tnewtype %s%s : %s";
+  private static final String MODULE_API_REFERENCES_TYPE_FROM_TRANSITIVE_DEP_MODULE_NOT_EXPLICITLY_EXPORTED =
+      "Module API References Type Declared in non-Exported Dep Module: In order for a .claro_module_api to reference a" +
+      " type defined in a dep Module, that dep Module must be explicitly included in the " +
+      "`claro_module(..., exports = [...])` so that consumers of this Module are able to access the type's definition.\n" +
+      "\tEither drop all references to types defined in these dep Modules, or update your module build target as follows:\n" +
+      "\t\tclaro_module(\n" +
+      "\t\t\t...,\n" +
+      "\t\t\texports = [\n" +
+      "\t\t\t\t%s\n" +
+      "\t\t\t],\n" +
+      "\t\t)";
+  private static final String MODULE_UNNECESSARILY_EXPORTS_DEP_MODULES_THAT_ARE_NOT_REFERENCED_IN_MODULE_API =
+      "Module Exports Dep Modules Unnecessarily: This Module should only list a transitive dep Module in " +
+      "`claro_module(..., exports = [...])` if types from that dep Module are explicitly referenced in the " +
+      ".claro_module_api file declaring this Modules public interface.\n" +
+      "\tDrop the following Modules from the Module's exports list:\n" +
+      "\t\t%s";
+  private static final String USING_OPTIONAL_STDLIB_DEP_MODULE_WITHOUT_EXPLICIT_BUILD_DEP =
+      "Missing Dependency on Referenced Optional Stdlib Module: In order for Claro to minimize executable size of " +
+      "programs that do not actually use the entire stdlib, explicit deps on optional stdlib modules are required " +
+      "to be placed on modules that do actually utilize them.\n" +
+      "\tEither drop all references to this optional stdlib module, or update your module build target as follows:\n" +
+      "\t\tclaro_module(\n" +
+      "\t\t\t...\n" +
+      "\t\t\toptional_stdlib_deps = [\n" +
+      "\t\t\t\t\"%s\"\n" +
+      "\t\t\t],\n" +
+      "\t\t)";
+  private static final String ILLEGAL_CONTRACT_IMPL_OVER_TYPES_NOT_DEFINED_IN_CURRENT_COMPILATION_UNIT =
+      "Illegal Contract Implementation Over Types Not Defined In Current Module: Contracts defined in a " +
+      "claro_module() may only be implemented over types defined in the current module. This ensures that Claro's " +
+      "incremental compilation scheme functions properly (see Rust's \"Orphan Rules\": https://smallcultfollowing.com/babysteps/blog/2015/01/14/little-orphan-impls/).\n" +
+      "\tThe following Contract Implementation:\n" +
+      "\t\t%s\n" +
+      "\tAttempts to implement the contract over the following external types:\n" +
+      "\t- %s";
+  private static final String MODULE_EXPORTED_CONTRACT_IMPL_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Contract Implementation Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "expected the following exported contract implementation to be defined:\n" +
+      "\t%s";
+  private static final String MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NOT_DEFINED_IN_MODULE_IMPL_FILES =
+      "Module Exported Static Value Provider Not Defined In Given Module Implementation Files: The given Module API definition " +
+      "exports:\n" +
+      "\t\tstatic %s: %s;\n" +
+      "\tExpected the following provider implementation to be defined in the module's implementation:\n" +
+      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}";
+  private static final String MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE =
+      "Module Exported Static Value Provider Name Bound To Incorrect Implementation Type: The given Module API definition " +
+      "exports:\n" +
+      "\t\tstatic %s: %s;\n" +
+      "\tExpected the following provider implementation to be defined in the module's implementation:\n" +
+      "\t\tprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}\n" +
+      "\tFound:\n" +
+      "\t\t%sprovider static_%s() -> %s {\n" +
+      "\t\t\t...\n" +
+      "\t\t}";
+  private static final String ILLEGAL_ASSIGNMENT_ATTEMPT_ON_STATIC_VALUE =
+      "Illegal Assignment to Static Value: Static values are deeply-immutable and may not be reassigned. These " +
+      "restrictions ensure that Claro is able to statically eliminate the possibility of data races over static " +
+      "values in concurrent contexts.";
+  private static final String ILLEGAL_MUTABLE_STATIC_VALUE_DECLARATION =
+      "Illegal Mutable Static Value: Static values are deeply-immutable and may not be reassigned. These " +
+      "restrictions ensure that Claro is able to statically eliminate the possibility of data races over static " +
+      "values in concurrent contexts.";
+  private static final String ILLEGAL_FLAG_TYPE_DECLARATION =
+      "Illegal Flag Type Declaration: Flags must be of one of the following supported types:\n" +
+      "\t- %s";
+  private static final String ILLEGAL_DUPLICATE_FLAG_DEFS_FOUND =
+      "Illegal Duplicate Flag Definitions: Flags names must be globally unique so that they can be specified on the " +
+      "command line.\n" +
+      "\tFound the following flags duplicated in the following modules:\n" +
+      "%s";
+  private static final String ILLEGAL_USE_OF_OPAQUE_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR =
+      "Illegal Attempt to Initialize Opaque Type: An opaque type may only be instantiated by its defining module. In " +
+      "order to get an instance of `%s`, reference the defining module to find an exported procedure or static value " +
+      "of the desired type.";
 
   public ClaroTypeException(String message) {
     super(message);
@@ -519,7 +704,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             DUPLICATE_KEY_BINDINGS,
             duplicatedKeyBindingsSet.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );
@@ -530,7 +715,7 @@ public class ClaroTypeException extends Exception {
         String.format(
             REBINDING_KEYS_FROM_OUTER_USING_BLOCK,
             reboundKeys.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );
@@ -562,7 +747,7 @@ public class ClaroTypeException extends Exception {
             procedureName,
             procedureType,
             missingBindings.stream()
-                .map(key -> String.format("%s:%s", key.name, key.type))
+                .map(key -> String.format("%s:%s", key.getName(), key.getType()))
                 .collect(Collectors.joining(", ", "[", "]"))
         )
     );
@@ -748,14 +933,8 @@ public class ClaroTypeException extends Exception {
             CONTRACT_IMPLEMENTATION_WITH_WRONG_NUMBER_OF_TYPE_PARAMS, contractTypeString, implementationTypeString));
   }
 
-  public static ClaroTypeException forDuplicateContractImplementation(
-      String currentImplementationTypeString, String otherImplementationTypeString) {
-    return new ClaroTypeException(
-        String.format(
-            DUPLICATE_CONTRACT_IMPLEMENTATION,
-            currentImplementationTypeString,
-            otherImplementationTypeString
-        ));
+  public static ClaroTypeException forDuplicateContractImplementation(String currentImplementationTypeString) {
+    return new ClaroTypeException(String.format(DUPLICATE_CONTRACT_IMPLEMENTATION, currentImplementationTypeString));
   }
 
   public static ClaroTypeException forContractImplementationMissingRequiredProcedureDefinitions(
@@ -1093,19 +1272,23 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static ClaroTypeException forIllegalInitializersBlockReferencingUndeclaredInitializedType(String initializedTypeName) {
+  public static ClaroTypeException forIllegalInitializersBlockReferencingUndeclaredInitializedType(
+      String initializedTypeName, boolean initializers) {
     return new ClaroTypeException(
         String.format(
             ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_UNDECLARED_INITIALIZED_TYPE,
+            initializers ? "Initializers" : "Unwrappers",
             initializedTypeName
         )
     );
   }
 
-  public static ClaroTypeException forIllegalInitializersBlockReferencingNonUserDefinedType(String identifier, Type type) {
+  public static ClaroTypeException forIllegalInitializersBlockReferencingNonUserDefinedType(
+      String identifier, Type type, boolean initializers) {
     return new ClaroTypeException(
         String.format(
             ILLEGAL_INITIALIZERS_BLOCK_REFERENCING_NON_USER_DEFINED_TYPE,
+            initializers ? "Initializers" : "Unwrappers",
             identifier,
             type
         )
@@ -1124,14 +1307,31 @@ public class ClaroTypeException extends Exception {
     );
   }
 
-  public static Exception forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
+  public static ClaroTypeException forIllegalUseOfUserDefinedTypeDefaultUnwrapperOutsideOfUnwrapperProcedures(
       Type userDefinedType, Collection<String> unwrapperProcedureTypes) {
+    if (unwrapperProcedureTypes == null) {
+      return new ClaroTypeException(ILLEGAL_USE_OF_OPAQUE_TYPE_UNWRAPPER);
+    }
     return new ClaroTypeException(
         String.format(
             ILLEGAL_USE_OF_USER_DEFINED_TYPE_DEFAULT_UNWRAPPER_OUTSIDE_OF_UNWRAPPER_PROCEDURES,
             userDefinedType,
             unwrapperProcedureTypes.stream()
                 .collect(Collectors.joining("\n\t\t\t- ", "\t\t\t- ", ""))
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalImplicitUnwrapOfOpaqueUserDefinedTypeInMatchPattern(
+      Type userDefinedType, String userDefinedTypeName) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_IMPLICIT_UNWRAP_OF_OPAQUE_USER_DEFINED_TYPE_IN_MATCH_PATTERN,
+            userDefinedType,
+            userDefinedTypeName,
+            userDefinedTypeName,
+            userDefinedTypeName,
+            userDefinedTypeName
         )
     );
   }
@@ -1400,6 +1600,291 @@ public class ClaroTypeException extends Exception {
         String.format(
             FUNCTION_CALL_RESULT_IGNORED,
             functionType
+        )
+    );
+  }
+
+  public static ClaroTypeException forMatchOverUnsupportedBaseValueTypes(
+      Type matchedExprType, ImmutableSet<Type> unsupportedBaseValueTypes) {
+    return new ClaroTypeException(
+        String.format(
+            MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES,
+            matchedExprType,
+            unsupportedBaseValueTypes.stream().map(Type::toString).collect(Collectors.joining("\n\t\t\t- "))
+        )
+    );
+  }
+
+  public static ClaroTypeException forMatchContainsDuplicateDefaultCases() {
+    return new ClaroTypeException(MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES);
+  }
+
+  public static ClaroTypeException forMatchIsNotExhaustiveOverAllPossibleValues(Type matchedExprType, String counterExample) {
+    return new ClaroTypeException(
+        String.format(
+            NON_EXHAUSTIVE_MATCH,
+            matchedExprType,
+            counterExample
+        )
+    );
+  }
+
+  public static ClaroTypeException forDuplicateMatchCase() {
+    return new ClaroTypeException(DUPLICATE_MATCH_CASE);
+  }
+
+  public static ClaroTypeException forUselessMatchStatementOverSingleDefaultCase() {
+    return new ClaroTypeException(USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE);
+  }
+
+  public static ClaroTypeException forUselessMatchCaseTypeLiteralPatternForNonOneofMatchedVal(Type matchedExprType) {
+    return new ClaroTypeException(
+        String.format(
+            USELESS_MATCH_CASE_TYPE_LITERAL_PATTERN_FOR_NON_ONEOF_MATCHED_VAL,
+            matchedExprType
+        )
+    );
+  }
+
+  public static ClaroTypeException forUselessDefaultCaseInAlreadyExhaustiveMatch() {
+    return new ClaroTypeException(USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH);
+  }
+
+  public static ClaroTypeException forIllegalProcedureCallInMatchCasePattern() {
+    return new ClaroTypeException(ILLEGAL_PROCEDURE_CALL_IN_MATCH_CASE_PATTERN);
+  }
+
+  public static ClaroTypeException forIllegalShadowingOfDeclaredVariableForWildcardBinding() {
+    return new ClaroTypeException(ILLEGAL_SHADOWING_OF_DECLARED_VARIABLE_FOR_WILDCARD_BINDING);
+  }
+
+  public static ClaroTypeException forInvalidPatternMatchingWrongType(Type expectedExprType, Type actualType) {
+    return new ClaroTypeException(
+        String.format(
+            INVALID_PATTERN_MATCHING_WRONG_TYPE,
+            expectedExprType,
+            actualType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedProcedureNotDefinedInModuleImplFiles(
+      String procedureName, Type procedureSignatureType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_PROCEDURE_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            procedureName,
+            procedureSignatureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedProcedureNameBoundToIncorrectImplementationType(
+      String exportedProcedureName, Type expectedExportedProcedureType, Type actualIdentifierType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_PROCEDURE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            exportedProcedureName,
+            actualIdentifierType,
+            expectedExportedProcedureType
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalExportedInitializersBlockReferencingTypeFromDepModule(boolean initializers) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_EXPORTED_INITIALIZERS_BLOCK_REFERENCING_TYPE_FROM_DEP_MODULE,
+            initializers ? "Initializers" : "Unwrappers",
+            initializers ? "initializers" : "unwrappers"
+        ));
+  }
+
+  public static ClaroTypeException forModuleAPIReferencesTypeFromTransitiveDepModuleNotExplicitlyExplicitlyExported(
+      Set<String> nonExportedDeps) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_API_REFERENCES_TYPE_FROM_TRANSITIVE_DEP_MODULE_NOT_EXPLICITLY_EXPORTED,
+            nonExportedDeps.stream().map(d -> String.format("\"%s\"", d)).collect(Collectors.joining(",\n\t\t\t\t"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forUnnecessaryExportedDepModule(Set<String> unnecessarilyExportedDeps) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_UNNECESSARILY_EXPORTS_DEP_MODULES_THAT_ARE_NOT_REFERENCED_IN_MODULE_API,
+            Joiner.on("\n\t\t- ").join(unnecessarilyExportedDeps)
+        )
+    );
+  }
+
+  public static ClaroTypeException forUsingOptionalStdlibDepModuleWithoutExplicitBuildDep(String optionalStdlibDepModuleName) {
+    return new ClaroTypeException(
+        String.format(
+            USING_OPTIONAL_STDLIB_DEP_MODULE_WITHOUT_EXPLICIT_BUILD_DEP,
+            optionalStdlibDepModuleName
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalContractImplOverTypesNotDefinedInCurrentCompilationUnit(
+      String contractTypeString, ImmutableList<Type> implTypeParamsDefinedOutsideCurrentCompilationUnit) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_CONTRACT_IMPL_OVER_TYPES_NOT_DEFINED_IN_CURRENT_COMPILATION_UNIT,
+            contractTypeString,
+            Joiner.on("\n\t- ").join(implTypeParamsDefinedOutsideCurrentCompilationUnit)
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedContractImplementationNotDefinedInModuleImplFiles(
+      String contractImplCanonicalName) {
+    return new ClaroTypeException(
+        String.format(MODULE_EXPORTED_CONTRACT_IMPL_NOT_DEFINED_IN_MODULE_IMPL_FILES, contractImplCanonicalName));
+  }
+
+  public static ClaroTypeException forModuleExportedStaticValueProviderNotDefinedInModuleImplFiles(
+      String staticValueIdentifier, Type staticValueType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            staticValueIdentifier,
+            staticValueType,
+            staticValueIdentifier,
+            staticValueType
+        ));
+  }
+
+  public static ClaroTypeException forModuleExportedStaticValueProviderNameBoundToIncorrectImplementationType(
+      String staticValueIdentifier, Type staticValueType, Type actualType, boolean isBlocking) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_STATIC_VALUE_PROVIDER_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            staticValueIdentifier,
+            staticValueType,
+            staticValueIdentifier,
+            staticValueType,
+            isBlocking ? "blocking " : "",
+            staticValueIdentifier,
+            actualType
+        ));
+  }
+
+  public static ClaroTypeException forIllegalAssignmentAttemptOnStaticValue() {
+    return new ClaroTypeException(ILLEGAL_ASSIGNMENT_ATTEMPT_ON_STATIC_VALUE);
+  }
+
+  public static ClaroTypeException forIllegalMutableStaticValueDeclaration() {
+    return new ClaroTypeException(ILLEGAL_MUTABLE_STATIC_VALUE_DECLARATION);
+  }
+
+  public static ClaroTypeException forIllegalFlagTypeDeclaration(ImmutableSet<Type> supportedFlagTypes) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_FLAG_TYPE_DECLARATION,
+            Joiner.on("\n\t- ").join(supportedFlagTypes)
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalDuplicateFlagDefsFound(
+      Map<String, List<String>> duplicatedFlagsToUniqueModuleNames) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_DUPLICATE_FLAG_DEFS_FOUND,
+            duplicatedFlagsToUniqueModuleNames.entrySet().stream()
+                .map(e -> {
+                  StringBuilder res = new StringBuilder("\t\t").append(e.getKey()).append(":\n");
+                  for (String definingModule : e.getValue()) {
+                    res.append("\t\t\t- ").append(definingModule).append("\n");
+                  }
+                  return res.toString();
+                })
+                .collect(Collectors.joining("\n"))
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeNotDefinedInModuleImplFiles(
+      String typeName, boolean isMutable, ImmutableList<String> parameterizedTypeNames) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_NOT_DEFINED_IN_MODULE_IMPL_FILES,
+            typeName,
+            parameterizedTypeNames.isEmpty()
+            ? ""
+            : String.format("<%s>", Joiner.on(", ").join(parameterizedTypeNames)),
+            isMutable ? "mut " : ""
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeNameBoundToIncorrectImplementationType(
+      String typeName, boolean isMutable, ImmutableList<String> parameterizedTypeNames) {
+    String typeParams =
+        parameterizedTypeNames.isEmpty()
+        ? ""
+        : String.format("<%s>", Joiner.on(", ").join(parameterizedTypeNames));
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_NAME_BOUND_TO_INCORRECT_IMPLEMENTATION_TYPE,
+            typeName,
+            isMutable ? "mut " : "",
+            typeName,
+            typeParams,
+            typeName,
+            typeParams,
+            isMutable ? "mut " : ""
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeInternalDefinitionHasWrongTypeParams(
+      String identifier, boolean isMutable, ImmutableList<String> expectedParameterizedTypeNames, ImmutableList<String> actualParameterizedTypes, Type actualWrappedType) {
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_HAS_WRONG_TYPE_PARAMS,
+            isMutable ? "mut " : "",
+            identifier,
+            expectedParameterizedTypeNames.isEmpty()
+            ? ""
+            : expectedParameterizedTypeNames.stream().collect(Collectors.joining(", ", "<", ">")),
+            identifier,
+            actualParameterizedTypes.isEmpty()
+            ? ""
+            : actualParameterizedTypes.stream().collect(Collectors.joining(", ", "<", ">")),
+            actualWrappedType
+        )
+    );
+  }
+
+  public static ClaroTypeException forModuleExportedOpaqueTypeInternalDefinitionDoesNotMatchDeclaredMutability(
+      String identifier, boolean isMutable, ImmutableList<String> parameterizedTypeNames, Type type) {
+    String typeParams =
+        parameterizedTypeNames.isEmpty()
+        ? ""
+        : parameterizedTypeNames.stream().collect(Collectors.joining(", ", "<", ">"));
+    return new ClaroTypeException(
+        String.format(
+            MODULE_EXPORTED_OPAQUE_TYPE_INTERNAL_DEFINITION_DOES_NOT_MATCH_DECLARED_MUTABILITY,
+            isMutable ? "mut " : "",
+            identifier,
+            typeParams,
+            identifier,
+            typeParams,
+            type
+        )
+    );
+  }
+
+  public static ClaroTypeException forIllegalUseOfOpaqueUserDefinedTypeDefaultConstructor(
+      Type referencedUserDefinedType) {
+    return new ClaroTypeException(
+        String.format(
+            ILLEGAL_USE_OF_OPAQUE_USER_DEFINED_TYPE_DEFAULT_CONSTRUCTOR,
+            referencedUserDefinedType
         )
     );
   }

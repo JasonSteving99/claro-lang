@@ -1,0 +1,42 @@
+{namespace contracts}
+
+{template .contractDef}
+    {@param name: string}
+    {@param genericTypeParams: list<string>}
+    {@param signatures: list<html>}
+
+    {call codeblock.code}
+        {param class: 'contract-def' /}
+        {param id: '{$name}' /}
+        {param codeContent kind="html"}
+            {call tokens.CONTRACT /}{sp}{$name}
+            {call tokens.LT /}
+            {call utils.commaSep}
+                {param elems: $genericTypeParams /}
+            {/call}
+            {call tokens.GT /}
+            {sp}{lb}
+            {for $sig in $signatures}
+                {$sig}
+            {/for}
+            {rb}
+        {/param}
+    {/call}
+{/template}
+
+{template .contractImpl}
+    {@param name: string}
+    {@param genericTypeParams: list<html>}
+
+    {call codeblock.code}
+        {param class: 'contract-impl' /}
+        {param id: '{$name}' /}
+        {param codeContent kind="html"}
+            {call tokens.IMPLEMENT /} {$name} {call tokens.LT /}
+            {call utils.commaSep}
+                {param elems: $genericTypeParams /}
+            {/call}
+            {call tokens.GT /}{call tokens.SEMICOLON /}
+        {/param}
+    {/call}
+{/template}

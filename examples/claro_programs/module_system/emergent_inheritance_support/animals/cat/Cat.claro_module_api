@@ -1,0 +1,5 @@
+
+newtype Cat : struct {callSign: string}
+
+# This allows the inheritance of the implementations of signatures in Animal.claro_module_api.
+alias Animal : Cat

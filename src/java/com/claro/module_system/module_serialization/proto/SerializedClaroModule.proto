@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package claro.module_system.module_serialization;
+
+import "src/java/com/claro/module_system/module_serialization/proto/claro_types/ClaroTypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.claro.module_system.module_serialization.proto";
+
+// Perhaps this may change going forward, however, the fact is that this proto is used as the intermediate format for
+// incremental compilation, so I'd much prefer to prioritize (de)serialization time to have a positive effect on compile
+// times. I don't think any of the choices made here so far lend themselves to much in the way of great disk utilization
+// so I won't pretend that's the case here just yet. Remember that this affects dev machines not deploy binary sizes.
+option optimize_for = SPEED;
+
+// NOTE: As Claro is now bootstrapping in some places, these field numbers are effectively set in stone. It's possible
+//       that they can still be changed as long as there are no backwards compatibility assurances for public Claro
+//       programs (which will be years away realistically), but even so, it would have to go through a dedicated release
+//       process to iteratively migrate the compiler towards new numbering for the fields and would likely require
+//       multiple commits. So, care should be taken to avoid needing to change any existing field numbers or field types
+//       unnecessarily as this would require a lot of planning and manual labor. Unfortunately, from an aesthetic
+//       perspective, this means that some fields will have out-of-order field numbers as fields get added in some
+//       semblance of a sensible organization, but this isn't a problem.
+
+// Next id: 15
+message SerializedClaroModule {
+  message ClaroSourceFile {
+    string original_filename = 1;
+    bytes source_utf8 = 2;
+  }
+
+  message UniqueModuleDescriptor {
+    // Claro doesn't utilize a "package visibility" system like Java does, instead it assumes that you'll control code
+    // visibility using Bazel's builtin target visibility controls. However, it does need some mechanism for ensuring
+    // that cross-project .claro_modules do not produce artifacts that collide in the same Java namespace. So, Claro
+    // will utilize a concept of "project package" as a global (internet-wide) disambiguator. When building using
+    // Claro's Bazel rules, this string will be automatically derived from the Bazel workspace's name. This is in an
+    // effort towards utilizing Bazel's native Bazelmod as Claro's "package manager".
+    string project_package = 1;
+    // When building using Claro's Bazel rules, this string will be automatically formatted to be something like
+    // `examples$claro_programs$module_test` for a `claro_module(name = "module_test", ...)` located at the
+    // bazel path //examples/claro_programs:module_test. This ensures that this Module name is unique across
+    // the entire Bazel project in which this module is being compiled.
+    string unique_module_name = 2;
+  }
+
+  // This message breaks down an exported transitive dep type as follows:
+  // For the type reference `FooDep::SomeType` in a .claro_module_api file:
+  //   - module_name = "FooDep"
+  //   - unique_module_name = "src$com$some$concrete$dep$module"
+  //      - this is assuming tha the concrete claro_module() dep implementing FooDep::SomeType is located at the bazel
+  //      - path "//src/com/some/concrete/dep:module".
+  message ExportedTransitiveDepModule {
+    string module_name = 1;
+    string unique_module_name = 2;
+  }
+
+  message Procedure {
+    string name = 1;
+    oneof procedure_type {
+      claro.module_system.module_serialization.claro_types.FunctionType function = 2;
+      claro.module_system.module_serialization.claro_types.ConsumerType consumer = 3;
+      claro.module_system.module_serialization.claro_types.ProviderType provider = 4;
+    }
+  }
+
+  message ExportedTypeDefinitions {
+    message NewTypeDef {
+      claro.module_system.module_serialization.claro_types.UserDefinedType user_defined_type = 1;
+      claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
+      repeated string type_param_names = 3;
+      Procedure constructor = 4;
+    }
+    // Literally just a simple wrapper type in order to have a map with list values.
+    message ProcedureList {
+      repeated Procedure procedures = 1;
+    }
+    map<string, claro.module_system.module_serialization.claro_types.TypeProto> exported_alias_defs_by_name = 1;
+    map<string, NewTypeDef> exported_newtype_defs_by_name = 2;
+    map<string, ProcedureList> initializers_by_type_name = 3;
+    map<string, ProcedureList> unwrappers_by_type_name = 4;
+  }
+
+  message ExportedFlagDefinitions {
+    message ExportedFlag {
+      string name = 1;
+      claro.module_system.module_serialization.claro_types.TypeProto type = 2;
+    }
+    message ExportedFlagsList {
+      repeated ExportedFlag flags = 1;
+    }
+
+    // These are the flags actually directly exported by this module. These are separated out from the transitive flags
+    // literally just to enable ClaroDocs to correctly attribute flags to their defining module.
+    repeated ExportedFlag direct_exported_flags = 1;
+
+    // These are the flags exported by the transitive closure of all of this module's deps. These need to be collected
+    // in order for Claro to collect them all at the top-level claro_binary() to codegen parsing logic.
+    map<string, ExportedFlagsList> transitive_exported_flags_by_defining_module = 2;
+  }
+
+  message ExportedStaticValue {
+    string name = 1;
+    claro.module_system.module_serialization.claro_types.TypeProto type = 2;
+    bool is_lazy = 3;
+  }
+
+  message ExportedContractDefinition {
+    string name = 1;
+    repeated string type_param_names = 2;
+    repeated Procedure signatures = 3;
+  }
+
+  message ExportedContractImplementation {
+    string implemented_contract_name = 1;
+    repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+    // Strictly speaking, these concrete signatures should be derivable from the signatures listed in the contract
+    // definition itself. However, as that would require some significantly complex logic to be duplicated, I'm making
+    // the design decision to instead directly encode the concrete signatures to just decode them instead of re-derive
+    // them from scratch.
+    repeated Procedure concrete_signatures = 3;
+  }
+
+  message ExportedHttpServiceDefinition {
+    message Endpoint {
+      string endpoint_name = 1;
+      string path = 2;
+      Procedure procedure = 3;
+    }
+    string http_service_name = 1;
+    repeated Endpoint endpoints = 2;
+  }
+
+  message CodegendMonomorphizationsList {
+    message CodegendMonomorphization {
+      // The name of the generic procedure for which monomorphization is being requested.
+      string procedure_name = 1;
+
+      // The ordered list of concrete types the procedure's generic type params are being bound to.
+      repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+    }
+
+    repeated CodegendMonomorphization monomorphizations = 1;
+  }
+
+  UniqueModuleDescriptor module_descriptor = 1;
+
+  // In order for this build to be repeatable (or perhaps, in the future, statically analyzed in some way), here are the
+  // exact command line args that were passed to the compiler to build this module.
+  repeated string command_line_args = 9;
+
+  // This is essentially a serialized symbol table containing just the newtypes and aliases exported by this module.
+  ExportedTypeDefinitions exported_type_definitions = 2;
+
+  repeated string exported_atom_definitions = 3;
+
+  ExportedFlagDefinitions exported_flag_definitions = 13;
+
+  repeated ExportedStaticValue exported_static_values = 12;
+
+  repeated Procedure exported_procedure_definitions = 4;
+
+  repeated ExportedContractDefinition exported_contract_definitions = 10;
+
+  repeated ExportedContractImplementation exported_contract_implementations = 11;
+
+  repeated ExportedHttpServiceDefinition exported_http_service_definitions = 5;
+
+  // Exported transitive types are types that are actually defined by this Module's deps but referenced in the exported
+  // procedures/types of this Module's api. This is necessary to communicate explicitly what types are being talked
+  // about here, as this is technically ambiguous from looking at the api file alone as readers couldn't know what
+  // concrete deps the module was compiled against. This field resolves that ambiguity by specifying the concrete
+  // disambiguator for each exported transitive type.
+  repeated ExportedTransitiveDepModule exported_transitive_dep_modules = 6;
+
+  // This field contains the codegen pertaining to any static definitions that are guaranteed to be provided by this
+  // module. In less opaque terms, this contains codegen for any non-generic procedure definitions that are exported by
+  // this module. This *does not* include any codegen for generic procedure monomorphizations (except for those
+  // monomorphizations that are explicitly called from exported procedures *within* this module). Later on, when this
+  // module is depended on in a Claro Binary, the concrete monomorphizations needed by the overall will be codegen'd at
+  // the last minute.
+  bytes static_java_codegen = 7;
+
+  // As Claro will need to postpone codegen of generic procedure monomorphizations until after the entire program is
+  // assembled into a Claro Binary, this serialized module actually needs to maintain the original Claro source files
+  // that contain all exported procedure implementations. This way, once all concrete monomorphizations are known, it's
+  // possible to re-parse the source file to find the necessary generic procedure defs to codegen monomorphizations for.
+  repeated ClaroSourceFile module_impl_files = 8;
+
+  // Mapping of the transitive closure of all monomorphizations already codegen'd by this module and its entire dep
+  // graph. This will be used by any compilation unit depending on this module to determine when it's safe to completely
+  // short-circuit codegen of monomorphizations that will certainly already be included in the final Jar by depending on
+  // this module. This should have a significant compile-time performance benefit while not having any effect on the
+  // running program.
+  map<string, CodegendMonomorphizationsList> codegend_monomorphizations_transitive_closure_by_unique_module_name = 14;
+}

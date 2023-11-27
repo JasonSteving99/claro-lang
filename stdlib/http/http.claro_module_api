@@ -1,0 +1,4 @@
+
+function getOk200HttpResponseForHtml(json: string) -> HttpResponse;
+
+function getOk200HttpResponseForJson(json: string) -> HttpResponse;

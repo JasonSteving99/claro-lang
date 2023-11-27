@@ -10,10 +10,13 @@ import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.TypeProvider;
 import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Optional;
 
 public class UnwrappersBlockStmt extends Stmt {
   private final String unwrappedTypeName;
-  private final ImmutableList<Stmt> unwrapperProcedureDefs;
+  public final ImmutableList<Stmt> unwrapperProcedureDefs;
 
   public UnwrappersBlockStmt(String unwrappedTypeName, ImmutableList<Stmt> unwrapperProcedureDefs) {
     super(ImmutableList.of());
@@ -22,6 +25,7 @@ public class UnwrappersBlockStmt extends Stmt {
   }
 
   public void registerProcedureTypeProviders(ScopedHeap scopedHeap) {
+    ImmutableSet.Builder<String> unwrapperProcedureNames = ImmutableSet.builder();
     for (Stmt proc : this.unwrapperProcedureDefs) {
       String procedureName;
       if (proc instanceof ProcedureDefinitionStmt) {
@@ -36,21 +40,27 @@ public class UnwrappersBlockStmt extends Stmt {
         }
         procedureName = ((GenericFunctionDefinitionStmt) proc).functionName;
       }
-      InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedType
-          .put(this.unwrappedTypeName, procedureName);
+      unwrapperProcedureNames.add(procedureName);
     }
+    InternalStaticStateUtil.UnwrappersBlockStmt_unwrappersByUnwrappedTypeNameAndModuleDisambiguator
+        .put(
+            this.unwrappedTypeName,
+            // We know for a fact that unwrappers can only be defined in the same Module in which the type was defined.
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()),
+            unwrapperProcedureNames.build()
+        );
   }
 
   @Override
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     if (!scopedHeap.isIdentifierDeclared(this.unwrappedTypeName)) {
-      throw ClaroTypeException.forIllegalInitializersBlockReferencingUndeclaredInitializedType(this.unwrappedTypeName);
+      throw ClaroTypeException.forIllegalInitializersBlockReferencingUndeclaredInitializedType(this.unwrappedTypeName, /*initializers=*/false);
     }
     Type validatedInitializedType =
         TypeProvider.Util.getTypeByName(this.unwrappedTypeName, true).resolveType(scopedHeap);
     if (!validatedInitializedType.baseType().equals(BaseType.USER_DEFINED_TYPE)) {
       throw ClaroTypeException.forIllegalInitializersBlockReferencingNonUserDefinedType(
-          this.unwrappedTypeName, validatedInitializedType);
+          this.unwrappedTypeName, validatedInitializedType, /*initializers=*/false);
     }
 
     // Do type validation of all the initializer procedures. Note, that these procedures will be uniquely allowed to

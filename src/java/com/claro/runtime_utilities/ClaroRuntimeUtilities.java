@@ -4,6 +4,7 @@ import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
 import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
 import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
+import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -122,7 +123,8 @@ public class ClaroRuntimeUtilities {
     // shadow it or create their own type meeting these conditions, so here we'll be good.
     return t.baseType().equals(BaseType.USER_DEFINED_TYPE)
            && ((Types.UserDefinedType) t).getTypeName().equals("Error")
-           && t.parameterizedTypeArgs().size() == 1;
+           && ((Types.UserDefinedType) t).getDefiningModuleDisambiguator()
+               .equals(StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR);
   }
 
   public static Type getClaroType(Object value) {
@@ -156,7 +158,11 @@ public class ClaroRuntimeUtilities {
                 Types.OneofType.forVariantTypes(
                     ImmutableList.of(
                         targetType,
-                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                            ImmutableList.of(Types.STRING)
+                        )
                     )
                 ),
                 Types.STRING
@@ -166,12 +172,14 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
+        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(
             parsedJsonStructType,
             new $UserDefinedType<>(
                 "Error",
+                /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
                 ImmutableList.of(Types.STRING),
                 Types.STRING,
                 String.format(
@@ -198,7 +206,11 @@ public class ClaroRuntimeUtilities {
                 Types.OneofType.forVariantTypes(
                     ImmutableList.of(
                         targetType,
-                        Types.UserDefinedType.forTypeNameAndParameterizedTypes("Error", ImmutableList.of(Types.STRING))
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                            ImmutableList.of(Types.STRING)
+                        )
                     )
                 ),
                 Types.STRING
@@ -208,6 +220,7 @@ public class ClaroRuntimeUtilities {
 
     return new $UserDefinedType<>(
         "ParsedJson",
+        /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
         ImmutableList.of(targetType),
         parsedJsonStructType,
         new ClaroStruct(parsedJsonStructType, parsedRes, jsonString)

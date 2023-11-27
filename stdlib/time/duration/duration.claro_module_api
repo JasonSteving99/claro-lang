@@ -1,0 +1,10 @@
+
+opaque newtype Duration
+
+# TODO(steving) Every occurrence of `int` should be converted to `long` once the type is supported.
+function ofDays(days: int) -> Duration;
+function ofHours(hours: int) -> Duration;
+function ofMillis(millis: int) -> Duration;
+function ofMinutes(minutes: int) -> Duration;
+function ofNanos(nanos: int) -> Duration;
+function ofSeconds(seconds: int) -> Duration;

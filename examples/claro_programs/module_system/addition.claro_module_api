@@ -1,0 +1,14 @@
+
+flag TEST_FLAG_2: [string];
+
+newtype FancyInt : MultiHopDep::MultiHopInt
+alias IntAlias : int
+
+initializers FancyInt {
+  function getFancyInt(i: IntAlias) -> FancyInt;
+}
+unwrappers FancyInt {
+  function unwrapFancyInt(f: FancyInt) -> IntAlias;
+}
+
+function add(lhs: FancyInt, rhs: FancyInt) -> IntAlias;

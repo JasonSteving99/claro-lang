@@ -1,0 +1,64 @@
+########################################################################################################################
+# DEMONSTRATE CLARO'S APPROACH TO STRUCTS!
+#
+# Claro treats Structs quite differently than other languages. Whereas in other languages, Structs are considered "user-
+# defined types", that is actually not the case in Claro. Here, Structs are a builtin type just like Tuple, or Map for
+# example. In fact, it's probably valid to consider Claro structs to be semantically equivalent to Tuples except that
+# the fields are named. Otherwise, just like a Tuple, you may have as many fields as you like and each field may have
+# whatever type you'd like, and the order of the fields is semantically meaningful. This approach to Structs allows for
+# some extremely expressive and ergonomic code.
+########################################################################################################################
+
+var firstStruct: struct{first: int, last: int} = {first = 1, last = 2};
+print(firstStruct);
+type(firstStruct);
+print(firstStruct.first);
+print(firstStruct.last);
+
+newtype MyStruct : struct{firstName: string, lastName: string}
+var myStruct = MyStruct({firstName = "Jason", lastName = "Steving"});
+print(myStruct);
+print("unwrap(myStruct).firstName = {unwrap(myStruct).firstName}");
+print("unwrap(myStruct).lastName = {unwrap(myStruct).lastName}");
+
+
+newtype TreeNode<T> : struct {
+  val: T,
+  left: oneof<TreeNode<T>, std::Nothing>,
+  right: oneof<TreeNode<T>, std::Nothing>
+}
+
+var treeRoot: TreeNode<int> = TreeNode({val = 10, left = std::Nothing, right = std::Nothing});
+print(treeRoot);
+type(treeRoot);
+
+
+########################################################################################################################
+# DEMONSTRATE USING STRUCTS AS PROCEDURE OUTPUT TYPE.
+#
+# One significant beauty of Claro's approach to structs as a builtin type is in the simplicity of using structs as
+# a function output type. In other languages, like Java, it's very painful to do this as you'd need to first define a
+# new class outside of this function definition, and answer all sorts of design questions associated w/ that. Here, you
+# just define inline that you'll be returning a struct with some typed fields and you move on to what you were trying to
+# do in the first place.
+########################################################################################################################
+function asStruct<A,B>(a: A, b: B) -> struct{res1: A, res2: B} {
+  return {res1 = a, res2 = b};
+}
+
+print("--------------------------------------------------------------------------------");
+print(asStruct(1, "one"));
+print(asStruct("two", 2));
+print(asStruct(1, "one").res1);
+print(asStruct(1, "one").res2);
+
+########################################################################################################################
+# DEMONSTRATE RE-ASSIGNING TO MUTBLE STRUCT FIELDS
+########################################################################################################################
+
+var mutStruct = mut {first = 1, second = 2};
+print("--------------------------------------------------------------------------------");
+print("Value of `mutStruct` BEFORE mutation: {mutStruct}");
+mutStruct.first = 9;
+mutStruct.second = 20;
+print("Value of `mutStruct` AFTER mutation:  {mutStruct}");

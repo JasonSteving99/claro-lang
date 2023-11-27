@@ -1,0 +1,10 @@
+
+function getGreeting(self: Animal) -> string {
+  return "{makeNoise()}! - says {getName(self)}";
+}
+
+implement Greeter::Greeter<Animal> {
+  function getGreeting(self: Animal) -> string {
+    return getGreeting(self);
+  }
+}

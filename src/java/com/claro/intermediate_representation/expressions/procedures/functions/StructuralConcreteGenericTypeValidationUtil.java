@@ -44,7 +44,7 @@ public class StructuralConcreteGenericTypeValidationUtil {
     // of the generic type params.
     Type validatedReturnType = null;
     final ImmutableSet<BaseType> nestedBaseTypes =
-        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.STRUCT, BaseType.HTTP_SERVER, BaseType.USER_DEFINED_TYPE);
+        ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION, BaseType.FUTURE, BaseType.TUPLE, BaseType.LIST, BaseType.MAP, BaseType.SET, BaseType.STRUCT, BaseType.HTTP_SERVER, BaseType.USER_DEFINED_TYPE, BaseType.$JAVA_TYPE);
     // In the case that this positional arg is a generic param type, then actually we need to just accept
     // whatever type is in the passed arg expr.
     if (functionExpectedArgType.baseType().equals(BaseType.$GENERIC_TYPE_PARAM)) {
@@ -260,13 +260,20 @@ public class StructuralConcreteGenericTypeValidationUtil {
           }
 
           return Types.StructType.forFieldTypes(actualStructType.getFieldNames(), validatedFieldTypesBuilder.build(), actualStructType.isMutable());
+        case USER_DEFINED_TYPE:
+          // UserDefinedTypes also have a name to be compared.
+          if (!((Types.UserDefinedType) functionExpectedArgType).getTypeName()
+              .equals(((Types.UserDefinedType) actualArgExprType).getTypeName())) {
+            throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
+          }
+          // But then can go ahead and fallthrough to the generic handling of parameterized types.
         case FUTURE: // TODO(steving) Actually, all types should be able to be validated in this way... THIS is how I had originally set out to implement Types
         case LIST:   //  as nested structures that self-describe. If they all did this, there could be a single case instead of a switch.
         case MAP:
         case SET:
         case TUPLE:
         case HTTP_SERVER:
-        case USER_DEFINED_TYPE:
+        case $JAVA_TYPE:
           ImmutableList<Type> expectedParameterizedArgTypes =
               functionExpectedArgType.parameterizedTypeArgs().values().asList();
           ImmutableList<Type> actualParameterizedArgTypes = actualArgExprType.parameterizedTypeArgs().values().asList();
@@ -321,11 +328,41 @@ public class StructuralConcreteGenericTypeValidationUtil {
             case HTTP_SERVER:
               return Types.HttpServerType.forHttpService(validatedParameterizedArgTypes.get(0));
             case USER_DEFINED_TYPE:
-              return Types.UserDefinedType.forTypeNameAndParameterizedTypes(((Types.UserDefinedType) functionExpectedArgType).getTypeName(), validatedParameterizedArgTypes);
+              Types.UserDefinedType functionExpectedArgUserDefinedType =
+                  ((Types.UserDefinedType) functionExpectedArgType);
+              return Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                  functionExpectedArgUserDefinedType.getTypeName(),
+                  functionExpectedArgUserDefinedType.getDefiningModuleDisambiguator(),
+                  validatedParameterizedArgTypes
+              );
+            case $JAVA_TYPE:
+              Types.$JavaType functionExpectedArgJavaType = (Types.$JavaType) functionExpectedArgType;
+              return Types.$JavaType.create(
+                  functionExpectedArgJavaType.getIsMutable(),
+                  validatedParameterizedArgTypes,
+                  functionExpectedArgJavaType.getFullyQualifiedJavaTypeFmtStr()
+              );
           }
         default:
           throw new ClaroParserException("Internal Compiler Error: I'm missing handling a case that requires structural type validation when validating a call to a generic function and inferring the concrete type params.");
       }
+    } else if (functionExpectedArgType.baseType().equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+      // Really this path should only ever be taken by CopyExpr.java which needs to support copying opaque types.
+      if (actualArgExprType.baseType().equals(BaseType.$SYNTHETIC_OPAQUE_TYPE_WRAPPED_VALUE_TYPE)) {
+        // Just need to unwrap both opaque types and continue with the established logic as if this opaque layer doesn't
+        // exist.
+        return validateArgExprsAndExtractConcreteGenericTypeParams(
+            genericTypeParamTypeHashMap,
+            ((Types.$SyntheticOpaqueTypeWrappedValueType) functionExpectedArgType).getActualWrappedTypeForCodegenPurposesOnly(),
+            ((Types.$SyntheticOpaqueTypeWrappedValueType) actualArgExprType).getActualWrappedTypeForCodegenPurposesOnly(),
+            inferConcreteTypes,
+            optionalTypeCheckingCodegenForDynamicDispatch,
+            optionalTypeCheckingCodegenPath,
+            optionalIsTypeParamEverUsedWithinNestedCollectionTypeMap,
+            withinNestedCollectionTypeNotSupportingDynDispatch
+        );
+      }
+      throw DEFAULT_TYPE_MISMATCH_EXCEPTION;
     } else {
       // Otherwise, this is not a generic type param position, and we need to validate this arg against the
       // actual concrete type in the function signature.

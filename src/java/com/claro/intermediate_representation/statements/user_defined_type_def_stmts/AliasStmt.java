@@ -12,9 +12,9 @@ import java.util.Optional;
 
 public class AliasStmt extends Stmt implements UserDefinedTypeDefinitionStmt {
   public static final String CURR_ALIAS_DEF_NAME = "$CURR_ALIAS_DEF_NAME";
-  private final String alias;
+  public final String alias;
   private final TypeProvider aliasedType;
-  private Type resolvedType;
+  public Type resolvedType;
 
   public AliasStmt(String alias, TypeProvider aliasedType) {
     super(ImmutableList.of());

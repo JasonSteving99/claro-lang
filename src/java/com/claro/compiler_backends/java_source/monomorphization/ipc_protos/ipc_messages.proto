@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package claro.compiler_backends.java_source.monomorphization.ipc_protos;
+
+import "src/java/com/claro/module_system/module_serialization/proto/claro_types/ClaroTypes.proto";
+
+option java_multiple_files = false;
+option java_outer_classname = "IPCMessages";
+option java_package = "com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos";
+
+message MonomorphizationRequest {
+  message UserDefinedTypeMetadata {
+    claro.module_system.module_serialization.claro_types.UserDefinedType type = 1;
+    claro.module_system.module_serialization.claro_types.TypeProto wrapped_type = 2;
+    repeated string type_param_names = 3;
+  }
+
+  // The name of the generic procedure for which monomorphization is being requested.
+  string procedure_name = 1;
+
+  // The ordered list of concrete types the procedure's generic type params are being bound to.
+  repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+
+  // In the case that the requested concrete_type_params are user-defined types (in particular if they were defined
+  // outside of the dep module's own dep subgraph) then the dep module will not have configuration for the type's
+  // wrapped type, or type param names. So, when sending a MonomorphizationRequest, this metadata will be passed along
+  // to enable the dep module subprocess to make note before it attempts monomorphization. If the concrete_type_params
+  // doesn't contain any user-defined types, then this list will be empty.
+  repeated UserDefinedTypeMetadata user_defined_type_concrete_type_params_metadata = 3;
+
+  // Because the dep module may not actually know about the contract implementations that the coordinator module knows]
+  // about, the coordinator needs to tell the dep module all the details it may need in order to produce the correct
+  // codegen.
+  // TODO(steving) Giant number to make room for refactoring later switching to a more appropriate single definition of
+  // TODO(steving)   the currently duplicated ExportedContractImplementation message.
+  repeated ExportedContractImplementation required_contract_implementations = 4000;
+}
+
+message MonomorphizationResponse {
+  message Monomorphization {
+    MonomorphizationRequest monomorphization_request = 1;
+    string monomorphization_codegen = 2;
+  }
+  message TransitiveDepModuleMonomorphizationRequest {
+    string unique_module_name = 1;
+    MonomorphizationRequest monomorphization_request = 2;
+  }
+  // The actual codegen'd Java-source strings for the requested monomorphization as well as any other local, generic
+  // procedure monomorphizations that were triggered by monomorphization of the requested procedure (this can happen
+  // when a generic procedure calls another generic procedure ad infinitum).
+  repeated Monomorphization local_module_monomorphizations = 1;
+
+  // A list of requested monomorphizations from transitive dep modules that the coordinator will need to trigger codegen
+  // for. The assumption here is that the codegen in the local_module_monomorphizations field implicitly depends on the
+  // monomorphizations represented in this field, so the coordinator must trigger that transitive dep module
+  // monomorphization or else the local_module_monomorphization codegen would be invalid.
+  repeated TransitiveDepModuleMonomorphizationRequest transitive_dep_module_monomorphization_requests = 2;
+
+  // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
+  // that in the main coordinator process as debugging the dep module processes is a painful process. So, instead,
+  // I'll format an error message here and convey the problem to the coordinator via a proper error field in the
+  // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
+  // proceeding.
+  string optional_error_message = 3;
+}
+
+
+// TODO(steving) This is a duplicated proto message that already exists in SerializedClaroModule.proto, I don't want
+// TODO(steving)   to continue having duplicated definitions of these structures, refactor so there's a single def.
+message ExportedContractImplementation {
+  message Procedure {
+    string name = 1;
+    oneof procedure_type {
+      claro.module_system.module_serialization.claro_types.FunctionType function = 2;
+      claro.module_system.module_serialization.claro_types.ConsumerType consumer = 3;
+      claro.module_system.module_serialization.claro_types.ProviderType provider = 4;
+    }
+  }
+
+  // See SerializedClaroModule.proto for docs.
+  message UniqueModuleDescriptor {
+    string project_package = 1;
+    string unique_module_name = 2;
+  }
+
+  string implemented_contract_name = 1;
+  repeated claro.module_system.module_serialization.claro_types.TypeProto concrete_type_params = 2;
+  // Strictly speaking, these concrete signatures should be derivable from the signatures listed in the contract
+  // definition itself. However, as that would require some significantly complex logic to be duplicated, I'm making
+  // the design decision to instead directly encode the concrete signatures to just decode them instead of re-derive
+  // them from scratch.
+  repeated Procedure concrete_signatures = 3;
+  // This will be used so that the dep module knows what namespacing to use for the contract impl's codegen as the
+  // contract could actually be originating from some module unknown to the dep module.
+  UniqueModuleDescriptor contract_impl_defining_module_descriptor = 4;
+}

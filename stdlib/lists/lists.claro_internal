@@ -1,0 +1,359 @@
+
+
+consumer add<T>(l: mut [T], toAdd: T) {
+  $$BEGIN_JAVA
+  l.add(toAdd);
+  $$END_JAVA
+}
+
+
+function addAll<T>(l: mut [T], toAdd: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+function addAllFromMut<T>(l: mut [T], toAdd: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.addAll(toAdd);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer clear<T>(l: mut [T]) {
+  $$BEGIN_JAVA
+  l.clear();
+  $$END_JAVA
+}
+
+
+function contains<T>(l: [T], elem: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.contains(elem);
+  $$END_JAVA
+  return res;
+}
+function containsInMut<T>(l: mut [T], elem: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.contains(elem);
+  $$END_JAVA
+  return res;
+}
+
+
+function containsAll<T>(l: [T], elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllFromMut<T>(l: [T], elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllInMut<T>(l: mut [T], elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+function containsAllInMutFromMut<T>(l: mut [T], elems: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer ensureCapacity<T>(l: mut [T], minCapacity: int) {
+  $$BEGIN_JAVA
+  l.ensureCapacity(minCapacity);
+  $$END_JAVA
+}
+
+
+consumer forEach<T>(l: [T], action: consumer<T>) {
+  $$BEGIN_JAVA
+  l.forEach(action::apply);
+  $$END_JAVA
+}
+consumer forEachInMut<T>(l: mut [T], action: consumer<T>) {
+  $$BEGIN_JAVA
+  l.forEach(action::apply);
+  $$END_JAVA
+}
+
+
+function getAt<T>(l: [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: T;
+  $$BEGIN_JAVA
+  res = l.get(index);
+  $$END_JAVA
+  return res;
+}
+function getAtInMut<T>(l: mut [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: T;
+  $$BEGIN_JAVA
+  res = l.get(index);
+  $$END_JAVA
+  return res;
+}
+
+
+function indexOf<T>(l: [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>> {
+  var res: int;
+  $$BEGIN_JAVA
+  res = l.indexOf(t);
+  $$END_JAVA
+  if (res == -1) {
+    return std::Error(ElementNotFound(t));
+  }
+  return res;
+}
+function indexOfInMut<T>(l: mut [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>> {
+  var res: int;
+  $$BEGIN_JAVA
+  res = l.indexOf(t);
+  $$END_JAVA
+  if (res == -1) {
+    return std::Error(ElementNotFound(t));
+  }
+  return res;
+}
+
+
+function insertAllAt<T>(l: mut [T], index: int, elems: [T]) -> oneof<boolean, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.addAll(index, elems);
+  $$END_JAVA
+  return res;
+}
+function insertAllAtFromMut<T>(l: mut [T], index: int, elems: mut [T]) -> oneof<boolean, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.addAll(index, elems);
+  $$END_JAVA
+  return res;
+}
+
+
+function insertAt<T>(l: mut [T], index: int, t: T) -> oneof<std::OK, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  $$BEGIN_JAVA
+  l.add(index, t);
+  $$END_JAVA
+  return std::OK;
+}
+
+
+function isEmpty<T>(l: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.isEmpty();
+  $$END_JAVA
+  return res;
+}
+function isEmptyInMut<T>(l: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.isEmpty();
+  $$END_JAVA
+  return res;
+}
+
+function lastIndexOf<T>(l: [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>> {
+  var res: int;
+  $$BEGIN_JAVA
+  res = l.lastIndexOf(t);
+  $$END_JAVA
+  if (res == -1) {
+    return std::Error(ElementNotFound(t));
+  }
+  return res;
+}
+function lastIndexOfInMut<T>(l: mut [T], t: T) -> oneof<int, std::Error<ElementNotFound<T>>> {
+  var res: int;
+  $$BEGIN_JAVA
+  res = l.lastIndexOf(t);
+  $$END_JAVA
+  if (res == -1) {
+    return std::Error(ElementNotFound(t));
+  }
+  return res;
+}
+
+
+function removeFirst<T>(l: mut [T], t: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.remove(t);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeAt<T>(l: mut [T], index: int) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: T;
+  $$BEGIN_JAVA
+  res = l.remove((int) index);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeAll<T>(l: mut [T], toRemove: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.removeAll(toRemove);
+  $$END_JAVA
+  return res;
+}
+function removeAllFromMut<T>(l: mut [T], toRemove: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.removeAll(toRemove);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeIf<T>(l: mut [T], pred: function<T -> boolean>) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.removeIf(pred::apply);
+  $$END_JAVA
+  return res;
+}
+
+
+function removeRange<T>(l: mut [T], fromInclusive: int, toExclusive: int)
+    -> oneof<std::OK, std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>> {
+  var subListToClear ?= subListOfMut(l, fromInclusive, toExclusive);
+  print(subListToClear);
+  clear(subListToClear);
+  print(subListToClear);
+  return std::OK;
+}
+
+
+consumer replaceAll<T>(l: mut [T], operator: function<T -> T>) {
+  $$BEGIN_JAVA
+  l.replaceAll(operator::apply);
+  $$END_JAVA
+}
+
+
+function retainAll<T>(l: mut [T], toRetain: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.retainAll(toRetain);
+  $$END_JAVA
+  return res;
+}
+function retainAllFromMut<T>(l: mut [T], toRetain: mut [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = l.retainAll(toRetain);
+  $$END_JAVA
+  return res;
+}
+
+
+function setAt<T>(l: mut [T], index: int, t: T) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (index < 0 or index >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = index, size = len(l)}));
+  }
+  var res: T;
+  $$BEGIN_JAVA
+  res = l.set(index, t);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer sort<T>(l: mut [T], comparator: function<|T, T| -> int>) {
+  $$BEGIN_JAVA
+  l.sort(comparator::apply);
+  $$END_JAVA
+}
+
+
+function subList<T>(l: [T], fromInclusive: int, toExclusive: int)
+    -> oneof<[T], std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>> {
+  if (fromInclusive > toExclusive) {
+    return std::Error(IndicesOutOfOrder({invalidLowerBound = fromInclusive, invalidUpperBound = toExclusive}));
+  } else if (fromInclusive < 0 or fromInclusive >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = fromInclusive, size = len(l)}));
+  } else if (toExclusive >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = toExclusive, size = len(l)}));
+  }
+  var res: [T];
+  $$BEGIN_JAVA
+  res = new ClaroList((Types.ListType) l.getClaroType(), l.subList(fromInclusive, toExclusive));
+  $$END_JAVA
+  return res;
+}
+function subListOfMut<T>(l: mut [T], fromInclusive: int, toExclusive: int)
+    -> oneof<mut [T], std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>> {
+  if (fromInclusive > toExclusive) {
+    return std::Error(IndicesOutOfOrder({invalidLowerBound = fromInclusive, invalidUpperBound = toExclusive}));
+  } else if (fromInclusive < 0 or fromInclusive >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = fromInclusive, size = len(l)}));
+  } else if (toExclusive >= len(l)) {
+    return std::Error(IndexOutOfBounds({index = toExclusive, size = len(l)}));
+  }
+  var res: mut [T];
+  # TODO(steving) This implementation is unnecessarily inefficient. I need the ability to use inline-Java but still have
+  # TODO(steving)     access to the compile-time type codegen. I want to use the below initialization instead:
+  # TODO(steving)       res = new ClaroList(<Java source Claro type of T>, ...);
+  $$BEGIN_JAVA
+  res = new ClaroList((Types.ListType) l.getClaroType(), l.subList(fromInclusive, toExclusive));
+  $$END_JAVA
+  return res;
+}
+
+
+consumer trimToSize<T>(l: mut [T]) {
+  $$BEGIN_JAVA
+  l.trimToSize();
+  $$END_JAVA
+}
+
+
+function withInitialCapacity<T>(capacity: int) -> oneof<mut [T], std::Error<InvalidCapacity>> {
+  if (capacity < 0) {
+    return std::Error(InvalidCapacity(capacity));
+  }
+  var res: mut [T] = mut [];
+  ensureCapacity(res, capacity);
+  return res;
+}

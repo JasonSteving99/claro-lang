@@ -1,0 +1,356 @@
+
+alias JavaScannerType : mut $java_type("java.util.Scanner")
+# Not thread safe.
+newtype Scanner : JavaScannerType
+
+provider forStdIn() -> Scanner {
+  var res: JavaScannerType;
+  $$BEGIN_JAVA
+    res = new java.util.Scanner(System.in);
+  $$END_JAVA
+  return Scanner(res);
+}
+function forString(toScan: string) -> Scanner {
+  var res: JavaScannerType;
+  $$BEGIN_JAVA
+    res = new java.util.Scanner(toScan);
+  $$END_JAVA
+  return Scanner(res);
+}
+
+function useDelimiter(sc: Scanner, pattern: string) -> Scanner {
+  $$BEGIN_JAVA
+    sc.wrappedValue.useDelimiter(pattern);
+  $$END_JAVA
+  return sc;
+}
+function reset(sc: Scanner) -> Scanner {
+  $$BEGIN_JAVA
+    sc.wrappedValue.reset();
+  $$END_JAVA
+  return sc;
+}
+
+blocking function findInLine(sc: Scanner, pattern: string) -> oneof<string, PATTERN_NOT_FOUND> {
+  var res: oneof<string, PATTERN_NOT_FOUND>;
+  var patternNotFound = PATTERN_NOT_FOUND;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.findInLine(pattern);
+    if (res == null) {
+      return patternNotFound;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+
+blocking function findWithinHorizon(sc: Scanner, pattern: string, horizon: int)
+    -> oneof<string, PATTERN_NOT_FOUND, ILLEGAL_NEGATIVE_HORIZON> {
+  var res: oneof<string, PATTERN_NOT_FOUND, ILLEGAL_NEGATIVE_HORIZON>;
+  if (horizon < 0) {
+    return ILLEGAL_NEGATIVE_HORIZON;
+  }
+  var patternNotFound = PATTERN_NOT_FOUND;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.findWithinHorizon(pattern, horizon);
+    if (res == null) {
+      return patternNotFound;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+
+
+blocking function hasNextToken(sc: Scanner) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNext();
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function hasNextPattern(sc: Scanner, pattern: string) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNext(pattern);
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function hasNextBoolean(sc: Scanner) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNextBoolean();
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function hasNextFloat(sc: Scanner) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNextDouble();
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function hasNextInt(sc: Scanner) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNextInt();
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function hasNextLine(sc: Scanner) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = sc.wrappedValue.hasNextLine();
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+
+blocking function nextToken(sc: Scanner) -> oneof<string, NO_MORE_TOKENS> {
+  var res: oneof<string, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.next();
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function nextMatch(sc: Scanner, pattern: string) -> oneof<string, NO_MORE_TOKENS> {
+  var res: oneof<string, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.next(pattern);
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function nextBoolean(sc: Scanner) -> oneof<boolean, INPUT_MISMATCH, NO_MORE_TOKENS> {
+  var res: oneof<boolean, INPUT_MISMATCH, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  var inputMismatch = INPUT_MISMATCH;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.nextBoolean();
+    } catch (java.util.InputMismatchException e) {
+      res = inputMismatch;
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function nextFloat(sc: Scanner) -> oneof<float, INPUT_MISMATCH, NO_MORE_TOKENS> {
+  var res: oneof<float, INPUT_MISMATCH, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  var inputMismatch = INPUT_MISMATCH;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.nextDouble();
+    } catch (java.util.InputMismatchException e) {
+      res = inputMismatch;
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function nextInt(sc: Scanner) -> oneof<int, INPUT_MISMATCH, NO_MORE_TOKENS> {
+  var res: oneof<int, INPUT_MISMATCH, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  var inputMismatch = INPUT_MISMATCH;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.nextInt();
+    } catch (java.util.InputMismatchException e) {
+      res = inputMismatch;
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+blocking function nextLine(sc: Scanner) -> oneof<string, INPUT_MISMATCH, NO_MORE_TOKENS> {
+  var res: oneof<string, INPUT_MISMATCH, NO_MORE_TOKENS>;
+  var noMoreTokens = NO_MORE_TOKENS;
+  var inputMismatch = INPUT_MISMATCH;
+  $$BEGIN_JAVA
+    try {
+      res = sc.wrappedValue.nextLine();
+    } catch (java.util.InputMismatchException e) {
+      res = inputMismatch;
+    } catch (java.util.NoSuchElementException e) {
+      res = noMoreTokens;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return res;
+}
+
+
+blocking function skipPattern(sc: Scanner, pattern: string)
+    -> struct { scanner: Scanner, res: oneof<std::OK, PATTERN_NOT_FOUND> } {
+  var res: oneof<std::OK, PATTERN_NOT_FOUND>;
+  var ok = std::OK;
+  var patternNotFound = PATTERN_NOT_FOUND;
+  $$BEGIN_JAVA
+    try {
+      sc.wrappedValue.skip(pattern);
+      res = ok;
+    } catch (java.util.NoSuchElementException e) {
+      res = patternNotFound;
+    }
+  $$END_JAVA
+
+  # TODO(steving) Need to enable procedures that use inline Java to mark procedures blocking without boilerplate.
+  if (false) {
+    var nullFuture: future<int>;
+    $$BEGIN_JAVA
+      nullFuture = null;
+    $$END_JAVA
+    var awaited <-| nullFuture; # Don't worry, this never actually runs.
+    _ = awaited;
+  }
+  return { scanner = sc, res = res };
+}

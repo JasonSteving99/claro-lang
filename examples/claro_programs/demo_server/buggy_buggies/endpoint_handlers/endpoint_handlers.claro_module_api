@@ -1,0 +1,12 @@
+
+# It's worth noting that in the Claro way of the world, this distinction of whether a Procedure is implemented as a
+# Graph or not is considered completely an internal implementation consideration that's not directly observable with
+# in-language semantics. Hence, this is *actually* implemented internally as a Graph Procedure, but that detail just
+# isn't exposed here.
+provider gamePageHandler() -> future<string>;
+
+function startNewGameHandler(handle: string) -> future<string>;
+
+function getBestMovesHandler(buggyResponse: oneof<string, std::Error<string>>) -> string;
+
+function gameMoveHandler(gameId: string, playerSecret: string, dir: string) -> future<string>;

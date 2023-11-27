@@ -1,0 +1,95 @@
+########################################################################################################################
+# The interesting thing about these atoms is that they're "self-describing" in some sense. You could imagine that they
+# represent some more meaningful value, but considering they're the only one of their type in the universe, it's
+# somewhat pointless to *actually* carry that data around, after all, that data really is just some *interpretation* of
+# the presence of such a type.
+#
+# This is interesting in its own right beyond just the trivial example of making a better representation for
+# NothingType/nothing, as this can also be the foundation of something like an "enum" that you would find in Java/C/etc.
+########################################################################################################################
+
+# atom Nothing is already in the stdlib, so for the sake of this example, I'll demonstrate with `MyNothing`.
+atom MyNothing
+
+newtype Tree<T> : struct {
+  val: T,
+  left: oneof<Tree<T>, MyNothing>,   # Using `MyNothing` as a type.
+  right: oneof<Tree<T>, MyNothing>
+}
+
+var myTree =
+  Tree({
+    val = 10,
+    left =
+      Tree({
+        val = 20,
+        left = MyNothing,            # Using `MyNothing` as a value.
+        right = MyNothing
+      }),
+    right = MyNothing
+  });
+
+print(myTree);
+
+
+var n1 = MyNothing;
+var n2 = MyNothing;
+
+print(n1 == n2); # true
+
+########################################################################################################################
+# USING ATOMS TO REPRESENT "ENUMS".
+#
+# Here I'd like to demonstrate that the notion of an "Enum" in the Java/C/etc sense, is not something that needs any
+# particular special language level support. The combination of atoms with oneof, makes for an enum. I see this as a
+# nice validation of the utility of Claro's simple type system as it allows these *ideas* to be expressed natively
+# as-needed, w/o special casing by the type system itself.
+########################################################################################################################
+
+atom OutOfMemory
+atom TimeLimitExceeded
+atom PermissionDenied
+atom UnknownInternalError
+newtype Success<T> : T
+
+alias FallibleOpErrors : oneof<
+  OutOfMemory,
+  TimeLimitExceeded,
+  PermissionDenied,
+  UnknownInternalError
+>
+
+########################################################################################################################
+# DEMONSTRATE USING ATOMS FOR EXPRESSIVE ERROR-HANDLING
+########################################################################################################################
+
+function doFallibleThing<T>(arg: T) -> oneof<T, std::Error<FallibleOpErrors>> {
+  # To simulate something that might fail, let's just ask the user interactively what should happen.
+  match(input("Want an error? (Y/n)")) {
+    case "Y" ->
+      print("Ok what error in particular?\n\t1 ------- {OutOfMemory}\n\t2 ------- {TimeLimitExceeded}\n\t3 ------- {PermissionDenied}\n\tOther --- {UnknownInternalError}");
+      # TODO(steving) SHOULD BE ABLE TO JUST IMMEDIATELY RETURN.
+      var res: std::Error<FallibleOpErrors>;
+      match(input("Pick one of the above options: ")) {
+        case "1" -> res = std::Error(OutOfMemory);
+        case "2" -> res = std::Error(TimeLimitExceeded);
+        case "3" -> res = std::Error(PermissionDenied);
+        case _   -> res = std::Error(UnknownInternalError);
+      }
+      return res;
+    case _ ->
+      return arg;
+  }
+}
+
+match (doFallibleThing("Dummy-Task")) {
+  # TODO(steving) I should be able to consolidate this nested match-block into case patterns like `std::Error(_:OutOfMemory)`.
+  case std::Error(ERR) ->
+    match (ERR) {
+      case _:OutOfMemory          -> print("Ran out of memory while processing task!");
+      case _:TimeLimitExceeded    -> print("Ran out of time while processing task!");
+      case _:PermissionDenied     -> print("You do not have permission to perform this task!");
+      case _:UnknownInternalError -> print("Failed to complete this task for some unknown reason!");
+    }
+  case S          -> print("Successful operation: {S}");
+}

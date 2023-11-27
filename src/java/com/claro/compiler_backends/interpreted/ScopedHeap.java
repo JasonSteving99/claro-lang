@@ -3,11 +3,10 @@ package com.claro.compiler_backends.interpreted;
 import com.claro.ClaroParserException;
 import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.Type;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import lombok.ToString;
+import com.google.common.collect.*;
 
 import java.util.*;
 import java.util.function.Function;
@@ -20,6 +19,51 @@ public class ScopedHeap {
   @VisibleForTesting
   public final Stack<Scope> scopeStack = new Stack<>();
   public boolean checkUnused = true;
+  // A table<depModuleName, isUsed, descriptor> of dep module descriptors and whether or not they have been referenced.
+  public static HashBasedTable<String, Boolean, SerializedClaroModule.UniqueModuleDescriptor> currProgramDepModules =
+      HashBasedTable.create();
+  public static ImmutableMap<String, SerializedClaroModule.ExportedTypeDefinitions> currProgramDepModuleExportedTypes =
+      ImmutableMap.of();
+  // The set of Dep Modules that are listed as transitive exports of this module. Dep Modules are required to be
+  // explicitly placed here via claro_module(..., exports = ["Foo"], deps = {"Foo": "//..."}) if the
+  // .claro_module_api file is going to explicitly reference any types declared in a dep Module (e.g. `Foo::FooType`).
+  // This ensures that the consumers of this Module are actually able to read the definition of the transitive dep types.
+  public static ImmutableSet<String> transitiveExportedDepModules = ImmutableSet.of();
+  // The set of dep modules that have been explicitly annotated as stdlib modules. These modules are privileged to not
+  // cause an error if they are unused and to not be required to be marked exported if mentioned in a .claro_module_api
+  // file given the implication that these modules are implicit direct deps of every single claro_module() target.
+  public static ImmutableSet<String> stdlibDepModules = ImmutableSet.of();
+
+  public static String getDefiningModuleDisambiguator(Optional<String> optionalOriginatingDepModuleName) {
+    String res;
+    if (optionalOriginatingDepModuleName.isPresent()) {
+      // Just assume that the dep module was correctly registered but may or may not be marked used yet.
+      res = ScopedHeap.currProgramDepModules.rowMap().get(optionalOriginatingDepModuleName.get())
+          .values().stream().findFirst().get().getUniqueModuleName();
+    } else {
+      Optional<SerializedClaroModule.UniqueModuleDescriptor> thisModuleDesc;
+      if ((thisModuleDesc =
+               Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+                   .map(m -> m.values().stream().findFirst().get())).isPresent()) {
+        res = thisModuleDesc.get().getUniqueModuleName();
+      } else {
+        // Turns out this is not defined within a module (it's just a top-level src in a claro_binary()) so since nobody
+        // else can depend on this, we don't need any disambiguator.
+        res = "";
+      }
+    }
+    return res;
+  }
+
+  public static Optional<String> getModuleNameFromDisambiguator(String disambiguator) {
+    if (disambiguator.isEmpty()) {
+      return Optional.empty();
+    }
+    return ScopedHeap.currProgramDepModules.cellSet().stream()
+        .filter(c -> c.getValue().getUniqueModuleName().equals(disambiguator))
+        .findFirst()
+        .map(Table.Cell::getRowKey);
+  }
 
   public void disableCheckUnused() {
     this.checkUnused = false;
@@ -40,6 +84,19 @@ public class ScopedHeap {
   // lines before execution.
   public void observeIdentifier(String identifier, Type type) {
     putIdentifierValue(identifier, type);
+  }
+
+  public void observeStaticIdentifierValue(String identifier, Type resolvedType, boolean isLazy) {
+    observeStaticIdentifierValue(identifier, resolvedType, null, isLazy);
+
+  }
+
+  public void observeStaticIdentifierValue(String identifier, Type resolvedType, Object value, boolean isLazy) {
+    IdentifierData identifierData = new IdentifierData(resolvedType, value, true);
+    identifierData.isAssignable = false;
+    identifierData.isStaticValue = true;
+    identifierData.isLazyValue = isLazy;
+    scopeStack.peek().scopedSymbolTable.put(identifier, identifierData);
   }
 
   public void observeIdentifierAllowingHiding(String identifier, Type type) {
@@ -148,6 +205,16 @@ public class ScopedHeap {
     scopeStack.elementAt(identifierScopeLevel.get()).scopedSymbolTable.get(identifier).used = true;
   }
 
+  public static void markDepModuleUsed(String depModule) {
+    // Don't need to do anything if this module's already been marked used.
+    if (ScopedHeap.currProgramDepModules.contains(depModule, /*isUsed=*/false)) {
+      Map<Boolean, SerializedClaroModule.UniqueModuleDescriptor> depModuleRowMap =
+          ScopedHeap.currProgramDepModules.rowMap().get(depModule);
+      depModuleRowMap.put(/*isUsed=*/true, depModuleRowMap.get(/*isUsed=*/false));
+      depModuleRowMap.remove(/*isUsed=*/false);
+    }
+  }
+
   public void deleteIdentifierValue(String identifier) {
     Optional<Integer> optionalIdentifierScopeLevel = findIdentifierDeclaredScopeLevel(identifier);
     optionalIdentifierScopeLevel.ifPresent(
@@ -245,9 +312,10 @@ public class ScopedHeap {
                   ImmutableSet.of(BaseType.FUNCTION, BaseType.CONSUMER_FUNCTION, BaseType.PROVIDER_FUNCTION);
               IdentifierData identifierData = currScope.scopedSymbolTable.get(identifier);
               if (identifierData.isTypeDefinition
+                  || identifierData.isStaticValue
                   || (functionBaseTypes.contains(identifierData.type.baseType()) &&
                       functionBaseTypes.contains(identifierData.type.getPossiblyOverridenBaseType()))) {
-                // In either of these cases, we should accept Function type references and Type definitions.
+                // In any of these cases, we should accept Function type references, Type definitions and static values.
                 return Optional.of(scopeLevel);
               } else if (pastFunctionScopeBoundary.isPresent()) {
                 // Functions may also reference Modules or Contracts defined in outer scopes.
@@ -351,7 +419,8 @@ public class ScopedHeap {
   }
 
   public void checkAllIdentifiersInCurrScopeUsed() throws ClaroParserException {
-    HashSet<String> unusedSymbolSet = new HashSet<>();
+    HashSet<String> unusedSymbolSet = Sets.newHashSet();
+    // First, I'll check for any unused variables.
     for (Map.Entry<String, IdentifierData> identifierEntry : scopeStack.peek().scopedSymbolTable.entrySet()) {
       if (!identifierEntry.getValue().used) {
         unusedSymbolSet.add(identifierEntry.getKey());
@@ -363,7 +432,27 @@ public class ScopedHeap {
     }
   }
 
-  @ToString
+  public static void checkAllDepModulesUsed() {
+    // I'll check for unused declared module dependencies, as this is technically just going to make the build
+    // less performant for no reason.
+    HashSet<String> unusedSymbolSet = Sets.newHashSet();
+    for (String depModuleName : ScopedHeap.currProgramDepModules.rowKeySet()) {
+      if (ScopedHeap.currProgramDepModules.contains(depModuleName, /*isUsed=*/false)
+          // Stdlib modules are privileged to not require usage since it's an implicit dep to all claro_module() targets.
+          && !ScopedHeap.stdlibDepModules.contains(depModuleName)) {
+        unusedSymbolSet.add(depModuleName);
+      }
+    }
+    if (!unusedSymbolSet.isEmpty()) {
+      throw new ClaroParserException(
+          String.format(
+              "The following declared Module dependencies are unused! These build deps provide no value, and would " +
+              "reduce your build performance. Remove them from your build target, or use them.\n\t- %s",
+              String.join("\n\t- ", unusedSymbolSet)
+          ));
+    }
+  }
+
   public static class IdentifierData {
     public Type type;
     // This value is only meaningful in interpreted modes where values are tracked.
@@ -373,6 +462,10 @@ public class ScopedHeap {
     // This should be set when this identifier is first observed to during the compiler's type checking phase.
     boolean declared;
     public boolean isTypeDefinition;
+    // In particular, static values/procedure definitions/contract definitions are not assignable.
+    public boolean isAssignable = true;
+    public boolean isStaticValue = false;
+    public boolean isLazyValue = false;
 
     public IdentifierData(Type type, Object interpretedValue) {
       this(type, interpretedValue, false);
@@ -388,7 +481,22 @@ public class ScopedHeap {
       IdentifierData shallowCopy = new IdentifierData(this.type, this.interpretedValue, this.declared);
       shallowCopy.used = this.used;
       shallowCopy.isTypeDefinition = this.isTypeDefinition;
+      shallowCopy.isAssignable = this.isAssignable;
       return shallowCopy;
+    }
+
+    @Override
+    public String toString() {
+      StringBuilder res = new StringBuilder("IdentifierData(");
+
+      res.append("type = ").append(this.type).append(", ");
+      res.append("interpretedValue = ").append(this.interpretedValue).append(", ");
+      res.append("used = ").append(this.used).append(", ");
+      res.append("declared = ").append(this.declared).append(", ");
+      res.append("isTypeDefinition = ").append(this.isTypeDefinition);
+      res.append("isAssignable = ").append(this.isAssignable);
+
+      return res.append(")").toString();
     }
   }
 

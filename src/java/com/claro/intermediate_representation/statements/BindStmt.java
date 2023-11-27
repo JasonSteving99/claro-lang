@@ -39,7 +39,7 @@ public class BindStmt extends Stmt {
         new StringBuilder(
             String.format(
                 // We're expecting this binding to be executed within a scope that has access to a bindings Map.
-                "Injector.bindings.put(new Key(\"%s\", %s), %s);\n",
+                "Injector.bindings.put(Key.create(\"%s\", %s), %s);\n",
                 this.name,
                 this.type.getJavaSourceClaroType(),
                 exprGenJavaSource.javaSourceBody().toString()
@@ -57,7 +57,7 @@ public class BindStmt extends Stmt {
     Object boundValue = expr.generateInterpretedOutput(scopedHeap);
 
     return Injector.bindings.put(
-        new Key(name, type),
+        Key.create(name, type),
         // The only reason for using an Expr instead of just the value itself, is so that the typical DeclarationStmt
         // can be depended on when the ProcedureDefinitionStmt impl needs to init an implicit local variable for this.
         new Expr(ImmutableList.of(), null, -1, -1, -1) {

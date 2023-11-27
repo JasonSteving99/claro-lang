@@ -2,10 +2,7 @@ package com.claro.intermediate_representation.statements.contracts;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.statements.Stmt;
-import com.claro.intermediate_representation.types.ClaroTypeException;
-import com.claro.intermediate_representation.types.Type;
-import com.claro.intermediate_representation.types.TypeProvider;
-import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -19,7 +16,7 @@ import java.util.stream.Collectors;
 
 public class ContractImplementationStmt extends Stmt {
   private final String contractName;
-  private final String implementationName;
+  private String implementationName;
   private final ImmutableList<TypeProvider> concreteImplementationTypeParamTypeProviders;
   private final ImmutableList<ContractProcedureImplementationStmt> contractProcedureImplementationStmts;
 
@@ -33,12 +30,10 @@ public class ContractImplementationStmt extends Stmt {
 
   public ContractImplementationStmt(
       String contractName,
-      String implementationName,
       ImmutableList<TypeProvider> concreteImplementationTypeParamTypeProviders,
       ImmutableList<ContractProcedureImplementationStmt> contractProcedureImplementationStmts) {
     super(ImmutableList.of());
     this.contractName = contractName;
-    this.implementationName = implementationName;
     this.concreteImplementationTypeParamTypeProviders = concreteImplementationTypeParamTypeProviders;
     this.contractProcedureImplementationStmts = contractProcedureImplementationStmts;
   }
@@ -63,14 +58,20 @@ public class ContractImplementationStmt extends Stmt {
         .map(Type::toString)
         .collect(ImmutableList.toImmutableList());
     this.canonicalImplementationName = getContractTypeString(this.contractName, this.concreteTypeStrings);
+    this.implementationName =
+        // Not encoding the full contract name into the generated implementation name, b/c Java codegen was running into
+        // name too long errors for the generated class by this name (specifically was a problem for contracts defined
+        // in dep modules where the contract name was some variant of `ContractName$some$long$path$to$dep$module`.
+        String.format(
+            "ContractImpl__%s",
+            Hashing.sha256().hashUnencodedChars(this.contractName + this.canonicalImplementationName)
+        );
 
     // Now validate that this isn't a duplicate of another existing implementation of this contract.
     if (scopedHeap.isIdentifierDeclared(this.canonicalImplementationName)) {
       throw new RuntimeException(
           ClaroTypeException.forDuplicateContractImplementation(
-              getContractTypeString(this.implementationName, this.concreteTypeStrings),
-              getContractTypeString((String) scopedHeap.getIdentifierValue(this.canonicalImplementationName), this.concreteTypeStrings)
-          ));
+              getContractTypeString(this.implementationName, this.concreteTypeStrings)));
     }
     // Additionally, if this contract definition has any implied types, then we need to validate that this contract
     // hasn't already implemented over these unconstrained type params.
@@ -107,7 +108,11 @@ public class ContractImplementationStmt extends Stmt {
     scopedHeap.putIdentifierValue(
         this.canonicalImplementationName,
         Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-            this.contractName, this.concreteImplementationTypeParams.values().asList()),
+            this.contractName,
+            Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+                .map(m -> m.values().stream().findFirst().get().getUniqueModuleName()),
+            this.concreteImplementationTypeParams.values().asList()
+        ),
         this.implementationName
     );
 
@@ -180,6 +185,41 @@ public class ContractImplementationStmt extends Stmt {
         }
       }
 
+      // Now one final validation, you're only allowed to implement contracts over types that have been defined in the
+      // current compilation unit. Contracts are also implementable over *ANY* arbitrary type no matter what compilation
+      // unit it was defined in, within the same compilation unit that the contract itself was defined in. This is the
+      // case because anyone that would be attempting to make use of the contract in any way would first need a dep on
+      // that module, so it would be possible to statically rule out the duplicate implementation of any contract for
+      // the same type(s) more than once. *The one exception to this rule* is that, for the sake of convenience only,
+      // the top-level claro_binary() compilation unit may define whatever contract impls that it sees fit since the
+      // application of this rule could not possibly result in allowing duplication of the same contract implementation.
+      String currCompilationUnitDisambiguator = ScopedHeap.getDefiningModuleDisambiguator(Optional.empty());
+      if (!(((Types.$Contract) scopedHeap.getValidatedIdentifierType(this.contractName))
+                .getDefiningModuleDisambiguator().equals(currCompilationUnitDisambiguator)
+            || currCompilationUnitDisambiguator.isEmpty())) {
+        ImmutableList<Type> implTypeParamsDefinedOutsideCurrentCompilationUnit =
+            this.concreteImplementationTypeParams.values().stream()
+                .filter(t -> !((t.baseType().equals(BaseType.USER_DEFINED_TYPE)
+                                && ((Types.UserDefinedType) t).getDefiningModuleDisambiguator()
+                                    .equals(currCompilationUnitDisambiguator))
+                               || (t.baseType().equals(BaseType.ATOM) &&
+                                   ((Types.AtomType) t).getDefiningModuleDisambiguator()
+                                       .equals(currCompilationUnitDisambiguator))))
+                .collect(ImmutableList.toImmutableList());
+        if (!implTypeParamsDefinedOutsideCurrentCompilationUnit.isEmpty()) {
+          throw ClaroTypeException.forIllegalContractImplOverTypesNotDefinedInCurrentCompilationUnit(
+              getContractTypeString(
+                  this.implementationName,
+                  this.concreteImplementationTypeParams.values()
+                      .stream()
+                      .map(Type::toString)
+                      .collect(ImmutableList.toImmutableList())
+              ),
+              implTypeParamsDefinedOutsideCurrentCompilationUnit
+          );
+        }
+      }
+
       // Defer to type validation. Which will validate the ProcedureDefinitionStmt itself after validating that
       // the required signature is followed.
       for (ContractProcedureImplementationStmt implementationStmt : this.contractProcedureImplementationStmts) {
@@ -188,17 +228,26 @@ public class ContractImplementationStmt extends Stmt {
       }
 
       // Finally, add this implementation to the scoped heap so that it can't be re-implemented.
+      Optional<String> optionalDefiningModuleDisambiguator =
+          Optional.ofNullable(ScopedHeap.currProgramDepModules.rowMap().get("$THIS_MODULE$"))
+              .map(m -> m.values().stream().findFirst().get().getUniqueModuleName());
       scopedHeap.putIdentifierValue(
           this.canonicalImplementationName,
           Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-              this.contractName, this.concreteImplementationTypeParams.values().asList()),
+              this.contractName,
+              optionalDefiningModuleDisambiguator,
+              this.concreteImplementationTypeParams.values().asList()
+          ),
           this.implementationName
       );
       scopedHeap.markIdentifierUsed(this.canonicalImplementationName);
       scopedHeap.putIdentifierValue(
           this.implementationName,
           Types.$ContractImplementation.forContractNameAndConcreteTypeParams(
-              this.contractName, this.concreteImplementationTypeParams.values().asList()),
+              this.contractName,
+              optionalDefiningModuleDisambiguator,
+              this.concreteImplementationTypeParams.values().asList()
+          ),
           null
       );
       scopedHeap.markIdentifierUsed(this.implementationName);
@@ -216,7 +265,9 @@ public class ContractImplementationStmt extends Stmt {
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
     StringBuilder res =
-        new StringBuilder("  public static final class ")
+        new StringBuilder("  /* ")
+            .append(this.canonicalImplementationName)
+            .append(" */\n  public static final class ")
             .append(this.implementationName)
             .append(" {\n");
 

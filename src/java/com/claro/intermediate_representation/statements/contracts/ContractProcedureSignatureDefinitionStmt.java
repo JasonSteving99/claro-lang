@@ -22,6 +22,15 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   private final Optional<ImmutableList<String>> optionalGenericBlockingOnArgs;
   private Optional<ImmutableSet<Integer>> optionalAnnotatedBlockingGenericOnArgs = Optional.empty();
   public Optional<ImmutableList<String>> optionalGenericTypesList;
+  // TODO(steving) Currently this field is only ever set by signatures exported in a .claro_module_api file. But going
+  //     forward this should ideally be supported in generic contract procedure signatures as well.
+  //     e.g.:
+  //         contract Foo<T> {
+  //           requires(Bar<V, T>)
+  //           function doFoo<V>(v: V) -> T;
+  //         }
+  public Optional<ImmutableListMultimap<String, ImmutableList<Type>>> optionalRequiredContractNamesToGenericArgs =
+      Optional.of(ImmutableListMultimap.of());
 
   public ImmutableList<GenericSignatureType> resolvedArgTypes;
   public Optional<GenericSignatureType> resolvedOutputType;
@@ -32,6 +41,11 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public boolean contextualOutputTypeAssertionRequired;
   public Optional<ImmutableSet<Integer>> inferContractImplTypesFromArgsWhenContextualOutputTypeAsserted;
   public ImmutableSet<String> requiredContextualOutputTypeAssertionTypeParamNames = ImmutableSet.of();
+
+  // This field exists to workaround the fact that these ContractProcedureSignatureDefinitionStmt's actually get used
+  // for both actual contract defs (as in `contract Foo<T> { function doFoo(t: T) -> Foo; }`) and also for top-level
+  // .claro_module_api exported procedure signatures (as in `function doFoo(t: SomeType) -> Foo;`).
+  public boolean shouldNormalizeProcedureNameForContractDefinition = true;
 
   public ContractProcedureSignatureDefinitionStmt(
       String procedureName,
@@ -53,16 +67,24 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     // First, validate that this procedure name isn't already in use in this contract definition.
     String normalizedProcedureName =
-        getFormattedInternalContractProcedureName(procedureName);
+        shouldNormalizeProcedureNameForContractDefinition
+        ? getFormattedInternalContractProcedureName(this.procedureName)
+        : this.procedureName;
     Preconditions.checkState(
         !scopedHeap.isIdentifierDeclared(normalizedProcedureName),
-        String.format(
+        shouldNormalizeProcedureNameForContractDefinition
+        ? String.format(
             "Unexpected redeclaration of contract procedure %s<%s>::%s.",
             InternalStaticStateUtil.ContractDefinitionStmt_currentContractName,
             String.join(", ", InternalStaticStateUtil.ContractDefinitionStmt_currentContractGenericTypeParamNames),
             this.procedureName
         )
+        : String.format(
+            "Unexpected redeclaration of procedure %s.",
+            this.procedureName
+        )
     );
+
 
     // Now we just need to resolve the arg types for the non-generic param typed args. The generic param types will
     // be made concrete at contract implementation time.
@@ -198,15 +220,18 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     scopedHeap.markIdentifierUsed(normalizedProcedureName);
   }
 
-  public static String getFormattedInternalContractProcedureName(String procedureName) {
-    return String.format(
-        "$%s::%s",
+  private static String getFormattedInternalContractProcedureName(String procedureName) {
+    return getFormattedInternalContractProcedureName(
         InternalStaticStateUtil.ContractDefinitionStmt_currentContractName,
         procedureName
     );
   }
 
-  Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
+  public static String getFormattedInternalContractProcedureName(String contractName, String procedureName) {
+    return String.format("$%s::%s", contractName, procedureName);
+  }
+
+  public Types.ProcedureType getExpectedProcedureTypeForConcreteTypeParams(ImmutableMap<String, Type> concreteTypeParams) {
     HashMap<Type, Type> typeParamsForInferenceMap = Maps.newHashMap();
     ImmutableList<Type> concreteArgTypes =
         getConcreteArgTypesForConcreteContractTypeParams(concreteTypeParams, typeParamsForInferenceMap);
@@ -224,24 +249,43 @@ public class ContractProcedureSignatureDefinitionStmt extends Stmt {
     Types.ProcedureType resType;
     if (concreteArgTypes.size() > 0) {
       if (optionalConcreteReturnType.isPresent()) {
-        resType = Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(
+        resType = Types.ProcedureType.FunctionType.forArgsAndReturnTypes(
             concreteArgTypes,
             optionalConcreteReturnType.get(),
+            BaseType.FUNCTION,
+            /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/ null,
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
+            this.optionalGenericTypesList,
+            this.optionalGenericTypesList.isPresent()
+            ? this.optionalRequiredContractNamesToGenericArgs
+            : Optional.empty()
         );
       } else {
-        resType = Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(
+        resType = Types.ProcedureType.ConsumerType.forConsumerArgTypes(
             concreteArgTypes,
+            BaseType.CONSUMER_FUNCTION,
+            /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+            /*procedureDefinitionStmt=*/ null,
             this.explicitlyAnnotatedBlocking,
             this.optionalAnnotatedBlockingGenericOnArgs,
-            this.optionalGenericTypesList
+            this.optionalGenericTypesList,
+            this.optionalGenericTypesList.isPresent()
+            ? this.optionalRequiredContractNamesToGenericArgs
+            : Optional.empty()
         );
       }
     } else {
-      resType = Types.ProcedureType.ProviderType.typeLiteralForReturnType(
-          optionalConcreteReturnType.get(), this.explicitlyAnnotatedBlocking);
+      resType = Types.ProcedureType.ProviderType.forReturnType(
+          optionalConcreteReturnType.get(),
+          /*overrideBaseType=*/ BaseType.PROVIDER_FUNCTION,
+          /*directUsedInjectedKeys=*/ ImmutableSet.of(),
+          /*procedureDefinitionStmt=*/ null,
+          this.explicitlyAnnotatedBlocking,
+          this.optionalGenericTypesList,
+          this.optionalGenericTypesList.isPresent() ? this.optionalRequiredContractNamesToGenericArgs : Optional.empty()
+      );
     }
     return resType;
   }

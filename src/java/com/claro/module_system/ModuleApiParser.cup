@@ -1,0 +1,1558 @@
+package com.claro;
+
+import com.claro.compiler_backends.interpreted.ScopedHeap;
+import com.claro.intermediate_representation.*;
+import com.claro.intermediate_representation.expressions.*;
+import com.claro.intermediate_representation.expressions.term.*;
+import com.claro.intermediate_representation.statements.AtomDefinitionStmt;
+import com.claro.intermediate_representation.statements.HttpServiceDefStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractDefinitionStmt;
+import com.claro.intermediate_representation.statements.contracts.ContractProcedureSignatureDefinitionStmt;
+import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.*;
+import com.claro.intermediate_representation.statements.FlagDefStmt;
+import com.claro.intermediate_representation.statements.StaticValueDefStmt;
+import com.claro.intermediate_representation.types.BaseType;
+import com.claro.intermediate_representation.types.ClaroTypeException;
+import com.claro.intermediate_representation.types.SupportsMutableVariant;
+import com.claro.intermediate_representation.types.TypeProvider;
+import com.claro.intermediate_representation.types.TypeProvider.ImmediateTypeProvider;
+import com.claro.intermediate_representation.types.Type;
+import com.claro.intermediate_representation.types.Types;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.common.base.Strings;
+import java_cup.runtime.Symbol;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Stack;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+action code {:
+  private Symbol constructBuiltinType(LexedValue<String> lb, int lbleft, int lbright, Symbol t, LexedValue<String> rb, int rbleft, int rbright, Function<LexedValue<TypeProvider>, TypeProvider> typeProviderConstructor) {
+    LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>) t.value;
+    Supplier<String> currentLinesSupplier =
+      joinExprLines(new Line(lb.getCurrentInputLine(), lbright), new Line(tLexedVal.getCurrentInputLine(), t.right), new Line(rb.getCurrentInputLine(), rbright));
+    int startCol = min(lbleft, t.left, rbleft);
+    int endCol = max(lbleft + lb.getLen(), t.left + tLexedVal.getLen(), rbleft + rb.getLen());
+
+    return new Symbol(
+      -1,
+      startCol,
+      endCol, // line number
+      LexedValue.create(
+        typeProviderConstructor.apply(tLexedVal),
+        currentLinesSupplier,
+        endCol - startCol)
+      );
+  }
+
+  public String getDisambiguatedExportedIdentifierName(String originalName) {
+    // TODO(steving) I should be switching entirely over to parsing protos for dep modules instead of reparsing the
+    // TODO(steving)    api files themselves all over again. Once that's done, this disambiguating logic will be unused.
+    if (isModuleApiForCurrentCompilationUnit) {
+      // In this case, there's actually no disambiguation needed. This module is defining its own type in its module api
+      // definition file, so its impl srcs should be able to reference this type directly w/o any explicit namespacing.
+      return originalName;
+    }
+    // Use a disambiguation prefix for namespacing required by dep modules.
+    return getDisambiguatedExportedIdentifierName(moduleName, originalName);
+  }
+
+  public String getDisambiguatedExportedIdentifierName(String moduleName, String originalName) {
+    // Use a disambiguation prefix for namespacing required by dep modules.
+    return String.format("%s$%s", originalName, ScopedHeap.getDefiningModuleDisambiguator(Optional.of(moduleName)));
+  }
+:}
+
+parser code {:
+  public boolean isModuleApiForCurrentCompilationUnit = false; // default to be overridden.
+  public String moduleName = "module";  // default to be overridden.
+  public String uniqueModuleName = "";  // default to be overridden. Something like "src$com$foo$module".
+  // Here we're just going to detect all occurrences of syntax like `DepModule::DepType` and register that the DepModule
+  // must be exported by this module so that dependents get access to the definitions of the transitive types that are
+  // being used in this module's public api.
+  public ImmutableSet.Builder<String> depModuleTransitiveTypeExports = ImmutableSet.builder();
+
+  public int errorsFound = 0;
+  public static Stack<Runnable> errorMessages = new Stack<>();
+
+  @Override
+  public void report_error(String message, Object info) {
+    errorsFound++;
+    Symbol currSymbol = (Symbol) info;
+    LexedValue<?> lexedValue = (LexedValue) currSymbol.value;
+
+    errorMessages.push(
+      () -> {
+        // It's possible that this is just a terminal report from JCUP.
+        if (lexedValue == null) {
+          return;
+        }
+        System.err.print(String.format("%s.claro_module_api:%s: ", moduleName, currSymbol.right + 1));
+        System.err.println("Unexpected token <" + lexedValue.getVal() + ">");
+        String currentInputLineString = lexedValue.getCurrentInputLine().get();
+        if (Character.isWhitespace(currentInputLineString.charAt(currentInputLineString.length() - 1))) {
+          int trailingWhitespaceStart = currentInputLineString.length();
+          while (Character.isWhitespace(currentInputLineString.charAt(--trailingWhitespaceStart))); // This is just cute for the sake of it....barf...but I'm keeping it lol.
+          System.err.println(currentInputLineString.substring(0, trailingWhitespaceStart + 1));
+        } else {
+          System.err.println(lexedValue.getCurrentInputLine().get());
+        }
+        System.err.println(Strings.repeat(" ", currSymbol.left) + '^');
+      });
+  }
+
+  @Override
+  public void syntax_error(Symbol cur_token) {
+    this.report_error("Syntax error", cur_token);
+  }
+
+  static class Line {
+    Supplier<String> inputLineSupplier;
+    int inputLineNumber;
+
+    Line(StringBuilder inputLine, int inputLineNumber) {
+      this(() -> inputLine.toString(), inputLineNumber);
+    }
+
+    Line(Symbol s) {
+      this(((LexedValue<?>)s.value).getCurrentInputLine(), s.right);
+    }
+
+    Line(Supplier<String> inputLineSupplier, int inputLineNumber) {
+      this.inputLineSupplier = inputLineSupplier;
+      this.inputLineNumber = inputLineNumber;
+    }
+  }
+
+  private Supplier<String> joinExprLines(Line ... linesToJoin) {
+    return () -> {
+        StringBuilder res = new StringBuilder(linesToJoin[0].inputLineSupplier.get());
+        int prevLineNum = linesToJoin[0].inputLineNumber;
+        for (int i = 1; i < linesToJoin.length; i++) {
+          Line curr = linesToJoin[i];
+          if (curr.inputLineNumber != prevLineNum) {
+            prevLineNum = curr.inputLineNumber;
+            res.append(curr.inputLineSupplier.get());
+          }
+        }
+        return res.toString();
+    };
+  }
+
+  private static int min(int ... nums) {
+    int currMin = Integer.MAX_VALUE;
+    for (int x : nums) {
+      currMin = Math.min(x, currMin);
+    }
+    return currMin;
+  }
+
+  private static int max(int ... nums) {
+    int currMax = Integer.MIN_VALUE;
+    for (int x : nums) {
+      currMax = Math.max(x, currMax);
+    }
+    return currMax;
+  }
+:}
+
+terminal LexedValue<String>  STATIC, LAZY;
+terminal LexedValue<String>  FLAG;
+terminal LexedValue<String>  LPAR, RPAR;
+terminal LexedValue<String>  LCURLY, RCURLY, LBRACKET, RBRACKET;
+terminal LexedValue<String>  SEMICOLON;
+terminal LexedValue<String>  COLON;
+terminal LexedValue<String>  COMMA;
+terminal LexedValue<String>  BAR;
+terminal LexedValue<String>  L_ANGLE_BRACKET, R_ANGLE_BRACKET;
+terminal LexedValue<String>  ARROW, IMPLICATION_ARROW;
+// A variable identifier is just a sequence of chars.
+terminal LexedValue<String>  IDENTIFIER;
+terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
+// Builtin Types
+terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
+                 ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
+terminal LexedValue<String>  MUT;
+terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
+terminal LexedValue<String>  ALIAS;
+terminal LexedValue<String>  ATOM, NEWTYPE, INITIALIZERS, UNWRAPPERS, OPAQUE;
+terminal LexedValue<String>  CONTRACT, IMPLEMENT;
+terminal LexedValue<String>  REQUIRES;
+terminal LexedValue<String>  HTTP_CLIENT, HTTP_SERVICE, HTTP_SERVER, HTTP_RESPONSE;
+terminal LexedValue<String>  STRING, FMT_STRING_PART;
+
+// Declare which type will be returned by each nonterminal grammar production.
+nonterminal ModuleNode                         module;
+nonterminal ModuleNode.ModuleApiStmtsBuilder   module_api_defs;
+nonterminal StaticValueDefStmt                 static_value_def_stmt;
+nonterminal FlagDefStmt                        flag_def_stmt;
+nonterminal Symbol/*ImmutableMap.Builder<String, TypeProvider>*/ function_args_types_list;
+nonterminal Symbol/*ImmutableList.Builder<String>*/  identifier_list;
+nonterminal ImmutableList<String>              generic_blocking_on;
+nonterminal ImmutableList.Builder<String>      identifier_bar_sep_list;
+nonterminal TypeProvider                       maybe_blocking_procedure_types;
+nonterminal ImmutableMap.Builder<String, TypeProvider> procedure_args_w_generic_blocking;
+nonterminal ImmutableListMultimap.Builder/*<String, ImmutableList<Type>>*/  required_contracts;
+nonterminal ContractProcedureSignatureDefinitionStmt contract_procedure_signature_definition_stmt;
+nonterminal ContractProcedureSignatureDefinitionStmt concrete_contract_procedure_signature_definition_stmt;
+nonterminal ContractProcedureSignatureDefinitionStmt generic_contract_procedure_signature_definition_stmt;
+nonterminal AliasStmt                          alias_stmt;
+nonterminal AtomDefinitionStmt                 atom_def_stmt;
+nonterminal NewTypeDefStmt                     newtype_def_stmt;
+nonterminal ModuleNode.OpaqueTypeDef           opaque_type_def_stmt;
+nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ initializers_block_stmt;
+nonterminal ImmutableMap/*<IdentifierReferenceTerm, ImmutableList<ContractProcedureSignatureDefinitionStmt>>*/ unwrappers_block_stmt;
+nonterminal HttpServiceDefStmt                 http_service_def_stmt;
+nonterminal ImmutableMap.Builder<IdentifierReferenceTerm, Object/*oneof<String, FormatStringExpr>*/> http_endpoints_list;
+nonterminal Symbol/*ImmutableList<ImmutableList.Builder>*/  fmt_string_parts;
+nonterminal ContractDefinitionStmt             contract_definition_stmt;
+nonterminal ImmutableList.Builder<ContractProcedureSignatureDefinitionStmt> contract_signature_defs_list;
+nonterminal Map.Entry/*<IdentifierReferenceTerm, ImmutableList<TypeProvider>>*/ contract_implementation_stmt;
+nonterminal Symbol/*TypeProvider*/             builtin_type;
+nonterminal Symbol/*TypeProvider*/             base_builtin_type_without_mutability_modifier;
+nonterminal Symbol/*ImmutableList<TypeProvider>*/  builtin_types_list;
+nonterminal Symbol/*ImmutableList.Builder<TypeProvider>*/ backwards_builtin_types_list;
+nonterminal Expr                               expr;
+nonterminal IdentifierReferenceTerm            identifier;
+nonterminal ScopedIdentifier                   scoped_identifier;
+
+// Lower precedence things at the top, higher precedence things at the bottom.
+// ...but also I've basically put no thought whatsoever into the order these ACTUALLY appear in.
+precedence right ARROW;
+precedence left COMMA;
+precedence left IDENTIFIER;
+precedence left SEMICOLON;
+precedence left COLON;
+precedence left L_ANGLE_BRACKET, R_ANGLE_BRACKET;
+precedence left LPAR, RPAR, LBRACKET, RBRACKET;
+
+// This is where the grammar starts.
+module ::=
+    module_api_defs:module_api_defs
+    {:
+       RESULT = new ModuleNode(
+         module_api_defs.getFlagDefStmtsBuilder().build().reverse(),
+         module_api_defs.getStaticValueDefStmtsBuilder().build().reverse(),
+         module_api_defs.getProcedureSignaturesBuilder().build().reverse(),
+         module_api_defs.getAliasDefStmtsBuilder().build().reverse(),
+         module_api_defs.getAtomDefStmtsBuilder().build().reverse(),
+         module_api_defs.getNewTypeDefStmtsBuilder().build().reverse(),
+         module_api_defs.getOpaqueTypeDefStmtsBuilder().build().reverse(),
+         module_api_defs.getInitializersBlocksByTypeName().build(),
+         module_api_defs.getUnwrappersBlocksByTypeName().build(),
+         module_api_defs.getContractDefsBuilder().build().reverse(),
+         module_api_defs.getContractImplementationsBuilder().build(),
+         module_api_defs.getHttpServiceDefsBuilder().build().reverse(),
+         depModuleTransitiveTypeExports.build(),
+         moduleName,
+         uniqueModuleName
+       );
+    :}
+  ;
+
+module_api_defs ::=
+    flag_def_stmt:exported_flag_def module_api_defs:tail
+    {:
+       tail.getFlagDefStmtsBuilder().add(exported_flag_def);
+       RESULT = tail;
+    :}
+  | static_value_def_stmt:exported_static_val module_api_defs:tail
+    {:
+       tail.getStaticValueDefStmtsBuilder().add(exported_static_val);
+       RESULT = tail;
+    :}
+  | contract_procedure_signature_definition_stmt:exported_procedure module_api_defs:tail
+    {:
+       tail.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = tail;
+    :}
+  | alias_stmt:alias_stmt module_api_defs:tail
+    {:
+       tail.getAliasDefStmtsBuilder().add(alias_stmt);
+       RESULT = tail;
+    :}
+  | atom_def_stmt:atom_def_stmt module_api_defs:tail
+    {:
+       tail.getAtomDefStmtsBuilder().add(atom_def_stmt);
+       RESULT = tail;
+    :}
+  | newtype_def_stmt:newtype_def_stmt module_api_defs:tail
+    {:
+       tail.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = tail;
+    :}
+  | opaque_type_def_stmt:opaque_type_def_stmt module_api_defs:tail
+    {:
+       tail.getOpaqueTypeDefStmtsBuilder().add(opaque_type_def_stmt);
+       RESULT = tail;
+    :}
+  | initializers_block_stmt:initializers_block module_api_defs:tail
+    {:
+       tail.getInitializersBlocksByTypeName().putAll(initializers_block);
+       RESULT = tail;
+    :}
+  | unwrappers_block_stmt:unwrappers_block module_api_defs:tail
+    {:
+       tail.getUnwrappersBlocksByTypeName().putAll(unwrappers_block);
+       RESULT = tail;
+    :}
+  | contract_definition_stmt:contract_def module_api_defs:tail
+    {:
+       tail.getContractDefsBuilder().add(contract_def);
+       RESULT = tail;
+    :}
+  | contract_implementation_stmt:contract_impl module_api_defs:tail
+    {:
+       tail.getContractImplementationsBuilder().put(contract_impl);
+       RESULT = tail;
+    :}
+  | http_service_def_stmt:http_service_def module_api_defs:tail
+    {:
+       tail.getHttpServiceDefsBuilder().add(http_service_def);
+       RESULT = tail;
+    :}
+
+  | flag_def_stmt:exported_flag_def
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getFlagDefStmtsBuilder().add(exported_flag_def);
+       RESULT = res;
+    :}
+  | static_value_def_stmt:exported_static_val
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getStaticValueDefStmtsBuilder().add(exported_static_val);
+       RESULT = res;
+    :}
+  | contract_procedure_signature_definition_stmt:exported_procedure
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getProcedureSignaturesBuilder().add(exported_procedure);
+       RESULT = res;
+    :}
+  | alias_stmt:alias_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getAliasDefStmtsBuilder().add(alias_stmt);
+       RESULT = res;
+    :}
+  | atom_def_stmt:atom_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getAtomDefStmtsBuilder().add(atom_def_stmt);
+       RESULT = res;
+    :}
+  | newtype_def_stmt:newtype_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getNewTypeDefStmtsBuilder().add(newtype_def_stmt);
+       RESULT = res;
+    :}
+  | opaque_type_def_stmt:opaque_type_def_stmt
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getOpaqueTypeDefStmtsBuilder().add(opaque_type_def_stmt);
+       RESULT = res;
+    :}
+  | initializers_block_stmt:initializers_block
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getInitializersBlocksByTypeName().putAll(initializers_block);
+       RESULT = res;
+    :}
+  | unwrappers_block_stmt:unwrappers_block
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getUnwrappersBlocksByTypeName().putAll(unwrappers_block);
+       RESULT = res;
+    :}
+  | contract_definition_stmt:contract_def
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getContractDefsBuilder().add(contract_def);
+       RESULT = res;
+    :}
+  | contract_implementation_stmt:contract_impl
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getContractImplementationsBuilder().put(contract_impl);
+       RESULT = res;
+    :}
+  | http_service_def_stmt:http_service_def
+    {:
+       ModuleNode.ModuleApiStmtsBuilder res = ModuleNode.ModuleApiStmtsBuilder.create();
+       res.getHttpServiceDefsBuilder().add(http_service_def);
+       RESULT = res;
+    :}
+  ;
+// TODO(steving) Support some syntax for flags having a configurable default value. Also docs that ClaroDocs could render.
+flag_def_stmt ::=
+    FLAG identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new FlagDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal());
+    :}
+  ;
+
+static_value_def_stmt ::=
+    STATIC identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal(), /*isLazy=*/false);
+    :}
+  | LAZY STATIC identifier:identifier COLON builtin_type:type SEMICOLON
+    {:
+       RESULT = new StaticValueDefStmt(identifier, ((LexedValue<TypeProvider>) type.value).getVal(), /*isLazy=*/true);
+    :}
+  ;
+
+builtin_type ::=
+    base_builtin_type_without_mutability_modifier:base_type
+    {: RESULT = base_type; :}
+  | MUT:m base_builtin_type_without_mutability_modifier:base_type
+    {:
+       RESULT = constructBuiltinType(
+           m, mleft, mright, base_type, LexedValue.create("", () -> "", 0), base_type.left + ((LexedValue) base_type.value).getLen(), base_type.right,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                Type resolvedType = tLexedVal.getVal().resolveType(scopedHeap);
+                // Literally all I need to do is manually mark the thing mutable if mutability is supported for this type.
+                if (resolvedType instanceof SupportsMutableVariant) {
+                  return ((SupportsMutableVariant) resolvedType).toShallowlyMutableVariant();
+                } else {
+                  // Java is stupid, I hate the concept of checked exceptions. If you're going to give me exceptions,
+                  // please make them "just work".
+                  throw new RuntimeException(
+                    ClaroTypeException.forIllegalMutableTypeAnnotationOnInherentlyImmutableType(resolvedType));
+                }
+           });
+    :}
+  ;
+
+base_builtin_type_without_mutability_modifier ::=
+    INT_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.INTEGER),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | FLOAT_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.FLOAT),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | BOOLEAN_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.BOOLEAN),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | STRING_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.STRING),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | LBRACKET:lb builtin_type:t RBRACKET:rb
+    {:
+       RESULT = constructBuiltinType(
+           lb, lbleft, lbright, t, rb, rbleft, rbright,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.ListType.forValueType(tLexedVal.getVal().resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+           });
+    :}
+  | LCURLY:lb builtin_type:t RCURLY:rb
+    {:
+       RESULT = constructBuiltinType(
+           lb, lbleft, lbright, t, rb, rbleft, rbright,
+           tLexedVal -> (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.SetType.forValueType(tLexedVal.getVal().resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+           });
+    :}
+  | LCURLY:la builtin_type:key COLON:c builtin_type:value RCURLY:ra
+    // Maps are defined like {string:int} to avoid a new keyword `map` since I'd like to not impair functional style,
+    // where map is a well known function.
+    {:
+       LexedValue<TypeProvider> keyLexedVal = (LexedValue<TypeProvider>) key.value;
+       LexedValue<TypeProvider> valueLexedVal = (LexedValue<TypeProvider>) value.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(la.getCurrentInputLine(), laright), new Line(keyLexedVal.getCurrentInputLine(), key.right), new Line(c.getCurrentInputLine(), cright), new Line(valueLexedVal.getCurrentInputLine(), value.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(laleft, key.left, cleft, value.left, raleft);
+       int endCol = max(laleft + la.getLen(), key.left + keyLexedVal.getLen(), cleft + c.getLen(), value.left + valueLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.MapType.forKeyValueTypes(keyLexedVal.getVal().resolveType(scopedHeap), valueLexedVal.getVal().resolveType(scopedHeap));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+              },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | ONEOF:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg_types.left + argTypesLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> {
+                boolean impossibleRecursionAlreadyFoundOnLevel =
+                    scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                Type resolvedType = Types.OneofType.forVariantTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()));
+                // Recursive aliases are allowed to be defined within this type since it has an implicit "bottom". But
+                // it doesn't matter if we've already found impossible, unresolved recursion on this level.
+                if (!impossibleRecursionAlreadyFoundOnLevel && scopedHeap.isIdentifierDeclared("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND")) {
+                  scopedHeap.deleteIdentifierValue("$POTENTIAL_IMPOSSIBLE_SELF_REFERENCING_TYPE_FOUND");
+                }
+                return resolvedType;
+              },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argLexedVal.getCurrentInputLine(), arg.right), new Line(a.getCurrentInputLine(), aright), new Line(outputTypeLexedVal.getCurrentInputLine(), output_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg.left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg.left + argLexedVal.getLen(), aleft + a.getLen(), output_type.left + outputTypeLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.getVal().resolveType(scopedHeap)), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(b1.getCurrentInputLine(), b1right), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(b2.getCurrentInputLine(), b2right), new Line(a.getCurrentInputLine(), aright), new Line(outputTypeLexedVal.getCurrentInputLine(), output_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, b1left, arg_types.left, b2left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), b1left + b1.getLen(), arg_types.left + argTypesLexedVal.getLen(), b2left + b2.getLen(), aleft + a.getLen(), output_type.left + outputTypeLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argLexedVal.getCurrentInputLine(), arg.right), new Line(a.getCurrentInputLine(), aright), new Line(outputTypeLexedVal.getCurrentInputLine(), output_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg.left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg.left + argLexedVal.getLen(), aleft + a.getLen(), output_type.left + outputTypeLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.getVal().resolveType(scopedHeap)), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(b1.getCurrentInputLine(), b1right), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(b2.getCurrentInputLine(), b2right), new Line(a.getCurrentInputLine(), aright), new Line(outputTypeLexedVal.getCurrentInputLine(), output_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, b1left, arg_types.left, b2left, aleft, output_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), b1left + b1.getLen(), arg_types.left + argTypesLexedVal.getLen(), b2left + b2.getLen(), aleft + a.getLen(), output_type.left + outputTypeLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg_types.left + argTypesLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/false),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg_types.left + argTypesLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:return_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> returnTypeProvider = (LexedValue<TypeProvider>) return_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(returnTypeProvider.getCurrentInputLine(), return_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, return_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), return_type.left + returnTypeProvider.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/false),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | BLOCKING PROVIDER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:return_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> returnTypeProvider = (LexedValue<TypeProvider>) return_type.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(returnTypeProvider.getCurrentInputLine(), return_type.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, return_type.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), return_type.left + returnTypeProvider.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(returnTypeProvider.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/true),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | TUPLE_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(t.getCurrentInputLine(), tright), new Line(la.getCurrentInputLine(), laright), new Line(argTypesLexedVal.getCurrentInputLine(), arg_types.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(tleft, laleft, arg_types.left, raleft);
+       int endCol = max(tleft + t.getLen(), laleft + la.getLen(), arg_types.left + argTypesLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.TupleType.forValueTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FUTURE:f L_ANGLE_BRACKET:la builtin_type:wrapped R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> wrappedTypeProvider = (LexedValue<TypeProvider>) wrapped.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.getCurrentInputLine(), fright), new Line(la.getCurrentInputLine(), laright), new Line(wrappedTypeProvider.getCurrentInputLine(), wrapped.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(fleft, laleft, wrapped.left, raleft);
+       int endCol = max(fleft + f.getLen(), laleft + la.getLen(), wrapped.left + wrappedTypeProvider.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> Types.FutureType.wrapping(wrappedTypeProvider.getVal().resolveType(scopedHeap)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:type_name
+    {:
+       RESULT = new Symbol(
+          -1,
+          type_nameleft,
+          type_nameright, // line number
+          LexedValue.create(
+            TypeProvider.Util.getTypeByName(type_name.getVal(), /*isTypeDefinition=*/true),
+            type_name.getCurrentInputLine(),
+            type_name.getLen())
+       );
+    :}
+  | SCOPED_IDENTIFIER:scoped_identifier
+    {:
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       depModuleTransitiveTypeExports.add(depModuleName);
+
+       String disambiguatedDepModuleTypeName = getDisambiguatedExportedIdentifierName(
+          depModuleName, scoped_identifier.getVal().getIdentifier());
+       RESULT = new Symbol(
+          -1,
+          scoped_identifierleft,
+          scoped_identifierright, // line number
+          LexedValue.create(
+            TypeProvider.Util.getTypeByName(disambiguatedDepModuleTypeName, /*isTypeDefinition=*/true),
+            scoped_identifier.getCurrentInputLine(),
+            scoped_identifier.getLen())
+       );
+    :}
+  | IDENTIFIER:type_name L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(type_name.getCurrentInputLine(), type_nameright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(type_nameleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(type_nameleft + type_name.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
+            (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              type_name.getVal(),
+              // There's no leading `Foo::` so this must've been defined in this module.
+              uniqueModuleName,
+              concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
+            ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | SCOPED_IDENTIFIER:scoped_identifier L_ANGLE_BRACKET:la builtin_types_list:concrete_type_params R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> concreteTypeParamsLexedVal = (LexedValue<ImmutableList<TypeProvider>>) concrete_type_params.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(scoped_identifier.getCurrentInputLine(), scoped_identifierright), new Line(la.getCurrentInputLine(), laright), new Line(concreteTypeParamsLexedVal.getCurrentInputLine(), concrete_type_params.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(scoped_identifierleft, laleft, concrete_type_params.left, raleft);
+       int endCol = max(scoped_identifierleft + scoped_identifier.getLen(), laleft + la.getLen(), concrete_type_params.left + concreteTypeParamsLexedVal.getLen(), raleft + ra.getLen());
+
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       depModuleTransitiveTypeExports.add(depModuleName);
+
+       String disambiguatedDepModuleTypeName =
+          getDisambiguatedExportedIdentifierName(depModuleName, scoped_identifier.getVal().getIdentifier());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          scoped_identifierright,
+          LexedValue.create(
+            // TODO(steving) There's currently no validation that this user-defined-type was ACTUALLY declared somewhere.
+            // TODO(steving)    This is a bit of a ridiculous situation as this essentially would allow the declaration
+            // TODO(steving)    of procedures/types that are actually unusable.
+            (TypeProvider) (scopedHeap) -> Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+              scoped_identifier.getVal().getIdentifier(),
+              ScopedHeap.getDefiningModuleDisambiguator(Optional.of(depModuleName)),
+              concreteTypeParamsLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList())
+            ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | STRUCT_TYPE:s LCURLY:la function_args_types_list:fields RCURLY:ra
+    // Structs are defined like `struct{field1: int, ..., fieldN: string}`. This is intended to resemble a sequence of
+    // variable declarations, which will align with the initialization syntax `{field1 = 1, ..., fieldN = "foo"}` which
+    // in turn is intended to resemble a sequence of variable initializations. I appreciate the metaphore of a struct as
+    // a bundle of variables.
+    {:
+      ImmutableList<Map.Entry<String, TypeProvider>> fieldTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) fields.value).getVal().build().entrySet().asList().reverse();
+      ImmutableMap<String, TypeProvider> fieldTypesMap =
+          ImmutableMap.<String, TypeProvider>builderWithExpectedSize(fieldTypesList.size()).putAll(fieldTypesList).build();
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(s.getCurrentInputLine(), sright), new Line(la.getCurrentInputLine(), laright), new Line(((LexedValue) fields.value).getCurrentInputLine(), fields.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(sleft, laleft, fields.left, raleft);
+       int endCol = max(sleft + s.getLen(), laleft + la.getLen(), fields.left + ((LexedValue) fields.value).getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) ->
+              Types.StructType.forFieldTypes(
+                fieldTypesMap.keySet().asList(),
+                fieldTypesMap.values().stream()
+                  .map(tp -> tp.resolveType(scopedHeap))
+                  .collect(ImmutableList.toImmutableList()),
+                /*isMutable=*/false
+              ),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | HTTP_RESPONSE:h
+    {:
+       RESULT = new Symbol(
+          -1,
+          hleft,
+          hright, // line number
+          LexedValue.create(
+            TypeProvider.ImmediateTypeProvider.of(Types.HTTP_RESPONSE),
+            joinExprLines(new Line(h.getCurrentInputLine(), hright)),
+            h.getVal().length())
+       );
+    :}
+  | HTTP_CLIENT:h L_ANGLE_BRACKET:la builtin_type:http_service R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> httpServiceLex = (LexedValue<TypeProvider>)http_service.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(h.getCurrentInputLine(), hright), new Line(la.getCurrentInputLine(), laright), new Line(httpServiceLex.getCurrentInputLine(), http_serviceright), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(hleft, laleft, http_serviceleft, raleft);
+       int endCol = max(hleft + h.getLen(), laleft + la.getLen(), http_serviceleft + httpServiceLex.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> {
+              // First things first, I need to actually do some type validation that this type has been correctly
+              // parameterized with an HttpService and not some arbitrary type.
+              Type resolvedHttpServiceType = httpServiceLex.getVal().resolveType(scopedHeap);
+              if (!resolvedHttpServiceType.baseType().equals(BaseType.HTTP_SERVICE)) {
+                throw new RuntimeException(
+                  ClaroTypeException.forIllegalHttpClientTypeWithNonHttpServiceParameterizedType(resolvedHttpServiceType)
+                );
+              }
+              return Types.HttpClientType.forServiceName(((Types.HttpServiceType) resolvedHttpServiceType).getServiceName());
+            },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | HTTP_SERVER:f L_ANGLE_BRACKET:la builtin_type:wrapped R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> wrappedTypeProvider = (LexedValue<TypeProvider>) wrapped.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(f.getCurrentInputLine(), fright), new Line(la.getCurrentInputLine(), laright), new Line(wrappedTypeProvider.getCurrentInputLine(), wrapped.right), new Line(ra.getCurrentInputLine(), raright));
+       int startCol = min(fleft, laleft, wrapped.left, raleft);
+       int endCol = max(fleft + f.getLen(), laleft + la.getLen(), wrapped.left + wrappedTypeProvider.getLen(), raleft + ra.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          endCol, // line number
+          LexedValue.create(
+            (TypeProvider) (scopedHeap) -> {
+              Type resolvedHttpServiceType = wrappedTypeProvider.getVal().resolveType(scopedHeap);
+              if (!resolvedHttpServiceType.baseType().equals(BaseType.HTTP_SERVICE)) {
+                throw new RuntimeException(
+                  ClaroTypeException.forIllegalHttpServerTypeWithNonHttpServiceParameterizedType(resolvedHttpServiceType)
+                );
+              }
+              return Types.HttpServerType.forHttpService(resolvedHttpServiceType);
+            },
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  ;
+
+builtin_types_list ::=
+    backwards_builtin_types_list:b
+    {:
+       LexedValue<ImmutableList.Builder<TypeProvider>> bLexedValue = (LexedValue<ImmutableList.Builder<TypeProvider>>) b.value;
+       RESULT = new Symbol(
+          -1,
+          b.left,
+          b.right, // line number
+          LexedValue.create(
+            bLexedValue.getVal().build().reverse(),
+            bLexedValue.getCurrentInputLine(),
+            bLexedValue.getLen())
+       );
+    :}
+  ;
+
+backwards_builtin_types_list ::=
+    builtin_type:t COMMA:c backwards_builtin_types_list:tail
+    {:
+       LexedValue<TypeProvider> tLexedVal = (LexedValue<TypeProvider>)t.value;
+       LexedValue<ImmutableList.Builder<TypeProvider>> tailLexedVal = (LexedValue<ImmutableList.Builder<TypeProvider>>)tail.value;
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(tLexedVal.getCurrentInputLine(), t.right), new Line(c.getCurrentInputLine(), cright), new Line(tailLexedVal.getCurrentInputLine(), tail.right));
+       int startCol = min(t.left, cleft, tail.left);
+       int endCol = max(t.left + tLexedVal.getLen(), cleft + c.getLen(), tail.left + tailLexedVal.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          LexedValue.create(
+            tailLexedVal.getVal().add(tLexedVal.getVal()),
+            currentLinesSupplier,
+            tailLexedVal.getLen())
+       );
+    :}
+  | builtin_type:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          t.left,
+          t.right, // line number
+          LexedValue.create(
+            ImmutableList.<TypeProvider>builder().add(((LexedValue<TypeProvider>) t.value).getVal()),
+            ((LexedValue)t.value).getCurrentInputLine(),
+            ((LexedValue)t.value).getLen())
+       );
+    :}
+  ;
+
+generic_blocking_on ::=
+    BLOCKING COLON identifier_bar_sep_list:i
+    {:
+      RESULT = i.build().reverse();
+    :}
+  ;
+
+identifier_bar_sep_list ::=
+    IDENTIFIER:i BAR identifier_bar_sep_list:b
+    {:
+      RESULT = b.add(i.getVal());
+    :}
+  | IDENTIFIER:i
+    {:
+      RESULT = ImmutableList.<String>builder().add(i.getVal());
+    :}
+  ;
+
+maybe_blocking_procedure_types ::=
+    MAYBE_BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_type:arg ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> argLexedVal = (LexedValue<TypeProvider>) arg.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(ImmutableList.of(argLexedVal.getVal().resolveType(scopedHeap)), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  | MAYBE_BLOCKING FUNCTION_TYPE:t L_ANGLE_BRACKET:la BAR:b1 builtin_types_list:arg_types BAR:b2 ARROW:a builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.FunctionType.typeLiteralForArgsAndReturnTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  | MAYBE_BLOCKING CONSUMER_FUNCTION_TYPE:t L_ANGLE_BRACKET:la builtin_types_list:arg_types R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<ImmutableList<TypeProvider>> argTypesLexedVal = (LexedValue<ImmutableList<TypeProvider>>) arg_types.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ConsumerType.typeLiteralForConsumerArgTypes(argTypesLexedVal.getVal().stream().map(tp -> tp.resolveType(scopedHeap)).collect(ImmutableList.toImmutableList()), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  | MAYBE_BLOCKING PROVIDER_FUNCTION_TYPE:p L_ANGLE_BRACKET:la builtin_type:output_type R_ANGLE_BRACKET:ra
+    {:
+       LexedValue<TypeProvider> outputTypeLexedVal = (LexedValue<TypeProvider>) output_type.value;
+
+       RESULT = (TypeProvider) (scopedHeap) -> Types.ProcedureType.ProviderType.typeLiteralForReturnType(outputTypeLexedVal.getVal().resolveType(scopedHeap), /*explicitlyAnnotatedBlocking=*/null);
+    :}
+  ;
+
+identifier_list ::=
+    IDENTIFIER:arg_name COMMA:c identifier_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.getCurrentInputLine(), arg_nameright), new Line(c.getCurrentInputLine(), cright), new Line(((LexedValue)tail.value).getCurrentInputLine(), tail.right));
+       int startCol = min(arg_nameleft, cleft);
+       int endCol = max(arg_nameleft + arg_name.getLen(), cleft + c.getLen());
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tail.right, // line number
+          LexedValue.create(
+            ((LexedValue<ImmutableList.Builder<String>>)tail.value).getVal().add(arg_name.getVal()),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:arg_name
+    {:
+       RESULT = new Symbol(
+          -1,
+          arg_nameleft,
+          arg_nameright, // line number
+          LexedValue.create(
+            ImmutableList.<String>builder().add(arg_name.getVal()),
+            arg_name.getCurrentInputLine(),
+            arg_name.getLen())
+       );
+    :}
+  ;
+
+// TODO(steving) Be less lazy and don't bother using a Map where we should just be using a List of pairs....but Java is so garbage it doesn't have tuples so.....
+// Note that we're again building this up backwards for convenience (remember that all guava collections respect ordering).
+function_args_types_list ::=
+    IDENTIFIER:arg_name COLON:colon builtin_type:t COMMA:comma function_args_types_list:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.getCurrentInputLine(), arg_nameright), new Line(colon.getCurrentInputLine(), colonright), new Line(((LexedValue) t.value).getCurrentInputLine(), t.right), new Line(comma.getCurrentInputLine(), commaright), new Line(((LexedValue) tail.value).getCurrentInputLine(), tail.right));
+       int startCol = min(arg_nameleft, colonleft, t.left, commaleft, tail.left);
+       int endCol = max(arg_nameleft + arg_name.getLen(), colonleft + colon.getLen(), t.left + ((LexedValue) t.value).getLen(), commaleft + comma.getLen(), tail.left + ((LexedValue) tail.value).getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          LexedValue.create(
+            ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) tail.value).getVal().put(arg_name.getVal(), ((LexedValue<TypeProvider>) t.value).getVal()),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | IDENTIFIER:arg_name COLON:c builtin_type:t
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(arg_name.getCurrentInputLine(), arg_nameright), new Line(c.getCurrentInputLine(), cright), new Line(((LexedValue) t.value).getCurrentInputLine(), t.right));
+       int startCol = min(arg_nameleft, cleft, t.left);
+       int endCol = max(arg_nameleft + arg_name.getLen(), cleft + c.getLen(), t.left + ((LexedValue) t.value).getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          t.right, // line number
+          LexedValue.create(
+            ImmutableMap.<String, TypeProvider>builder().put(arg_name.getVal(), ((LexedValue<TypeProvider>) t.value).getVal()),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  ;
+
+procedure_args_w_generic_blocking ::=
+    IDENTIFIER:arg_name COLON maybe_blocking_procedure_types:maybe_blocking_proc COMMA procedure_args_w_generic_blocking:args_w_generic_blocking
+    {:
+      RESULT = args_w_generic_blocking.put(arg_name.getVal(), maybe_blocking_proc);
+    :}
+  | IDENTIFIER:arg_name COLON builtin_type:t COMMA procedure_args_w_generic_blocking:args_w_generic_blocking
+    {:
+      RESULT = args_w_generic_blocking.put(arg_name.getVal(), ((LexedValue<TypeProvider>) t.value).getVal());
+    :}
+  | IDENTIFIER:arg_name COLON maybe_blocking_procedure_types:maybe_blocking_proc
+    {:
+      RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name.getVal(), maybe_blocking_proc);
+    :}
+  | IDENTIFIER:arg_name COLON builtin_type:t
+    {:
+      RESULT = ImmutableMap.<String, TypeProvider>builder().put(arg_name.getVal(), ((LexedValue<TypeProvider>) t.value).getVal());
+    :}
+  ;
+
+// TODO(steving) I need to enable generic functions to be generic over only a partial subset of the required
+// TODO(steving) Contract's type params.
+required_contracts ::=
+    IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET COMMA required_contracts:tail
+    {:
+      ImmutableList<Type> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = tail.put(String.format("%s$%s", contract_name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList);
+    :}
+  | IDENTIFIER:contract_name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET
+    {:
+      ImmutableList<Type> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse().stream()
+          .map(g -> Types.$GenericTypeParam.forTypeParamName(g)).collect(ImmutableList.toImmutableList());
+      RESULT = ImmutableListMultimap.<String, ImmutableList<Type>>builder().put(String.format("%s$%s", contract_name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList);
+    :}
+  ;
+
+contract_procedure_signature_definition_stmt ::=
+   concrete_contract_procedure_signature_definition_stmt:sig
+   {: RESULT = sig; :}
+ | generic_contract_procedure_signature_definition_stmt:sig
+   {: RESULT = sig; :}
+ | REQUIRES LPAR required_contracts:required_contracts RPAR generic_contract_procedure_signature_definition_stmt:sig
+   {:
+      sig.optionalRequiredContractNamesToGenericArgs = Optional.of(required_contracts.build());
+      RESULT = sig;
+   :}
+ ;
+
+concrete_contract_procedure_signature_definition_stmt ::=
+   // FUNCTIONS
+   FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+
+   // CONSUMERS
+ | CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+
+   // PROVIDERS
+ | PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+ | BLOCKING PROVIDER_FUNCTION_TYPE IDENTIFIER:name LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.empty());
+   :}
+  ;
+
+generic_contract_procedure_signature_definition_stmt ::=
+   // FUNCTIONS
+   FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
+   :}
+ | BLOCKING FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.of(genericTypesList));
+   :}
+ | generic_blocking_on:generic_blocking_on FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR ARROW builtin_type:output_type SEMICOLON
+   {:
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), Optional.of(genericTypesList));
+   :}
+
+   // CONSUMERS
+ | CONSUMER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR function_args_types_list:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = ((LexedValue<ImmutableMap.Builder<String, TypeProvider>>) backwards_arg_types.value).getVal().build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
+   :}
+ | BLOCKING CONSUMER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/true, /*genericBlockingOn=*/ Optional.empty(), /*optionalGenericTypesList=*/ Optional.of(genericTypesList));
+   :}
+ | generic_blocking_on:generic_blocking_on CONSUMER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR procedure_args_w_generic_blocking:backwards_arg_types RPAR SEMICOLON
+   {:
+     ImmutableList<Map.Entry<String, TypeProvider>> argTypesList = backwards_arg_types.build().entrySet().asList().reverse();
+     ImmutableMap<String, TypeProvider> argTypesMap =
+         ImmutableMap.<String, TypeProvider>builderWithExpectedSize(argTypesList.size()).putAll(argTypesList).build();
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+
+     // Use a disambiguation prefix for namespacing required by dep modules.
+     String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(name.getVal());
+     RESULT = new ContractProcedureSignatureDefinitionStmt(disambiguatedIdentifierName, Optional.of(argTypesMap), Optional.empty(), /*explicitlyAnnotatedBlocking=*/null, /*genericBlockingOn=*/ Optional.of(generic_blocking_on), Optional.of(genericTypesList));
+   :}
+
+   // PROVIDERS
+ | PROVIDER_FUNCTION_TYPE IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LPAR RPAR ARROW builtin_type:output_type SEMICOLON
+   {: // Interestingly this production is only possible because the stdlib uses some compiler intrinsics to implement
+      // this manner of generic provider signature. So, a fun fact is that every procedure w/ this signature validated
+      // by the compiler will touch one of those specific stdlib procedures at some point (or else it returns a value
+      // that does not actually contain an instance of the generic type
+      // (e.g. `provider foo<T>() -> oneof<Other, T> { return Other(...); }`).
+     TypeProvider outputTypeProvider = ((LexedValue<TypeProvider>) output_type.value).getVal();
+     ImmutableList<String> genericTypesList =
+
+       ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+     RESULT = new ContractProcedureSignatureDefinitionStmt(name.getVal(), Optional.empty(), Optional.of(outputTypeProvider), /*explicitlyAnnotatedBlocking=*/false, /*genericBlockingOn=*/ Optional.empty(), Optional.of(genericTypesList));
+   :}
+  ;
+
+alias_stmt ::=
+    ALIAS IDENTIFIER:alias COLON builtin_type:aliased_type
+    {:
+       LexedValue<TypeProvider> aliasedTypeLexedVal = (LexedValue<TypeProvider>) aliased_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new AliasStmt(getDisambiguatedExportedIdentifierName(alias.getVal()), aliasedTypeLexedVal.getVal());
+    :}
+  ;
+
+atom_def_stmt ::=
+    ATOM identifier:name
+    {: RESULT = new AtomDefinitionStmt(name); :}
+  ;
+
+newtype_def_stmt ::=
+    NEWTYPE IDENTIFIER:type_name COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(uniqueModuleName), baseTypeLexedVal.getVal());
+    :}
+  | NEWTYPE IDENTIFIER:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET COLON builtin_type:base_type
+    {:
+       LexedValue<TypeProvider> baseTypeLexedVal = (LexedValue<TypeProvider>) base_type.value;
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       RESULT = new NewTypeDefStmt(getDisambiguatedExportedIdentifierName(type_name.getVal()), Optional.of(uniqueModuleName), baseTypeLexedVal.getVal(), ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse());
+    :}
+  ;
+
+// These opaque type defs allow modules to export types whose internal representation will not be exposed to consumers.
+// They solely communicate a name, and whether or not the type is deeply-immutable.
+opaque_type_def_stmt ::=
+    OPAQUE NEWTYPE identifier:type_name
+    {:
+      RESULT = ModuleNode.OpaqueTypeDef.create(type_name, /*isMutable=*/false, /*parameterized_type_names=*/ImmutableList.of());
+    :}
+  | OPAQUE NEWTYPE MUT identifier:type_name
+    {:
+      RESULT = ModuleNode.OpaqueTypeDef.create(type_name, /*isMutable=*/true, /*parameterized_type_names=*/ImmutableList.of());
+    :}
+  | OPAQUE NEWTYPE identifier:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET
+    {:
+      ImmutableList<String> parameterizedTypeNames =
+        ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse();
+      RESULT =
+        ModuleNode.OpaqueTypeDef.create(
+          type_name, /*isMutable=*/false, /*parameterized_type_names=*/parameterizedTypeNames);
+    :}
+  | OPAQUE NEWTYPE MUT identifier:type_name L_ANGLE_BRACKET identifier_list:parameterized_type_names R_ANGLE_BRACKET
+    {:
+      ImmutableList<String> parameterizedTypeNames =
+        ((LexedValue<ImmutableList.Builder<String>>)parameterized_type_names.value).getVal().build().reverse();
+      RESULT =
+        ModuleNode.OpaqueTypeDef.create(
+          type_name, /*isMutable=*/true, /*parameterized_type_names=*/parameterizedTypeNames);
+    :}
+  ;
+
+initializers_block_stmt ::=
+    INITIALIZERS:i identifier:initialized_type LCURLY:lc contract_signature_defs_list:initializer_defs RCURLY:rc
+    {:
+       RESULT = ImmutableMap.of(initialized_type, initializer_defs.build().reverse());
+    :}
+  ;
+
+unwrappers_block_stmt ::=
+    UNWRAPPERS:u identifier:unwrapped_type LCURLY:lc contract_signature_defs_list:unwrapper_defs RCURLY:rc
+    {:
+       RESULT = ImmutableMap.of(unwrapped_type, unwrapper_defs.build().reverse());
+    :}
+  ;
+
+contract_definition_stmt ::=
+    CONTRACT IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types R_ANGLE_BRACKET LCURLY contract_signature_defs_list:contract_signature_defs_backwards RCURLY
+    {:
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+      RESULT = new ContractDefinitionStmt(String.format("%s$%s", name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList, contract_signature_defs_backwards.build().reverse());
+    :}
+  | CONTRACT IDENTIFIER:name L_ANGLE_BRACKET identifier_list:generic_types IMPLICATION_ARROW identifier_list:implied_types R_ANGLE_BRACKET LCURLY contract_signature_defs_list:contract_signature_defs_backwards RCURLY
+    {:
+      ImmutableList<String> genericTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)generic_types.value).getVal().build().reverse();
+      ImmutableList<String> impliedTypesList =
+        ((LexedValue<ImmutableList.Builder<String>>)implied_types.value).getVal().build().reverse();
+      RESULT = new ContractDefinitionStmt(String.format("%s$%s", name.getVal(), ScopedHeap.getDefiningModuleDisambiguator(Optional.empty())), genericTypesList, impliedTypesList, contract_signature_defs_backwards.build().reverse());
+    :}
+  ;
+
+contract_signature_defs_list ::=
+    contract_procedure_signature_definition_stmt:signature contract_signature_defs_list:tail
+    {:
+      RESULT = tail.add(signature);
+    :}
+  | contract_procedure_signature_definition_stmt:signature
+    {:
+      RESULT = ImmutableList.<ContractProcedureSignatureDefinitionStmt>builder().add(signature);
+    :}
+  ;
+
+contract_implementation_stmt ::=
+    IMPLEMENT identifier:contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET SEMICOLON
+    {:
+       RESULT = Maps.immutableEntry(contract_name.withIdentifier(String.format("%s$%s", contract_name.identifier, ScopedHeap.getDefiningModuleDisambiguator(Optional.empty()))), ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal());
+    :}
+  | IMPLEMENT scoped_identifier:dep_contract_name L_ANGLE_BRACKET builtin_types_list:concrete_types R_ANGLE_BRACKET SEMICOLON
+    {:
+       RESULT = Maps.immutableEntry(
+          dep_contract_name.getOverallIdentifierReferenceTerm(
+            getDisambiguatedExportedIdentifierName(dep_contract_name.getScopeName(), dep_contract_name.getIdentifier()),
+            ScopedHeap.getDefiningModuleDisambiguator(Optional.of(dep_contract_name.getScopeName()))),
+          ((LexedValue<ImmutableList<TypeProvider>>) concrete_types.value).getVal());
+    :}
+  ;
+
+http_service_def_stmt ::=
+    HTTP_SERVICE identifier:service_name LCURLY http_endpoints_list:endpoints RCURLY
+    {: RESULT = new HttpServiceDefStmt(service_name, endpoints.build()); :}
+  ;
+
+http_endpoints_list ::=
+    identifier:endpoint_name COLON fmt_string_parts:path COMMA http_endpoints_list:tail
+    {:
+       LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
+       ImmutableList<ImmutableList.Builder> fs = fsLexedValue.getVal();
+       FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.getCurrentInputLine(), path.right, path.left, path.left + fsLexedValue.getLen());
+
+       RESULT = tail.put(endpoint_name, pathFmtStringExpr);
+    :}
+  | identifier:endpoint_name COLON STRING:path COMMA http_endpoints_list:tail
+    {:
+      RESULT = tail.put(endpoint_name, path.getVal());
+    :}
+  | identifier:endpoint_name COLON fmt_string_parts:path
+    {:
+       LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
+       ImmutableList<ImmutableList.Builder> fs = fsLexedValue.getVal();
+       FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.getCurrentInputLine(), path.right, path.left, path.left + fsLexedValue.getLen());
+
+       RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, pathFmtStringExpr);
+    :}
+  | identifier:endpoint_name COLON STRING:path
+    {:
+       RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, path.getVal());
+    :}
+  ;
+
+fmt_string_parts ::=
+    FMT_STRING_PART:fs expr:e fmt_string_parts:fswt
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(fs.getCurrentInputLine(), fsright), new Line(e.currentLine, e.currentLineNumber), new Line(((LexedValue) fswt.value).getCurrentInputLine(), fswt.right));
+       int startCol = min(fsleft, e.startCol, fswt.left);
+       int endCol = max(fsleft + fs.getLen(), e.endCol, fswt.left + ((LexedValue) fswt.value).getLen());
+
+       ImmutableList<ImmutableList.Builder> fswtList = ((LexedValue<ImmutableList<ImmutableList.Builder>>)fswt.value).getVal();
+       fswtList.get(0).add(fs.getVal());
+       fswtList.get(1).add(e);
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          fswt.right, // line number
+          LexedValue.create(
+            fswtList,
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  | FMT_STRING_PART:fs expr:e STRING:tail
+    {:
+       Supplier<String> currentLinesSupplier =
+          joinExprLines(new Line(fs.getCurrentInputLine(), fsright), new Line(e.currentLine, e.currentLineNumber), new Line(tail.getCurrentInputLine(), tailright));
+       int startCol = min(fsleft, e.startCol, tailleft);
+       int endCol = max(fsleft + fs.getLen(), e.endCol, tailleft + tail.getLen());
+
+       RESULT = new Symbol(
+          -1,
+          startCol,
+          tailright, // line number
+          LexedValue.create(
+            ImmutableList.of(ImmutableList.builder().add(tail.getVal()).add(fs.getVal()), ImmutableList.builder().add(e)),
+            currentLinesSupplier,
+            endCol - startCol)
+       );
+    :}
+  ;
+
+// TODO(steving) For now this is a ridiculously restricted definition of `expr`. Once I get to working on Modules
+// TODO(steving)   supporting the export of static values, I'll need to fully flesh this back out.
+expr ::=
+    identifier:identifier
+    {: RESULT = identifier; :}
+  ;
+
+identifier ::=
+    IDENTIFIER:identifier
+    {:
+       // Use a disambiguation prefix for namespacing required by dep modules.
+       String disambiguatedIdentifierName = getDisambiguatedExportedIdentifierName(identifier.getVal());
+       RESULT = new IdentifierReferenceTerm(disambiguatedIdentifierName, identifier.getCurrentInputLine(), identifierright, identifierleft, identifierleft + identifier.getLen());
+    :}
+  ;
+
+scoped_identifier ::=
+    SCOPED_IDENTIFIER:scoped_identifier
+    {:
+       String depModuleName = scoped_identifier.getVal().getScopeName();
+       // Make note of the fact that a type defined in a dep module has been exposed in this module's public api. Hence,
+       // the transitive dep module must be marked exported.
+       depModuleTransitiveTypeExports.add(depModuleName);
+       RESULT = scoped_identifier.getVal();
+    :}
+  ;

@@ -1,0 +1,474 @@
+
+# Claro allows the definition of user defined types using the `newtype` keyword! This has *no affect on the generated
+# code* it simply allows programmers to indicate that while some types may be *represented* the same at a storage level,
+# at a higher conceptual level, they have *semantically distinct interpretations*. So, Claro will enforce this
+# distinction in order to allow you to ensure that data of distinct types is always handled in a way that is cognizant
+# of the semantics of the custom type.
+
+newtype MyInt : int
+
+var myInt : MyInt = MyInt(1);
+print(myInt);
+type(myInt);
+
+# By design, there is *NO INHERITANCE* of implementation from the wrapped type. To demonstrate, in the below example,
+# even though the type wraps `int`, you cannot do addition with `MyInt` instances (by default, w/o explicitly
+# defining how addition works for your custom type).
+# Uncomment any of the below lines to see compile-time errors complaining about type mismatches.
+#print(myInt + myInt);
+
+# In order to actually get at the wrapped type, Claro provides a builtin `unwrap()` function. Conceptually, think of
+# this function as "decoding" or "reinterpreting" the outer type into the wrapped type.
+var unwrappedInt : int = unwrap(myInt);
+print(unwrappedInt);
+type(unwrappedInt);
+# Now that you've reinterpreted the MyInt as an int, you can use the `+` operator again since it's impl'd for ints.
+print(unwrappedInt + unwrappedInt);
+
+
+# It's a design decision up to the programmer to decide whether this is valuable, but you may also define newtype's
+# based off of another newtype. Again, this establishes an indication that they will share the same underlying concrete
+# representation in memory, and MORE IMPORTANTLY that they share the same foundational semantic constraints imposed by
+# the wrapped type with ADDITIONAL constraints on top. So here, MyOtherInt is also represented as `int` because
+# `MyInt` is represented as an `int`. In some way this could be useful even just in helping you to make sure that two
+# types remain structurally equivalent if that's important to you for some reason. But more importantly you can use this
+# to layer semantic constraints or reinterpretations.
+newtype MyOtherInt : MyInt
+var myOtherInt: MyOtherInt = MyOtherInt(myInt);
+print(myOtherInt);
+type(myOtherInt);
+
+unwrappedInt = unwrap(unwrap(myOtherInt));
+print(unwrappedInt + unwrappedInt);
+
+# New Types are, by design, *NOT* mutually compatible with any (transitive) base types they are defined on. Claro very
+# intentionally *will never* support traditional subtyping relationships as found in other languages. Remember that the
+# *entire point of defining a newtype* is that you claim these things are semantically distinct from one another.
+
+# Uncomment any of the below lines to see compile-time errors complaining about type mismatches.
+#myInt = myOtherInt;
+#myOtherInt = myInt;
+#myInt = 1;
+#myOtherInt = 1;
+
+
+########################################################################################################################
+# As you should expect, you can now do anything with your custom types that you could do with builtin types. Here's a
+# non-trivial example of doing runtime dynamic dispatch over values of your custom types.
+########################################################################################################################
+
+contract Foo<T> {
+  consumer bar(t: T);
+}
+implement Foo<MyInt> {
+  consumer bar(t: MyInt) {
+    print("My Int is: {t}");
+  }
+}
+implement Foo<MyOtherInt> {
+  consumer bar(t: MyOtherInt) {
+    print("My Other Int is: {t}");
+  }
+}
+
+# Runtime dynamic dispatch here will correctly dispatch to the impl based on which type you choose for `someCustomInt`.
+var someCustomInt: oneof<MyInt, MyOtherInt> = myInt;
+Foo::bar(someCustomInt);
+someCustomInt = myOtherInt;
+Foo::bar(someCustomInt);
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT DEFINES A SINGLE "INITIALIZER" FUNCTION
+#
+# By defining an "initializers block" for the type `EvenInt` below, this program is now unable to construct an instance
+# of `EvenInt` w/o going through the initializer function `GetValidatedEvenInt`. This has the powerful implication that
+# no matter what, if you have an instance of `EvenInt`, you know for a fact that the wrapped `int` is even.
+########################################################################################################################
+
+newtype EvenInt : int
+
+initializers EvenInt {
+  function GetValidatedEvenInt(x: int) -> oneof<EvenInt, std::Error<string>> {
+    if (x % 2 == 1) {
+      return std::Error("Given int {x} is odd!");
+    }
+    return EvenInt(x);
+  }
+}
+
+
+var firstEvenInt : oneof<EvenInt, std::Error<string>> = GetValidatedEvenInt(2);
+if (firstEvenInt instanceof EvenInt) {
+  print("I successfully initialized an EvenInt! {firstEvenInt}");
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an EventInt.
+}
+firstEvenInt = GetValidatedEvenInt(3);
+if (firstEvenInt instanceof std::Error<string>) {
+  print("The odd int 3 was correctly rejected!: {firstEvenInt}");
+  type(firstEvenInt); # Via type-narrowing, Claro is aware that this is an std::Error<int>.
+}
+
+
+# It is impossible to call `EvenInt`'s constructor directly since the initializers block is defined for that type. Try
+# Uncommenting the lines below w/ the call to `EvenInt(3)` and you'll see this error message:
+#  "user_defined_types.claro:xxx: Illegal Use of User-Defined Type Constructor Outside of Initializers Block: An initializers
+#    block has been defined for the custom type `EvenInt`, so, in order to maintain any semantic constraints that the
+#    initializers are intended to impose on the type, you aren't allowed to use the type's default constructor directly.
+#   		Instead, to get an instance of this type, consider calling one of the defined initializers:
+#   			- GetValidatedEvenInt
+#   var shouldMakeThisInvalid : EvenInt = EvenInt(3);
+#                                         ^^^^^^^^^^
+#   1 Error"
+
+#var thisWillNotCompile: EvenInt = EvenInt(3);
+#print(thisWillNotCompile);
+
+
+# One of the extremely powerful capabilities Claro's approach to types gives you is that you can start to nest these
+# constraints arbitrarily.
+
+# TODO(steving) Refactor once I can define this as a type with a generic type param.
+newtype EvenIntGreaterThan10 : EvenInt
+
+initializers EvenIntGreaterThan10 {
+  function GetValidatedEvenIntGreaterThan10(x: EvenInt) -> oneof<EvenIntGreaterThan10, std::Error<string>> {
+    if (unwrap(x) > 10) {
+      return EvenIntGreaterThan10(x);
+    }
+    return std::Error("The given int {x} is even but not greater than 10!");
+  }
+  function GetValidatedEvenIntGreaterThan10FromInt(x: int) -> oneof<EvenIntGreaterThan10, std::Error<int>, std::Error<string>> {
+    var evenInt ?= GetValidatedEvenInt(x);
+    if (x > 10) {
+      return EvenIntGreaterThan10(evenInt);
+    }
+    return std::Error("The given int {x} is even but not greater than 10!");
+  }
+}
+
+var i = 5;
+while (i < 15) {
+  var maybeEvenIntGreaterThan10 = GetValidatedEvenIntGreaterThan10FromInt(i);
+  print("Validated int {i++} is even and greater than 10?: {maybeEvenIntGreaterThan10}");
+}
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT DEFINES AN "INITIALIZER" AND AN "UNWRAPPER" FUNCTION
+#
+# By defining an "initializers block" for the type `FasterLookupEncodedString` below, this type enforces the semantic
+# that every instance of `FasterLookupEncodedString` will be encoded as a string starting with a sequence of numbers
+# separated by commas representing the respective starting indices of all of the strings stored in this encoding:
+#   E.g. "dog,kitten,antelope" encoded as "0,3,9|dogkittenantelope".
+# This is a very contrived example to demonstrate that if you wanted to enforce "decoding" when unwrapping the
+# `FasterLookupEncodedString` you could use an `unwrappers` block to achieve it. So you could "decode"
+# "3,6,8|dogkittenantelope" back into "dog,kitten,antelope" when unwrapping.
+########################################################################################################################
+
+newtype CSVStrings : string
+
+initializers CSVStrings {
+  # TODO(steving) Refactor this to take mut? [string] once Claro supports mut-generics.
+  function CSVStringsFromMutList(l: mut [string]) -> CSVStrings {
+    var csv = l[0];
+    var i = 0;
+    while (++i < len(l)) {
+      csv = "{csv},{l[i]}";
+    }
+    return CSVStrings(csv);
+  }
+}
+
+newtype FasterLookupEncodedString : string
+
+initializers FasterLookupEncodedString {
+  # It would be faster to first convert to this format and then do your lookup if you're expecting to be doing more than
+  # a small number of lookups over a large csv. Don't forget that this is a contrived example, I'm not claiming that
+  # you should do this specific thing in "real life".
+  function FasterLookupEncodedStringFromCSVStrings(csv: CSVStrings) -> FasterLookupEncodedString {
+    var words = "";
+    var encodedStrWordInds = "0";
+    var prevLen = 0;
+    var currLen = 0;
+    var i = 0;
+    while (i < len(unwrap(csv))) {
+      if (unwrap(csv)[i] == ",") {
+        encodedStrWordInds = "{encodedStrWordInds},{currLen + prevLen}";
+        prevLen = prevLen + currLen;
+        currLen = 0;
+      } else {
+        currLen++;
+        words = "{words}{unwrap(csv)[i]}";
+      }
+      i++;
+    }
+    return FasterLookupEncodedString("{encodedStrWordInds}|{words}");
+  }
+}
+
+unwrappers FasterLookupEncodedString {
+  function DecodeToStringsList(encodedCsv: FasterLookupEncodedString) -> mut [string] {
+    var encodedCsvAsString: string = unwrap(encodedCsv);
+    var valueCount = 1;
+    var i = 0;
+    while (encodedCsvAsString[i] != "|") {
+      if (encodedCsvAsString[i++] == ",") {
+        valueCount = valueCount + 1;
+      }
+    }
+    # TODO(steving) Refactor this example once Claro supports either list comprehension or copy-free builder semantics.
+    var values: mut [string] = mut [];
+    i = 0;
+    while (i < valueCount) {
+      lists::add(values, fastLookupNthCSVValue(encodedCsv, i++));
+    }
+    return values;
+  }
+
+  # This really just defers to the auto-generated `unwrap()` function, but is now necessary since decoders are
+  # implemented for this type. It's hard to imagine since all of this code is in a single file, but if this type were
+  # being exported in a Module, you would *NOT* publicly export this function!
+  function ToRawEncodedString(encodedCsv: FasterLookupEncodedString) -> string {
+    return unwrap(encodedCsv);
+  }
+}
+
+# Notice that this doesn't need to be defined as an "unwrapper" function since it doesn't directly depend on `unwrap`.
+function DecodeToCSVStrings(encodedCsv: FasterLookupEncodedString) -> CSVStrings {
+  var values = DecodeToStringsList(encodedCsv);
+  return CSVStringsFromMutList(values);
+}
+
+function slowLookupNthCSVValue(csv: CSVStrings, n: int) -> string {
+  var currValueNum = 0;
+  var i = 0;
+  while (currValueNum != n) {
+    if (unwrap(csv)[i++] == ",") {
+      currValueNum = currValueNum + 1;
+    }
+  }
+  var res = "";
+  while ((i < len(unwrap(csv))) and (unwrap(csv)[i] != ",")) {
+    res = "{res}{unwrap(csv)[i++]}";
+  }
+  return res;
+}
+
+function fastLookupNthCSVValue(encodedCsv: FasterLookupEncodedString, n: int) -> string {
+  var encodedCsvAsString: string = ToRawEncodedString(encodedCsv);
+  var i = 0;
+  var currValueNum = 0;
+  var nthValInd = 0;
+  var nextValInd = 0;
+  var charToIntMap = {"0":0, "1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+  while (encodedCsvAsString[i] != "|") {
+    if (encodedCsvAsString[i] == ",") {
+      currValueNum = currValueNum + 1;
+    } else if (currValueNum == n) {
+      nthValInd = nthValInd * 10 + charToIntMap[encodedCsvAsString[i]];
+    } else if (currValueNum == n + 1) {
+      nextValInd = nextValInd * 10 + charToIntMap[encodedCsvAsString[i]];
+    }
+    i++;
+  }
+  i = i + nthValInd + 1;
+  var end: int;
+  if (nextValInd == 0) {
+    end = len(encodedCsvAsString);
+  } else {
+    end = i + (nextValInd - nthValInd);
+  }
+  var res = "";
+  while (i < end) {
+    res = "{res}{encodedCsvAsString[i++]}";
+  }
+  return res;
+}
+
+print("--------------------------------------------------------------------------------");
+var csvValues =
+  mut [
+    "dog",
+    "kitten",
+    # Got some random text from an AI chatbot, how neat.
+    "Lorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficitur",
+    "antelope"
+  ];
+var csv = CSVStringsFromMutList(csvValues);
+print(csv); # CSVStrings(dog,kitten,Lorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficitur,antelope)
+
+print("--------------------------------------------------------------------------------");
+var fastEncoding = FasterLookupEncodedStringFromCSVStrings(csv);
+print(fastEncoding); # FasterLookupEncodedString(0,3,9,1498|dogkittenLorem ipsum dolor sit amet consectetur adipiscing elit. Nullam non nulla vel massa posuere blandit eget in quam. Suspendisse tincidunt velit vel quam cursus euismod. Fusce nec feugiat nulla eget sagittis odio. Duis in augue quis ante consequat tincidunt id quis ipsum. Quisque vel tortor nec dolor iaculis hendrerit sit amet eu nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam luctus vel arcu ut mattis. Curabitur iaculis vel metus ac vehicula. Nulla facilisi. Fusce fringilla eros nec nisl dapibus vel aliquet eros blandit. Nulla facilisi. Mauris luctus purus id justo venenatis imperdiet. Praesent vitae ante in dolor bibendum consectetur ac quis urna. In hac habitasse platea dictumst. Pellentesque sodales turpis sit amet tempor maximus metus eros faucibus quam quis feugiat lacus velit non velit. Nulla facilisi. In ac urna in tellus ultricies hendrerit. Vestibulum ut urna vel nulla lobortis bibendum. Morbi ullamcorper urna in vestibulum luctus mauris purus eleifend libero sed aliquam turpis quam nec massa. Integer malesuada blandit nulla vel volutpat. Aliquam erat volutpat. Sed laoreet justo sit amet leo venenatis scelerisque. Vivamus faucibus consectetur mauris ac tincidunt nulla imperdiet vel. Nulla facilisi. Donec vehicula metus sapien a porta purus tincidunt ac. Sed sed ligula eros. Integer quis mauris a erat tristique dictum. Donec eget ante ac orci suscipit suscipit id eu elit. Sed tincidunt felis ac tellus efficiturantelope)
+
+print("--------------------------------------------------------------------------------");
+print(slowLookupNthCSVValue(csv, 0)); # dog
+print(slowLookupNthCSVValue(csv, 1)); # kitten
+print(slowLookupNthCSVValue(csv, 3)); # antelope
+print("--------------------------------------------------------------------------------");
+print(fastLookupNthCSVValue(fastEncoding, 0)); # dog
+print(fastLookupNthCSVValue(fastEncoding, 1)); # kitten
+print(fastLookupNthCSVValue(fastEncoding, 3)); # antelope
+
+print("--------------------------------------------------------------------------------");
+print("DecodeToStringsList(fastEncoding) == csvValues -> {DecodeToStringsList(fastEncoding) == csvValues}");
+print("DecodeToCSVStrings(fastEncoding) == csv -> {DecodeToCSVStrings(fastEncoding) == csv}");
+
+
+# Running this a million times really illuminates the difference in lookup performance between the two encodings.
+var ITERS = 1000000;
+if (input("Test Fast or Slow? F/S: ") == "F") {
+  i = 0;
+  while (i++ < ITERS) {
+    _ = fastLookupNthCSVValue(fastEncoding, 3);
+  }
+} else {
+  i = 0;
+  while (i++ < ITERS) {
+    _ = slowLookupNthCSVValue(csv, 3);
+  }
+}
+print("DONE");
+
+########################################################################################################################
+# DEMONSTRATE A CUSTOM TYPE THAT RECURSIVELY REFERENCES ITSELF
+########################################################################################################################
+
+print("--------------------------------------------------------------------------------");
+newtype IntOrList : oneof<int, mut [IntOrList]>
+
+var myIntOrList: IntOrList = IntOrList(9);
+print(myIntOrList);
+myIntOrList = IntOrList(mut [IntOrList(10)]);
+print(myIntOrList);
+
+type(myIntOrList);
+type(unwrap(myIntOrList));
+var unwrappedMyIntOrList = unwrap(myIntOrList);
+if (unwrappedMyIntOrList instanceof mut [IntOrList]) {
+  lists::add(unwrappedMyIntOrList, IntOrList(99));
+  lists::add(unwrappedMyIntOrList, IntOrList(mut [IntOrList(212), IntOrList(313)]));
+  print("Internal type is: ");
+  type(unwrappedMyIntOrList[1]);
+  print(unwrap(unwrappedMyIntOrList[1]));
+}
+print(myIntOrList);
+
+########################################################################################################################
+# Some recursive types like the following should be rejected at compile-time because they're impossible to instantiate.
+# Uncomment the below lines to get compile time warnings from Claro indicating that these types aren't usable.
+# Note that the above type `IntOrList` is accepted because the recursion is nested within a type containing an implicit
+# "bottom" to the recursion (lists could always be made empty).
+########################################################################################################################
+#newtype IllegalUnboundedRecursiveType : tuple<int, IllegalUnboundedRecursiveType>
+#newtype InfiniteRecursion : InfiniteRecursion
+#newtype PartialUnbounded : tuple<PartialUnbounded, [PartialUnbounded]>
+
+
+########################################################################################################################
+# DEMONSTRATE PARAMETERIZED CUSTOM TYPE DEFINITIONS
+########################################################################################################################
+
+newtype Maybe<T> : oneof<T, std::Nothing>
+
+var m : Maybe<int> = Maybe(std::Nothing);
+print("Maybe<int>: {m}");
+type(m);
+var s = Maybe(["yo"]);
+print("Maybe::<string>: {s}");
+type(s);
+
+
+newtype Node<T> : mut tuple<T, oneof<Node<T>, std::Nothing>, oneof<Node<T>, std::Nothing>>
+
+var myOneof: oneof<Node<int>, std::Nothing> = Node(mut (2, std::Nothing, std::Nothing));
+var treeRoot: Node<int> = Node(mut (1, myOneof,  std::Nothing));
+
+print("\n\nTYPES!!!");
+print(treeRoot);
+type(treeRoot);
+
+print(unwrap(treeRoot));
+type(unwrap(treeRoot));
+
+print(unwrap(treeRoot)[1]);
+type(unwrap(treeRoot)[1]);
+
+# I'm just leaving this here b/c supporting parameterized types actually ended up leading to a lot of backflips in the
+# parser in order to avoid an ambiguous grammar. So take this as a note that that's happened.
+i = 1;
+var leftNode = cast(oneof<Node<int>, std::Nothing>, unwrap(treeRoot)[i]);
+if (leftNode instanceof Node<int>) {
+  type(leftNode);
+  print(unwrap(leftNode)[0]);
+}
+
+
+implement Foo<Node<int>> {
+  consumer bar(t: Node<int>) {
+    print("Got INT NODE: {t}");
+  }
+}
+implement Foo<Node<string>> {
+  consumer bar(t: Node<string>) {
+    print("Got STRING NODE: {t}");
+  }
+}
+
+var stringNode = Node(mut ("My Tree!", std::Nothing, std::Nothing));
+
+Foo::bar(treeRoot);
+Foo::bar(stringNode);
+
+var someNode: oneof<Node<string>, Node<int>> = stringNode;
+Foo::bar(someNode);
+someNode = treeRoot;
+Foo::bar(someNode);
+
+consumer prettyishPrintTree<T>(currRoot: Node<T>) {
+  var fringe: mut [oneof<Node<T>, std::Nothing>] = mut [currRoot];
+  var i = 0;
+  while (len(fringe) - i > 0) {
+    var currNode = fringe[i];
+    if (currNode instanceof Node<T>) {
+      var unwrappedCurrNode = unwrap(currNode);
+      print(unwrappedCurrNode[0]);
+      # Add left and right children to fringe.
+      lists::add(fringe, unwrappedCurrNode[1]);
+      lists::add(fringe, unwrappedCurrNode[2]);
+    } else {
+      print(currNode);
+    }
+    i++;
+  }
+}
+
+print("PRETTY-ISH PRINT! {treeRoot}");
+prettyishPrintTree(treeRoot);
+var getNewNode = (x: int) -> Node<int> { return Node(mut (x, std::Nothing, std::Nothing)); };
+print(getNewNode(3));
+
+unwrap(treeRoot)[2] = getNewNode(3);
+leftNode = unwrap(treeRoot)[1];
+if (leftNode instanceof Node<int>) {
+  unwrap(leftNode)[2] = getNewNode(4);
+}
+print("PRETTY-ISH PRINT! {treeRoot}");
+prettyishPrintTree(treeRoot);
+
+
+newtype NonEmptyList<T> : [T]
+initializers NonEmptyList {
+  function GetValidatedNonEmptyList<T>(l: [T]) -> Maybe<NonEmptyList<T>> {
+    if (len(l) == 0) {
+      return Maybe(std::Nothing);
+    }
+    return Maybe(NonEmptyList(l));
+  }
+}
+
+var maybeNonEmptyIntList = GetValidatedNonEmptyList([1,2]);
+print(maybeNonEmptyIntList);
+type(maybeNonEmptyIntList);
+var maybeNonEmptyStrList = GetValidatedNonEmptyList(cast([string], []));
+print(maybeNonEmptyStrList);
+type(maybeNonEmptyStrList);

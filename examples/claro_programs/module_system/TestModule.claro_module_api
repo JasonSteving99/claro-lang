@@ -1,0 +1,37 @@
+# Just a simple test Module Api that I'll use to validate the ability to actually parse type signatures.
+
+# Modules are allowed to export Flags which will be lazily auto-parsed from the given cli args. Flags are computed
+# lazily so that you only pay for parsing costs if you actually use it.
+flag TEST_FLAG: string;
+
+# Modules are allowed to export `static` values that are computed on program start and immutable from that point
+# onwards. Their values are set by calling a corresponding provider function that is required to be present in the
+# module's impl srcs by the name `get<static val name>()` returning the static value's type. (In this example, `PI` is
+# initialized by Claro automatically calling the provider `getPI()`.) Other modules depending on this module, can
+# reference this static value via `Dep::PI`. However, static values are *READ-ONLY*. Any attempts to write to a static
+# value are compile-time errors. Note that static values are also required to be of some deeply-immutable type. This
+# restriction is in place in order to ensure that these static values cannot be the source of data races in a concurrent
+# context (directly or indirectly via graph procedures).
+static PI: float;
+lazy static SOME_LAZY_STATIC_VAL: string;
+
+# This would be illegal as the static value is mutable.
+#static visitingUsers: mut [string];
+
+function intIdentity(i: int) -> int;
+
+function add(lhs: int, rhs: int) -> int;
+
+function identity<T>(t: T) -> T;
+
+
+# Here's an "Opaque Type" definition. Consumers of this module are not given access to the definition of the type that
+# this wraps. The only detail that's known from this definition is that this type is mutable meaning it can't be shared
+# across nodes in a graph procedure.
+opaque newtype mut OpaqueList<T>
+# This "Opaque Type" is deeply-immutable and thus has no restrictions on usage in graph procedures.
+opaque newtype ImmutableList<T>
+# In order to interact with the above opaque type, consumers of this module *must* use the below functions. There is no
+# other possible way to actually interact with these types beyond aggregating them and passing them around.
+function immutableListOf<T>(elems: [T]) -> ImmutableList<T>;
+function immutableListHead<T>(list: ImmutableList<T>) -> T;

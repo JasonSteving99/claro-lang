@@ -1,0 +1,6 @@
+
+implement AnimalSounds::AnimalSounds<AnimalState> {
+  function makeNoise(state: AnimalState) -> string {
+    return "{makeNoiseImpl(state)} - says {unwrap(state).name}";
+  }
+}

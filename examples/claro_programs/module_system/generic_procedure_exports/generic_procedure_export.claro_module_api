@@ -1,0 +1,11 @@
+
+contract Foo<T> {
+  consumer doFoo(t: T);
+}
+implement Foo<string>;
+
+consumer myPrint<T>(t: T);
+consumer myPrint2<T>(t: T);
+
+requires(Foo<T>)
+consumer myPrint3<T>(t: T);

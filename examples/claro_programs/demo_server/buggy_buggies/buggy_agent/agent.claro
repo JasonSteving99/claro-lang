@@ -1,0 +1,60 @@
+
+function movesFromBestPath(bestPath: BestPath) -> [string] {
+  var moves: mut [string] = mut [];
+  var getDelta: function<int -> tuple<int, int>> =
+    i -> {
+      var dx = unwrap(bestPath[i]).x - unwrap(bestPath[i + 1]).x;
+      var dy = unwrap(bestPath[i]).y - unwrap(bestPath[i + 1]).y;
+      return (dx, dy);
+    };
+
+  var i = len(bestPath) - 2;
+  while (i >= 0) {
+    var delta = getDelta(i--);
+    # TODO(steving) Exhaustive match would be so nice.
+    if (delta == (1, 0)) {
+      lists::add(moves, "E");
+    } else if (delta == (-1, 0)) {
+      lists::add(moves, "W");
+    } else if (delta == (0, 1)) {
+      lists::add(moves, "S");
+    } else {
+      lists::add(moves, "N");
+    }
+  }
+  return copy(moves);
+}
+
+function parseWorldMap(world: {string: string}) -> {Pos::Position: string} {
+  var parsePos: function<string -> Pos::Position> = rawPos -> {
+    # Extract X.
+    var i = 1;
+    var stringBuilder = string_builder::create();
+    _ = string_builder::add(stringBuilder, rawPos[0]);
+    while (rawPos[i] != ",") {
+      _ = string_builder::add(stringBuilder, rawPos[i++]);
+    }
+    var xstring = string_builder::build(stringBuilder);
+
+    # Extract Y.
+    stringBuilder = string_builder::create();
+    _ = string_builder::add(stringBuilder, rawPos[i + 1]);
+    i = i + 2;
+    while (i < len(rawPos)) {
+      _ = string_builder::add(stringBuilder, rawPos[i++]);
+    }
+    var ystring = string_builder::build(stringBuilder);
+
+    # Parse X and Y strings to ints.
+    # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.
+    var x: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(xstring))).result;
+    var y: oneof<int, std::Error<string>> = unwrap(cast(std::ParsedJson<int>, fromJson(ystring))).result;
+    match ((x, y)) {
+      case (X:int, Y:int) ->
+        return Pos::Position({x = X, y = Y});
+      case _ ->
+        return Pos::Position({x = -1, y = -1});
+    }
+  };
+  return {parsePos(e[0]) : e[1] | e in world};
+}

@@ -1,0 +1,34 @@
+
+var sc = scanner::forStdIn();
+
+while (scanner::hasNextToken(sc)) {
+  if (scanner::hasNextBoolean(sc)) {
+    log("boolean", scanner::nextBoolean(sc));
+  } else if (scanner::hasNextInt(sc)) {
+    log("int", scanner::nextInt(sc));
+  } else if (scanner::hasNextFloat(sc)) {
+    log("float", scanner::nextFloat(sc));
+  } else {
+    # TODO(steving) Claro needs to support assigning a oneof to a type whose variants are a superset of this one.
+    var token: oneof<string, scanner::NO_MORE_TOKENS, scanner::INPUT_MISMATCH>;
+    match (scanner::nextToken(sc)) {
+      case x:string -> token = x;
+      case x:scanner::NO_MORE_TOKENS -> token = x;
+    }
+    log("token", token);
+  }
+}
+
+consumer log<T>(tokenType: string, token: oneof<T, scanner::NO_MORE_TOKENS, scanner::INPUT_MISMATCH>) {
+  # TODO(steving) Claro needs some sort of asserted cast of a oneof variant that will panic at runtime if the user's
+  # TODO(steving)     asserted variant type is wrong at runtime. In this situation I know with certainty that this will
+  # TODO(steving)     not be a scanner::NO_MORE_TOKENS or scanner::INPUT_MISMATCH.
+  if (not (token instanceof scanner::NO_MORE_TOKENS)) {
+    print(
+      strings::concat(
+        strings::padEnd("Found {tokenType}:", 15),
+        "{token}"
+      )
+    );
+  }
+}

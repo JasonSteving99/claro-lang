@@ -1,0 +1,7 @@
+
+function handleBuggyResponseAsHtmlStrParts(buggyResponse: oneof<string, std::Error<string>>) -> [string] {
+  match (buggyResponse) {
+    case _:string        -> return [buggyResponse];
+    case _:std::Error<string> -> return ["GOT THE FOLLOWING ERROR:\n", unwrap(buggyResponse)];
+  }
+}

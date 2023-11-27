@@ -1,0 +1,20 @@
+var happyMilo = Dog::AnimalState({name = "Milo", state = { isHappy = true }});
+var unhappyMilo = Dog::AnimalState({name = "Milo", state = { isHappy = false }});
+var satan = Cat::AnimalState({name = "Satan", state = { favoriteInsult = "Begone peasant!" }});
+
+print("Types:");
+type(happyMilo);
+type(satan);
+
+print("--------------------------------------------------");
+print("Static dispatch over the animals:");
+print(AnimalSounds::AnimalSounds::makeNoise(happyMilo));
+print(AnimalSounds::AnimalSounds::makeNoise(unhappyMilo));
+print(AnimalSounds::AnimalSounds::makeNoise(satan));
+
+print("--------------------------------------------------");
+print("Dynamic dispatch over the animals:");
+var animals: [oneof<Cat::AnimalState, Dog::AnimalState>] = [happyMilo, unhappyMilo, satan];
+for (animal in animals) {
+  print(AnimalSounds::AnimalSounds::makeNoise(animal));
+}

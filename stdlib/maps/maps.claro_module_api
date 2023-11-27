@@ -1,0 +1,180 @@
+# This module simply provides access to the functionality described in:
+#   - https://docs.oracle.com/javase/8/docs/api/java/util/Map.html
+# The signatures found here in this module are not a 1:1 match with the signatures in their Java equivalents, however,
+# as all error cases have been intentionally modelled as proper return values wrapped in std::Error<...>. In this way,
+# interacting with any procedures defined in this module will be inherently safe.
+
+# TODO(steving) Claro needs some sort of Map<T> contract or something so that duplicated procedures aren't needed
+# TODO(steving)     for mut/immut cases.
+
+# TODO(steving) If at all possible, ClaroMap.java & ClaroSet.java should be refactored to *contains* a collection rather
+# TODO(steving)     than extending the Java collections directly so that functionality directly from Guava's Maps
+# TODO(steving)     class can be directly added to this module w/o losing the performance wins of their "views".
+# TODO(steving)   - https://guava.dev/releases/22.0/api/docs/com/google/common/collect/Maps.html
+
+
+# Returns true if this map contains no key-value mappings.
+function isEmpty<K,V>(m: {K:V}) -> boolean;
+function isEmptyMut<K,V>(m: mut {K:V}) -> boolean;
+
+# Returns true if this map maps one or more keys to the specified value. This operation will require time linear in the map size.
+function containsValue<K,V>(m: {K:V}, v: V) -> boolean;
+function containsValueInMut<K,V>(m: mut {K:V}, v: V) -> boolean;
+
+# Returns the value to which the specified key is mapped, or `defaultValue` if this map contains no mapping for the key.
+function getOrDefault<K,V>(m: {K:V}, k: K, defaultValue: V) -> V;
+function getOrDefaultFromMut<K,V>(m: mut {K:V}, k: K, defaultValue: V) -> V;
+
+# Removes all of the mappings from this map (optional operation). The map will be empty after this call returns.
+consumer clear<K,V>(m: mut {K:V});
+
+# Returns an immutable set containing the keys of this map.
+function keySet<K,V>(m: {K:V}) -> {K};
+# Returns an immutable set containing the keys of this map. Changes made to the original map *do not* have any affect on
+# the returned set.
+function keySetOfMut<K,V>(m: mut {K:V}) -> {K};
+
+# Returns a mutable set containing the keys of this map. Changes made to either collection have no affect on the other.
+function mutKeySet<K,V>(m: {K:V}) -> mut {K};
+function mutKeySetOfMut<K,V>(m: mut {K:V}) -> mut {K};
+
+# TODO(steving) If at all possible, ClaroSet.java should be refactored so that it *contains* a Set rather than extends
+# TODO(steving)     HashSet<T> directly so that maps::mutKeySetOfMut() can return a proper "view".
+# TODO(steving)   - https://docs.oracle.com/javase/8/docs/api/java/util/Map.html#clear--:~:text=Returns%20a%20Set%20view%20of%20the%20keys%20contained%20in%20this%20map.%20The%20set%20is%20backed%20by%20the%20map%2C%20so%20changes%20to%20the%20map%20are%20reflected%20in%20the%20set%2C%20and%20vice%2Dversa.
+#function mutKeySetViewOfMut<K,V>(m: mut {K:V}) -> mut {K};
+
+# Returns an immutable set containing the values of this map.
+function values<K,V>(m: {K:V}) -> {V};
+# Returns an immutable set containing the values of this map. Changes made to the original map *do not* have any affect on
+# the returned set.
+function valuesOfMut<K,V>(m: mut {K:V}) -> {V};
+
+# Returns a mutable set containing the values of this map. Changes made to either collection have no affect on the other.
+function mutValues<K,V>(m: {K:V}) -> mut {V};
+function mutValuesOfMut<K,V>(m: mut {K:V}) -> mut {V};
+
+# Returns an immutable set of the mappings contained in this map.
+function entrySet<K,V>(m: {K:V}) -> {tuple<K, V>};
+# Returns an immutable set of the mappings contained in this map. Changes made to the original map *do not* have any
+# affect on the returned set.
+function entrySetOfMut<K,V>(m: mut {K:V}) -> {tuple<K, V>};
+
+# Returns a mutable set of the mappings contained in this map.
+function mutEntrySet<K,V>(m: {K:V}) -> mut {tuple<K, V>};
+# Returns a mutable set of the mappings contained in this map. Changes made to either collection have no affect on the other.
+function mutEntrySetOfMut<K,V>(m: mut {K:V}) -> mut {tuple<K, V>};
+
+# Performs the given action for each entry in this map until all entries have been processed.
+consumer forEach<K,V>(m: {K:V}, action: consumer<K,V>);
+consumer forEachInMut<K,V>(m: mut {K:V}, action: consumer<K,V>);
+
+# Replaces each entry's value with the result of invoking the given function on that entry until all entries have been
+# processed.
+consumer replaceAll<K,V>(m: mut {K:V}, mapper: function<|K, V| -> V>);
+
+# Associates the specified value with the specified key in this map. If the map previously contained a mapping for the
+# key, the old value is replaced by the specified value.
+#
+# Returns: the previous value associated with key, or `maps::PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY` if there was no
+#          mapping for key.
+atom PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY
+function put<K,V>(m: mut {K:V}, k: K, v: V) -> oneof<V, PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY>;
+
+# Copies all of the mappings from the specified map to this map. The effect of this call is equivalent to that of
+# calling `maps::put(m, k, v)` on this map once for each mapping from key k to value v in the specified map.
+consumer putAll<K,V>(m: mut {K:V}, from: {K:V});
+consumer putAllFromMut<K,V>(m: mut {K:V}, from: mut {K:V});
+
+# If the specified key is not already associated with a value, associates it with the given value and returns
+# `maps::PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY`, else returns the current value.
+function putIfAbsent<K,V>(m: mut {K:V}, k: K, v: V) -> oneof<V, PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY>;
+
+# Removes the mapping for a key from this map if it is present.
+#
+# Returns: the value to which this map previously associated the key, or `maps::KeyNotFound<K>` if the map contained no
+#          mapping for the key.
+function removeKey<K,V>(m: mut {K:V}, k: K) -> oneof<V, KeyNotFound<K>>;
+
+# Removes the entry for the specified key only if it is currently mapped to the specified value.
+function removeEntry<K,V>(m: mut {K:V}, k: K, v: V) -> boolean;
+
+# Replaces the entry for the specified key only if currently mapped to the specified value.
+#
+# Returns: `true` if the value was replaced, else `false`.
+function replaceEntry<K,V>(m: mut {K:V}, k: K, oldValue: V, newValue: V) -> boolean;
+
+# Replaces the entry for the specified key only if it is currently mapped to some value.
+#
+# Returns: the previous value associated with the specified key, or `std::Error<maps::KeyNotFound<K>>` if there was no
+#          mapping for the key.
+newtype KeyNotFound<K> : K
+function replace<K,V>(m: mut {K:V}, k: K, newValue: V) -> oneof<V, std::Error<KeyNotFound<K>>>;
+
+# If the specified key is not already associated with a value, attempts to compute its value using the given mapping
+# function and enters it into this map, unless the function returns `maps::DoNotUpdate<K>` in which case no mapping is
+# recorded.
+#
+# Returns: the current (existing or computed) value associated with the specified key, or propagates any
+#          `maps::DoNotUpdate<K>` returned by `mapper`.
+newtype DoNotUpdate<K> : K
+function computeIfAbsent<K,V>(
+  m: mut {K:V},
+  k: K,
+  mapper: function<K -> oneof<V, std::Error<DoNotUpdate<K>>>>)
+    -> oneof<V, std::Error<DoNotUpdate<K>>>;
+
+# If the value for the specified key is present, attempts to compute a new mapping given the key and its current mapped
+# value. If the function returns `maps::REMOVE_ENTRY`, the mapping is removed.
+#
+# Returns: the new value associated with the specified key, propagates `maps::REMOVE_ENTRY` if the entry was removed, or
+#          `maps::KeyNotFound<K>` if the key was not present in the map.
+atom REMOVE_ENTRY
+function computeIfPresent<K,V>(
+  m: mut {K:V},
+  k: K,
+  remapper: function<|K, V| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY, std::Error<KeyNotFound<K>>>;
+
+# Attempts to compute a mapping for the specified key and its current mapped value (or `maps::KeyNotFound<K>` if there
+# is no current mapping). For example, to either create or append a string msg to a value mapping:
+#
+#  maps::compute(
+#     someMap,
+#     key,
+#     lambda (k, v) -> {
+#       if (v instanceof maps::KeyNotFound<K>) {
+#         return msg;
+#       }
+#       return "{v}{msg}";
+#     }
+#  );
+#  (Method merge() is often simpler to use for such purposes.)
+#
+# If the function returns `maps::REMOVE_ENTRY`, the mapping is removed (or remains absent if initially absent).
+#
+# Returns: the new value associated with the specified key, or propagates `std::REMOVE_ENTRY` if the entry was removed.
+function compute<K,V>(
+  m: mut {K:V},
+  k: K,
+  remapper: function<|K, oneof<V, KeyNotFound<K>>| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY>;
+
+# If the specified key is not already associated with a value, associates it with the given value. Otherwise, replaces
+# the associated value with the results of the given remapping function, or removes if the result is
+# `maps::REMOVE_ENTRY`. This method may be of use when combining multiple mapped values for a key. For example, to
+# either create or append a String msg to a value mapping:
+#
+#   maps::merge(someMap, key, msg, lambda (oldVal, newVal) -> {
+#     match (newVal) {
+#       case _:maps::REMOVE_ENTRY -> return newVal;
+#       case _                    -> return "{oldVal}{newVal}";
+#     }
+#   });
+#
+# Returns: the new value associated with the specified key, or propagates `std::REMOVE_ENTRY` if the entry was removed.
+function merge<K,V>(
+  m: mut {K:V},
+  k: K,
+  v: oneof<V, REMOVE_ENTRY>,
+  remapper: function<|V, oneof<V, REMOVE_ENTRY>| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY>;

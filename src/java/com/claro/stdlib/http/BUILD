@@ -1,6 +1,6 @@
 package(
     default_visibility = [
-        "//src/java/com/claro/claro_programs:__subpackages__",
+        "//examples/claro_programs:__subpackages__",
         "//src/java/com/claro/stdlib:__subpackages__",
     ]
 )
@@ -12,7 +12,6 @@ java_library(
         "//:guava",
         "//src/java/com/claro/compiler_backends/interpreted:scoped_heap",
         "//src/java/com/claro/intermediate_representation:node",
-        "//src/java/com/claro/intermediate_representation:program_node",
         "//src/java/com/claro/intermediate_representation/expressions:expr",
         "//src/java/com/claro/intermediate_representation/statements:stmt",
         "//src/java/com/claro/intermediate_representation/statements/user_defined_type_def_stmts",
@@ -24,6 +23,5 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/http:http_response",
         "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-        "//src/java/com/claro/runtime_utilities/http:http_server",
     ],
 )

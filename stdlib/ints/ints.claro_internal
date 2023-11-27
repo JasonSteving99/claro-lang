@@ -1,0 +1,15 @@
+
+function parseInt(s: string) -> oneof<int, std::Error<InvalidNumberFormat>> {
+  var res: oneof<int, std::Error<InvalidNumberFormat>>;
+
+  var errCons = (msg: string) -> std::Error<InvalidNumberFormat> { return std::Error(InvalidNumberFormat({msg = msg})); };
+
+  $$BEGIN_JAVA
+    try {
+      res = java.lang.Integer.parseInt(s);
+    } catch (java.lang.NumberFormatException e) {
+      res = errCons.apply(e.getMessage());
+    }
+  $$END_JAVA
+  return res;
+}

@@ -1,0 +1,47 @@
+diff --git a/jflex/jflex.bzl b/jflex/jflex.bzl
+index 907ef48..05fdf17 100644
+--- a/jflex/jflex.bzl
++++ b/jflex/jflex.bzl
+@@ -11,11 +11,9 @@
+ def _jflex_impl(ctx):
+     """ Generates a Java lexer from a lex definition, using JFlex. """
+
+-    # Output directory is bazel-genfiles/package, regardless of Java package defined in
+-    # the grammar
+-    output_dir = "/".join(
+-        [ctx.configuration.genfiles_dir.path, ctx.label.package],
+-    )
++    ### PATCH FOR CLARO LANG TO BE ABLE TO BUILD VIA DOWNSTREAM DEPENDENCY. ###
++    lexer_file = ctx.actions.declare_file(ctx.attr.lexer + ".java")
++    output_dir = lexer_file.path[:-len(lexer_file.basename)]
+
+     # TODO(regisd): Add support for JFlex options.
+     maybe_skel = [ctx.file.skeleton] if ctx.file.skeleton else []
+@@ -34,10 +32,13 @@ def _jflex_impl(ctx):
+     ctx.actions.run(
+         mnemonic = "jflex",
+         inputs = ctx.files.srcs + ctx.files.data + maybe_skel,
+-        outputs = ctx.outputs.outputs,
++        outputs = [lexer_file],
+         executable = ctx.executable.jflex_bin,
+         arguments = arguments,
+     )
++    return [DefaultInfo(
++        files = depset([lexer_file]),
++    )]
+
+ jflex = rule(
+     implementation = _jflex_impl,
+@@ -59,7 +60,11 @@ jflex = rule(
+             allow_single_file = True,
+             doc = "an optional skeleton",
+         ),
+-        "outputs": attr.output_list(allow_empty = False),
++        ### PATCH FOR CLARO LANG TO BE ABLE TO BUILD VIA DOWNSTREAM DEPENDENCY.  ###
++        "lexer": attr.string(
++            default = "lexer",
++            doc = "Name of the generated lexer class",
++        ),
+         "quiet": attr.bool(
+             doc = "JFlex generation outputs error messages only",
+             default = True,

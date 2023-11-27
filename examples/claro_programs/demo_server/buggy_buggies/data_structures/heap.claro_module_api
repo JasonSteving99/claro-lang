@@ -1,0 +1,14 @@
+
+# This implementation is the result of asking Chat GPT to implement it in python for me and reworking it to fit in Claro
+# I'm not thinking too hard about this...
+newtype Heap: mut [struct {dist: int, pos: Pos::Position}]
+
+initializers Heap {
+  provider getHeap() -> Heap;
+}
+
+unwrappers Heap {
+  function extract_min(heap: Heap) -> oneof<Pos::Position, std::Error<std::Nothing>>;
+  consumer insert(heap: Heap, value: struct {dist: int, pos: Pos::Position});
+  function heapIsEmpty(heap: Heap) -> boolean;
+}

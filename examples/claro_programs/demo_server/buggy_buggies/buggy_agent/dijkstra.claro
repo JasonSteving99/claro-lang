@@ -1,0 +1,80 @@
+
+# This is an internal-only alias, as no procedure exported by the module actually references this there's no need to
+# expose this detail in the public api.
+alias DistanceVia : struct {dist: int, via: oneof<Pos::Position, std::Nothing>}
+
+function dijkstra(world: {Pos::Position: string}, start: Pos::Position) -> BestPath {
+  var distances: DefaultDict::DefaultDict<Pos::Position, DistanceVia> =
+    DefaultDict::create(lambda () -> DistanceVia { return {dist = 999999, via = std::Nothing}; }); # TODO(steving) Need some representation of INFINITY in stdlib.
+  DefaultDict::put(distances, start, {dist = 0, via = start});
+  var pq = Heaps::getHeap();
+  Heaps::insert(pq, {dist = 0, pos = start});
+  var visited: mut {Pos::Position: boolean} = mut {}; # TODO(steving) Change to set once set operations added to stdlib.
+
+  while (not Heaps::heapIsEmpty(pq)) {
+    var currPos = Heaps::extract_min(pq);
+    if (currPos instanceof Pos::Position) {
+      if (currPos in visited) {
+        continue;
+      }
+      visited[currPos] = true;
+      for (weightedNeighbor in getWeightedNeighbors(world, currPos)) {
+        var neighbor = weightedNeighbor.neighbor;
+        var weight = weightedNeighbor.weight;
+        if ((DefaultDict::get(distances, currPos).dist + weight) < DefaultDict::get(distances, neighbor).dist) {
+          DefaultDict::put(distances, neighbor, {dist = DefaultDict::get(distances, currPos).dist + weight, via = currPos});
+          Heaps::insert(pq, {dist = DefaultDict::get(distances, neighbor).dist, pos = neighbor});
+        }
+      }
+    }
+  }
+
+  return rebuildBestPath(world, DefaultDict::asMap(distances));
+}
+
+function rebuildBestPath(world: {Pos::Position: string}, distances: {Pos::Position: DistanceVia}) -> BestPath {
+  var route: mut [Pos::Position] = mut [];
+  var currPos = findCoinWithLowestScore(world, distances);
+  while (true) {
+    lists::add(route, currPos);
+    var via = distances[currPos].via;
+    if (currPos == via) { # This is simply because I initialized `distances` to have the start node reference itself.
+      break;
+    } else if (via instanceof Pos::Position) {
+      # I know for a fact it's a Pos::Position, but this is the only way to convince Claro of that.
+      currPos = via;
+    }
+  }
+  return copy(route); # TODO(steving) Revert to a simple copy when possible.
+}
+
+function findCoinWithLowestScore(world: {Pos::Position: string}, distances: {Pos::Position: DistanceVia}) -> Pos::Position {
+  var currBest: tuple<Pos::Position, DistanceVia> = (Pos::Position({x = -1, y = -1}), {dist = 999999, via = Pos::Position({x = -1, y = -1})}); # TODO(steving) Need some representation of INFINITY in stdlib.
+  for (distEntry in distances) {
+    if ((distEntry[0] in world) and (world[distEntry[0]] == "coin") and (distEntry[1].dist < currBest[1].dist)) {
+      currBest = distEntry;
+    }
+  }
+  return currBest[0];
+}
+
+function getWeightedNeighbors(world: {Pos::Position: string}, pos: Pos::Position) -> [struct {neighbor: Pos::Position, weight: int}] {
+  var neighbors: mut [struct {neighbor: Pos::Position, weight: int}] = mut [];
+  var updatePos: function<|int, int| -> Pos::Position> =
+    lambda (dx, dy) -> Pos::Position({x = unwrap(pos).x + dx, y = unwrap(pos).y + dy});
+  var validateMove: consumer<mut [struct {neighbor: Pos::Position, weight: int}], int, int> =
+    lambda (l, dx, dy) -> {
+      var n = updatePos(dx, dy);
+      if ((not (n in world)) or (world[n] == "coin")) {
+        # TODO(steving) Making every neighbor have equal weight means Dijkstra's is just an extremely complicated BFS...
+        # TODO(steving) Soon, update this implementation to actually evaluate a score for moving into this position.
+        lists::add(l, {neighbor = n, weight = 1});
+      }
+    };
+
+  for (dir in [(-1, 0), (1, 0), (0, -1), (0, 1)]) { # [LEFT, RIGHT, DOWN, UP]
+    validateMove(neighbors, dir[0], dir[1]);
+  }
+
+  return copy(neighbors);
+}

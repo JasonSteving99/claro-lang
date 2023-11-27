@@ -1,0 +1,6 @@
+consumer fileAFn(filename: string) {
+  print("This function is:\n\t- defined in File A and,\n\t- called by File {filename}");
+}
+
+fileAFn("A");
+fileBFn("A");

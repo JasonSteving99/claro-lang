@@ -1,0 +1,48 @@
+
+print("Going to try calling a function defined in a dep Module.");
+
+consumer myPrint(i: int, depName: string) {
+  print("Calling into {depName} to get this: {i}");
+}
+
+myPrint(TestDep::add(2, 2), "TestDep");
+myPrint(TestDep2::add(2, 2), "TestDep2");
+
+# This is a demonstration that dep modules may export transitive dep module types, that the current module doesn't
+# necessarily know the definition of via a direct module dep. As Claro automatically resolves types defined in
+# transitive dep modules exported by direct deps, you may still pass around values of these types, and do basic things
+# like check equality, store in data structures, and pass along to procedures, but you can't actually *reference the
+# type by name* w/o placing a direct dep on the module exporting the type's definition.
+var fancyInt = TestDep2::addFancyInt(2, 3);
+# The dep on `Addition` is necessary in order to unwrap this `Addition::FancyInt` type as `Addition` restricted the
+# unwrapping of `FancyInt` via the definition of unwrappers in its .claro_module_api file.
+var multiHopModuleInt = Addition::unwrapFancyInt(fancyInt);
+myPrint(multiHopModuleInt, ":multi_hop_module_api via Addition via TestDep2");
+
+# Here's a simple rewrite of the above logic that hopefully demonstrates that this approach doesn't just hinge on
+# Claro's type inference on variable defs. The need to access transitive exported type defs from modules not directly
+# depended on by the current module is generally necessary when handling structured data derived from some other module.
+TestDep2::addFancyInt(2, 3)
+|> Addition::unwrapFancyInt(^)
+|> myPrint(^, ":multi_hop_module_api via Addition via TestDep2");
+
+# Demonstrate that dep module types with generic type params can actually be instantiated.
+print(TestDep2::List([1]));
+
+# Demonstrate that static values exported by dep modules can be read.
+print("----------------------------------------------------------------------------------------------------");
+print("Here's the definition of `TestDep::PI`: {TestDep::PI}");
+print("Here's the definition of `TestDep::SOME_LAZY_STATIC_VAL`: {TestDep::SOME_LAZY_STATIC_VAL}");
+print("`TestDep::SOME_LAZY_STATIC_VAL` was already initialized: {TestDep::SOME_LAZY_STATIC_VAL}");
+
+print("Here's a flag defined in a dep module: TEST_FLAG_2 = {Addition::TEST_FLAG_2}");
+
+# Demonstrate that opaque types exported by dep modules can be accessed.
+print("----------------------------------------------------------------------------------------------------");
+var opaqueImmutableList: TestDep::ImmutableList<int> = TestDep::immutableListOf([1,2,3]);
+print(opaqueImmutableList);
+print(TestDep::immutableListHead(opaqueImmutableList));
+# However, their wrapped values are not accessible. Uncomment for compile-time error.
+#print(unwrap(opaqueImmutableList));
+# And, you cannot instantiate them. Uncomment for compile-time error.
+#print(TestDep::ImmutableList([1,2,3]));

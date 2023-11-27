@@ -1,0 +1,59 @@
+
+
+consumer localPrint<T>(t: T) {
+  print(t);
+}
+localPrint("LOCAL");
+
+Dep::myPrint("TESTING DEP MODULE GENERIC PROCEDURE!");
+Dep::myPrint("TESTING AGAIN!");
+Dep::myPrint(99999);
+newtype Foo<T> : T
+Dep::myPrint(Foo(1));
+
+# Now validate that I can still directly call into the generic procedure that was already monomorphized transitively via
+# the above calls (this is validating that there's no invalid duplicated codegen).
+Dep::myPrint2("??");
+Dep::myPrint2("??");
+Dep::myPrint2(Foo(2));
+
+
+# Now validate that I can define procedures requiring contracts exported by a dep module.
+requires(Dep::Foo<T>)
+consumer testRequiringDepModuleContractImpl<T>(t: T) {
+  print("EXECUTING PROCEDURE THAT REQUIRES Dep::Foo<T>: {t}");
+  # And you can call dep module contract procedures.
+  Dep::Foo::doFoo(t);
+}
+
+# It's legal to implement contracts from dep modules. (In this case this implementation over a type not defined in this
+# module, `int`, is legal because this is the src file of a binary, meaning that there are no possible incoherency
+# issues that could result from this).
+implement Dep::Foo<int> {
+  consumer doFoo(t: int) {
+    print("Dep::Foo<int>::doFoo: {t}");
+  }
+}
+# So I can call local procedures requiring that dep module contract.
+testRequiringDepModuleContractImpl(10);
+
+Dep::Foo::doFoo(99);
+
+# I can call contract implementations exported by a dep module.
+Dep::Foo::doFoo("Calling into dep module contract implementation.");
+
+# I can also indirectly call contract impls from dep modules by going through local generic procedures requiring it.
+testRequiringDepModuleContractImpl("This ends up going through the dep module's Foo<string> impl.");
+
+# Since the required contract is implemented over string I can also call the Dep's generic procedures that require that.
+Dep::myPrint3("This went through the dep module's Foo<string> impl via Dep::myPrint3()");
+
+# I can still call the generic procedure making use of a contract implementation defined in this module, with Claro
+# passing the implementation information down into the dep module.
+Dep::myPrint3(3);
+
+# Claro even supports calling generic dep module procedures requiring a contract that's implemented in some third module
+# other than the current one or the one defining the generic procedure.
+Dep::myPrint3(OtherDep::SomeType(10));
+
+

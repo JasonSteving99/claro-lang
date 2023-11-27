@@ -1,0 +1,5 @@
+
+opaque newtype Cache<K, V>
+
+function get<K, V>(cache: Cache<K, V>, key: K) -> future<V>;
+function getAll<K, V>(cache: Cache<K, V>, keys: [K]) -> future<{K: V}>;

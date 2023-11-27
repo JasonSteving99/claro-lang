@@ -1,0 +1,188 @@
+{namespace types}
+
+{template .typedef}
+    {@param typeName: string}
+    {@param? genericTypeParams: list<html>}
+    {@param wrappedType: html}
+    {call codeblock.code}
+        {param codeContent kind="html"}
+            {call tokens.NEWTYPE /}{sp}{$typeName}
+            {if $genericTypeParams}
+                {call tokens.LT /}
+                {call utils.commaSep}
+                    {param elems: $genericTypeParams /}
+                {/call}
+                {call tokens.GT /}
+            {/if}
+            {sp}{call tokens.COLON /}{sp}{$wrappedType}
+        {/param}
+        {param class: 'type-def' /}
+        {param id: '{$typeName}' /}
+    {/call}
+{/template}
+
+{template .atom}
+    {@param name: string}
+    {$name}
+{/template}
+
+{template .list}
+    {@param elemsType: html}
+    {@param isMut: bool}
+    {call .maybeMut data="all" /}
+    [{$elemsType}]
+{/template}
+
+{template .tuple}
+    {@param elemsTypes: list<html>}
+    {@param isMut: bool}
+    {call .maybeMut data="all" /}
+    {call tokens.TUPLE /}{call tokens.LT /}
+    {call utils.commaSep}
+        {param elems: $elemsTypes /}
+    {/call}
+    {call tokens.GT /}
+{/template}
+
+{template .set}
+    {@param elemsType: html}
+    {@param isMut: bool}
+    {call .maybeMut data="all" /}
+    {'{'}{$elemsType}{'}'}
+{/template}
+
+{template .map}
+    {@param keyType: html}
+    {@param valueType: html}
+    {@param isMut: bool}
+    {call .maybeMut data="all" /}
+    {'{'}{$keyType}{call tokens.COLON /} {$valueType}{'}'}
+{/template}
+
+{template .struct}
+    {@param fieldNames: list<string>}
+    {@param fieldTypes: list<html>}
+    {@param isMut: bool}
+    {call .maybeMut data="all" /}
+    {call tokens.STRUCT /}{'{'}
+    {for $fieldName, $i in $fieldNames}
+        {if $i > 0}, {/if}
+        {$fieldName}{call tokens.COLON /} {$fieldTypes[$i]}
+    {/for}
+    {'}'}
+{/template}
+
+{template .oneof}
+    {@param variantTypes: list<html>}
+    {call tokens.ONEOF /}{call tokens.LT /}
+    {call utils.commaSep}
+        {param elems: $variantTypes /}
+    {/call}
+    {call tokens.GT /}
+{/template}
+
+{template .barGroup visibility="private"}
+    {@param content: html}
+    {call tokens.BAR /}{$content}{call tokens.BAR /}
+{/template}
+
+{template .function}
+    {@param argTypes: list<html>}
+    {@param outputType: html}
+
+    {call tokens.FUNCTION /}{call tokens.LT /}
+    {let $argsHtml kind="html"}
+        {call utils.commaSep}
+            {param elems: $argTypes /}
+        {/call}
+    {/let}
+    {if length($argTypes) > 1}
+        {call .barGroup}
+            {param content: $argsHtml /}
+        {/call}
+    {else}
+        {$argsHtml}
+    {/if}
+    {sp}{call tokens.ARROW /}{sp}{$outputType}{call tokens.GT /}
+{/template}
+
+{template .consumer}
+    {@param argTypes: list<html>}
+
+    {call tokens.CONSUMER /}{call tokens.LT /}
+    {let $argsHtml kind="html"}
+        {call utils.commaSep}
+            {param elems: $argTypes /}
+        {/call}
+    {/let}
+    {if length($argTypes) > 1}
+        {call .barGroup}
+            {param content: $argsHtml /}
+        {/call}
+    {else}
+        {$argsHtml}
+    {/if}
+    {call tokens.GT /}
+{/template}
+
+{template .provider}
+    {@param outputType: html}
+
+    {call tokens.PROVIDER /}{call tokens.LT /}{$outputType}{call tokens.GT /}
+{/template}
+
+{template .future}
+    {@param wrappedType: html}
+    {call tokens.FUTURE /}{call tokens.LT /}{$wrappedType}{call tokens.GT /}
+{/template}
+
+{template .typeDefiningModuleLink visibility="private"}
+    {@param typeName: string}
+    {@param definingModuleDisambig: string}
+    <span
+            class="type-link"
+            onclick="renderModule('{$definingModuleDisambig}', root)"
+            onmouseover="onMouseOverTypeLink(event, '{$definingModuleDisambig}', '{$typeName}')"
+            onmouseout="onMouseOutTypeLink(event)"
+    >
+        {$typeName}
+    </span>
+{/template}
+
+{template .userDefinedType}
+    {@param typeName: string}
+    {@param definingModuleDisambig: string}
+    {@param? concreteTypeParams: list<html>}
+    {call .typeDefiningModuleLink data="all"}{/call}
+    {if $concreteTypeParams}
+        {call tokens.LT /}
+        {call utils.commaSep}
+            {param elems: $concreteTypeParams /}
+        {/call}
+        {call tokens.GT /}
+    {/if}
+{/template}
+
+{template .httpService}
+    {@param serviceName: string}
+    HttpService{call tokens.LT /}{$serviceName}{call tokens.GT /}
+{/template}
+
+{template .httpClient}
+    {@param serviceName: string}
+    HttpClient{call tokens.LT /}{$serviceName}{call tokens.GT /}
+{/template}
+
+{template .httpResponse}
+    HttpResponse
+{/template}
+
+{template .genericTypeParam}
+    {@param paramName: string}
+    {$paramName}
+{/template}
+
+{template .maybeMut}
+    {@param isMut: bool}
+    {if $isMut}{call tokens.MUT /}{sp}{/if}
+{/template}

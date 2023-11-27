@@ -9,7 +9,7 @@ import java.util.function.Function;
 
 abstract class $ClaroLauncher {
   protected final Eventloop eventloop;
-  protected final AsyncHttpServer server;
+  public final AsyncHttpServer server;
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final CountDownLatch completeLatch = new CountDownLatch(1);
 

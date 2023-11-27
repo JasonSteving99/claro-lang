@@ -1,0 +1,398 @@
+# TODO(steving) This implementation is unnecessarily inefficient, containing avoidable copies/allocations.
+
+# TODO(steving) I need the ability to use inline-Java but still have
+# TODO(steving)     access to the compile-time type codegen. I want to use the below initialization instead:
+# TODO(steving)       res = new ClaroSet(<Java source Claro type of K>, m.keySet());
+
+
+function isEmpty<K,V>(m: {K:V}) -> boolean {
+  return len(m) == 0;
+}
+function isEmptyMut<K,V>(m: mut {K:V}) -> boolean {
+  return len(m) == 0;
+}
+
+
+function containsValue<K,V>(m: {K:V}, v: V) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = m.containsValue(v);
+  $$END_JAVA
+  return res;
+}
+function containsValueInMut<K,V>(m: mut {K:V}, v: V) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = m.containsValue(v);
+  $$END_JAVA
+  return res;
+}
+
+
+function getOrDefault<K,V>(m: {K:V}, k: K, defaultValue: V) -> V {
+  var res: V;
+  $$BEGIN_JAVA
+  res = m.getOrDefault(k, defaultValue);
+  $$END_JAVA
+  return res;
+}
+function getOrDefaultFromMut<K,V>(m: mut {K:V}, k: K, defaultValue: V) -> V {
+  var res: V;
+  $$BEGIN_JAVA
+  res = m.getOrDefault(k, defaultValue);
+  $$END_JAVA
+  return res;
+}
+
+
+consumer clear<K,V>(m: mut {K:V}) {
+  $$BEGIN_JAVA
+  m.clear();
+  $$END_JAVA
+}
+
+
+function keySet<K,V>(m: {K:V}) -> {K} {
+  var res: {K};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS)),
+    m.keySet());
+  $$END_JAVA
+  return res;
+}
+function keySetOfMut<K,V>(m: mut {K:V}) -> {K} {
+  var res: {K};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS)),
+    m.keySet());
+  $$END_JAVA
+  return res;
+}
+
+
+function mutKeySet<K,V>(m: {K:V}) -> mut {K} {
+  var res: mut {K};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+      /*isMutable=*/ true),
+    m.keySet()
+  );
+  $$END_JAVA
+  return res;
+}
+function mutKeySetOfMut<K,V>(m: mut {K:V}) -> mut {K} {
+  var res: mut {K};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+      /*isMutable=*/ true),
+    m.keySet()
+  );
+  $$END_JAVA
+  return res;
+}
+
+
+function values<K,V>(m: {K:V}) -> {V} {
+  var res: {V};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)),
+    m.values()
+  );
+  $$END_JAVA
+  return res;
+}
+function valuesOfMut<K,V>(m: mut {K:V}) -> {V} {
+  var res: {V};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES)),
+    m.values()
+  );
+  $$END_JAVA
+  return res;
+}
+
+
+function mutValues<K,V>(m: {K:V}) -> mut {V} {
+  var res: mut {V};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
+      /*isMutable=*/ true),
+    m.values()
+  );
+  $$END_JAVA
+  return res;
+}
+function mutValuesOfMut<K,V>(m: mut {K:V}) -> mut {V} {
+  var res: mut {V};
+  $$BEGIN_JAVA
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      m.getClaroType().parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES),
+      /*isMutable=*/ true),
+    m.values()
+  );
+  $$END_JAVA
+  return res;
+}
+
+
+function entrySet<K,V>(m: {K:V}) -> {tuple<K, V>} {
+  var res: {tuple<K, V>};
+  $$BEGIN_JAVA
+  ImmutableMap<String, Type> parameterizedTypeArgs = m.getClaroType().parameterizedTypeArgs();
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      Types.TupleType.forValueTypes(
+        ImmutableList.of(
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_VALUES))
+      )),
+    ImmutableList.copyOf(m.iterator())
+  );
+  $$END_JAVA
+  return res;
+}
+function entrySetOfMut<K,V>(m: mut {K:V}) -> {tuple<K, V>} {
+  var res: {tuple<K, V>};
+  $$BEGIN_JAVA
+  ImmutableMap<String, Type> parameterizedTypeArgs = m.getClaroType().parameterizedTypeArgs();
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      Types.TupleType.forValueTypes(
+        ImmutableList.of(
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_VALUES))
+      )),
+    ImmutableList.copyOf(m.iterator())
+  );
+  $$END_JAVA
+  return res;
+}
+
+
+function mutEntrySet<K,V>(m: {K:V}) -> mut {tuple<K, V>} {
+  var res: mut {tuple<K, V>};
+  $$BEGIN_JAVA
+  ImmutableMap<String, Type> parameterizedTypeArgs = m.getClaroType().parameterizedTypeArgs();
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      Types.TupleType.forValueTypes(
+        ImmutableList.of(
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_VALUES))
+      ),
+      /*isMutable=*/ true),
+    ImmutableList.copyOf(m.iterator())
+  );
+  $$END_JAVA
+  return res;
+}
+function mutEntrySetOfMut<K,V>(m: mut {K:V}) -> mut {tuple<K, V>} {
+  var res: mut {tuple<K, V>};
+  $$BEGIN_JAVA
+  ImmutableMap<String, Type> parameterizedTypeArgs = m.getClaroType().parameterizedTypeArgs();
+  res = new ClaroSet(
+    Types.SetType.forValueType(
+      Types.TupleType.forValueTypes(
+        ImmutableList.of(
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_KEYS),
+          parameterizedTypeArgs.get(Types.MapType.PARAMETERIZED_TYPE_VALUES))
+      ),
+      /*isMutable=*/ true),
+    ImmutableList.copyOf(m.iterator())
+  );
+  $$END_JAVA
+  return res;
+}
+
+
+consumer forEach<K,V>(m: {K:V}, action: consumer<K,V>) {
+  for (entry in m) {
+    action(entry[0], entry[1]);
+  }
+}
+consumer forEachInMut<K,V>(m: mut {K:V}, action: consumer<K,V>) {
+  for (entry in m) {
+    action(entry[0], entry[1]);
+  }
+}
+
+
+consumer replaceAll<K,V>(m: mut {K:V}, mapper: function<|K, V| -> V>) {
+  $$BEGIN_JAVA
+  m.replaceAll(mapper::apply);
+  $$END_JAVA
+}
+
+
+function put<K,V>(m: mut {K:V}, k: K, v: V) -> oneof<V, PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY> {
+  var currVal: V;
+  $$BEGIN_JAVA
+  if ((currVal = m.put(k, v)) == null) {
+  $$END_JAVA
+    # If-true is a workaround since Claro doesn't know this return is nested in an if already.
+    if (true) { return PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY; }
+  $$BEGIN_JAVA
+  }
+  $$END_JAVA
+  return currVal;
+}
+
+
+consumer putAll<K,V>(m: mut {K:V}, from: {K:V}) {
+  $$BEGIN_JAVA
+  m.putAll(from);
+  $$END_JAVA
+}
+consumer putAllFromMut<K,V>(m: mut {K:V}, from: mut {K:V}) {
+  $$BEGIN_JAVA
+  m.putAll(from);
+  $$END_JAVA
+}
+
+
+function putIfAbsent<K,V>(m: mut {K:V}, k: K, v: V) -> oneof<V, PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY> {
+  var currVal: V;
+  $$BEGIN_JAVA
+  currVal = m.get(k);
+  if (currVal != null) {
+    return currVal;
+  }
+  $$END_JAVA
+  m[k] = v;
+  return PUT_VALUE_FOR_PREVIOUSLY_ABSENT_KEY;
+}
+
+
+function removeKey<K,V>(m: mut {K:V}, k: K) -> oneof<V, KeyNotFound<K>> {
+  var currVal: V;
+  $$BEGIN_JAVA
+  if ((currVal = m.remove(k)) == null) {
+  $$END_JAVA
+    # If-true is a workaround since Claro doesn't know this return is nested in an if already.
+    if (true) { return KeyNotFound(k); }
+  $$BEGIN_JAVA
+  }
+  $$END_JAVA
+  return currVal;
+}
+
+
+function removeEntry<K,V>(m: mut {K:V}, k: K, v: V) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = m.remove(k, v);
+  $$END_JAVA
+  return res;
+}
+
+
+function replaceEntry<K,V>(m: mut {K:V}, k: K, oldValue: V, newValue: V) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+  res = m.replace(k, oldValue, newValue);
+  $$END_JAVA
+  return res;
+}
+
+
+function replace<K,V>(m: mut {K:V}, k: K, newValue: V) -> oneof<V, std::Error<KeyNotFound<K>>> {
+  if (k in m) {
+    var res: V;
+    _ = newValue; # Just marking it used since inline Java only marks identifiers in curr scope (if-stmt).
+    $$BEGIN_JAVA
+    res = m.put(k, newValue);
+    $$END_JAVA
+    return res;
+  }
+  return std::Error(KeyNotFound(k));
+}
+
+
+function computeIfAbsent<K,V>(m: mut {K:V}, k: K, mapper: function<K -> oneof<V, std::Error<DoNotUpdate<K>>>>)
+    -> oneof<V, std::Error<DoNotUpdate<K>>> {
+  if (k in m) {
+    return m[k];
+  }
+  var mappedVal ?= mapper(k);
+  m[k] = mappedVal;
+  return mappedVal;
+}
+
+
+function computeIfPresent<K,V>(m: mut {K:V}, k: K, remapper: function<|K, V| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY, std::Error<KeyNotFound<K>>> {
+  if (k in m) {
+    var remappedVal = remapper(k, m[k]);
+    if (remappedVal instanceof V) {
+      m[k] = remappedVal;
+      return remappedVal;
+    } else {
+      _ = removeKey(m, k);
+      return REMOVE_ENTRY;
+    }
+  }
+  return std::Error(KeyNotFound(k));
+}
+
+
+function compute<K,V>(m: mut {K:V}, k: K, remapper: function<|K, oneof<V, KeyNotFound<K>>| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY> {
+  var oldValue: oneof<V, KeyNotFound<K>>;
+  var notFound = KeyNotFound(k);
+  $$BEGIN_JAVA
+  oldValue = m.get(k);
+  if (oldValue == null) {
+    oldValue = notFound;
+  }
+  $$END_JAVA
+  var newValue = remapper(k, oldValue);
+  if (oldValue instanceof V) {
+    if (newValue instanceof V) {
+      m[k] = newValue;
+    } else {
+      _ = removeKey(m, k);
+      return REMOVE_ENTRY;
+    }
+  } else {
+    if (newValue instanceof V) {
+      m[k] = newValue;
+    } else {
+      return REMOVE_ENTRY;
+    }
+  }
+  return newValue;
+}
+
+
+function merge<K,V>(
+  m: mut {K:V},
+  k: K,
+  v: oneof<V, REMOVE_ENTRY>,
+  remapper: function<|V, oneof<V, REMOVE_ENTRY>| -> oneof<V, REMOVE_ENTRY>>)
+    -> oneof<V, REMOVE_ENTRY> {
+  # TODO(steving) This implementation is unnecessarily inefficient (`k in m` followed by `m[k]`). Refactor once builtin
+  # TODO(steving)     `m[k]` models missing keys correctly.
+  var newValue: oneof<V, REMOVE_ENTRY> = v;
+  if (k in m) {
+    newValue = remapper(m[k], newValue);
+  }
+  match (newValue) {
+    case R:REMOVE_ENTRY ->
+      _ = removeKey(m, k);
+      return R;
+    case _ ->
+      _ = put(m, k, newValue);
+      return newValue;
+  }
+}

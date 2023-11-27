@@ -150,10 +150,17 @@ public class DeclarationStmt extends Stmt {
                           .resolvedProcedureType.getIsBlocking().set(true));
 
           // Let's defer Expr's assertions since that will automatically handle logging.
+          int errorsBefore = Expr.typeErrorsFound.size();
           ((Expr) this.getChildren().get(0)).assertExpectedBaseType(scopedHeap, BaseType.FUTURE);
-          // Unwrap the type since we'll block to unwrap the value.
-          this.identifierValidatedInferredType =
-              this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
+          if (Expr.typeErrorsFound.size() == errorsBefore) {
+            // Unwrap the type since we'll block to unwrap the value.
+            this.identifierValidatedInferredType =
+                this.identifierValidatedInferredType.parameterizedTypeArgs().get("$value");
+          } else {
+            // Failed assertion that the thing on the right is actually a future, therefor we can't continue, this lhs
+            // variable declared is nonsensical.
+            this.identifierValidatedInferredType = Types.UNKNOWABLE;
+          }
         }
 
         scopedHeap.observeIdentifier(this.IDENTIFIER, identifierValidatedInferredType);

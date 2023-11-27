@@ -1,0 +1,13 @@
+
+function intIdentity(i: int) -> int {
+  return i;
+}
+
+function add(lhs: int, rhs: int) -> Addition::IntAlias {
+  print("Deferring to dep module\n\t`Addition::add(Addition::getFancyInt({lhs}), Addition::getFancyInt({rhs}))`");
+  return Addition::add(Addition::getFancyInt(lhs), Addition::getFancyInt(rhs));
+}
+
+function addFancyInt(lhs: int, rhs: int) -> Addition::FancyInt {
+  return Addition::getFancyInt(lhs + rhs);
+}

@@ -1,0 +1,64 @@
+
+# Creates a `future` which has its value set immediately upon construction. The getters just return the value. This
+# `future` can't be canceled or timed out and `futures::isDone(futures::immediateFuture(...))` always returns true.
+function immediateFuture<T>(t: T) -> future<T>;
+
+# Creates a `future` which is cancelled immediately upon construction, so that `futures::isCancelled` always returns `true`.
+provider immediateCancelledFuture<T>() -> future<T>;
+
+# Attempts to cancel execution of this task. This attempt will fail if the task has already completed, has already been
+# cancelled, or could not be cancelled for some other reason. If successful, and this task has not started when cancel
+# is called, this task should never run. If the task has already started, then the mayInterruptIfRunning parameter
+# determines whether the thread executing this task should be interrupted in an attempt to stop the task.
+#
+# After this method returns, subsequent calls to `futures::isDone` will always return true. Subsequent calls to
+# isCancelled() will always return true if this method returned true.
+#
+# Returns: `false` if the task could not be cancelled, typically because it has already completed normally; `true` otherwise.
+function cancel<T>(f: future<T>, mayInterrupt: boolean) -> boolean;
+
+# Returns `true` if this task was cancelled before it completed normally, else `false`.
+function isCancelled<T>(f: future<T>) -> boolean;
+
+# Returns `true` if this task completed. Completion may be due to normal termination, a Panic, or cancellation -- in all
+# of these cases, this method will return `true`.
+function isDone<T>(f: future<T>) -> boolean;
+
+# Creates a new `future` whose value is a list containing the values of all its input `future`s, if all succeed. The
+# list of results is in the same order as the input list.
+#
+# Canceling this returned `future` will attempt to cancel all the component `future`s, and if any of the provided
+# `future`s fails or is canceled, this one is, too.
+function allAsList<T>(futures: [future<T>]) -> future<[T]>;
+
+# Creates a `future` that runs the given provider when the futures complete whether or not they're successful.
+# Canceling this future will attempt to cancel all the component futures.
+function whenAllComplete<T, V>(futures: [future<T>], action: provider<V>) -> future<V>;
+function whenAllCompleteAsync<T, V>(futures: [future<T>], action: provider<future<V>>) -> future<V>;
+
+# Creates a `future` that runs the given provider requiring that all passed in futures are successful. If any input
+# fails, the returned future fails immediately. Canceling this future will attempt to cancel all the component futures.
+function whenAllSucceed<T, V>(futures: [future<T>], action: provider<V>) -> future<V>;
+function whenAllSucceedAsync<T, V>(futures: [future<T>], action: provider<future<V>>) -> future<V>;
+
+# Creates a new `future` whose value is a list containing the values of all its successful input futures. The list of
+# results is in the same order as the input list, and if any of the provided futures Panics or is canceled, its
+# corresponding position will contain `futures::DID_NOT_SUCCEED`. Canceling this future will attempt to cancel all the
+# component futures.
+function successfulAsList<T>(futures: [future<T>]) -> future<[T]>;
+
+# Returns a list of delegate futures that correspond to the futures received in the order that they complete. Delegate
+# futures return the same value as the corresponding input future returns.
+#
+# "In the order that they complete" means, for practical purposes, about what you would expect, but there are some
+# subtleties. First, we do guarantee that, if the output future at index n is done, the output future at index n-1 is
+# also done. (But as usual with futures, some listeners for future n may complete before some for future n-1.) However,
+# it is possible, if one input completes with result X and another later with result Y, for Y to come before X in the
+# output future list. (Such races are impossible to solve without global synchronization of all future completions. And
+# they should have little practical impact.)
+#
+# Cancelling a delegate future propagates to input futures once all the delegates complete, either from cancellation or
+# because an input future has completed. If N futures are passed in, and M delegates are cancelled, the remaining M
+# input futures will be cancelled once N - M of the input futures complete. If all the delegates are cancelled, all the
+# input futures will be too.
+function inCompletionOrder<T>(futures: [future<T>]) -> [future<T>];

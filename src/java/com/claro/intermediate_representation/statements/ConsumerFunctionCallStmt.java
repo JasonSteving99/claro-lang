@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
 import com.claro.internal_static_state.InternalStaticStateUtil;
+import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class ConsumerFunctionCallStmt extends Stmt {
+  private final Optional<String> optionalOriginatingDepModuleName;
   protected String consumerName;
   public boolean hashNameForCodegen = false;
   public boolean staticDispatchCodegen = false;
@@ -29,8 +31,21 @@ public class ConsumerFunctionCallStmt extends Stmt {
 
   public ConsumerFunctionCallStmt(String consumerName, ImmutableList<Expr> args) {
     super(ImmutableList.of());
+    this.optionalOriginatingDepModuleName = Optional.empty();
     this.consumerName = consumerName;
     this.originalName = consumerName;
+    this.argExprs = args;
+  }
+
+  public ConsumerFunctionCallStmt(String depModuleName, String consumerName, ImmutableList<Expr> args) {
+    super(ImmutableList.of());
+    this.optionalOriginatingDepModuleName = Optional.of(depModuleName);
+    // In order to bring this external procedure into the current compilation unit's scope, this procedure would have
+    // been placed in the symbol using a prefixing scheme so as to disambiguate from any other name present in this
+    // current compilation unit. Handle that renaming here (this can be undone later at codegen time).
+    String disambiguatedName = String.format("$DEP_MODULE$%s$%s", depModuleName, consumerName);
+    this.consumerName = disambiguatedName;
+    this.originalName = disambiguatedName;
     this.argExprs = args;
   }
 
@@ -219,62 +234,118 @@ public class ConsumerFunctionCallStmt extends Stmt {
 
   @Override
   public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    // Determine right away if this is going to be a static procedure call (meaning no indirection via a first-class
+    // procedure reference.
+    boolean isStatic = scopedHeap.getIdentifierData(this.consumerName).isStaticValue;
+
     // TODO(steving) It would honestly be best to ensure that the "unused" checking ONLY happens in the type-checking
     // TODO(steving) phase, rather than having to be redone over the same code in the javasource code gen phase.
     // It's possible that during the process of monomorphization when we are doing type checking over a particular
     // signature, this function call might represent the identification of a new signature for a generic function that
     // needs monomorphization. In that case, this function's identifier may not be in the scoped heap yet and that's ok.
+    Optional<String> optionalNormalizedOriginatingDepModulePrefix =
+        this.optionalOriginatingDepModuleName
+            // Turns out I need to codegen the Java namespace of the dep module.
+            .map(depMod -> {
+              SerializedClaroModule.UniqueModuleDescriptor depModDescriptor =
+                  ScopedHeap.currProgramDepModules.get(depMod, /*isUsed=*/true);
+              return String.format(
+                  "%s.%s.",
+                  depModDescriptor.getProjectPackage(),
+                  depModDescriptor.getUniqueModuleName()
+              );
+            });
+    Optional<String> hashedName = Optional.empty();
     if (!this.consumerName.contains("$MONOMORPHIZATION")) {
       scopedHeap.markIdentifierUsed(this.consumerName);
     } else {
       this.hashNameForCodegen = true;
+      if (this.optionalOriginatingDepModuleName.isPresent()) {
+        // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
+        // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
+        // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
+        // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
+        // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
+        // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
+        optionalNormalizedOriginatingDepModulePrefix =
+            Optional.of(
+                String.format(
+                    "$MONOMORPHIZATION$%s$%s.",
+                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    (hashedName = Optional.of(getHashedName())).get()
+                ));
+      }
     }
 
     if (this.hashNameForCodegen) {
       // In order to call the actual monomorphization, we need to ensure that the name isn't too long for Java.
       // So, we're following a hack where all monomorphization names are sha256 hashed to keep them short while
       // still unique.
-      this.consumerName =
-          String.format(
-              "%s__%s",
-              this.originalName,
-              Hashing.sha256().hashUnencodedChars(this.consumerName).toString()
-          );
+      this.consumerName = hashedName.orElseGet(this::getHashedName);
     }
 
     AtomicReference<GeneratedJavaSource> argValsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
 
-    GeneratedJavaSource consumerFnGenJavaSource =
-        GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder(
-                String.format(
-                    this.staticDispatchCodegen ? "%s(%s%s);\n" : "%s.apply(%s%s);\n",
-                    this.consumerName,
-                    this.argExprs
-                        .stream()
-                        .map(expr -> {
-                          GeneratedJavaSource currArgGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
-                          String currArgJavaSourceBody = currArgGenJavaSource.javaSourceBody().toString();
-                          // We've already consumed the javaSourceBody, so it's safe to clear.
-                          currArgGenJavaSource.javaSourceBody().setLength(0);
-                          argValsGenJavaSource.set(argValsGenJavaSource.get().createMerged(currArgGenJavaSource));
-                          return currArgJavaSourceBody;
-                        })
-                        .collect(Collectors.joining(", ")),
-                    this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
-                    ? ", " + this.optionalExtraArgsCodegen.get()
-                    : ""
-                )
-            )
-        );
+    String argExprsCodegen =
+        this.argExprs
+            .stream()
+            .map(expr -> {
+              GeneratedJavaSource currArgGenJavaSource = expr.generateJavaSourceOutput(scopedHeap);
+              String currArgJavaSourceBody = currArgGenJavaSource.javaSourceBody().toString();
+              // We've already consumed the javaSourceBody, so it's safe to clear.
+              currArgGenJavaSource.javaSourceBody().setLength(0);
+              argValsGenJavaSource.set(argValsGenJavaSource.get().createMerged(currArgGenJavaSource));
+              return currArgJavaSourceBody;
+            })
+            .collect(Collectors.joining(", "));
+
+    GeneratedJavaSource consumerFnGenJavaSource;
+    if (isStatic) {
+      String procName = this.optionalOriginatingDepModuleName
+          .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+          .orElse(this.consumerName);
+      consumerFnGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  "%s$%s.%s(%s);\n",
+                  optionalNormalizedOriginatingDepModulePrefix.orElse(""), procName, procName, argExprsCodegen
+              )));
+    } else {
+      consumerFnGenJavaSource = GeneratedJavaSource.forJavaSourceBody(
+          new StringBuilder(
+              String.format(
+                  this.staticDispatchCodegen ? "%s%s(%s%s);\n" : "%s%s.apply(%s%s);\n",
+                  optionalNormalizedOriginatingDepModulePrefix.orElse(""),
+                  this.optionalOriginatingDepModuleName
+                      .map(depMod -> this.consumerName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+                      .orElse(this.consumerName),
+                  argExprsCodegen,
+                  this.staticDispatchCodegen && this.optionalExtraArgsCodegen.isPresent()
+                  ? ", " + this.optionalExtraArgsCodegen.get()
+                  : ""
+              )
+          )
+      );
+    }
 
     // This node will be potentially reused assuming that it is called within a Generic function that gets
     // monomorphized as that process will reuse the exact same nodes over multiple sets of types. So reset
     // the name now.
     this.consumerName = this.originalName;
+    this.optionalConcreteGenericTypeParams = Optional.empty();
 
     return consumerFnGenJavaSource.createMerged(argValsGenJavaSource.get());
+  }
+
+  private String getHashedName() {
+    return String.format(
+        "%s__%s",
+        this.optionalOriginatingDepModuleName
+            .map(depMod -> this.originalName.replace(String.format("$DEP_MODULE$%s$", depMod), ""))
+            .orElse(this.originalName),
+        Hashing.sha256().hashUnencodedChars(this.consumerName).toString()
+    );
   }
 
   @Override

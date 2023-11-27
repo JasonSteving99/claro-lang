@@ -1,10 +1,6 @@
 package(
     default_visibility = [
-        "//src/java/com/claro:__pkg__",
-        "//src/java/com/claro/claro_programs:__subpackages__",
-        "//src/java/com/claro/intermediate_representation/expressions/procedures/functions:__pkg__",
-        "//src/java/com/claro/intermediate_representation/statements:__pkg__",
-        "//src/java/com/claro/intermediate_representation/types:__pkg__",
+        "//visibility:public",
     ]
 )
 
@@ -17,7 +13,7 @@ java_library(
         "//src/java/com/claro/intermediate_representation/statements:__pkg__",
     ],
     deps = [
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
     ],
@@ -33,7 +29,7 @@ java_library(
     ],
     deps = [
         ":injected_key",
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:type_provider",
         "//src/java/com/claro/intermediate_representation/expressions/term:term_impls",
@@ -44,7 +40,7 @@ java_library(
     name = "key",
     srcs = ["Key.java"],
     deps = [
-        "//:lombok",
+        "//:autovalue",
         "//src/java/com/claro/intermediate_representation/types:type",
     ],
 )

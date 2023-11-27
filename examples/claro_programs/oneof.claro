@@ -1,0 +1,192 @@
+###############################################################################################
+# DEMONSTRATE BASIC ONEOF USE
+#
+# Claro's `oneof` is more of a "meta"-type than a proper type. The below variable is defined
+# as a `oneof<string, int>` which means that, at any given point in the program, it may be
+# referencing a value of one of the listed types. In this case, it may be referencing either
+# a string or an int.
+###############################################################################################
+var firstOneof: oneof<string, int>;
+
+firstOneof = 1;
+print(firstOneof);
+firstOneof = "one";
+print(firstOneof);
+type(firstOneof);
+
+var secondOneof: oneof<int, string>;
+secondOneof = 2;
+print(secondOneof);
+secondOneof = "two";
+print(secondOneof);
+type(secondOneof);
+
+print("Oneof's are mutually assignable even if their variant types are listed in different orders:");
+print("oneof<string, int> == oneof<int, string>");
+firstOneof = secondOneof;
+print(firstOneof);
+
+print("Oneof's over different variant types are not mutually assignable:");
+print("oneof<string, int> != oneof<int, string, float>");
+var thirdOneof: oneof<int, string, float> = 1.2;
+print(thirdOneof);
+type(thirdOneof);
+
+# Uncomment below line for compile error that `oneof<int, string, float>` isn't compatible with `oneof<string, int>`.
+#firstOneof = thirdOneof;
+#thirdOneof = firstOneof;
+
+###############################################################################################
+# DEMONSTRATE USING ONEOF'S IN COLLECTIONS
+###############################################################################################
+
+var l: mut [oneof<string, int>] = mut [firstOneof];
+print(l);
+l[0] = 1;
+print(l);
+
+lists::add(l, 3);
+lists::add(l, "five");
+lists::add(l, 7);
+lists::add(l, "nine");
+print(l); # [1, 3, five, 7, nine]
+
+var lv = l[0];
+print(lv);
+type(lv);
+lv = l[2];
+print(lv);
+type(lv);
+
+lists::add(l, lv);
+print(l);
+
+var l2: mut [oneof<[int], [string]>] = mut [];
+print(l2);
+lists::add(l2, [1,2]);
+lists::add(l2, ["three", "four"]);
+print(l2);
+
+
+###############################################################################################
+# DEMONSTRATE TYPE "NARROWING" BY EQUALITY CHECKING A ONEOF'S VALUE.
+###############################################################################################
+
+var intOrString: oneof<int, string> = 1;
+
+if (intOrString == "one") {
+  print("NOPE!");
+  var e = intOrString[2];
+  print("But we have successfully narrowed the typ{e} and can treat as a string!");
+} else if (intOrString == 100) {
+  print("NAHHH");
+} else if ((intOrString == 1) or (intOrString == 2)) {
+  print("----------------------------------------------------------------------------------------------------");
+  print("GOOD!");
+  print("Here, these nested conditions guarantee that the type can be narrowed!");
+  print("The narrowed type is no longer a oneof:");
+  type(intOrString);
+  print("Watch me do math with intOrString (which is set to `{intOrString}`): `intOrString + 99 = {intOrString + 99}`");
+  print("----------------------------------------------------------------------------------------------------");
+}
+
+print(intOrString);
+
+if (((intOrString == 1) or (intOrString == "one")) and (9 > 0)) {
+  print("----------------------------------------------------------------------------------------------------");
+  print("These particular nested conditions provide no guarantee that the type can be narrowed");
+  print("So the type is still a oneof:");
+  type(intOrString);
+  print("----------------------------------------------------------------------------------------------------");
+}
+
+intOrString = "one";
+print(intOrString == "one");
+print(intOrString == 1);
+
+
+###############################################################################################
+# DEMONSTRATE TYPE "WIDENING" BY ASSIGNING A TYPE OTHER THAN THE NARROWED TYPE AFTER NARROWING.
+###############################################################################################
+
+print("----------------------------------------------------------------------------------------------------");
+if (input("Do you want an int? Y/N (if no we'll use string):") == "Y") {
+  intOrString = 10;
+} else {
+  intOrString = "ten";
+}
+
+if (intOrString == 10) {
+  print("You chose to use int!");
+  print("Here's some math over intOrString={intOrString}: `intOrString / 2 = {intOrString / 2}`");
+  print("That all worked because the type has been narrowed to:");
+  type(intOrString);
+  print("But now, I'll update the value to one of the other variant types.");
+  print("intOrString = \"ten\";\nNow type(intOrString) results in:");
+  intOrString = "ten";
+  type(intOrString);
+  print("The type has been \"widened\"!");
+} else if (intOrString == "ten") {
+  print("You chose to use string!");
+  print("Here's the string you chose: {intOrString}");
+  print("And here's each char on a seperate line to prove the string ops work:");
+  var i = 0;
+  while (i < len(intOrString)) {
+    print("Char {i + 1}: {intOrString[i]}");
+    i++;
+  }
+  print("That all worked because the type has been narrowed to:");
+  type(intOrString);
+  print("But now, I'll update the value to one of the other variant types.");
+  print("intOrString = 10;\nNow type(intOrString) results in:");
+  intOrString = 10;
+  type(intOrString);
+  print("The type has been \"widened\"!");
+}
+print(intOrString);
+
+
+###############################################################################################
+# DEMONSTRATE CHECKING IF ONEOF IS "INSTANCEOF" OF SOME TYPE.
+###############################################################################################
+
+var myOneof: oneof<string, int, float> = 1.0;
+
+print("----------------------------------------------------------------------------------------------------");
+print("Test `instanceof` operator:");
+var isCheckedType = myOneof instanceof int;
+print("`myOneof instanceof int`: {isCheckedType}");
+isCheckedType = myOneof instanceof float;
+print("`myOneof instanceof float`: {isCheckedType}");
+
+var oneofList: [oneof<int, string>] = [1, "two", 3, "four"];
+var i = 0;
+while (i < len(oneofList)) {
+  if (oneofList[i] instanceof int) {
+    print("Found int: {oneofList[i]}");
+  } else if (oneofList[i] instanceof string) {
+    print("Found string: {oneofList[i]}");
+  }
+  ++i;
+}
+
+var intListOrStrList: oneof<[int], [string]> = [1,2,3];
+print(intListOrStrList);
+print(intListOrStrList instanceof [int]);
+print(myOneof instanceof [int]);
+
+
+###############################################################################################
+# DEMONSTRATE TYPE "NARROWING" BY CHECKING A ONEOF VARIABLE'S CURRENT VARIANT TYPE.
+###############################################################################################
+
+print("----------------------------------------------------------------------------------------------------");
+print("Test type \"narrowing\" under instanceof checks:");
+intOrString = 1;
+
+if (intOrString instanceof int) {
+  type(intOrString);
+  print(intOrString + 99);
+  # Uncomment the below line for a compile error warning that intOrString is an int not a string.
+  # print(intOrString[1]);
+}

@@ -1,6 +1,6 @@
 workspace(name = "claro-lang")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 RULES_JVM_EXTERNAL_TAG = "3.3"
 RULES_JVM_EXTERNAL_SHA = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
@@ -23,11 +23,54 @@ http_archive(
     # I'm following the http_archive patching example here:
     # https://bazelbuild.github.io/rules_nodejs/changing-rules.html#patching-the-built-in-release
     patch_args = ["-p1"],
-    patches = ["//patched_jcup:cup_rule_diff.patch"],
+    patches = ["//patched_jcup:cup_rule_diff.patch", "//patched_jcup:jflex_rule_diff.patch"],
 )
-
 load("@jflex_rules//jflex:deps.bzl", "JFLEX_ARTIFACTS")
 load("@jflex_rules//third_party:third_party_deps.bzl", "THIRD_PARTY_ARTIFACTS")
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
+    strip_prefix = "rules_proto-5.3.0-21.7",
+    urls = [
+        "https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz",
+    ],
+)
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+rules_proto_dependencies()
+rules_proto_toolchains()
+
+# Claro's going to require bootstrapping for at least Dep Module Monomorphization, and in the future will ideally
+# iteratively be migrated from an all-Java implementation, to an implementation that uses progressively more Claro. As
+# such, a "bootstrapping compiler", defined via a prior release, will be necessary in order to prevent a circular dep
+# in Claro's Bazel build which would fail to build.
+http_file(
+    name = "bootstrapping_claro_compiler_tarfile",
+    # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
+    # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
+    # rebuild without manual work.
+    sha256 = "d266c903c19fc1e51026f26d911967e2a78a3c98853b35aedcb7c4237c3e1f3b",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.339/claro-cli-install.tar.gz",
+)
+
+# ClaroDocs is built atop Google's Closure Templates in order to ensure that I'm not generating unsafe html since the
+# intention is for users to be able to trust and host ClaroDocs themselves (particularly relevant since ClaroDocs
+# automatically generate inlined docs for all of the binaries dependencies, whether first or 3rd party).
+http_archive(
+    name = "io_bazel_rules_closure",
+    sha256 = "9498e57368efb82b985db1ed426a767cbf1ba0398fd7aed632fc3908654e1b1e",
+    strip_prefix = "rules_closure-0.12.0",
+    urls = [
+        "https://github.com/bazelbuild/rules_closure/archive/0.12.0.tar.gz",
+    ],
+)
+
+load("@io_bazel_rules_closure//closure:repositories.bzl", "rules_closure_dependencies", "rules_closure_toolchains")
+rules_closure_dependencies()
+rules_closure_toolchains()
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()
 
 # See this documentation to understand how fetching Maven deps works in Bazel:
 # https://github.com/bazelbuild/rules_jvm_external
@@ -39,13 +82,11 @@ maven_install(
         JFLEX_ARTIFACTS +
         THIRD_PARTY_ARTIFACTS +
         [
+            "com.github.pcj:google-options:jar:1.0.0",
             "com.google.auto.value:auto-value:1.5.3",
-            "com.google.guava:guava:jar:23.5-jre",
+            "com.google.guava:guava:jar:32.1.2-jre",
+            "com.google.protobuf:protobuf-java-util:3.24.3",
             "com.googlecode.lanterna:lanterna:3.1.1",
-            "io.javalin:javalin:4.1.1",
-            "org.apache.commons:commons-text:jar:1.1",
-            "org.projectlombok:lombok:1.18.20",
-            "org.slf4j:slf4j-simple:1.7.31",
             "com.squareup.okhttp3:okhttp:4.11.0",
             # Not using latest retrofit 2.9.0 because it seems there's a JDK warning of illegal reflection in retrofit2.
             # The maintainers responded to this calling it something they explicitly won't fix since it's just a warning
@@ -65,6 +106,10 @@ maven_install(
             ############################################################################################################
             # END ACTIVE J
             ############################################################################################################
+
+            # This addresses unwanted missing StaticLoggerBinder warning logs from SLF4J. This shouldn't be necessary
+            # anymore once Claro has proper logging support. See: https://www.slf4j.org/codes.html#StaticLoggerBinder
+            "org.slf4j:slf4j-nop:2.0.7",
         ],
     maven_install_json = "//:maven_install.json",
     repositories = [
