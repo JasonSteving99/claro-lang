@@ -9,6 +9,7 @@ import com.claro.intermediate_representation.statements.Stmt;
 import com.claro.intermediate_representation.statements.StmtListNode;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.InitializersBlockStmt;
 import com.claro.intermediate_representation.statements.user_defined_type_def_stmts.UnwrappersBlockStmt;
+import com.claro.internal_static_state.InternalStaticStateUtil;
 import com.claro.module_system.module_serialization.proto.SerializedClaroModule;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
@@ -152,6 +153,7 @@ public class DepModuleMonomorphization {
       // Make sure to signal to the compiler that we are doing dep module monomorphization and so must follow simplified
       // compilation process.
       JavaSourceCompilerBackend.DEP_MODULE_MONOMORPHIZATION_ENABLED = true;
+      InternalStaticStateUtil.DEP_MODULE_MONOMORPHIZATION_ENABLED = true;
       ClaroCompilerMain.main(this.recompilationArgs.toArray(new String[this.recompilationArgs.size()]));
 
       // Setup MonomorphizationRequestProcessing to be able selectively trigger type validation on generic procedures

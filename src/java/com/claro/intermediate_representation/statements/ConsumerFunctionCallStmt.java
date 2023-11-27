@@ -260,7 +260,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
       scopedHeap.markIdentifierUsed(this.consumerName);
     } else {
       this.hashNameForCodegen = true;
-      if (this.optionalOriginatingDepModuleName.isPresent()) {
+      if (this.optionalOriginatingDepModuleName.isPresent() || InternalStaticStateUtil.DEP_MODULE_MONOMORPHIZATION_ENABLED) {
         // Additionally, b/c this is a call to a monomorphization, if the procedure is actually located in a dep module,
         // that means that the monomorphization can't be guaranteed to *actually* have been generated in the dep
         // module's codegen. This is b/c all Claro Modules are compiled in isolation - meaning they don't know how
@@ -271,7 +271,7 @@ public class ConsumerFunctionCallStmt extends Stmt {
             Optional.of(
                 String.format(
                     "$MONOMORPHIZATION$%s$%s.",
-                    ScopedHeap.getDefiningModuleDisambiguator(Optional.of(this.optionalOriginatingDepModuleName.get())),
+                    ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName),
                     (hashedName = Optional.of(getHashedName())).get()
                 ));
       }
