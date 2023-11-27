@@ -42,7 +42,7 @@ public class Interpreter implements CompilerBackend {
       inputProgram.append("\n");
     }
 
-    ClaroParser parser = ParserUtil.createParser(inputProgram.toString(), "INTERPRETER");
+    ClaroParser parser = ParserUtil.createParser(inputProgram.toString(), "INTERPRETER", "INTERPRETER");
 
     // These are unused for the interpreted case. We're not gonna produce any files.
     parser.generatedClassName = "";

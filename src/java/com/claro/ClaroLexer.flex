@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 %{
     // Use this for more precise error messaging.
-    public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
+    public String lexedFileName = "CompiledClaroProgram";  // default to be overridden.
 
     // This will be used to accumulate all string characters during the STRING state.
     StringBuffer string = new StringBuffer();
@@ -91,7 +91,7 @@ import java.util.concurrent.atomic.AtomicReference;
               // This is just cute for the sake of it....barf...but I'm keeping it lol.
               while (Character.isWhitespace(currStringLineToPointAt.charAt(--trailingWhitespaceStart)));
               System.err.println(
-                  generatedClassName + ".claro:" + line + ": Unexpected token <" + lexed.charAt(0) + ">\n" + currStringLineToPointAt.substring(0, trailingWhitespaceStart + 1));
+                  lexedFileName + ".claro:" + line + ": Unexpected token <" + lexed.charAt(0) + ">\n" + currStringLineToPointAt.substring(0, trailingWhitespaceStart + 1));
               System.err.println(Strings.repeat(" ", column) + '^');
             }
         );

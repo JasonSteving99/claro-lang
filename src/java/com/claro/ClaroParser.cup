@@ -153,6 +153,7 @@ action code {:
 
 parser code {:
   public String generatedClassName = "CompiledClaroProgram";  // default to be overridden.
+  public String parsedFileName = "CompiledClaroProgram";  // default to be overridden.
   public String package_string = "";  // default to be overridden.
   public Optional<String> optionalModuleName = Optional.empty(); // default to be overridden. Something like "DepModule".
   public Optional<String> optionalUniqueModuleName = Optional.empty(); // default to be overridden. Something like "src$com$foo$module".
@@ -173,7 +174,7 @@ parser code {:
         if (lexedValue == null) {
           return;
         }
-        System.err.print(String.format("%s.claro:%s: ", generatedClassName, currSymbol.right + 1));
+        System.err.print(String.format("%s.claro:%s: ", parsedFileName, currSymbol.right + 1));
         System.err.println("Unexpected token <" + lexedValue.getVal() + ">");
         String currentInputLineString = lexedValue.getCurrentInputLine().get();
         if (Character.isWhitespace(currentInputLineString.charAt(currentInputLineString.length() - 1))) {

@@ -13,17 +13,18 @@ public class ParserUtil {
     return lexer;
   }
 
-  public static ClaroParser createParser(String input, String srcFilename) {
-    return createParser(input, srcFilename, /*supportInternalOnlyFeatures*/false, /*escapeSpecialChars*/true);
+  public static ClaroParser createParser(String input, String srcFilename, String generatedClassName) {
+    return createParser(input, srcFilename, generatedClassName, /*supportInternalOnlyFeatures*/false, /*escapeSpecialChars*/true);
   }
 
   public static ClaroParser createParser(
-      String input, String srcFilename, boolean supportInternalOnlyFeatures, boolean escapeSpecialChars) {
+      String input, String srcFilename, String generatedClassName, boolean supportInternalOnlyFeatures, boolean escapeSpecialChars) {
     ClaroLexer lexer = createLexer(input, escapeSpecialChars);
-    lexer.generatedClassName = srcFilename;
+    lexer.lexedFileName = srcFilename;
     lexer.supportPrivilegedInlineJava = supportInternalOnlyFeatures;
     ClaroParser parser = new ClaroParser(lexer);
-    parser.generatedClassName = srcFilename;
+    parser.generatedClassName = generatedClassName;
+    parser.parsedFileName = srcFilename;
     return parser;
   }
 

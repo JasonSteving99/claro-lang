@@ -23,6 +23,13 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
   public String classname;
 
   @Option(
+      name = "main_file_name",
+      help = "The name of the main file whose contents should be executed.",
+      defaultValue = ""
+  )
+  public String main_file_name;
+
+  @Option(
       name = "package",
       abbrev = 'p',
       help = "The package to be used for the generated Java class. Must be formatted as a valid Java package.",

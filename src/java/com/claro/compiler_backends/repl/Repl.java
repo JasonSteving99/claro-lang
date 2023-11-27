@@ -77,7 +77,7 @@ public class Repl implements CompilerBackend {
 
   private ClaroParser getParser(String currLine) {
     ClaroParser parser =
-        ParserUtil.createParser(currLine.trim(), "REPL", /*supportInternalOnlyFeatures*/false, /*escapeSpecialChars*/false);
+        ParserUtil.createParser(currLine.trim(), "REPL", "REPL", /*supportInternalOnlyFeatures*/false, /*escapeSpecialChars*/false);
 
     // These are unused for the interpreted case. We're not gonna produce any files.
     parser.generatedClassName = "";
