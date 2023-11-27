@@ -731,14 +731,12 @@ public class FunctionCallExpr extends Expr {
         // they'll be used by any potential future callers. This has the unfortunate side-effect on generic procedures
         // exported by Modules needing to be codegen'd by the callers rather than at the definition. So, here we'll go
         // ahead and drop the namespacing dep$module.foo(...) -> this$module$dep$module$MONOMORPHIZATIONS.foo(...) so that we can reference the local codegen.
-        String originatingModuleDisambig =
-            ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName);
         optionalNormalizedOriginatingDepModulePrefix =
             Optional.of(
                 String.format(
-                    "$MONOMORPHIZATION$%s$%s$%s.",
-                    originatingModuleDisambig.substring(originatingModuleDisambig.lastIndexOf('$') + 1),
-                    Hashing.sha256().hashUnencodedChars(originatingModuleDisambig),
+                    "$MONO$%s$%s.",
+                    Hashing.sha256()
+                        .hashUnencodedChars(ScopedHeap.getDefiningModuleDisambiguator(this.optionalOriginatingDepModuleName)),
                     (hashedName = Optional.of(getHashedName())).get()
                 ));
       }

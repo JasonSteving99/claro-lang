@@ -295,9 +295,8 @@ public class ProgramNode {
                             monomorphizationRequest.getProcedureName()
                         ))
                 );
-            res.append("final class $MONOMORPHIZATION$")
-                .append(depModule.substring(depModule.lastIndexOf("$") + 1))
-                .append('$')
+            res.append("/*MONOMORPHIZATION: ").append(depModule).append("*/\n")
+                .append("final class $MONO$")
                 .append(Hashing.sha256().hashUnencodedChars(depModule))
                 .append('$')
                 .append(genProcName)

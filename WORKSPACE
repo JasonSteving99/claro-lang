@@ -49,8 +49,8 @@ http_file(
     # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
     # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
     # rebuild without manual work.
-    sha256 = "f62be62a5cb79dc085b47c78a1d80b7efb9d5c0ac3292f55b66f1b57f185a82b",
-    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.349/claro-cli-install.tar.gz",
+    sha256 = "681b5bf108a84d156214b110985a50e14632a560a68e1b076fac11de720371eb",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.350/claro-cli-install.tar.gz",
 )
 
 # ClaroDocs is built atop Google's Closure Templates in order to ensure that I'm not generating unsafe html since the

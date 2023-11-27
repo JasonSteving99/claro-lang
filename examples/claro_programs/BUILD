@@ -170,6 +170,6 @@ claro_binary(
 )
 
 claro_binary(
-    name = "while",
+    name = "while_test",
     main_file = "while_test.claro",
 )
