@@ -95,7 +95,8 @@ def _invoke_claro_compiler_impl(ctx):
         # The user told me which .claro file is the main file, however, they may have also included it in the srcs list, so
         # filter it from the srcs. This way the main file is always guaranteed to be the first file in the list.
         srcs = ctx.files._stdlib_srcs + [ctx.file.main_file] + [f for f in ctx.files.srcs if f != ctx.file.main_file]
-        classname = ctx.file.main_file.basename[:len(ctx.file.main_file.basename) - len(".claro")]
+        main_file_name = ctx.file.main_file.basename[:len(ctx.file.main_file.basename) - len(".claro")]
+        classname = ctx.outputs.compiler_out.basename[:-len(".java")]
 
     # By deriving the project package from the workspace name, this rule's able to ensure that generated Java sources
     # end up using unique Java packages so that it doesn't conflict with any downstream deps.
@@ -112,6 +113,7 @@ def _invoke_claro_compiler_impl(ctx):
     if is_module:
         args.add("--unique_module_name", ctx.attr.unique_module_name)
     else:
+        args.add("--main_file_name", main_file_name)
         args.add("--classname", classname)
     if not ctx.attr.debug:
         args.add("--silent")
@@ -241,8 +243,6 @@ def _invoke_claro_compiler_impl(ctx):
 
 
 def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional_stdlib_deps = [], debug = False, visibility = None):
-    main_file_name = main_file[:len(main_file) - len(".claro")]
-
     # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
     deps = dict(**deps) # Make a copy of the frozen deps dict.
     for optional_stdlib_dep in optional_stdlib_deps:
@@ -258,15 +258,15 @@ def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional
             False #allowDuplicateValues
         ),
         optional_stdlib_deps = optional_stdlib_deps,
-        compiler_out = "{0}.java".format(main_file_name),
+        compiler_out = "{0}.java".format(name),
         debug = debug,
         visibility = visibility,
     )
     native.java_binary(
         name = name,
         # TODO(steving) I need this package to be derived from the package computed in _invoke_claro_compiler().
-        main_class = "claro.lang." + main_file_name,
-        srcs = [":{0}.java".format(main_file_name)],
+        main_class = "claro.lang." + name,
+        srcs = [":{0}.java".format(name)],
         deps = CLARO_BUILTIN_JAVA_DEPS +
             # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
             # dep more than once for different dep module impls in a claro_* rule.

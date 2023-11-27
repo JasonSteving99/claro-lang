@@ -70,6 +70,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final ImmutableSet<String> EXPORTS;
   private final boolean SILENT;
   private final Optional<String> GENERATED_CLASSNAME;
+  private final Optional<String> MAIN_FILE_NAME;
   private final Optional<String> PACKAGE_STRING;
   private final ImmutableList<SrcFile> SRCS;
   private final Optional<String> OPTIONAL_UNIQUE_MODULE_NAME;
@@ -106,6 +107,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     this.SILENT = options.silent;
     this.GENERATED_CLASSNAME = Optional.ofNullable(options.classname.isEmpty() ? null : options.classname);
+    this.MAIN_FILE_NAME = Optional.ofNullable(options.main_file_name.isEmpty() ? null : options.main_file_name);
     this.PACKAGE_STRING = Optional.of(options.java_package);
     this.SRCS =
         options.srcs
@@ -189,8 +191,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       ImmutableList.Builder<SrcFile> nonMainSrcFiles = ImmutableList.builder();
       for (SrcFile srcFile : this.SRCS) {
         if (!srcFile.getUsesClaroInternalFileSuffix()
-            && this.GENERATED_CLASSNAME.isPresent()
-            && srcFile.getFilename().equals(this.GENERATED_CLASSNAME.get())) {
+            && this.MAIN_FILE_NAME.isPresent()
+            && srcFile.getFilename().equals(this.MAIN_FILE_NAME.get())) {
           mainSrcFile = srcFile;
         } else if (srcFile.getUsesClaroModuleApiFileSuffix()) {
           // In this case we'll just assume that we're being asked to compile a module which should have no "main" as a
@@ -216,6 +218,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     return ParserUtil.createParser(
         readFile(srcFile),
         srcFile.getFilename(),
+        this.GENERATED_CLASSNAME.orElse(srcFile.getFilename()),
         srcFile.getUsesClaroInternalFileSuffix(),
         /*escapeSpecialChars*/true
     );
