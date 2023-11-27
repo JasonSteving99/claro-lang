@@ -1,0 +1,14 @@
+
+opaque newtype mut PriorityQueue<E>
+
+provider create<T>() -> PriorityQueue<T>;
+function of<T>(elems: [T]) -> PriorityQueue<T>;
+function withInitialCapacity<T>(initialCapacity: int) -> PriorityQueue<T>;
+
+function peek<T>(pq: PriorityQueue<T>) -> T;
+function poll<T>(pq: PriorityQueue<T>) -> T;
+consumer add<T>(pq: PriorityQueue<T>, t: T);
+
+function removeElement<T>(pq: PriorityQueue<T>, t: T) -> boolean;
+
+function size<T>(pq: PriorityQueue<T>) -> int;

@@ -1,7 +1,7 @@
 
-var sb = StringBuilder::create();
-StringBuilder::add(sb, "Hello")
-  |> StringBuilder::add(^, ", ")
-  |> StringBuilder::add(^, "from this StringBuilder!")
-  |> StringBuilder::build(^)
+var sb = string_builder::create();
+string_builder::add(sb, "Hello")
+  |> string_builder::add(^, ", ")
+  |> string_builder::add(^, "from this StringBuilder!")
+  |> string_builder::build(^)
   |> print(^);

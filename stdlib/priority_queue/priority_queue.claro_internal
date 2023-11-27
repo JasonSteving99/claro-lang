@@ -1,0 +1,62 @@
+
+newtype PriorityQueue<E> : mut $java_type<E>("java.util.PriorityQueue<%s>")
+
+provider create<T>() -> PriorityQueue<T> {
+  var res: mut $java_type<T>("java.util.PriorityQueue<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.PriorityQueue();
+  $$END_JAVA
+  return PriorityQueue(res);
+}
+function of<T>(elems: [T]) -> PriorityQueue<T> {
+  var res: mut $java_type<T>("java.util.PriorityQueue<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.PriorityQueue(elems);
+  $$END_JAVA
+  return PriorityQueue(res);
+}
+function withInitialCapacity<T>(initialCapacity: int) -> PriorityQueue<T> {
+  var res: mut $java_type<T>("java.util.PriorityQueue<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.PriorityQueue(initialCapacity);
+  $$END_JAVA
+  return PriorityQueue(res);
+}
+
+consumer add<T>(pq: PriorityQueue<T>, t: T) {
+  $$BEGIN_JAVA
+  pq.wrappedValue.offer(t);
+  $$END_JAVA
+}
+
+function peek<T>(pq: PriorityQueue<T>) -> T {
+  var res: T;
+  $$BEGIN_JAVA
+    res = pq.wrappedValue.peek();
+  $$END_JAVA
+  return res;
+}
+
+function poll<T>(pq: PriorityQueue<T>) -> T {
+  var res: T;
+  $$BEGIN_JAVA
+    res = pq.wrappedValue.poll();
+  $$END_JAVA
+  return res;
+}
+
+function removeElement<T>(pq: PriorityQueue<T>, t: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = pq.wrappedValue.remove(t);
+  $$END_JAVA
+  return res;
+}
+
+function size<T>(pq: PriorityQueue<T>) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = pq.wrappedValue.size();
+  $$END_JAVA
+  return res;
+}

@@ -29,21 +29,21 @@ function parseWorldMap(world: {string: string}) -> {Pos::Position: string} {
   var parsePos: function<string -> Pos::Position> = rawPos -> {
     # Extract X.
     var i = 1;
-    var stringBuilder = StringBuilder::create();
-    _ = StringBuilder::add(stringBuilder, rawPos[0]);
+    var stringBuilder = string_builder::create();
+    _ = string_builder::add(stringBuilder, rawPos[0]);
     while (rawPos[i] != ",") {
-      _ = StringBuilder::add(stringBuilder, rawPos[i++]);
+      _ = string_builder::add(stringBuilder, rawPos[i++]);
     }
-    var xstring = StringBuilder::build(stringBuilder);
+    var xstring = string_builder::build(stringBuilder);
 
     # Extract Y.
-    stringBuilder = StringBuilder::create();
-    _ = StringBuilder::add(stringBuilder, rawPos[i + 1]);
+    stringBuilder = string_builder::create();
+    _ = string_builder::add(stringBuilder, rawPos[i + 1]);
     i = i + 2;
     while (i < len(rawPos)) {
-      _ = StringBuilder::add(stringBuilder, rawPos[i++]);
+      _ = string_builder::add(stringBuilder, rawPos[i++]);
     }
-    var ystring = StringBuilder::build(stringBuilder);
+    var ystring = string_builder::build(stringBuilder);
 
     # Parse X and Y strings to ints.
     # TODO(steving) Shouldn't have to use this ugly hack. Claro should have int parsing from string in stdlib.

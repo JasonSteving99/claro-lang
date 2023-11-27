@@ -29,12 +29,13 @@ CLARO_STDLIB_MODULES = {
     "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",
+    "priority_queue": "@claro-lang//stdlib/priority_queue:priority_queue",
     "random": "@claro-lang//stdlib/random:random",
     "scanner": "@claro-lang//stdlib/scanner:scanner",
     "sets": "@claro-lang//stdlib/sets:sets",
     "std": "@claro-lang//stdlib:std",
     "strings": "@claro-lang//stdlib/strings:strings",
-    "StringBuilder": "@claro-lang//stdlib/strings/string_builder:string_builder",
+    "string_builder": "@claro-lang//stdlib/strings/string_builder:string_builder",
 }
 # Part of Claro's stdlib is going to be opt-in rather than bundled into your build by default. The intention here is to
 # enable Claro to build smaller executables in cases where certain lesser used parts of the stdlib are not actually
