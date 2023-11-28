@@ -29,20 +29,31 @@ consumer add<T>(pq: PriorityQueue<T>, t: T) {
   $$END_JAVA
 }
 
-function peek<T>(pq: PriorityQueue<T>) -> T {
-  var res: T;
+function peek<T>(pq: PriorityQueue<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
   $$BEGIN_JAVA
     res = pq.wrappedValue.peek();
+    if (res == null) {
+      return claro.lang.stdlib$priority_queue$priority_queue.$getNoSuchElement.getNoSuchElement();
+    }
   $$END_JAVA
   return res;
 }
 
-function poll<T>(pq: PriorityQueue<T>) -> T {
-  var res: T;
+function poll<T>(pq: PriorityQueue<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
   $$BEGIN_JAVA
     res = pq.wrappedValue.poll();
+    if (res == null) {
+      return claro.lang.stdlib$priority_queue$priority_queue.$getNoSuchElement.getNoSuchElement();
+    }
   $$END_JAVA
   return res;
+}
+
+# TODO(steving) FIX DEP MODULE MONOMORPHIZATION BUG: Shouldn't need this extra function.
+provider getNoSuchElement() -> NO_SUCH_ELEMENT {
+  return NO_SUCH_ELEMENT;
 }
 
 function removeElement<T>(pq: PriorityQueue<T>, t: T) -> boolean {
