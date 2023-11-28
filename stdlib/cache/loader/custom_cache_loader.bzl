@@ -1,4 +1,4 @@
-load("//src/java/com/claro/stdlib/utils/abstract_modules:abstract_module_internal.bzl", "claro_abstract_module_internal")
+load("//stdlib/utils/abstract_modules:abstract_module_internal.bzl", "claro_abstract_module_internal")
 
 CacheWithCustomLoader = \
     claro_abstract_module_internal(

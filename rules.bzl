@@ -8,7 +8,7 @@ load(
     _claro_docs = "clarodocs",
 )
 load(
-    "@claro-lang//src/java/com/claro/stdlib/utils/abstract_modules:abstract_module.bzl",
+    "@claro-lang//stdlib/utils/abstract_modules:abstract_module.bzl",
     _claro_abstract_module = "claro_abstract_module",
 )
 

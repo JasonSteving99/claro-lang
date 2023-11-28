@@ -1,7 +1,0 @@
-function fmtTemplate(tmpl: string, key: string, substitution: string) -> string {
-    var res = tmpl;
-    $$BEGIN_JAVA
-        res = res.replaceAll(String.format("\\{\\{%s\\}\\}", key), java.util.regex.Matcher.quoteReplacement(substitution));
-    $$END_JAVA
-    return res;
-}

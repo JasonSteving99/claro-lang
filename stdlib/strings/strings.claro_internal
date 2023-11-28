@@ -183,7 +183,7 @@ function replace(s: string, target: string, replacement: string) -> string {
 function replaceAll(s: string, regex: string, replacement: string) -> string {
   var res: string;
   $$BEGIN_JAVA
-    res = s.replaceAll(regex, replacement);
+    res = s.replaceAll(regex, java.util.regex.Matcher.quoteReplacement(replacement));
   $$END_JAVA
   return res;
 }

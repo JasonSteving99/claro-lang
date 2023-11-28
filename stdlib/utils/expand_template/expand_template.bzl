@@ -18,7 +18,7 @@ def expand_template(name, template, substitutions = {}, out = "", visibility = [
         """
     dynamicContents = "\n".join([
         """
-        tmpl = Util::fmtTemplate(tmpl, "{0}", files::readOrPanic(resources::{0}));
+        tmpl = strings::replace(tmpl, "\\{{\\{{{0}}}}}", files::readOrPanic(resources::{0}));
         """.format(s)
         for s in substitutions.keys()
     ])
@@ -30,9 +30,6 @@ def expand_template(name, template, substitutions = {}, out = "", visibility = [
     claro_binary(
         name = name + "_bin",
         main_file = name + "_expand_template.claro",
-        deps = {
-            "Util": "@claro-lang//src/java/com/claro/stdlib/utils/expand_template:expand_template_util",
-        },
         resources = dict(substitutions, **{"Tmpl": template}),
     )
     native.genrule(

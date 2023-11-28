@@ -1,1 +1,0 @@
-function fmtTemplate(tmpl: string, key: string, substitution: string) -> string;
