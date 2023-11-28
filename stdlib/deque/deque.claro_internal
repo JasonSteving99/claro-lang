@@ -1,0 +1,245 @@
+
+newtype Deque<E> : mut $java_type<E>("java.util.ArrayDeque<%s>")
+
+provider create<T>() -> Deque<T> {
+  var res: mut $java_type<T>("java.util.ArrayDeque<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.ArrayDeque();
+  $$END_JAVA
+  return Deque(res);
+}
+function of<T>(elems: [T]) -> Deque<T> {
+  var res: mut $java_type<T>("java.util.ArrayDeque<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.ArrayDeque(elems);
+  $$END_JAVA
+  return Deque(res);
+}
+function withCapacity<T>(initialCapacity: int) -> Deque<T> {
+  var res: mut $java_type<T>("java.util.ArrayDeque<%s>");
+  $$BEGIN_JAVA
+    res = new java.util.ArrayDeque(initialCapacity);
+  $$END_JAVA
+  return Deque(res);
+}
+
+
+consumer addAllToFront<T>(deque: Deque<T>, elems: [T]) {
+  $$BEGIN_JAVA
+    deque.wrappedValue.addAll(elems);
+  $$END_JAVA
+}
+
+consumer addFirst<T>(deque: Deque<T>, t: T) {
+  $$BEGIN_JAVA
+    deque.wrappedValue.addFirst(t);
+  $$END_JAVA
+}
+consumer addLast<T>(deque: Deque<T>, t: T) {
+  $$BEGIN_JAVA
+    deque.wrappedValue.addLast(t);
+  $$END_JAVA
+}
+
+consumer clear<T>(deque: Deque<T>) {
+  $$BEGIN_JAVA
+    deque.wrappedValue.clear();
+  $$END_JAVA
+}
+
+function clone<T>(deque: Deque<T>) -> Deque<T> {
+  var res: mut $java_type<T>("java.util.ArrayDeque<%s>");
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.clone();
+  $$END_JAVA
+  return Deque(res);
+}
+
+
+function contains<T>(deque: Deque<T>, t: T) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.contains(t);
+  $$END_JAVA
+  return res;
+}
+function containsAll<T>(deque: Deque<T>, elems: [T]) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.containsAll(elems);
+  $$END_JAVA
+  return res;
+}
+
+consumer forEach<T>(deque: Deque<T>, action: consumer<T>) {
+  $$BEGIN_JAVA
+    deque.wrappedValue.forEach(x -> action.apply(x));
+  $$END_JAVA
+}
+
+function isEmpty<T>(deque: Deque<T>) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.isEmpty();
+  $$END_JAVA
+  return res;
+}
+function peekFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.peekFirst();
+    if (res == null) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+function peekLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.peekLast();
+    if (res == null) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function pollFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.pollFirst();
+    if (res == null) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+function pollLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.pollLast();
+    if (res == null) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function removeElement<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT> {
+  var res: oneof<std::OK, NO_SUCH_ELEMENT>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.remove(t)) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+function removeAll<T>(deque: Deque<T>, elems: [T]) -> oneof<std::OK, NO_SUCH_ELEMENT> {
+  var res: oneof<std::OK, NO_SUCH_ELEMENT>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.removeAll(elems)) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function removeFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    try {
+      res = deque.wrappedValue.removeFirst();
+    } catch (java.util.NoSuchElementException e) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function removeFirstOccurrence<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT> {
+  var res: oneof<std::OK, NO_SUCH_ELEMENT>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.removeFirstOccurrence(t)) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+function removeIf<T>(deque: Deque<T>, predicate: function<T -> boolean>) -> oneof<std::OK, DEQUE_UNCHANGED> {
+  var res: oneof<std::OK, DEQUE_UNCHANGED>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.removeIf(x -> predicate.apply(x))) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getDequeUnchanged.getDequeUnchanged();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function removeLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT> {
+  var res: oneof<T, NO_SUCH_ELEMENT>;
+  $$BEGIN_JAVA
+    try {
+      res = deque.wrappedValue.removeLast();
+    } catch (java.util.NoSuchElementException e) {
+      return claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function removeLastOccurrence<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT> {
+  var res: oneof<std::OK, NO_SUCH_ELEMENT>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.removeLastOccurrence(t)) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getNoSuchElement.getNoSuchElement();
+    }
+  $$END_JAVA
+  return res;
+}
+
+function retainAll<T>(deque: Deque<T>, elems: [T]) -> oneof<std::OK, DEQUE_UNCHANGED> {
+  var res: oneof<std::OK, DEQUE_UNCHANGED>;
+  var ok = std::OK;
+  $$BEGIN_JAVA
+    if (deque.wrappedValue.retainAll(elems)) {
+      res = ok;
+    } else {
+      res = claro.lang.stdlib$deque$deque.$getDequeUnchanged.getDequeUnchanged();
+    }
+  $$END_JAVA
+  return res;
+}
+
+# TODO(steving) FIX DEP MODULE MONOMORPHIZATION BUG: Shouldn't need this extra function.
+provider getNoSuchElement() -> NO_SUCH_ELEMENT {
+  return NO_SUCH_ELEMENT;
+}
+# TODO(steving) FIX DEP MODULE MONOMORPHIZATION BUG: Shouldn't need this extra function.
+provider getDequeUnchanged() -> DEQUE_UNCHANGED {
+  return DEQUE_UNCHANGED;
+}
+
+function size<T>(deque: Deque<T>) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = deque.wrappedValue.size();
+  $$END_JAVA
+  return res;
+}
+

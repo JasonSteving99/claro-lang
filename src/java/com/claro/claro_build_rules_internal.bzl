@@ -23,6 +23,7 @@ CLARO_STDLIB_FILES = [
 # to these scopes being available (even if I decide to allow overriding stdlib dep modules in the future).
 CLARO_STDLIB_MODULES = {
     "booleans": "@claro-lang//stdlib/booleans:booleans",
+    "deque": "@claro-lang//stdlib/deque:deque",
     "files": "@claro-lang//stdlib/files:files",
     "floats": "@claro-lang//stdlib/floats:floats",
     "futures": "@claro-lang//stdlib/futures:futures",

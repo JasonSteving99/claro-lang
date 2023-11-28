@@ -1,0 +1,51 @@
+
+var d: deque::Deque<int> = deque::of([1, 2, 3]);
+type(d);
+print(d);
+
+print("Clearing...");
+deque::clear(d);
+print("After clearing:");
+print("\tFirst: {deque::peekFirst(d)}");
+print("\tLast:  {deque::peekLast(d)}");
+
+deque::addAllToFront(d, [3, 2, 1]);
+print(d);
+print("\tFirst: {deque::peekFirst(d)}");
+print("\tLast:  {deque::peekLast(d)}");
+
+print("Elems in {d}");
+deque::forEach(d, e -> { print("\tElem: {e}"); });
+
+print("Deque contains 3: {deque::contains(d, 3)}");
+print("Deque contains 7: {deque::contains(d, 7)}");
+
+var d2 = deque::clone(d);
+deque::addFirst(d2, 99);
+print("d:  {d}");
+print("d2: {d2}");
+
+var removed = deque::removeElement(d, 3);
+if (removed instanceof std::OK) {
+  print("d:  {d}");
+}
+var removed2 = deque::removeFirst(d2);
+if (removed2 instanceof int) {
+  print("d2: {d2}");
+}
+
+deque::addLast(d2, 3);
+print("d2: {d2}");
+if (deque::removeFirstOccurrence(d2, 3) instanceof std::OK) {
+  print("d2: {d2}");
+}
+
+print("Final sizes:");
+print("d:  {deque::size(d)}");
+print("d2: {deque::size(d2)}");
+
+print(deque::retainAll(d2, [1,2,3,4]));
+print("d2: {d2}");
+
+print(deque::removeIf(d2, e -> e > 2));
+print("d2: {d2}");

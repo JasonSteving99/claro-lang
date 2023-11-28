@@ -1,0 +1,49 @@
+# This module simply exposes the functionality from java.util.ArrayDeque<E> to Claro programs. See:
+#   - https://docs.oracle.com/javase/8/docs/api/java/util/ArrayDeque.html
+
+# Deque = "Double-ended queue".
+opaque newtype mut Deque<E>
+
+atom NO_SUCH_ELEMENT
+atom DEQUE_UNCHANGED
+
+provider create<T>() -> Deque<T>;
+function of<T>(elems: [T]) -> Deque<T>;
+function withCapacity<T>(initialCapacity: int) -> Deque<T>;
+
+consumer addAllToFront<T>(deque: Deque<T>, elems: [T]);
+
+consumer addFirst<T>(deque: Deque<T>, t: T);
+consumer addLast<T>(deque: Deque<T>, t: T);
+
+consumer clear<T>(deque: Deque<T>);
+
+# TODO(steving) Claro's intended to have support for the builtin `copy()` function. For $java_type's however this can't
+# TODO(steving)   be automatically generated, so I need some mechanism for $java_type's to provide a function for that
+# TODO(steving)   copying implementation.
+function clone<T>(deque: Deque<T>) -> Deque<T>;
+
+function contains<T>(deque: Deque<T>, t: T) -> boolean;
+function containsAll<T>(deque: Deque<T>, elems: [T]) -> boolean;
+
+consumer forEach<T>(deque: Deque<T>, action: consumer<T>);
+
+function isEmpty<T>(deque: Deque<T>) -> boolean;
+
+function peekFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+function peekLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+
+function pollFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+function pollLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+
+function removeAll<T>(deque: Deque<T>, elems: [T]) -> oneof<std::OK, NO_SUCH_ELEMENT>;
+function removeElement<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT>;
+function removeFirst<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+function removeFirstOccurrence<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT>;
+function removeIf<T>(deque: Deque<T>, predicate: function<T -> boolean>) -> oneof<std::OK, DEQUE_UNCHANGED>;
+function removeLast<T>(deque: Deque<T>) -> oneof<T, NO_SUCH_ELEMENT>;
+function removeLastOccurrence<T>(deque: Deque<T>, t: T) -> oneof<std::OK, NO_SUCH_ELEMENT>;
+
+function retainAll<T>(deque: Deque<T>, elems: [T]) -> oneof<std::OK, DEQUE_UNCHANGED>;
+
+function size<T>(deque: Deque<T>) -> int;
