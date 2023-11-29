@@ -227,21 +227,15 @@ function scheduleAtFixedRate(
   alias N : std::Nothing
   $$BEGIN_JAVA
   $$TYPES<N>
-  try {
     res =
       new ClaroFuture(
         $$CLARO_TYPE(N),
-        //# TODO(steving) UNCOMMENT AFTER BOOTSTRAPPING COMPILER HAS BEEN UPDATED.
-        //# com.claro.runtime_utilities.ClaroRuntimeUtilities.$getScheduledExecutorService()
-        ((com.google.common.util.concurrent.ListeningScheduledExecutorService) com.claro.runtime_utilities.ClaroRuntimeUtilities.class.getMethod("$getScheduledExecutorService").invoke(null))
+        com.claro.runtime_utilities.ClaroRuntimeUtilities.$getScheduledExecutorService()
           .scheduleAtFixedRate(
             () -> action.apply(NOTHING),
             initialDelay.wrappedValue,
             period.wrappedValue
           ));
-  } catch (NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException e) {
-    res = null;
-  }
   $$END_JAVA
   return whenAllComplete([res], () -> std::Nothing);
 }
@@ -253,21 +247,15 @@ function scheduleWithFixedDelay(
   alias N : std::Nothing
   $$BEGIN_JAVA
   $$TYPES<N>
-  try {
     res =
       new ClaroFuture(
         $$CLARO_TYPE(N),
-        //# TODO(steving) UNCOMMENT AFTER BOOTSTRAPPING COMPILER HAS BEEN UPDATED.
-        //# com.claro.runtime_utilities.ClaroRuntimeUtilities.$getScheduledExecutorService()
-        ((com.google.common.util.concurrent.ListeningScheduledExecutorService) com.claro.runtime_utilities.ClaroRuntimeUtilities.class.getMethod("$getScheduledExecutorService").invoke(null))
+        com.claro.runtime_utilities.ClaroRuntimeUtilities.$getScheduledExecutorService()
           .scheduleWithFixedDelay(
             () -> action.apply(NOTHING),
             initialDelay.wrappedValue,
             delay.wrappedValue
           ));
-  } catch (NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException e) {
-    res = null;
-  }
   $$END_JAVA
   return whenAllComplete([res], () -> std::Nothing);
 }
