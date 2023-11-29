@@ -1,7 +1,7 @@
 
 var CACHE_SPEC_STRING = "maximumSize=1000";
 
-append(mut [1], 2);
+lists::add(mut [1], 2);
 
 print("--------------------------------------------------");
 print("Creating CacheBuilder:");

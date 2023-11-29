@@ -1,4 +1,4 @@
-load("//src/java/com/claro/stdlib/utils/abstract_modules/example/animal:animal.bzl", "Animal")
+load("//stdlib/utils/abstract_modules/example/animal:animal.bzl", "Animal")
 load("//:rules.bzl", "claro_binary", "claro_docs")
 
 Animal(
@@ -19,7 +19,7 @@ claro_binary(
     deps = {
         "Dog": ":dog",
         "Cat": ":cat",
-        "AnimalSounds": "//src/java/com/claro/stdlib/utils/abstract_modules/example/animal:animal_sounds",
+        "AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds",
     }
 )
 
