@@ -1,0 +1,4 @@
+
+opaque newtype Instant
+
+provider now() -> Instant;

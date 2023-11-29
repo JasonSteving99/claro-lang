@@ -1,0 +1,33 @@
+var startInstant = instant::now();
+
+random::create()
+  |> random::nextNonNegativeBoundedInt(^, 10)
+  |> var runDuration = ^;
+print("Going to run for {runDuration} seconds.");
+
+# Schedule a tick every second.
+var ticking = futures::scheduleAtFixedRate(
+  n -> { _ = n; print("tick..."); },
+  duration::ofSeconds(1),
+  duration::ofSeconds(1)
+);
+
+# After half of the randomly chosen runDuration, cancel the ticking.
+_ = futures::schedule(
+  lambda () -> std::Nothing {
+    print("Reached halfway point. Stopping tick.");
+    _ = futures::cancel(ticking, true);
+    return std::Nothing;
+  },
+  duration::ofSeconds(runDuration / 2)
+);
+
+
+var tenSecondsCompleted: string <-| futures::schedule(() -> "DONE", duration::ofSeconds(runDuration));
+print(tenSecondsCompleted);
+
+var endInstant = instant::now();
+
+duration::between(startInstant, endInstant)
+  |> duration::toMillis(^)
+  |> print("Total time elapsed: {^}ms");

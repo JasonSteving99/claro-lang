@@ -1,0 +1,11 @@
+
+alias InstantJavaType : $java_type("java.time.Instant")
+newtype Instant : InstantJavaType
+
+provider now() -> Instant {
+  var res: InstantJavaType;
+  $$BEGIN_JAVA
+    res = java.time.Instant.now();
+  $$END_JAVA
+  return Instant(res);
+}

@@ -7,16 +7,14 @@ import com.claro.intermediate_representation.types.impls.user_defined_impls.$Use
 import com.claro.stdlib.StdLibModuleRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClaroRuntimeUtilities {
-  public static ListeningExecutorService DEFAULT_EXECUTOR_SERVICE =
+  public static final ListeningExecutorService DEFAULT_EXECUTOR_SERVICE =
       MoreExecutors.listeningDecorator(
           Executors.newFixedThreadPool(
               Runtime.getRuntime().availableProcessors(),
@@ -50,6 +48,29 @@ public class ClaroRuntimeUtilities {
               }
           )
       );
+  public static ListeningScheduledExecutorService $SCHEDULED_EXECUTOR_SERVICE = null;
+  public static ListeningScheduledExecutorService $getScheduledExecutorService() {
+    final int SCHEDULED_THREAD_POOL_SIZE = 1;
+    if ($SCHEDULED_EXECUTOR_SERVICE == null) {
+      $SCHEDULED_EXECUTOR_SERVICE =
+          MoreExecutors.listeningDecorator(
+              // Ensure that the scheduled executor doesn't make the JVM hang on program completion.
+              MoreExecutors.getExitingScheduledExecutorService(
+                  new ScheduledThreadPoolExecutor(
+                      SCHEDULED_THREAD_POOL_SIZE,
+                      new ThreadFactory() {
+                        private final ThreadGroup SCHEDULED_EXECUTOR_SERVICE_THREAD_GROUP =
+                            new ThreadGroup("claro-scheduled-executor-service-thread");
+
+                        @Override
+                        public Thread newThread(Runnable r) {
+                          return new Thread(SCHEDULED_EXECUTOR_SERVICE_THREAD_GROUP, r);
+                        }
+                      }
+                  )));
+    }
+    return $SCHEDULED_EXECUTOR_SERVICE;
+  }
 
   // Implementation of this shutdown hook taken directly from ExecutorService documentation: https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html?is-external=true#:~:text=void%20shutdownAndAwaitTermination(ExecutorService,Thread.currentThread().interrupt()%3B%0A%20%20%20%7D%0A%20%7D
   public static void $shutdownAndAwaitTermination(ExecutorService pool) {

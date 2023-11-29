@@ -5,60 +5,95 @@ newtype Duration : JavaDuration
 
 # TODO(steving) Every occurrence of `int` should be converted to `long` once the type is supported.
 function ofDays(days: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofDays(days));
+    res = java.time.Duration.ofDays(days);
   $$END_JAVA
-
-  return res;
+  return Duration(res);
 }
 function ofHours(hours: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofHours(hours));
+    res = java.time.Duration.ofHours(hours);
   $$END_JAVA
-
-  return res;
+  return Duration(res);
 }
 function ofMillis(millis: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofMillis(millis));
+    res = java.time.Duration.ofMillis(millis);
   $$END_JAVA
-
-  return res;
+  return Duration(res);
 }
 function ofMinutes(minutes: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofMinutes(minutes));
+    res = java.time.Duration.ofMinutes(minutes);
   $$END_JAVA
-
-  return res;
+  return Duration(res);
 }
 function ofNanos(nanos: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofNanos(nanos));
+    res = java.time.Duration.ofNanos(nanos);
   $$END_JAVA
-
-  return res;
+  return Duration(res);
 }
 function ofSeconds(seconds: int) -> Duration {
-  var res: Duration;
-
+  var res: JavaDuration;
   $$BEGIN_JAVA
-    res = wrapJavaDuration.apply(java.time.Duration.ofSeconds(seconds));
+    res = java.time.Duration.ofSeconds(seconds);
   $$END_JAVA
+  return Duration(res);
+}
 
+function toDays(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.toDays();
+  $$END_JAVA
+  return res;
+}
+function toHours(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.toHours();
+  $$END_JAVA
+  return res;
+}
+function toMillis(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.toMillis();
+  $$END_JAVA
+  return res;
+}
+function toMinutes(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.toMinutes();
+  $$END_JAVA
+  return res;
+}
+function toNanos(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.toNanos();
+  $$END_JAVA
+  return res;
+}
+function toSeconds(duration: Duration) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) duration.wrappedValue.getSeconds();
+  $$END_JAVA
   return res;
 }
 
-function wrapJavaDuration(javaDuration: JavaDuration) -> Duration {
-  return Duration(javaDuration);
+function between(startInclusive: instant::Instant, endExclusive: instant::Instant) -> Duration {
+  var res: JavaDuration;
+  $$BEGIN_JAVA
+    res = java.time.Duration.between(startInclusive.wrappedValue, endExclusive.wrappedValue);
+  $$END_JAVA
+  return Duration(res);
 }

@@ -8,3 +8,12 @@ function ofMillis(millis: int) -> Duration;
 function ofMinutes(minutes: int) -> Duration;
 function ofNanos(nanos: int) -> Duration;
 function ofSeconds(seconds: int) -> Duration;
+
+function toDays(duration: Duration) -> int;
+function toHours(duration: Duration) -> int;
+function toMillis(duration: Duration) -> int;
+function toMinutes(duration: Duration) -> int;
+function toNanos(duration: Duration) -> int;
+function toSeconds(duration: Duration) -> int;
+
+function between(startInclusive: instant::Instant, endExclusive: instant::Instant) -> Duration;
