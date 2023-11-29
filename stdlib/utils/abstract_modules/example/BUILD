@@ -1,5 +1,5 @@
 load("//stdlib/utils/abstract_modules/example/animal:animal.bzl", "Animal")
-load("//:rules.bzl", "claro_binary", "claro_docs")
+load("//:rules.bzl", "claro_binary")
 
 Animal(
     name = "dog",
@@ -21,9 +21,4 @@ claro_binary(
         "Cat": ":cat",
         "AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds",
     }
-)
-
-claro_docs(
-    name = "test_docs",
-    root = ":test",
 )

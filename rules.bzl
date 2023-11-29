@@ -4,10 +4,6 @@ load(
     _claro_binary = "claro_binary",
 )
 load(
-    "@claro-lang//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl",
-    _claro_docs = "clarodocs",
-)
-load(
     "@claro-lang//stdlib/utils/abstract_modules:abstract_module.bzl",
     _claro_abstract_module = "claro_abstract_module",
 )
@@ -18,4 +14,3 @@ visibility("public")
 claro_module = _claro_module
 claro_abstract_module = _claro_abstract_module
 claro_binary = _claro_binary
-claro_docs = _claro_docs
