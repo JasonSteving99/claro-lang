@@ -43,3 +43,4 @@
     - [Blocking Procedures](./guaranteed_deadlock_free/blocking_procedures.md)
     - [Re: "What Color is Your Function?"](./guaranteed_deadlock_free/re_what_color_is_your_function.md)
         - [(Advanced) Blocking Generics](./guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.md)
+- [Module System](./module_system.md)
