@@ -1387,7 +1387,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
     ImmutableList<String> contractTypeParamNames =
         ((Types.$Contract) scopedHeap.getValidatedIdentifierType(disambiguatedContractName)).getTypeParamNames();
     ContractDefinitionStmt.contractImplementationsByContractName.get(disambiguatedContractName)
-        .add(IntStream.range(0, concreteSignaturesByName.size()).boxed().collect(ImmutableMap.toImmutableMap(
+        .add(IntStream.range(0, concreteTypeParams.size()).boxed().collect(ImmutableMap.toImmutableMap(
             contractTypeParamNames::get,
             concreteTypeParams::get
         )));
