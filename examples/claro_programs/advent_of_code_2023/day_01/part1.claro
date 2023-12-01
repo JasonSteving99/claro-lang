@@ -1,14 +1,13 @@
-alias IntParseRes : oneof<int, std::Error<ints::InvalidNumberFormat>>
 
 files::readOrPanic(resources::Input)
   |> strings::split(^, "\n")
   |> [[ints::parseInt(x) | x in strings::splitChars(line) where ints::parseInt(x) instanceof int] | line in ^]
   |> fp::map(
        ^,
-       (nums: [IntParseRes]) -> IntParseRes {
+       (nums: [oneof<int, std::Error<ints::InvalidNumberFormat>>]) -> int {
          match ((nums[0], nums[len(nums) - 1])) {
            case (A:int, B:int) -> return 10 * A + B;
-           case _              -> return std::Error(ints::InvalidNumberFormat({msg = "Failed to parse: {nums}"}));
+           case _              -> return 0; # Impossible case.
          }
        }
      )
