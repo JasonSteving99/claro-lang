@@ -27,6 +27,7 @@ CLARO_STDLIB_MODULES = {
     "files": "@claro-lang//stdlib/files:files",
     "floats": "@claro-lang//stdlib/floats:floats",
     "futures": "@claro-lang//stdlib/futures:futures",
+    "fp": "@claro-lang//stdlib/functional_programming:fp",
     "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",

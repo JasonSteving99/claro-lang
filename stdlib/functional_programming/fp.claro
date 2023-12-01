@@ -1,0 +1,16 @@
+
+function map<A, B>(l: [A], fn: function<A -> B>) -> [B] {
+  return [fn(a) | a in l];
+}
+
+function filter<A>(l: [A], pred: function<A -> boolean>) -> [A] {
+  return [a | a in l where pred(a)];
+}
+
+function reduce<A, B>(l: [A], fn: function<|B, A| -> B>, accum: B) -> B {
+  for (e in l) {
+    accum = fn(accum, e);
+  }
+  return accum;
+}
+
