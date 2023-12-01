@@ -1,0 +1,38 @@
+
+var STRINGS_TO_INTS =
+  {"one":1, "two":2, "three":3, "four":4, "five":5, "six":6, "seven":7, "eight":8, "nine":9};
+var INTS_TO_INTS = {"1":1, "2":2, "3":3, "4":4, "5":5, "6":6, "7":7, "8":8, "9":9};
+
+function parseNumStrings(s: string, numsMap: {string: int}, intsMap: {string: int}) -> int {
+  var first = -1;
+  var last = -1;
+  var numStrs = maps::keySet(numsMap);
+  var i = 0;
+  while (i < len(s)) {
+    var currChar = strings::charAt(s, i);
+    if (currChar in intsMap) {
+      last = intsMap[currChar];
+      if (first == -1) {
+        first = last;
+      }
+    } else {
+      for (numStr in numStrs) {
+        if (strings::startsWithFromIndex(s, numStr, i)) {
+          last = numsMap[numStr];
+          if (first == -1) {
+            first = last;
+          }
+          break;
+        }
+      }
+    }
+    ++i;
+  }
+  return 10 * first + last;
+}
+
+files::readOrPanic(resources::Input)
+  |> strings::split(^, "\n")
+  |> [parseNumStrings(line, STRINGS_TO_INTS, INTS_TO_INTS) | line in ^]
+  |> fp::reduce(^, (accum: int, i: int) -> int { return accum + i; }, 0)
+  |> print(^);
