@@ -1,0 +1,27 @@
+function map<A, B>(l: [A], fn: function<A -> B>) -> [B] {
+  return [fn(a) | a in l];
+}
+function reduce<A, B>(l: [A], fn: function<|B, A| -> B>, accum: B) -> B {
+  for (e in l) {
+    accum = fn(accum, e);
+  }
+  return accum;
+}
+
+alias IntParseRes : oneof<int, std::Error<ints::InvalidNumberFormat>>
+
+files::readOrPanic(resources::Input)
+  |> strings::split(^, "\n")
+  |> [[ints::parseInt(x) | x in strings::splitChars(line) where ints::parseInt(x) instanceof int] | line in ^]
+  |> map(
+       ^,
+       (nums: [IntParseRes]) -> IntParseRes {
+         match ((nums[0], nums[len(nums) - 1])) {
+           case (A:int, B:int) -> return 10 * A + B;
+           case _              -> return std::Error(ints::InvalidNumberFormat({msg = "Failed to parse: {nums}"}));
+         }
+       }
+     )
+   |> reduce(^, (accum: int, i: int) -> int { return accum + i; }, 0)
+   |> print(^);
+
