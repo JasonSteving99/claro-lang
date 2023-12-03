@@ -1,0 +1,75 @@
+atom RED
+atom GREEN
+atom BLUE
+alias Color : oneof<RED, GREEN, BLUE>
+alias Draw : mut {Color: int}
+alias Game : struct {gameId: int, draws: [Draw]}
+
+function toColor(s: string) -> Color {
+  match (s) {
+    case "red"   -> return RED;
+    case "green" -> return GREEN;
+    case _       -> return BLUE; # Assuming input is well-formatted.
+  }
+}
+
+# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
+function orElse<A, B>(toNarrow: oneof<A, B>, fallback: A) -> A {
+  if (toNarrow instanceof A) {
+    return toNarrow;
+  }
+  return fallback;
+}
+
+function parseColorCount(colorCounts: Draw, cubeColorStr: string) -> Draw {
+  var parts = strings::split(cubeColorStr, "\\s");
+  colorCounts[toColor(parts[2])] = orElse(ints::parseInt(parts[1]), 0);
+  return colorCounts;
+}
+
+function validateGame(game: Game, colorCounts: {Color: int}) -> boolean {
+  for (draw in game.draws) {
+    for (k in maps::keySetOfMut(draw)) {
+      if (maps::getOrDefaultFromMut(draw, k, 0) > colorCounts[k]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+var CUBE_COLOR_COUNTS: {Color: int} = {
+  RED: 12,
+  GREEN: 13,
+  BLUE: 14
+};
+
+# TODO(steving) Claro needs support for Java's Stream API. These successive maps and filters are needlessly inefficient.
+files::readOrPanic(resources::Input)
+  |> strings::split(^, "\n")
+  |> fp::map(
+       ^,
+       (s: string) -> struct {gameId: int, drawStrings: [string]} {
+          var parts = strings::split(s, ":");
+          return {
+            gameId = orElse(ints::parseInt(strings::suffix(parts[0], 5)), -9999),
+            drawStrings = strings::split(parts[1], ";")
+          };
+       }
+     )
+  |> fp::map(
+       ^,
+       (game: struct {gameId: int, drawStrings: [string]}) -> Game {
+         return {
+           gameId = game.gameId,
+           draws = [
+             fp::reduce(strings::split(handful, ","), parseColorCount, cast(Draw, mut {}))
+             | handful in game.drawStrings
+           ]
+         };
+       }
+     )
+  |> fp::filter(^, g -> validateGame(g, CUBE_COLOR_COUNTS))
+  |> [g.gameId | g in ^]
+  |> fp::reduce(^, (accum:int, i:int) -> int { return accum + i; }, 0)
+  |> print(^);
