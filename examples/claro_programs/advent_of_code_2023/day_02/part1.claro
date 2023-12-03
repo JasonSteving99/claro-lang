@@ -38,38 +38,22 @@ function validateGame(game: Game, colorCounts: {Color: int}) -> boolean {
   return true;
 }
 
-var CUBE_COLOR_COUNTS: {Color: int} = {
-  RED: 12,
-  GREEN: 13,
-  BLUE: 14
-};
-
 # TODO(steving) Claro needs support for Java's Stream API. These successive maps and filters are needlessly inefficient.
 files::readOrPanic(resources::Input)
   |> strings::split(^, "\n")
   |> fp::map(
        ^,
-       (s: string) -> struct {gameId: int, drawStrings: [string]} {
+       (s: string) -> Game {
           var parts = strings::split(s, ":");
           return {
             gameId = orElse(ints::parseInt(strings::suffix(parts[0], 5)), -9999),
-            drawStrings = strings::split(parts[1], ";")
+            draws = [
+              fp::reduce(strings::split(handful, ","), parseColorCount, cast(Draw, mut {}))
+              | handful in strings::split(parts[1], ";")
+            ]
           };
        }
      )
-  |> fp::map(
-       ^,
-       (game: struct {gameId: int, drawStrings: [string]}) -> Game {
-         return {
-           gameId = game.gameId,
-           draws = [
-             fp::reduce(strings::split(handful, ","), parseColorCount, cast(Draw, mut {}))
-             | handful in game.drawStrings
-           ]
-         };
-       }
-     )
-  |> fp::filter(^, g -> validateGame(g, CUBE_COLOR_COUNTS))
-  |> [g.gameId | g in ^]
-  |> fp::reduce(^, (accum:int, i:int) -> int { return accum + i; }, 0)
+  |> fp::filter(^, g -> validateGame(g, {RED: 12, GREEN: 13, BLUE: 14}))
+  |> fp::reduce(^, (accum:int, g:Game) -> int { return accum + g.gameId; }, 0)
   |> print(^);
