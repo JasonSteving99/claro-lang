@@ -1,0 +1,60 @@
+atom RED
+atom GREEN
+atom BLUE
+alias Color : oneof<RED, GREEN, BLUE>
+alias Draw : mut {Color: int}
+
+function toColor(s: string) -> Color {
+  match (s) {
+    case "red"   -> return RED;
+    case "green" -> return GREEN;
+    case _       -> return BLUE; # Assuming input is well-formatted.
+  }
+}
+
+function max(a: int, b: int) -> int {
+  if (a > b) {
+    return a;
+  }
+  return b;
+}
+
+# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
+function orElse<A, B>(toNarrow: oneof<A, B>, fallback: A) -> A {
+  if (toNarrow instanceof A) {
+    return toNarrow;
+  }
+  return fallback;
+}
+
+function parseMaxColorCount(colorCounts: Draw, cubeColorStr: string) -> Draw {
+  var parts = strings::split(cubeColorStr, "\\s");
+  var color = toColor(parts[2]);
+  colorCounts[color] =
+    max(
+      maps::getOrDefaultFromMut(colorCounts, color, 0),
+      orElse(ints::parseInt(parts[1]), 0)
+    );
+  return colorCounts;
+}
+
+# TODO(steving) Claro needs support for Java's Stream API. These successive maps and filters are needlessly inefficient.
+files::readOrPanic(resources::Input)
+  |> strings::split(^, "\n")
+  |> fp::map(
+       ^,
+       (gameLine: string) -> int {
+         var maxColorCounts =
+           fp::reduce(
+             strings::split(strings::split(gameLine, ":")[1], "[,;]"),
+             parseMaxColorCount,
+             cast(Draw, mut {})
+           );
+         if (len(maxColorCounts) < 3) {
+           return 0; # At least one color never drawn, so multiply by 0.
+         }
+         return maxColorCounts[RED] * maxColorCounts[GREEN] * maxColorCounts[BLUE];
+       }
+     )
+  |> fp::reduce(^, (accum:int, i:int) -> int { return accum + i; }, 0)
+  |> print(^);
