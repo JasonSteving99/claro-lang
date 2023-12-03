@@ -1,2 +1,0 @@
-
-print(Hello::HELLO_WORLD_MESSAGE);
