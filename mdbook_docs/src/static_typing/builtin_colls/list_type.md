@@ -7,7 +7,7 @@ pre-determined upon declaration of the variable which reference the list.
 
 ```
 var l: [int] = [1, 3, 7, 2, -115, 0];
-append(l, 99);
+lists::add(l, 99);
 print(len(l)); # 7
 print(l[1] == l[0]); # false
 print(l[6] == 99); # true
