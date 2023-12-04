@@ -7,3 +7,11 @@ claro_binary(
         "Input": "input.txt",
     },
 )
+
+claro_binary(
+    name = "part2",
+    main_file = "part2.claro",
+    resources = {
+        "Input": "input.txt",
+    }
+)

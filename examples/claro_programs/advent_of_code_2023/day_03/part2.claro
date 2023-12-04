@@ -6,7 +6,7 @@ resources::Input
   |> (^, strings::repeated(".", orElse(strings::indexOf(^, "\n"), -1)))
   |> strings::join("\n", [^[1], ^[0], ^[1]])
   |> strings::split(^, "\n")
-  |> { # Annotate the [string] lines with the locations of special symbols.
+  |> { # Annotate the [string] lines with the locations of "gears" (i.e. "*").
         lines = ^,
         specialSymLocs =
           fp::reduce(
@@ -15,7 +15,7 @@ resources::Input
                 -> mut struct {lineNum: int, specialSymLocs: mut [Loc]} {
                var col = 0;
                while (col < len(line)) {
-                 if (not strings::matches(line[col], "\\d|\\.")) {
+                 if (line[col] == "*") {
                    lists::add(accum.specialSymLocs, {row = accum.lineNum, col = col});
                  }
                  col++;
@@ -26,43 +26,49 @@ resources::Input
              mut {lineNum = 0, specialSymLocs = mut []}
           ).specialSymLocs
      }
-  # Reduce the list of all special symbol locations to a set of start Loc's for all nums adjacent to a special char.
+  # Reduce the list of all gear locations to a list of valid gear ratios.
   |> fp::reduce(
         copy(^.specialSymLocs), # TODO(steving) Need "mut-generics" so this copy to immutable variant isn't needed.
-        (accum: struct {lines: [string], seenNumsStartLocs: mut {Loc}}, specialSymLoc: Loc)
-            -> struct {lines: [string], seenNumsStartLocs: mut {Loc}} {
-          findNumsAdjacentToLoc(accum.lines, specialSymLoc, accum.seenNumsStartLocs);
+        (accum: struct {lines: [string], seenGearRatios: mut [int]}, specialSymLoc: Loc)
+            -> struct {lines: [string], seenGearRatios: mut [int]} {
+          findGearRatioAtLoc(accum.lines, specialSymLoc, accum.seenGearRatios);
           return accum;
         },
-        {lines = ^.lines, seenNumsStartLocs = sets::emptyMutSet()}
+        {lines = ^.lines, seenGearRatios = mut []}
      )
-  |> [getNumAtLoc(^.lines, loc) | loc in ^.seenNumsStartLocs]
-  |> fp::reduce(^, (accum: int, i: int) -> int { return accum + i; }, 0)
+  # Sum the gear ratios.
+  |> fp::reduce(copy(^.seenGearRatios), (accum: int, i: int) -> int { return accum + i; }, 0)
   |> print(^);
 
 
-consumer findNumsAdjacentToLoc(lines: [string], loc: Loc, seenNumsStartLocs: mut {Loc}) {
+consumer findGearRatioAtLoc(lines: [string], loc: Loc, seenGearRatios: mut [int]) {
+  var adjacentNumStarts: mut [Loc] = mut [];
   # Find nums above/below curr loc.
   for (row in [loc.row - 1, loc.row + 1]) {
     var currLine = lines[row];
     if (isDigit(currLine, loc.col)) { # Would have to just be one num across the line.
-      _ = sets::add(seenNumsStartLocs, getNumStart(currLine, row, loc.col));
+      lists::add(adjacentNumStarts, getNumStart(currLine, row, loc.col));
     } else { # Could be a num to diag-left AND diag-right.
       if (isDigit(currLine, loc.col + 1)) {
-        _ = sets::add(seenNumsStartLocs, {row = row, col = loc.col + 1});
+        lists::add(adjacentNumStarts, {row = row, col = loc.col + 1});
       }
       if (isDigit(currLine, loc.col - 1)) {
-        _ = sets::add(seenNumsStartLocs, getNumStart(currLine, row, loc.col - 1));
+        lists::add(adjacentNumStarts, getNumStart(currLine, row, loc.col - 1));
       }
     }
   }
   # Find nums on curr line.
   var currLine = lines[loc.row];
   if (isDigit(currLine, loc.col + 1)) { # Find num to right.
-    _ = sets::add(seenNumsStartLocs, {row = loc.row, col = loc.col + 1});
+    lists::add(adjacentNumStarts, {row = loc.row, col = loc.col + 1});
   }
   if (isDigit(currLine, loc.col - 1)) { # Find num to left.
-    _ = sets::add(seenNumsStartLocs, getNumStart(currLine, loc.row, loc.col - 1));
+    lists::add(adjacentNumStarts, getNumStart(currLine, loc.row, loc.col - 1));
+  }
+
+  # Only add these numbers to seenGearRatios if there are exactly two.
+  if (len(adjacentNumStarts) == 2) {
+    lists::add(seenGearRatios, getNumAtLoc(lines, adjacentNumStarts[0]) * getNumAtLoc(lines, adjacentNumStarts[1]));
   }
 }
 
