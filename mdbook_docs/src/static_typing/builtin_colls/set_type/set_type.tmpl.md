@@ -4,9 +4,7 @@ Claro sets are much like Python sets, with a fixed, single type for all elements
 elements and then check for membership in the set later.
 
 ```
-var mySet: {int} = {1, 6, -12};
-print(10 in mySet); # false
-print(6 in myset); # true
+{{EX1}}
 ```
 
 (__Note__: for now the usefulness of sets is very limited as the available operations are extremely limited. A serious
