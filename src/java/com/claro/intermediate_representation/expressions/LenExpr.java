@@ -16,7 +16,8 @@ public class LenExpr extends Expr {
       ImmutableSet.of(
           BaseType.LIST,
           BaseType.STRING,
-          BaseType.MAP
+          BaseType.MAP,
+          BaseType.SET
       );
 
   public LenExpr(Expr e, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {

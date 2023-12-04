@@ -31,6 +31,7 @@ CLARO_STDLIB_MODULES = {
     "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",
+    "math": "@claro-lang//stdlib/math:math",
     "priority_queue": "@claro-lang//stdlib/priority_queue:priority_queue",
     "random": "@claro-lang//stdlib/random:random",
     "scanner": "@claro-lang//stdlib/scanner:scanner",
