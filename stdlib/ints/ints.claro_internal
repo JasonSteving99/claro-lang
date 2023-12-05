@@ -1,3 +1,17 @@
+provider static_MAX_VALUE() -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = java.lang.Integer.MAX_VALUE;
+  $$END_JAVA
+  return res;
+}
+provider static_MIN_VALUE() -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = java.lang.Integer.MIN_VALUE;
+  $$END_JAVA
+  return res;
+}
 
 function parseInt(s: string) -> oneof<int, std::Error<InvalidNumberFormat>> {
   var res: oneof<int, std::Error<InvalidNumberFormat>>;

@@ -258,9 +258,7 @@ function removeIf<T>(l: mut [T], pred: function<T -> boolean>) -> boolean {
 function removeRange<T>(l: mut [T], fromInclusive: int, toExclusive: int)
     -> oneof<std::OK, std::Error<IndexOutOfBounds>, std::Error<IndicesOutOfOrder>> {
   var subListToClear ?= subListOfMut(l, fromInclusive, toExclusive);
-  print(subListToClear);
   clear(subListToClear);
-  print(subListToClear);
   return std::OK;
 }
 
@@ -313,7 +311,7 @@ function subList<T>(l: [T], fromInclusive: int, toExclusive: int)
     return std::Error(IndicesOutOfOrder({invalidLowerBound = fromInclusive, invalidUpperBound = toExclusive}));
   } else if (fromInclusive < 0 or fromInclusive >= len(l)) {
     return std::Error(IndexOutOfBounds({index = fromInclusive, size = len(l)}));
-  } else if (toExclusive >= len(l)) {
+  } else if (toExclusive > len(l)) {
     return std::Error(IndexOutOfBounds({index = toExclusive, size = len(l)}));
   }
   var res: [T];

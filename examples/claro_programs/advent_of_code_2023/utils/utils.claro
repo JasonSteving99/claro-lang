@@ -1,0 +1,8 @@
+
+# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
+function orElse<A,B>(toNarrow: oneof<A, B>, fallback: A) -> A {
+  if (toNarrow instanceof A) {
+    return toNarrow;
+  }
+  return fallback;
+}
