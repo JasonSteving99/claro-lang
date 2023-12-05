@@ -5,26 +5,7 @@ is the ability to infer which Contract implementation to defer to based on the e
 procedure call-site. Let's get more specific.
 
 ```
-contract Index<T, R> {
-    function get(l: [T], ind: int) -> R;
-}
-
-implement Index<[int], int> {
-    function get(l: [int], ind: int) -> int {
-        return l[ind];
-    }
-}
-
-alias SafeRes : tuple<boolean, int>
-
-implement Index<[int], SafeRes> {
-    function get(l: [int], ind: int) -> SafeRes {
-        if (ind >= 0 and ind < len(l)) {
-            return (true, l[ind]);
-        }
-        return (false, -1);
-    }
-}
+{{EX1}}
 ```
 
 For the above implementations of `Index<T, R>`, you'll notice that each function, `Index::get`, only differs in its
@@ -33,9 +14,5 @@ contextually expected return type. This, I believe leads to some very convenient
 the onus for "appropriate" use of this feature is a design decision given to developers.
 
 ```
-var l = [1,2,3];
-var outOfBoundsInd = 10;
-var unsafeRes: int = Index::get(l, outOfBoundsInd); # out of bounds runtime err.
-var safeRes: SafeRes = Index::get(l, outOfBoundsInd); # (false, -1)
-var ambiguous = Index::get(l, outOfBoundsInd); # Compiler error, ambiguous call to `Index::get`.
+{{EX2}}
 ```

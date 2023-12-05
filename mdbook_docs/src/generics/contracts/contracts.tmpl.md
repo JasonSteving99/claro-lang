@@ -19,15 +19,7 @@ for which the function `foo(arg1: T, arg2: T)` exists."
 For example, we should be able to write the following generic function:
 
 ```
-requires(Operators<T>)    # <-- What is this `requires(...)`?
-function sum<T>(l: [T]) -> T {
-    var res = l[0];
-    var i = 0;
-    while (++i < len(l)) {
-        res = Operators::add(res, l[i]); # <-- What is this `Operators::add`?
-    }
-    return res;
-}
+{{EX1}}
 ```
 
 The function above has a new `requires(...)` clause in the signature which we haven't seen before. This is the mechanism
@@ -36,9 +28,7 @@ a certain associated procedure implementation existing. The `requires(...)` clau
 must be implemented over the generic type. In this case that contract's definition looks like:
 
 ```
-Contract Operators<X> {
-    function add(lhs: X, rhs: X) -> X;
-}
+{{EX2}}
 ```
 
 This Contract specifies a single function signature that any implementation of this Contract must implement. Other

@@ -1,0 +1,1 @@
+exports_files(glob(["*.claro"]), visibility = ["//mdbook_docs/src:__pkg__"])
