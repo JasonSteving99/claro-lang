@@ -11,6 +11,7 @@ fi
 
 if [ ! -d "$1" ]; then
   echo "dir \"$1\" does not exist"
+  exit 1
 fi
 
 dest="$1/$2"
