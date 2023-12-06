@@ -32,6 +32,10 @@ features, there is still more documentation to come including better examples an
 
 Check out the [example Claro programs](https://github.com/JasonSteving99/claro-lang/tree/main/examples/claro_programs).
 
+You may be interested in checking out the 
+[solutions](https://github.com/JasonSteving99/claro-lang/tree/main/examples/claro_programs/advent_of_code_2023) to this
+year's [Advent of Code](adventofcode.com) in Claro!
+
 # Create your own Claro Project with Bazel!
 
 Simply install Bazel - instructions to install via Bazelisk can be found [here](https://bazel.build/install/bazelisk).
@@ -41,6 +45,12 @@ at [examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/exa
 
 _NOTE_: In your MODULE.bazel file, you'll want to choose the latest release published to: 
 https://registry.bazel.build/modules/claro-lang
+
+#### CLI Script to Codegen Your First Claro Program
+
+Once you copy the `MODULE.bazel` and `.bazelrc` from 
+[examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod) you may want to make use of
+[tools/codegen.sh](https://github.com/JasonSteving99/claro-lang/tree/main/tools) to autogenerate your first Claro program.
 
 # Building Claro Programs
 
