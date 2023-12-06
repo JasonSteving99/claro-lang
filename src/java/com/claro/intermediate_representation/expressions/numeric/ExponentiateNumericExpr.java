@@ -29,14 +29,13 @@ public class ExponentiateNumericExpr extends NumericExpr {
   }
 
   @Override
-  public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
-    return new StringBuilder(
-        String.format(
-            "Math.pow(%s, %s)",
-            ((Expr) this.getChildren().get(0)).generateJavaSourceBodyOutput(scopedHeap),
-            ((Expr) this.getChildren().get(1)).generateJavaSourceBodyOutput(scopedHeap)
-        )
-    );
+  public GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap) {
+    GeneratedJavaSource res = GeneratedJavaSource.forJavaSourceBody(new StringBuilder("Math.pow("));
+    res = res.createMerged(this.getChildren().get(0).generateJavaSourceOutput(scopedHeap));
+    res.javaSourceBody().append(", ");
+    res = res.createMerged(this.getChildren().get(1).generateJavaSourceOutput(scopedHeap));
+    res.javaSourceBody().append(")");
+    return res;
   }
 
   @Override

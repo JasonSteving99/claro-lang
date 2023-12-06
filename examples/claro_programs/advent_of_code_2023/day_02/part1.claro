@@ -1,0 +1,59 @@
+atom RED
+atom GREEN
+atom BLUE
+alias Color : oneof<RED, GREEN, BLUE>
+alias Draw : mut {Color: int}
+alias Game : struct {gameId: int, draws: [Draw]}
+
+function toColor(s: string) -> Color {
+  match (s) {
+    case "red"   -> return RED;
+    case "green" -> return GREEN;
+    case _       -> return BLUE; # Assuming input is well-formatted.
+  }
+}
+
+# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
+function orElse<A, B>(toNarrow: oneof<A, B>, fallback: A) -> A {
+  if (toNarrow instanceof A) {
+    return toNarrow;
+  }
+  return fallback;
+}
+
+function parseColorCount(colorCounts: Draw, cubeColorStr: string) -> Draw {
+  var parts = strings::split(cubeColorStr, "\\s");
+  colorCounts[toColor(parts[2])] = orElse(ints::parseInt(parts[1]), 0);
+  return colorCounts;
+}
+
+function validateGame(game: Game, colorCounts: {Color: int}) -> boolean {
+  for (draw in game.draws) {
+    for (k in maps::keySetOfMut(draw)) {
+      if (maps::getOrDefaultFromMut(draw, k, 0) > colorCounts[k]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+# TODO(steving) Claro needs support for Java's Stream API. These successive maps and filters are needlessly inefficient.
+files::readOrPanic(resources::Input)
+  |> strings::split(^, "\n")
+  |> fp::map(
+       ^,
+       (s: string) -> Game {
+          var parts = strings::split(s, ":");
+          return {
+            gameId = orElse(ints::parseInt(strings::suffix(parts[0], 5)), -9999),
+            draws = [
+              fp::reduce(strings::split(handful, ","), parseColorCount, cast(Draw, mut {}))
+              | handful in strings::split(parts[1], ";")
+            ]
+          };
+       }
+     )
+  |> fp::filter(^, g -> validateGame(g, {RED: 12, GREEN: 13, BLUE: 14}))
+  |> fp::reduce(^, (accum:int, g:Game) -> int { return accum + g.gameId; }, 0)
+  |> print(^);

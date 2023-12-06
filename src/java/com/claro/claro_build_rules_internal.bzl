@@ -11,6 +11,8 @@ visibility([
     "//src/java/com/claro/stdlib/claro/...",
     "//src/java/com/claro/stdlib/utils/...",
     "//stdlib/...",
+    # TODO(steving) THIS IS A TEMPORARY HACK FOR ME TO COLLECT FEATURES THAT I DISCOVER ARE NECESSARY DURING AoC.
+    "//examples/claro_programs/advent_of_code_2023/utils/..."
 ])
 
 DEFAULT_CLARO_NAME = "claro"
@@ -31,6 +33,7 @@ CLARO_STDLIB_MODULES = {
     "ints": "@claro-lang//stdlib/ints:ints",
     "lists": "@claro-lang//stdlib/lists:lists",
     "maps": "@claro-lang//stdlib/maps:maps",
+    "math": "@claro-lang//stdlib/math:math",
     "priority_queue": "@claro-lang//stdlib/priority_queue:priority_queue",
     "random": "@claro-lang//stdlib/random:random",
     "scanner": "@claro-lang//stdlib/scanner:scanner",

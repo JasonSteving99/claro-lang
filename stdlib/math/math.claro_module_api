@@ -1,0 +1,18 @@
+
+function absInt(i: int) -> int;
+function absFloat(f: float) -> float;
+
+function ceiling(f: float) -> float;
+
+function floor(f: float) -> float;
+
+function maxInt(a: int, b: int) -> int;
+function maxFloat(a: float, b: float) -> float;
+
+function minInt(a: int, b: int) -> int;
+function minFloat(a: float, b: float) -> float;
+
+function roundDownToInt(f: float) -> int;
+function roundUpToInt(f: float) -> int;
+
+function sqrt(f: float) -> float;

@@ -1,0 +1,11 @@
+implement Operators<int> {
+    function add(lhs: int, rhs: int) -> int {
+        return lhs + rhs;
+    }
+}
+
+implement Operators<string> {
+    function add(lhs: string, rhs: string) -> string {
+        return "{lhs}{rhs}";
+    }
+}

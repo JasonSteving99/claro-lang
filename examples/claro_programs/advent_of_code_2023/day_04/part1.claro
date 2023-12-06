@@ -1,0 +1,25 @@
+alias HitCountAccumulation : mut struct {ind: int, currWinningNums: mut {string}, score: int}
+
+resources::Input
+  |> files::readOrPanic(^)
+  |> strings::split(^, "[\n:|]")
+  |> fp::reduce(
+        ^,
+        (accum: HitCountAccumulation, currStr: string) -> HitCountAccumulation {
+          accum.ind = accum.ind + 1;
+          match ((accum.ind - 1) % 3) {
+            case 0 -> return accum; # Start of new Card. Just skip ahead.
+            case 1 -> # Winning numbers.
+              accum.currWinningNums = mut {num | num in strings::split(strings::trim(currStr), "\\s") where len(num) > 0};
+            case _ -> # Actual numbers.
+              _ = sets::retainAll(accum.currWinningNums, [num | num in strings::split(strings::trim(currStr), "\\s")]);
+              var matchCount = len(accum.currWinningNums);
+              if (matchCount > 0) {
+                accum.score = accum.score + math::roundDownToInt(2 ** (matchCount - 1));
+              }
+          }
+          return accum;
+        },
+        mut {ind = 0, currWinningNums = sets::emptyMutSet(), score = 0}
+     )
+  |> print(^.score);

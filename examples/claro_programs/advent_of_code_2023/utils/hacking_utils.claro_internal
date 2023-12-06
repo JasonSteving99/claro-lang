@@ -1,0 +1,60 @@
+alias JavaLongType : $java_type("java.lang.Long")
+newtype Long : JavaLongType
+
+provider getMaxLong() -> Long {
+  var res: JavaLongType;
+  $$BEGIN_JAVA
+    res = java.lang.Long.MAX_VALUE;
+  $$END_JAVA
+  return Long(res);
+}
+
+function longFromInt(i: int) -> Long {
+  var res: JavaLongType;
+  $$BEGIN_JAVA
+    res = (long) i;
+  $$END_JAVA
+  return Long(res);
+}
+function longFromString(s: string) -> oneof<Long, std::Error<InvalidNumberFormat>>  {
+  var res: JavaLongType;
+  var errCons = (msg: string) -> std::Error<InvalidNumberFormat> { return std::Error(InvalidNumberFormat({msg = msg})); };
+  $$BEGIN_JAVA
+    try {
+      res = java.lang.Long.valueOf(s);
+    } catch (java.lang.NumberFormatException e) {
+      return errCons.apply(e.getMessage());
+    }
+  $$END_JAVA
+  return Long(res);
+}
+
+function longGreaterOrEqualTo(l: Long, other: Long) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = l.wrappedValue >= other.wrappedValue;
+  $$END_JAVA
+  return res;
+}
+function longLessThan(l: Long, other: Long) -> boolean {
+  var res: boolean;
+  $$BEGIN_JAVA
+    res = l.wrappedValue < other.wrappedValue;
+  $$END_JAVA
+  return res;
+}
+
+function longAdd(lhs: Long, rhs: Long) -> Long {
+  var res: JavaLongType;
+  $$BEGIN_JAVA
+    res = lhs.wrappedValue + rhs.wrappedValue;
+  $$END_JAVA
+  return Long(res);
+}
+function longSub(lhs: Long, rhs: Long) -> Long {
+  var res: JavaLongType;
+  $$BEGIN_JAVA
+    res = lhs.wrappedValue - rhs.wrappedValue;
+  $$END_JAVA
+  return Long(res);
+}

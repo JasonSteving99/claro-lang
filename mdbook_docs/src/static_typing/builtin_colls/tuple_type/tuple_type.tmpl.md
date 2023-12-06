@@ -3,16 +3,7 @@
 Tuples are a fixed-order, fixed-size collection of values which do not all have to be of the same type.
 
 ```
-var myPair: tuple<int, string> = (1, "one");
-
-# Claro will interprate literal int subscripts at compile-time for type validation.
-var myInt: int = myPair[0]; 
-var myStr: string = myPair[1]; 
-
-# Claro requires a type cast for non-literal index.
-var index: int = ...;
-myInt = myPair[index]; # Compile Error
-myInt = (int) myPair[index]; # OK, opting into runtime type validation.
+{{EX1}}
 ```
 
 You can see in the example above, tuples interact w/ type validation in an interesting way worth making note of. When

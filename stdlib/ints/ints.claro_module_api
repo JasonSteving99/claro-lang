@@ -1,3 +1,5 @@
+static MAX_VALUE: int;
+static MIN_VALUE: int;
 
 newtype InvalidNumberFormat : struct { msg: string }
 

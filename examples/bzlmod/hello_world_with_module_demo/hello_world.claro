@@ -1,0 +1,4 @@
+
+provider getHelloWorldMessage() -> string {
+  return  "Hello, Claro World!";
+}

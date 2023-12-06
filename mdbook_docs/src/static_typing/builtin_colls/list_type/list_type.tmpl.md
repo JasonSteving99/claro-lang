@@ -6,11 +6,7 @@ Python, as Claro is statically typed, all values in the list must be of the same
 pre-determined upon declaration of the variable which reference the list.
 
 ```
-var l: [int] = [1, 3, 7, 2, -115, 0];
-append(l, 99);
-print(len(l)); # 7
-print(l[1] == l[0]); # false
-print(l[6] == 99); # true
+{{EX1}}
 ```
 
 ### Empty Lists
@@ -36,7 +32,7 @@ __The following will never be supported__:
 ```
 # Hypothetically, Claro could infer that the type of `l` is [string] based
 # solely on the usage of `l` later on.
-var l = []; 
+var l = mut [];
 
 ...a bunch of code...
 

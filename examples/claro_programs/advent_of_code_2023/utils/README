@@ -1,0 +1,3 @@
+The intention of this utils module is to collect the utility procedures that I end up needing to write for myself that
+did not seem immediately obvious whether they should go into some stdlib module. And perhaps sometimes these will be
+patching over something that should even be a language feature itself. Who knows? I get to find out be trying out AoC!

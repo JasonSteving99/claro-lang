@@ -152,7 +152,7 @@ function computeIfPresent<K,V>(
 #
 # If the function returns `maps::REMOVE_ENTRY`, the mapping is removed (or remains absent if initially absent).
 #
-# Returns: the new value associated with the specified key, or propagates `std::REMOVE_ENTRY` if the entry was removed.
+# Returns: the new value associated with the specified key, or propagates `maps::REMOVE_ENTRY` if the entry was removed.
 function compute<K,V>(
   m: mut {K:V},
   k: K,

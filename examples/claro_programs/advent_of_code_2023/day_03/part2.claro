@@ -1,0 +1,108 @@
+alias Loc : struct {row: int, col: int}
+
+resources::Input
+  |> files::readOrPanic(^)
+  # Pad top and bottom with periods.
+  |> (^, strings::repeated(".", orElse(strings::indexOf(^, "\n"), -1)))
+  |> strings::join("\n", [^[1], ^[0], ^[1]])
+  |> strings::split(^, "\n")
+  |> { # Annotate the [string] lines with the locations of "gears" (i.e. "*").
+        lines = ^,
+        specialSymLocs =
+          fp::reduce(
+             ^,
+             (accum: mut struct {lineNum: int, specialSymLocs: mut [Loc]}, line: string)
+                -> mut struct {lineNum: int, specialSymLocs: mut [Loc]} {
+               var col = 0;
+               while (col < len(line)) {
+                 if (line[col] == "*") {
+                   lists::add(accum.specialSymLocs, {row = accum.lineNum, col = col});
+                 }
+                 col++;
+               }
+               accum.lineNum = accum.lineNum + 1;
+               return accum;
+             },
+             mut {lineNum = 0, specialSymLocs = mut []}
+          ).specialSymLocs
+     }
+  # Reduce the list of all gear locations to a list of valid gear ratios.
+  |> fp::reduce(
+        copy(^.specialSymLocs), # TODO(steving) Need "mut-generics" so this copy to immutable variant isn't needed.
+        (accum: struct {lines: [string], seenGearRatios: mut [int]}, specialSymLoc: Loc)
+            -> struct {lines: [string], seenGearRatios: mut [int]} {
+          findGearRatioAtLoc(accum.lines, specialSymLoc, accum.seenGearRatios);
+          return accum;
+        },
+        {lines = ^.lines, seenGearRatios = mut []}
+     )
+  # Sum the gear ratios.
+  |> fp::reduce(copy(^.seenGearRatios), (accum: int, i: int) -> int { return accum + i; }, 0)
+  |> print(^);
+
+
+consumer findGearRatioAtLoc(lines: [string], loc: Loc, seenGearRatios: mut [int]) {
+  var adjacentNumStarts: mut [Loc] = mut [];
+  # Find nums above/below curr loc.
+  for (row in [loc.row - 1, loc.row + 1]) {
+    var currLine = lines[row];
+    if (isDigit(currLine, loc.col)) { # Would have to just be one num across the line.
+      lists::add(adjacentNumStarts, getNumStart(currLine, row, loc.col));
+    } else { # Could be a num to diag-left AND diag-right.
+      if (isDigit(currLine, loc.col + 1)) {
+        lists::add(adjacentNumStarts, {row = row, col = loc.col + 1});
+      }
+      if (isDigit(currLine, loc.col - 1)) {
+        lists::add(adjacentNumStarts, getNumStart(currLine, row, loc.col - 1));
+      }
+    }
+  }
+  # Find nums on curr line.
+  var currLine = lines[loc.row];
+  if (isDigit(currLine, loc.col + 1)) { # Find num to right.
+    lists::add(adjacentNumStarts, {row = loc.row, col = loc.col + 1});
+  }
+  if (isDigit(currLine, loc.col - 1)) { # Find num to left.
+    lists::add(adjacentNumStarts, getNumStart(currLine, loc.row, loc.col - 1));
+  }
+
+  # Only add these numbers to seenGearRatios if there are exactly two.
+  if (len(adjacentNumStarts) == 2) {
+    lists::add(seenGearRatios, getNumAtLoc(lines, adjacentNumStarts[0]) * getNumAtLoc(lines, adjacentNumStarts[1]));
+  }
+}
+
+function getNumStart(line: string, row: int, col: int) -> Loc {
+  while (isDigit(line, col - 1)) {
+    col--;
+  }
+  return {row = row, col = col};
+}
+
+function isDigit(line: string, ind: int) -> boolean {
+  if ((ind < 0) or (ind >= len(line))) {
+    return false;
+  }
+  return ints::parseInt(line[ind]) instanceof int;
+}
+
+function getNumAtLoc(lines: [string], loc: Loc) -> int {
+  var line = lines[loc.row];
+  var digitEnd = loc.col;
+  while (isDigit(line, digitEnd)) {
+    digitEnd++;
+  }
+  var parsedInt = ints::parseInt(strings::substring(line, loc.col, digitEnd));
+  if (parsedInt instanceof int) {
+    return parsedInt;
+  }
+  return -999; # TODO(steving) Claro needs a panic() builtin;
+}
+
+# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
+function orElse<A,B>(toNarrow: oneof<A, B>, fallback: A) -> A {
+  if (toNarrow instanceof A) {
+    return toNarrow;
+  }
+  return fallback;
+}

@@ -39,6 +39,9 @@ Simply install Bazel - instructions to install via Bazelisk can be found [here](
 Then follow the example Claro project configuration
 at [examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod).
 
+_NOTE_: In your MODULE.bazel file, you'll want to choose the latest release published to: 
+https://registry.bazel.build/modules/claro-lang
+
 # Building Claro Programs
 
 As Claro projects are fundamentally built on the [Bazel build system](https://bazel.build/about/intro), building a Claro

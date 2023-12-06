@@ -1,0 +1,20 @@
+contract Index<T, R> {
+    function get(l: T, ind: int) -> R;
+}
+
+implement Index<[int], int> {
+    function get(l: [int], ind: int) -> int {
+        return l[ind];
+    }
+}
+
+alias SafeRes : tuple<boolean, int>
+
+implement Index<[int], SafeRes> {
+    function get(l: [int], ind: int) -> SafeRes {
+        if (ind >= 0 and ind < len(l)) {
+            return (true, l[ind]);
+        }
+        return (false, -1);
+    }
+}

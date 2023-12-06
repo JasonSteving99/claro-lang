@@ -1,0 +1,10 @@
+Common::getPreProcessedInput()
+  |> [
+        Utils::orElse(
+          floats::parseFloat(fp::reduce(nums, (accum: string, s: string) -> string { return "{accum}{s}"; }, "")),
+          -1.0
+        ) | nums in ^
+     ]
+  |> Common::solveForWinningBounds(^[0], ^[1])
+  |> (^.upper - ^.lower) + 1
+  |> print(^);
