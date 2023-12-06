@@ -23,14 +23,10 @@ jobs:
           # Create a single tar file to encapsulate all CLI resources.
           ln -s bazel-bin/src/java/com/claro/claro_compiler_binary_deploy.jar claro_compiler_binary_deploy.jar
           ln -s bazel-bin/examples/claro_programs/claro_builtin_java_deps_deploy.jar claro_builtin_java_deps_deploy.jar
-          ln -s cli/claroc.sh claroc.sh
-          ln -s cli/claro.sh claro.sh
           # -h ensures that the above symlinks are actually dereferenced, else they'd be empty symlinks in the tar file.
           tar -hcf claro-cli-install.tar.gz \
               claro_compiler_binary_deploy.jar \
-              claro_builtin_java_deps_deploy.jar \
-              claroc.sh \
-              claro.sh
+              claro_builtin_java_deps_deploy.jar
 
           # Create a source archive that will have a stable hash. The one that GitHub automatically produces will not 
           # be able to guarantee a stable hash, see: https://blog.bazel.build/2023/02/15/github-archive-checksum.html.
@@ -41,11 +37,10 @@ jobs:
         uses: softprops/action-gh-release@v1 
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Adding 240 to compensate for renaming this workflow causing the run_number to reset.
           tag_name: v0.1.${{ github.run_number }}
           name: v0.1.${{ github.run_number }} Automated Release
           body: |
-            # This is an automated release of resources needed to install and run Claro locally.
+            # This is an automated release v0.1.${{ github.run_number }}.
             Check out the simple [setup instructions](https://github.com/JasonSteving99/claro-lang/#create-your-own-claro-project-with-bazel) to get started!
           draft: false
           prerelease: false
