@@ -37,12 +37,17 @@ claro_binary(
 echo "look ma, no hands!" > "$dest/input.txt"
 
 # claro file
-echo "var file = resources::Input;
-var data = files::read(file);
+echo "
+resources::Input
+  |> files::readOrPanic(^)
+  |> strings::toUpperCase(^)
+  |> trumpet(^)
+  |> var message = ^;
 
-if (data instanceof string) {
-  var message = strings::toUpperCase(data);
-  print(message);
+print(message);
+
+function trumpet(msg: string) -> string {
+  return \"🎺 {msg}\";
 }" > "$dest/$2.claro"
 
 # README.md
