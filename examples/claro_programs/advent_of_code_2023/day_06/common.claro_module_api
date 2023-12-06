@@ -1,0 +1,4 @@
+
+provider getPreProcessedInput() -> [[string]];
+
+function solveForWinningBounds(gameTime: float, goalDist: float) -> struct {lower: int, upper: int};

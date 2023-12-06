@@ -6,3 +6,5 @@ print(four);
 
 print(math::minInt(four, eight));
 print(math::maxInt(four, eight));
+
+print(math::roundUpToInt((-7 + math::sqrt(13.0)) / -2) == 2);

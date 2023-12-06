@@ -14,3 +14,5 @@ function minFloat(a: float, b: float) -> float;
 
 function roundDownToInt(f: float) -> int;
 function roundUpToInt(f: float) -> int;
+
+function sqrt(f: float) -> float;

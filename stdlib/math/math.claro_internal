@@ -70,7 +70,15 @@ function roundDownToInt(f: float) -> int {
 function roundUpToInt(f: float) -> int {
   var res: int;
   $$BEGIN_JAVA
-    res = ((int) java.lang.Math.floor(f)) + 1;
+    res = (int) java.lang.Math.ceil(f);
+  $$END_JAVA
+  return res;
+}
+
+function sqrt(f: float) -> float {
+  var res: float;
+  $$BEGIN_JAVA
+    res = java.lang.Math.sqrt(f);
   $$END_JAVA
   return res;
 }

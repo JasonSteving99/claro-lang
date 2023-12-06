@@ -1,0 +1,30 @@
+
+provider getPreProcessedInput() -> [[string]] {
+  resources::Input
+    |> files::readOrPanic(^)
+    |> strings::split(^, "\n")
+    |> [strings::split(line, ":")[1] | line in ^]
+    |> fp::map(
+          ^,
+          (line: string) -> [string] {
+            return strings::split(strings::trim(line), "\\s+");
+          }
+       )
+    |> var res = ^;
+  return res;
+}
+
+function solveForWinningBounds(gameTime: float, goalDist: float) -> struct {lower: int, upper: int} {
+  math::sqrt(gameTime ** 2 - 4 * goalDist) # simplified (b^2 - 4ac)^.5
+    |> ((^ - gameTime) / -2, (-gameTime - ^) / -2)
+    |> var bounds = ^;
+  if (bounds[0] > bounds[1]) {
+    bounds = (bounds[1], bounds[0]);
+  }
+  # Do this weird shifting to ensure that if it just so happens to accidentally land on exactly a round floating point
+  # number, we'll still get the next integer inwards away from the equation's "zeros".
+  return {
+    lower = math::roundDownToInt(bounds[0] + 1),
+    upper = math::roundUpToInt(bounds[1] - 1)
+  };
+}

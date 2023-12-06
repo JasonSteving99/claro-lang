@@ -1,0 +1,14 @@
+Common::getPreProcessedInput()
+  |> [[Utils::orElse(floats::parseFloat(num), -1.0) | num in nums] | nums in ^]
+  |> {gameTimes = ^[0], goalDist = ^[1]}
+  |> var games = ^;
+
+var totalWinningOptions = 1;
+var i = 0;
+while (i < len(games.gameTimes)) {
+  Common::solveForWinningBounds(games.gameTimes[i], games.goalDist[i])
+    |> (^.upper - ^.lower) + 1
+    |> totalWinningOptions = totalWinningOptions * ^;
+  ++i;
+}
+print(totalWinningOptions);
