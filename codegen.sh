@@ -9,11 +9,17 @@ if [ "$1" = "" ] || [ "$2" = "" ]; then
   exit 1
 fi
 
-#if [ ! -d "$1" ]; then
-  #echo "dir \"$1\" does not exist"
-#fi
+if [ ! -d "$1" ]; then
+  echo "dir \"$1\" does not exist"
+fi
 
-mkdir -p "$1"
+dest="$1/$2"
+mkdir -p "$dest"
+
+if [ -f "$dest/BUILD" ]; then
+  echo "BUILD file already exists"
+  exit 1
+fi
 
 # BUILD
 echo "load(\"@claro-lang//:rules.bzl\", \"claro_binary\")
@@ -24,15 +30,22 @@ claro_binary(
   resources = {
     \"Input\": \"input.txt\",
   }
-)" > "$1/BUILD"
+)" > "$dest/BUILD"
 
 # input.txt
-echo "look ma, no hands!" > "$1/input.txt"
+echo "look ma, no hands!" > "$dest/input.txt"
 
 # claro file
 echo "var file = resources::Input;
-var data = files::read(file);" > "$1/$2.claro"
+var data = files::read(file);
+
+if (data instanceof string) {
+  var message = strings::toUpperCase(data);
+  print(message);
+}" > "$dest/$2.claro"
 
 # README.md
-echo "bazel build //$1/$2:$2
-bazel run //$1/$2:$2"
+echo "bazel build //$dest:$2
+bazel run //$dest:$2" > "$dest/README.md"
+
+cat "$dest/README.md"
