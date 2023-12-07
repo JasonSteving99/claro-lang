@@ -37,21 +37,22 @@ claro_binary(
 )" > "$dest/example/BUILD"
 
 # input.txt
-echo "look ma, no hands!" > "$dest/example/input.txt"
+echo -n "
+look ma, no hands!
+" > "$dest/example/input.txt"
 
 # claro file
-echo "
-resources::Input
+echo -n 'resources::Input
   |> files::readOrPanic(^)
+  |> strings::trim(^)
   |> strings::toUpperCase(^)
-  |> trumpet(^)
-  |> var message = ^;
+  |> wrapInBox(^)
+  |> print(^);
 
-print(message);
-
-function trumpet(msg: string) -> string {
-  return \"🎺 {msg}\";
-}" > "$dest/example/$1.claro"
+function wrapInBox(s: string) -> string {
+  var line = strings::repeated("-", len(s) + 4);
+  return "{line}\n| {s} |\n{line}";
+}' > "$dest/example/$1.claro"
 
 # README.md
 echo "# Run these commands from some dir in the project tree.
