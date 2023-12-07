@@ -18,7 +18,9 @@ Example
 $ ./create_claro_project.sh test hello_world
 $ bazel build //test/hello_world:hello_world # Optional: you could just skip straight to `bazel run ...` below.
 $ bazel run //test/hello_world:hello_world
-🎺 LOOK MA, NO HANDS!
+----------------------
+| LOOK MA, NO HANDS! |
+----------------------
 $ tree -a example_claro_project                                                                                                                                                                                                 +
 example_claro_project
 ├── .bazelrc
