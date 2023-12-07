@@ -37,11 +37,20 @@ You may be interested in checking out the
 year's [Advent of Code](adventofcode.com) in Claro!
 
 # Create your own Claro Project with Bazel!
-
+### 1 - Install Bazel (Required)
 Simply install Bazel - instructions to install via Bazelisk can be found [here](https://bazel.build/install/bazelisk).
 
-Then follow the example Claro project configuration
-at [examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod).
+### 2 - Use create_claro_project.sh To Autogenerate Your Project
+Get `create_claro_project.sh` from the [latest Release](https://github.com/JasonSteving99/claro-lang/releases/latest) 
+and run this command:
+```
+$ ./create_claro_project.sh <project name>
+```
+More details at [tools/README.md](tools/README.md)
+
+### 2 (Alternative) - Manually Copy Configuration of Example Project
+Follow the example Claro project configuration at 
+[examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod).
 
 _NOTE_: In your MODULE.bazel file, you'll want to choose the latest release published to: 
 https://registry.bazel.build/modules/claro-lang
