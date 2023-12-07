@@ -1,5 +1,7 @@
 load("@claro-lang//:rules.bzl", "claro_binary", "claro_module")
 
+# Get the real input at: https://adventofcode.com/2023/day/6
+
 # Shared logic used by both part1 and part2 extracted to this module.
 claro_module(
     name = "common",
