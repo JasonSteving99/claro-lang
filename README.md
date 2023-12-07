@@ -40,7 +40,7 @@ year's [Advent of Code](adventofcode.com) in Claro!
 ### 1 - Install Bazel (Required)
 Simply install Bazel - instructions to install via Bazelisk can be found [here](https://bazel.build/install/bazelisk).
 
-### 2 - Use create_claro_project.sh To Autogenerate Your Project
+### 2 - Auto-Generate Your Project
 Get `create_claro_project.sh` from the [latest Release](https://github.com/JasonSteving99/claro-lang/releases/latest) 
 and run this command:
 ```
