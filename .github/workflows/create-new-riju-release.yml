@@ -32,6 +32,10 @@ jobs:
           # be able to guarantee a stable hash, see: https://blog.bazel.build/2023/02/15/github-archive-checksum.html.
           git archive -o claro-source-archive-v0.1.${{ github.run_number }}.zip HEAD
 
+          # Create the cli tool that will be used for new users to get their first Claro project correctly configured.
+          bazel build //tools:create_claro_project_script
+          ln -s bazel-bin/tools/create_claro_project.sh create_claro_project.sh
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1 
@@ -46,6 +50,7 @@ jobs:
           prerelease: false
           fail_on_unmatched_files: true
           files: |
+            create_claro_project.sh
             claro-cli-install.tar.gz
             claro-source-archive-v0.1.${{ github.run_number }}.zip
 
