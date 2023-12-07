@@ -15,9 +15,10 @@ $ ./create_claro_project.sh <project name>
 
 Example
 ```bash
-$ ./create_claro_project.sh test hello_world
-$ bazel build //test/hello_world:hello_world # Optional: you could just skip straight to `bazel run ...` below.
-$ bazel run //test/hello_world:hello_world
+$ ./create_claro_project.sh example_claro_project
+# Run these commands from some dir in the project tree.
+bazel build //example:example_claro_project_bin  # Optional: you could just skip straight to `bazel run ...` below.
+bazel run //example:example_claro_project_bin
 ----------------------
 | LOOK MA, NO HANDS! |
 ----------------------
