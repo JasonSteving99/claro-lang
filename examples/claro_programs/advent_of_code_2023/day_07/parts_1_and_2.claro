@@ -1,0 +1,76 @@
+Common::getPreProcessedInput()
+  |> strings::split(^, "\n")
+  |> fp::map( # TODO(steving) it'd be really useful for map to be a builtin that allowed optionally returning `mut [T]`.
+        ^,
+        (s: string) -> struct {handScore: tuple<int, [int]>, bet: int} {
+          var parts = strings::split(s, " ");
+          return {
+            handScore = scoreHand(strings::splitChars(parts[0])),
+            bet = Utils::orElse(ints::parseInt(parts[1]), -999)
+          };
+        }
+     )
+  |> var hands = ^;
+
+# TODO(steving) Need a new `lists::sorted<T>(l: [T], ...) -> [T]` that returns a new list.
+var handsCopy: mut [struct {handScore: tuple<int, [int]>, bet: int}] = copy(hands);
+lists::sort(
+  handsCopy,
+  lambda (a,b) -> {
+    match (a.handScore[0] - b.handScore[0] ) {
+      case 0 ->
+        var i = 0;
+        while (i < 5) {
+          var diff = a.handScore[1][i] - b.handScore[1][i];
+          if (diff != 0) {
+            return diff;
+          }
+          ++i;
+        }
+        return 0;
+      case diff -> return diff;
+    }
+  }
+);
+
+var totalWinnings = 0;
+var betMultiplier = 1;
+for (hand in handsCopy) {
+  totalWinnings = totalWinnings + (hand.bet * betMultiplier++);
+}
+print(totalWinnings);
+
+function scoreHand(hand: [string]) -> tuple<int, [int]> {
+  var cardCounts: mut {string: int} = mut {};
+  var wildCount = 0;
+  for (c in hand) {
+    if (Common::wild and (c == "J")) {
+      wildCount++;
+    } else {
+      cardCounts[c] = maps::getOrDefaultFromMut(cardCounts, c, 0) + 1;
+    }
+  }
+
+  var score: int;
+  var ordered = mut [entry[1] | entry in cardCounts];
+  match (len(ordered)) {
+    case 0 -> score = 6; # Five of a kind.
+    case 1 -> score = 6; # Five of a kind.
+    case _ ->
+      lists::sort(ordered, lambda (a,b) -> b - a);
+      match ((ordered[0] + wildCount, ordered[1])) {
+        case (5, _) -> score = 6; # Five of a kind.
+        case (4, _) -> score = 5; # Four of a kind.
+        case (3, 2) -> score = 4; # Full house.
+        case (3, _) -> score = 3; # Three of a kind.
+        case (2, 2) -> score = 2; # Two pair.
+        case (2, _) -> score = 1; # One pair.
+        case _      -> score = 0; # High card.
+      }
+  }
+
+  var cardValsMap = Common::CARD_VALUES_MAP;
+  return (score, [cardValsMap[c] | c in hand]);
+  # TODO(steving) Investigate why codegen fails on this line.
+#  return (score, [Common::CARD_VALUES_MAP[c] | c in hand]);
+}
