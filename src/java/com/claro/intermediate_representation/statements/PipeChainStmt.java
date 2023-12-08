@@ -34,14 +34,6 @@ public class PipeChainStmt extends Stmt {
   public void assertExpectedExprTypes(ScopedHeap scopedHeap) throws ClaroTypeException {
     InternalStaticStateUtil.PipeChainStmt_withinPipeChainContext = true;
 
-    // Validate that we have at least one chainExpr. Otherwise, it's more readable to just write a vanilla stmt w/o pipelining.
-    Preconditions.checkState(
-        this.chainExprs.size() > 0,
-        "Invalid Usage of Pipe Chain Statement: Pipe chain statements should only be used when there is" +
-        "at least one chain expr between source and sink. Otherwise, you should just instead write a direct stmt.\n" +
-        "E.g.:\n\t\tInstead of - \n\t\t\tfoo\n\t\t\t\t-> bar(^);\n\t\tYou should write -\n\t\t\tbar(foo);\n"
-    );
-
     // We need to ensure that all of the types compose together. At this point, the backreferences do not know which
     // expr they're referencing, so we need to manually perform the inside-out type validation. Based on the structural
     // equivalence of a pipe chain stmt with a nesting of composed function calls, we know that iterating the chain top
