@@ -55,12 +55,6 @@ Follow the example Claro project configuration at
 _NOTE_: In your MODULE.bazel file, you'll want to choose the latest release published to: 
 https://registry.bazel.build/modules/claro-lang
 
-#### CLI Script to Codegen Your First Claro Program
-
-Once you copy the `MODULE.bazel` and `.bazelrc` from 
-[examples/bzlmod/](https://github.com/JasonSteving99/claro-lang/tree/main/examples/bzlmod) you may want to make use of
-[tools/codegen.sh](https://github.com/JasonSteving99/claro-lang/tree/main/tools) to autogenerate your first Claro program.
-
 # Building Claro Programs
 
 As Claro projects are fundamentally built on the [Bazel build system](https://bazel.build/about/intro), building a Claro
