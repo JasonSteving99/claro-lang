@@ -1,0 +1,30 @@
+resources::Input
+  |> files::readOrPanic(^)
+  |> strings::split(^, "\n\n")
+  |> {
+        dirs = strings::splitChars(^[0]),
+        map = fp::reduce(strings::split(^[1], "\n"), parseNode, cast(Graph, mut {}))
+     }
+  |> countStepsToGoal(^.dirs, ^.map)
+  |> print(^);
+
+alias Graph : mut {string: Node}
+alias Node : struct {left: string, right: string}
+
+function parseNode(map: Graph, s: string) -> Graph {
+  var parts = strings::split(s, "[ (),]");
+  map[parts[0]] = {left = parts[3], right = parts[5]};
+  return map;
+}
+
+function countStepsToGoal(dirs: [string], map: Graph) -> int {
+  var steps = 0;
+  var currNode = "AAA";
+  while (currNode != "ZZZ") {
+    match (dirs[steps++ % len(dirs)]) {
+      case "L" -> currNode = map[currNode].left;
+      case _   -> currNode = map[currNode].right;
+    }
+  }
+  return steps;
+}
