@@ -6,6 +6,9 @@ function immediateFuture<T>(t: T) -> future<T>;
 # Creates a `future` which is cancelled immediately upon construction, so that `futures::isCancelled` always returns `true`.
 provider immediateCancelledFuture<T>() -> future<T>;
 
+# Executes the given tasks, returning a list of Futures holding their status and results when all complete.
+function invokeAll<T>(tasks: [provider<T>]) -> [future<T>];
+
 # Attempts to cancel execution of this task. This attempt will fail if the task has already completed, has already been
 # cancelled, or could not be cancelled for some other reason. If successful, and this task has not started when cancel
 # is called, this task should never run. If the task has already started, then the mayInterruptIfRunning parameter

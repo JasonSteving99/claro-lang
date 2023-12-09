@@ -31,3 +31,7 @@ var endInstant = instant::now();
 duration::between(startInstant, endInstant)
   |> duration::toMillis(^)
   |> print("Total time elapsed: {^}ms");
+
+
+var res <-| futures::allAsList(cast([future<string>], futures::invokeAll([() -> "TEST", () -> "TEST 2"])));
+print(res);

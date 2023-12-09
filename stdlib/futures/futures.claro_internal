@@ -12,11 +12,38 @@ function immediateFuture<T>(t: T) -> future<T> {
 
 provider immediateCancelledFuture<T>() -> future<T> {
   var res: future<T>;
-  var emptyListForTheSakeOfGettingThisClaroType: [T] = [];
   $$BEGIN_JAVA
-  res = new ClaroFuture(
-    emptyListForTheSakeOfGettingThisClaroType.getClaroType().parameterizedTypeArgs().get(Types.ListType.PARAMETERIZED_TYPE_KEY),
-    com.google.common.util.concurrent.Futures.immediateCancelledFuture());
+  $$TYPES<T>
+    res = new ClaroFuture($$CLARO_TYPE(T), com.google.common.util.concurrent.Futures.immediateCancelledFuture());
+  $$END_JAVA
+  return res;
+}
+
+function invokeAll<T>(tasks: [provider<T>]) -> [future<T>] {
+  var res: [future<T>];
+  alias L : [T]
+  $$BEGIN_JAVA
+  $$TYPES<T,L>
+  try {
+    res = new com.claro.intermediate_representation.types.impls.builtins_impls.collections.ClaroList(
+      $$CLARO_TYPE(L),
+      com.claro.runtime_utilities.ClaroRuntimeUtilities.DEFAULT_EXECUTOR_SERVICE.invokeAll(
+          tasks.stream()
+          .map(t ->
+            (java.util.concurrent.Callable<$$JAVA_TYPE(T)>)
+            (() -> t.apply())).collect(com.google.common.collect.ImmutableList.toImmutableList()))
+        .stream()
+        .map(f ->
+          new com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture(
+            $$CLARO_TYPE(T), (com.google.common.util.concurrent.ListenableFuture<$$JAVA_TYPE(T)>) f))
+        .collect(com.google.common.collect.ImmutableList.toImmutableList())
+    );
+  } catch (java.lang.InterruptedException e) {
+    //# For now we're just going to panic, but I'm not sure if this is actually the appropriate approach. Likely I
+    //# don't want to even do *anything* here as all the futures are actually themselves cancelled, which should already
+    //# be properly propagating.
+    throw new com.claro.intermediate_representation.types.impls.builtins_impls.futures.ClaroFuture.Panic(e);
+  }
   $$END_JAVA
   return res;
 }
