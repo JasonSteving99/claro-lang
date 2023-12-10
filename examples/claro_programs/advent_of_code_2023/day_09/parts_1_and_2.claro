@@ -1,0 +1,33 @@
+resources::Input
+  |> files::readOrPanic(^)
+  |> strings::split(^, "\n")
+  |> [
+        findNextHistoryValues(mut [Utils::orElse(ints::parseInt(num), -999) | num in strings::split(line, " ")])
+        | line in ^
+     ]
+  |> fp::reduce(
+       ^,
+       (accum: tuple<int, int>, i: tuple<int, int>) -> tuple<int, int> { return (accum[0] + i[0], accum[1] + i[1]); },
+       (0, 0)
+     )
+  |> print("Part 1: {^[0]}\nPart 2: {^[1]}");
+
+# TODO(steving) I need ListBuilder<T> in the stdlib so this doesn't have to be mut [int] just to avoid making a copy.
+function findNextHistoryValues(l: mut [int]) -> tuple<int, int> {
+  var nextList: mut [int] = mut [];
+  var i = 1;
+  var allZeros = true;
+  while (i < len(l)) {
+    var diff = l[i] - l[i - 1];
+    if (diff != 0) {
+      allZeros = false;
+    }
+    lists::add(nextList, l[i] - l[i - 1]);
+    ++i;
+  }
+  if (allZeros) {
+    return (l[len(l) - 1], l[0]);
+  }
+  var t = findNextHistoryValues(nextList);
+  return (l[len(l) - 1] + t[0], l[0] - t[1]);
+}
