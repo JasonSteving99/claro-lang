@@ -21,7 +21,7 @@ public class NegateNumericExpr extends NumericExpr {
   @Override
   public Type getValidatedExprType(ScopedHeap scopedHeap) throws ClaroTypeException {
     return ((Expr) this.getChildren().get(0))
-        .assertSupportedExprType(scopedHeap, ImmutableSet.of(Types.INTEGER, Types.FLOAT));
+        .assertSupportedExprType(scopedHeap, ImmutableSet.of(Types.INTEGER, Types.LONG, Types.FLOAT, Types.DOUBLE));
   }
 
   @Override

@@ -13,7 +13,8 @@ import java.util.function.Supplier;
 
 public class LogNumericExpr extends NumericExpr {
 
-  private static final ImmutableSet<Type> SUPPORTED_LOG_ARG_TYPES = ImmutableSet.of(Types.INTEGER, Types.FLOAT);
+  private static final ImmutableSet<Type> SUPPORTED_LOG_ARG_TYPES =
+      ImmutableSet.of(Types.INTEGER, Types.LONG, Types.FLOAT, Types.DOUBLE);
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public LogNumericExpr(Expr arg, Expr log_base, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -25,7 +26,7 @@ public class LogNumericExpr extends NumericExpr {
     ((Expr) this.getChildren().get(0)).assertSupportedExprType(scopedHeap, SUPPORTED_LOG_ARG_TYPES);
     ((Expr) this.getChildren().get(1)).assertSupportedExprType(scopedHeap, SUPPORTED_LOG_ARG_TYPES);
 
-    return Types.FLOAT;
+    return Types.DOUBLE;
   }
 
   @Override

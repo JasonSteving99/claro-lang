@@ -23,11 +23,20 @@ public abstract class ConcreteType extends Type {
       case INTEGER:
         primitiveTypeProto = PrimitiveType.INTEGER;
         break;
+      case LONG:
+        primitiveTypeProto = PrimitiveType.LONG;
+        break;
       case FLOAT:
         primitiveTypeProto = PrimitiveType.FLOAT;
         break;
+      case DOUBLE:
+        primitiveTypeProto = PrimitiveType.DOUBLE;
+        break;
       case STRING:
         primitiveTypeProto = PrimitiveType.STRING;
+        break;
+      case CHAR:
+        primitiveTypeProto = PrimitiveType.CHAR;
         break;
       case BOOLEAN:
         primitiveTypeProto = PrimitiveType.BOOLEAN;

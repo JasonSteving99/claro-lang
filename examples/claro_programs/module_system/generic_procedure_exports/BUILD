@@ -1,7 +1,8 @@
-load("//:rules.bzl", "claro_binary", "claro_module", "claro_docs")
+load("//:rules.bzl", "claro_binary", "claro_module")
+load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
 
 
-claro_docs(
+clarodocs(
     name = "generic_procedure_exports_docs",
     root = ":test_generic_exports",
 )

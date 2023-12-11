@@ -33,8 +33,11 @@ message TypeProto {
 enum PrimitiveType {
   UNKNOWN_PRIMITIVE_TYPE = 0;
   INTEGER = 1;
+  LONG = 6;
   FLOAT = 2;
+  DOUBLE = 7;
   STRING = 3;
+  CHAR = 8;
   BOOLEAN = 4;
   HTTP_RESPONSE = 5;
 }

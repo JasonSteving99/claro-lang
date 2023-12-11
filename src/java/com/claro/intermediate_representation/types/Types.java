@@ -21,8 +21,11 @@ import java.util.stream.IntStream;
 // TODO(steving) This class needs refactoring into a standalone package.
 public final class Types {
   public static final Type INTEGER = ConcreteTypes.INTEGER;
+  public static final Type LONG = ConcreteTypes.LONG;
   public static final Type FLOAT = ConcreteTypes.FLOAT;
+  public static final Type DOUBLE = ConcreteTypes.DOUBLE;
   public static final Type STRING = ConcreteTypes.STRING;
+  public static final Type CHAR = ConcreteTypes.CHAR;
   public static final Type BOOLEAN = ConcreteTypes.BOOLEAN;
   public static final Type MODULE = ConcreteTypes.MODULE;
   public static final Type HTTP_RESPONSE = ConcreteTypes.HTTP_RESPONSE;
@@ -2158,6 +2161,8 @@ public final class Types {
                                        typeProto.getPrimitive().getValueDescriptor());
           case "INTEGER":
             return INTEGER;
+          case "LONG":
+            return LONG;
           case "FLOAT":
             return FLOAT;
           case "STRING":

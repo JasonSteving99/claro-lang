@@ -175,8 +175,9 @@ terminal LexedValue<String>  ARROW, IMPLICATION_ARROW;
 terminal LexedValue<String>  IDENTIFIER;
 terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
 // Builtin Types
-terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
-                 ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE;
+terminal LexedValue<String>  INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, BOOLEAN_TYPE, STRING_TYPE, CHAR_TYPE,
+                             TUPLE_TYPE, STRUCT_TYPE, ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE,
+                             PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;
@@ -444,6 +445,18 @@ base_builtin_type_without_mutability_modifier ::=
             t.getLen())
        );
     :}
+  | LONG_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.LONG),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
   | FLOAT_TYPE:t
     {:
        RESULT = new Symbol(
@@ -452,6 +465,18 @@ base_builtin_type_without_mutability_modifier ::=
           tright, // line number
           LexedValue.create(
             (TypeProvider) ImmediateTypeProvider.of(Types.FLOAT),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | DOUBLE_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.DOUBLE),
             t.getCurrentInputLine(),
             t.getLen())
        );
@@ -476,6 +501,18 @@ base_builtin_type_without_mutability_modifier ::=
           tright, // line number
           LexedValue.create(
             (TypeProvider) ImmediateTypeProvider.of(Types.STRING),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | CHAR_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.CHAR),
             t.getCurrentInputLine(),
             t.getLen())
        );

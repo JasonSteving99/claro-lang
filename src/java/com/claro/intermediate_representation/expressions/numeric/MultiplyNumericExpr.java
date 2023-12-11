@@ -16,10 +16,14 @@ public class MultiplyNumericExpr extends NumericExpr {
   // TODO(steving) the type of each in the heap and see if they are implementing Comparable, and call their impl of
   // TODO(steving) Operators::multiply.
   private static final ImmutableSet<Type> SUPPORTED_MULTIPLY_OPERAND_TYPES =
-      ImmutableSet.of(Types.INTEGER, Types.FLOAT);
-  private static final String TYPE_SUPPORT_ERROR_MESSAGE =
-      "Internal Compiler Error: Currently `*` is not supported for types other than Integer and Double.";
-  private boolean isFloat = false;
+      ImmutableSet.of(Types.INTEGER, Types.LONG, Types.FLOAT, Types.DOUBLE);
+  private final String TYPE_SUPPORT_ERROR_MESSAGE =
+      String.format(
+          "Internal Compiler Error: Currently `*` is not supported for types other than %s.",
+          SUPPORTED_MULTIPLY_OPERAND_TYPES
+      );
+
+  private Type maybePromotedResultType = null;
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public MultiplyNumericExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -34,12 +38,19 @@ public class MultiplyNumericExpr extends NumericExpr {
     Type actualLhsType = lhs.assertSupportedExprType(scopedHeap, SUPPORTED_MULTIPLY_OPERAND_TYPES);
     Type actualRhsType = rhs.assertSupportedExprType(scopedHeap, SUPPORTED_MULTIPLY_OPERAND_TYPES);
 
-    if (actualLhsType.equals(Types.FLOAT) || actualRhsType.equals(Types.FLOAT)) {
-      this.isFloat = true;
-      return Types.FLOAT;
+    // Handle auto-promotion when operands are potentially different types.
+    if (actualLhsType.equals(actualRhsType)) {
+      this.maybePromotedResultType = actualLhsType;
+    } else if (actualLhsType.equals(Types.DOUBLE) || actualRhsType.equals(Types.DOUBLE)) {
+      this.maybePromotedResultType = Types.DOUBLE;
+    } else if (actualLhsType.equals(Types.FLOAT) || actualRhsType.equals(Types.FLOAT)) {
+      this.maybePromotedResultType = Types.FLOAT;
+    } else if (actualLhsType.equals(Types.LONG) || actualRhsType.equals(Types.LONG)) {
+      this.maybePromotedResultType = Types.LONG;
     } else {
-      return Types.INTEGER;
+      this.maybePromotedResultType = Types.INTEGER;
     }
+    return this.maybePromotedResultType;
   }
 
   @Override
@@ -52,7 +63,7 @@ public class MultiplyNumericExpr extends NumericExpr {
             new StringBuilder(
                 String.format(
                     "%s.valueOf(%s * %s)",
-                    this.isFloat ? "Double" : "Integer",
+                    this.maybePromotedResultType.getJavaSourceType(),
                     exprGenJavaSource0.javaSourceBody().toString(),
                     exprGenJavaSource1.javaSourceBody().toString()
                 )));

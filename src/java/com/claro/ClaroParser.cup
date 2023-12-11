@@ -295,10 +295,12 @@ terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW, IMPLICATION_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
+terminal LexedValue<String>  LONG, DOUBLE;
 // A float is also a terminal, but it's of type Double.
 terminal LexedValue<Double>  FLOAT;
 // A string is also a terminal, but it's of type String.
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
+terminal LexedValue<Character> CHAR;
 // A variable identifier is just a sequence of chars.
 terminal LexedValue<String>  IDENTIFIER;
 terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
@@ -330,8 +332,9 @@ terminal LexedValue<String>  REMOVE;
 terminal LexedValue<String>  IF, ELSE;
 terminal LexedValue<String>  WHILE, FOR, REPEAT, BREAK, CONTINUE, WHERE, MATCH, CASE;
 // Builtin Types (with keywords instead of symbolic notation, e.g. list is [<type>]).
-terminal LexedValue<String>  INT_TYPE, FLOAT_TYPE, BOOLEAN_TYPE, STRING_TYPE, TUPLE_TYPE, STRUCT_TYPE,
-                 ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE, PROVIDER_FUNCTION_TYPE, LAMBDA;
+terminal LexedValue<String>  INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, BOOLEAN_TYPE, STRING_TYPE, CHAR_TYPE,
+                             TUPLE_TYPE, STRUCT_TYPE, ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE,
+                             PROVIDER_FUNCTION_TYPE, LAMBDA;
 terminal LexedValue<String>  ALIAS;
 terminal LexedValue<String>  ATOM, NEWTYPE, UNWRAP, INITIALIZERS, UNWRAPPERS;
 terminal LexedValue<String>  RETURN, QUESTION_MARK_ASSIGNMENT;
@@ -827,6 +830,18 @@ base_builtin_type_without_mutability_modifier ::=
             t.getLen())
        );
     :}
+  | LONG_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.LONG),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
   | FLOAT_TYPE:t
     {:
        RESULT = new Symbol(
@@ -835,6 +850,18 @@ base_builtin_type_without_mutability_modifier ::=
           tright, // line number
           LexedValue.create(
             (TypeProvider) ImmediateTypeProvider.of(Types.FLOAT),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | DOUBLE_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.DOUBLE),
             t.getCurrentInputLine(),
             t.getLen())
        );
@@ -859,6 +886,18 @@ base_builtin_type_without_mutability_modifier ::=
           tright, // line number
           LexedValue.create(
             (TypeProvider) ImmediateTypeProvider.of(Types.STRING),
+            t.getCurrentInputLine(),
+            t.getLen())
+       );
+    :}
+  | CHAR_TYPE:t
+    {:
+       RESULT = new Symbol(
+          -1,
+          tleft,
+          tright, // line number
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.CHAR),
             t.getCurrentInputLine(),
             t.getLen())
        );
@@ -3981,10 +4020,16 @@ scoped_identifier ::=
 primitive ::=
     float:f
     {: RESULT = f; :}
+  | DOUBLE:d
+    {: RESULT = new DoubleTerm(Double.parseDouble(d.getVal().substring(0, d.getVal().length() - 1)), d.getCurrentInputLine(), dright, dleft, dleft + d.getLen()); :}
   | integer:i
     {: RESULT = i; :}
+  | LONG:l
+    {: RESULT = new LongTerm(Long.parseLong(l.getVal().substring(0, l.getVal().length() - 1)), l.getCurrentInputLine(), lright, lleft, lleft + l.getLen()); :}
   | STRING:s
     {: RESULT = new StringTerm(s.getVal(), s.getCurrentInputLine(), sright, sleft, sleft + s.getLen()); :}
+  | CHAR:s
+    {: RESULT = new CharTerm(s.getVal(), s.getCurrentInputLine(), sright, sleft, sleft + s.getLen()); :}
   | TRUE:t
     {: RESULT = new TrueTerm(t.getCurrentInputLine(), tright, tleft, tleft + t.getLen()); :}
   | FALSE:f

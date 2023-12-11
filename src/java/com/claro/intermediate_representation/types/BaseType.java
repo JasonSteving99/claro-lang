@@ -12,10 +12,14 @@ public enum BaseType {
   UNDECIDED("UNDECIDED"),
   UNKNOWABLE("<UNKNOWABLE DUE TO PRIOR TYPE VALIDATION ERROR>"),
   ATOM("%s", "$ClaroAtom"),
+  // TODO(steving) Migrate all primitives to actually be Java primitives.
   INTEGER("int", "Integer", Integer.class),
+  LONG("long", "Long", Long.class),
   FLOAT("float", "Double", Double.class),
+  DOUBLE("double", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),
+  CHAR("char", "Character", Character.class),
   ARRAY,
   LIST("[%s]", "ClaroList<%s>"), // ArrayList.
   // Immutable heterogeneous Array.

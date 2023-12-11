@@ -9,13 +9,25 @@ var i: int = 1;
 print(i);
 type(i);
 
+var l: long = 1L;
+print(l);
+type(l);
+
 var f: float = 1.0;
 print(f);
 type(f);
 
+var d: double = 1.0D;
+print(d);
+type(d);
+
 var s: string = "one";
 print(s);
 type(s);
+
+var c: char = '1';
+print(c);
+type(c);
 
 var b: boolean = s == "one";
 print(b);
@@ -30,6 +42,10 @@ type(intList);
 var floatList: [float] = [f, 2 * f, 4 * f];
 print(floatList);
 type(floatList);
+
+var doubleList: [double] = [d, 2 * d, 4 * d];
+print(doubleList);
+type(doubleList);
 
 var stringList: [string] = [s, s, s];
 print(stringList);

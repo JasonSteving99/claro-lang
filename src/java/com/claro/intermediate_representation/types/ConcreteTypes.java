@@ -2,8 +2,11 @@ package com.claro.intermediate_representation.types;
 
 public class ConcreteTypes {
   public static final Type INTEGER = ConcreteType.create(BaseType.INTEGER);
+  public static final Type LONG = ConcreteType.create(BaseType.LONG);
   public static final Type FLOAT = ConcreteType.create(BaseType.FLOAT);
+  public static final Type DOUBLE = ConcreteType.create(BaseType.DOUBLE);
   public static final Type STRING = ConcreteType.create(BaseType.STRING);
+  public static final Type CHAR = ConcreteType.create(BaseType.CHAR);
   public static final Type BOOLEAN = ConcreteType.create(BaseType.BOOLEAN);
   public static final Type HTTP_RESPONSE = ConcreteType.create(BaseType.HTTP_RESPONSE);
 

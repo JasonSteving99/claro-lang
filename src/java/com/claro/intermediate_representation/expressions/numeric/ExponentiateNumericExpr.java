@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 public class ExponentiateNumericExpr extends NumericExpr {
 
   private static final ImmutableSet<Type> SUPPORTED_EXPONENTIATE_OPERAND_TYPES =
-      ImmutableSet.of(Types.INTEGER, Types.FLOAT);
+      ImmutableSet.of(Types.INTEGER, Types.LONG, Types.FLOAT, Types.DOUBLE);
 
   // TODO(steving) This should only accept other NumericExpr args. Need to update the grammar.
   public ExponentiateNumericExpr(Expr lhs, Expr rhs, Supplier<String> currentLine, int currentLineNumber, int startCol, int endCol) {
@@ -25,6 +25,7 @@ public class ExponentiateNumericExpr extends NumericExpr {
     ((Expr) this.getChildren().get(0)).assertSupportedExprType(scopedHeap, SUPPORTED_EXPONENTIATE_OPERAND_TYPES);
     ((Expr) this.getChildren().get(1)).assertSupportedExprType(scopedHeap, SUPPORTED_EXPONENTIATE_OPERAND_TYPES);
 
+    // TODO(steving) THIS SHOULD ACTUALLY RETURN DOUBLE.
     return Types.FLOAT;
   }
 

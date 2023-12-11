@@ -35,12 +35,18 @@ public class TypeHtml {
         return Util.renderSoy(SOY, "atom", ImmutableMap.of("name", ((Types.AtomType) type).getName()));
       case INTEGER:
         return renderToken("INT");
+      case LONG:
+        return renderToken("LONG");
       case FLOAT:
         return renderToken("FLOAT");
+      case DOUBLE:
+        return renderToken("DOUBLE");
       case BOOLEAN:
         return renderToken("BOOLEAN");
       case STRING:
         return renderToken("STRING");
+      case CHAR:
+        return renderToken("CHAR");
       case LIST:
         Types.ListType listType = (Types.ListType) type;
         return Util.renderSoy(

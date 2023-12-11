@@ -99,11 +99,12 @@ import java.util.concurrent.atomic.AtomicReference;
     }
 %}
 
-// A (integer) number is a sequence of digits.
 Integer        = [0-9]+
-
-// A (decimal) float is a real number with a decimal value.
+Long           = [0-9]+L
+// TODO(steving) Require `F` suffix on `float` values rather than `D` suffix on `double` values.
 Float          = {Integer}\.{Integer}
+Double         = {Integer}\.{Integer}D
+Char           = '.'
 
 // A variable identifier. We'll just do uppercase for vars.
 Identifier     = ([a-z]|[A-Z])([a-z]|[A-Z]|_|[0-9])*
@@ -247,9 +248,12 @@ PrivilegedInlineJavaTypeCaptures = "$$TYPES<"({Identifier},)*{Identifier}>\n
 
     // Builtin Types.
     "int"              { return symbol(Tokens.INT_TYPE, 0, 3, "int"); }
+    "long"             { return symbol(Tokens.LONG_TYPE, 0, 4, "long"); }
     "float"            { return symbol(Tokens.FLOAT_TYPE, 0, 5, "float"); }
+    "double"           { return symbol(Tokens.DOUBLE_TYPE, 0, 6, "double"); }
     "boolean"          { return symbol(Tokens.BOOLEAN_TYPE, 0, 7, "boolean"); }
     "string"           { return symbol(Tokens.STRING_TYPE, 0, 6, "string"); }
+    "char"             { return symbol(Tokens.CHAR_TYPE, 0, 4, "char"); }
     "tuple"            { return symbol(Tokens.TUPLE_TYPE, 0, 5, "tuple"); }
     "oneof"            { return symbol(Tokens.ONEOF, 0, 5, "oneof"); }
     "struct"           { return symbol(Tokens.STRUCT_TYPE, 0, 6, "struct"); }
@@ -337,12 +341,24 @@ PrivilegedInlineJavaTypeCaptures = "$$TYPES<"({Identifier},)*{Identifier}>\n
                          String lexed = yytext();
                          return symbol(Tokens.INTEGER, 0, lexed.length(), Integer.parseInt(lexed));
                        }
+    {Long}             {
+                         String lexed = yytext();
+                         return symbol(Tokens.LONG, 0, lexed.length(), lexed);
+                       }
+    {Char}             {
+                         String lexed = yytext();
+                         return symbol(Tokens.CHAR, 0, lexed.length(), lexed.charAt(1));
+                       }
 
     // If float is found, return the token FLOAT that represents a float and the value of
     // the float that is held in the string yytext
     {Float}            {
                          String lexed = yytext();
                          return symbol(Tokens.FLOAT, 0, lexed.length(), Double.parseDouble(lexed));
+                       }
+    {Double}           {
+                         String lexed = yytext();
+                         return symbol(Tokens.DOUBLE, 0, lexed.length(), lexed);
                        }
 
     {Identifier}       {

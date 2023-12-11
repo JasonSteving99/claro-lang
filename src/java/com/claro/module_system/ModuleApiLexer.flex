@@ -153,9 +153,12 @@ WhiteSpace     = [ \t\f]
 
     // Builtin Types.
     "int"              { return symbol(Tokens.INT_TYPE, 0, 3, "int"); }
+    "long"             { return symbol(Tokens.LONG_TYPE, 0, 4, "long"); }
     "float"            { return symbol(Tokens.FLOAT_TYPE, 0, 5, "float"); }
+    "double"           { return symbol(Tokens.DOUBLE_TYPE, 0, 6, "double"); }
     "boolean"          { return symbol(Tokens.BOOLEAN_TYPE, 0, 7, "boolean"); }
     "string"           { return symbol(Tokens.STRING_TYPE, 0, 6, "string"); }
+    "char"             { return symbol(Tokens.CHAR_TYPE, 0, 4, "char"); }
     "tuple"            { return symbol(Tokens.TUPLE_TYPE, 0, 5, "tuple"); }
     "oneof"            { return symbol(Tokens.ONEOF, 0, 5, "oneof"); }
     "struct"           { return symbol(Tokens.STRUCT_TYPE, 0, 6, "struct"); }
