@@ -1,0 +1,74 @@
+var UP = (-1, 0); var DOWN = (1, 0); var LEFT = (0, -1); var RIGHT = (0, 1);
+alias PipeDirs : {string: {tuple<int, int>}}
+var PIPE_DIRS: PipeDirs =
+  {"|" : {UP, DOWN}, "-" : {LEFT, RIGHT}, "L" : {UP, RIGHT}, "J" : {UP, LEFT}, "7" : {DOWN, LEFT}, "F" : {DOWN, RIGHT}};
+
+resources::Input
+  |> files::readOrPanic(^)
+  |> [strings::splitChars(line) | line in strings::split(^, "\n")]
+  |> var game = {map = ^, startPoint = findStartPoint(^)};
+
+var firstPipe =
+  getNext(
+    game.startPoint,
+    [
+      dir
+      | dir in [UP, DOWN, LEFT, RIGHT]
+      where
+      not isOutOfBounds((game.startPoint[0] + dir[0], game.startPoint[1] + dir[1]), len(game.map), len(game.map[0]))
+      and (game.map[game.startPoint[0] + dir[0]][game.startPoint[1] + dir[1]] in PIPE_DIRS)
+    ][0]
+  );
+
+var loopPath =
+  traverseLoop(
+    game.map, firstPipe, PIPE_DIRS, mut {firstPipe, game.startPoint}, mut [game.map[firstPipe[0]][firstPipe[1]]]);
+print(len(loopPath) / 2 + 1);
+
+function findStartPoint(map: [[string]]) -> tuple<int, int> {
+  var r = 0;
+  while (r < len(map)) {
+    var c = 0;
+    while (c < len(map[0])) {
+      if (map[r][c] == "S") {
+        return (r, c);
+      }
+      ++c;
+    }
+    ++r;
+  }
+  return (-1, -1);
+}
+
+function traverseLoop(
+    map: [[string]], loc: tuple<int, int>, PIPE_DIRS: PipeDirs, visited: mut {tuple<int, int>}, path: mut [string])
+    -> mut [string] {
+  var currPipe = map[loc[0]][loc[1]];
+  while (currPipe != "S") {
+     # TODO(steving) Figure out how to fix codegen so this works. Looks like Java can't infer current types in codegen.
+    # for (dir in PIPE_DIRS[map[loc[0]][loc[1]]]) {
+    var dirs = PIPE_DIRS[map[loc[0]][loc[1]]];
+    for (dir in dirs) {
+      var nextLoc = getNext(loc, dir);
+      if ((len(path) > 2) and (map[nextLoc[0]][nextLoc[1]] == "S")) {
+        return path;
+      }
+      if (isOutOfBounds(nextLoc, len(map), len(map[0])) or (not sets::add(visited, nextLoc))) {
+        continue; # Don't go OOB or backtrack.
+      }
+      loc = nextLoc;
+      lists::add(path, map[loc[0]][loc[1]]);
+      currPipe = map[loc[0]][loc[1]];
+      break;
+    }
+  }
+  return path;
+}
+
+function getNext(loc: tuple<int, int>, dir: tuple<int, int>) -> tuple<int, int> {
+  return (loc[0] + dir[0], loc[1] + dir[1]);
+}
+
+function isOutOfBounds(loc: tuple<int, int>, rows: int, cols: int) -> boolean {
+  return (loc[0] < 0) or (loc[0] >= rows) or (loc[1] < 0) or (loc[1] >= cols);
+}
