@@ -22,6 +22,9 @@ mkdir -p "$dest/example"
 # .bazelrc
 echo '{{DOT_BAZEL_RC}}' > "$dest/.bazelrc"
 
+# .bazelversion
+echo '{{DOT_BAZEL_VERSION}}' > "$dest/.bazelversion"
+
 # MODULE.bazel
 echo '{{MODULE_DOT_BAZEL}}' > "$dest/MODULE.bazel"
 
