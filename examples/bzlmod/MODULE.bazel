@@ -1,7 +1,4 @@
-module(
-  name = "example-claro-module",
-  version = "1.0.0",
-)
+module(name = "example-claro-module")
 
-bazel_dep(name = "claro-lang", version = "0.1.368")
+bazel_dep(name = "claro-lang", version = "0.1.409")
 

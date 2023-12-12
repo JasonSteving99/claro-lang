@@ -177,7 +177,7 @@ terminal LexedValue<ScopedIdentifier> SCOPED_IDENTIFIER;
 // Builtin Types
 terminal LexedValue<String>  INT_TYPE, LONG_TYPE, FLOAT_TYPE, DOUBLE_TYPE, BOOLEAN_TYPE, STRING_TYPE, CHAR_TYPE,
                              TUPLE_TYPE, STRUCT_TYPE, ONEOF, FUNCTION_TYPE, CONSUMER_FUNCTION_TYPE,
-                             PROVIDER_FUNCTION_TYPE, LAMBDA;
+                             PROVIDER_FUNCTION_TYPE;
 terminal LexedValue<String>  MUT;
 terminal LexedValue<String>  FUTURE, BLOCKING, MAYBE_BLOCKING;
 terminal LexedValue<String>  ALIAS;

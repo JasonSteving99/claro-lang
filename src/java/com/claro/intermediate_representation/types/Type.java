@@ -4,7 +4,6 @@ import com.claro.ClaroParserException;
 import com.claro.module_system.module_serialization.proto.claro_types.TypeProtos.TypeProto;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -37,7 +36,7 @@ public abstract class Type {
 
   // This needs to return a JavaSource String that will construct an instance of this Type, i.e. *this* class.
   public String getJavaSourceClaroType() {
-    throw new NotImplementedException();
+    throw new RuntimeException("Internal Compiler Error: This should've been overridden.");
   }
 
   // Convert to Claro's canonical user-facing builtin type name.
