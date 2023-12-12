@@ -1,14 +1,14 @@
 provider static_MAX_VALUE() -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = java.lang.Double.MAX_VALUE;
+    res = java.lang.Float.MAX_VALUE;
   $$END_JAVA
   return res;
 }
 provider static_MIN_VALUE() -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = java.lang.Double.MIN_VALUE;
+    res = java.lang.Float.MIN_VALUE;
   $$END_JAVA
   return res;
 }

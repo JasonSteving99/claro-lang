@@ -1,5 +1,5 @@
 Common::getPreProcessedInput()
-  |> [[Utils::orElse(floats::parseFloat(num), -1.0) | num in nums] | nums in ^]
+  |> [[Utils::orElse(doubles::parseDouble(num), -1.0) | num in nums] | nums in ^]
   |> {gameTimes = ^[0], goalDist = ^[1]}
   |> var games = ^;
 

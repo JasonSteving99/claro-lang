@@ -14,7 +14,7 @@ provider getPreProcessedInput() -> [[string]] {
   return res;
 }
 
-function solveForWinningBounds(gameTime: float, goalDist: float) -> struct {lower: int, upper: int} {
+function solveForWinningBounds(gameTime: double, goalDist: double) -> struct {lower: int, upper: int} {
   math::sqrt(gameTime ** 2 - 4 * goalDist) # simplified (b^2 - 4ac)^.5
     |> ((^ - gameTime) / -2, (-gameTime - ^) / -2)
     |> var bounds = ^;

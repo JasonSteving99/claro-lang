@@ -1,10 +1,13 @@
-var unitIntervalFloat = random::floatInUnitInterval();
-log("Random float in range [0, 1):", unitIntervalFloat);
+var unitIntervalDouble = random::doubleInUnitInterval();
+log("Random double in range [0, 1):", unitIntervalDouble);
 
 var rng = random::create();
 
 var b = random::nextBoolean(rng);
 log("Random boolean:", b);
+
+var d = random::nextDouble(rng);
+log("Random double:", d);
 
 var f = random::nextFloat(rng);
 log("Random float:", f);

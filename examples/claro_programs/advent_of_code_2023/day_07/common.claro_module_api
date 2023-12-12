@@ -1,6 +1,6 @@
 
 flag wild: boolean;
 
-static CARD_VALUES_MAP: {string: int};
+static CARD_VALUES_MAP: {char: int};
 
 provider getPreProcessedInput() -> string;

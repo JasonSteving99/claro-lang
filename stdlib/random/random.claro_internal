@@ -2,8 +2,8 @@
 alias JavaRandomType : $java_type("java.util.Random")
 newtype RandomNumberGenerator : JavaRandomType
 
-provider floatInUnitInterval() -> float {
-  var res: float;
+provider doubleInUnitInterval() -> double {
+  var res: double;
   $$BEGIN_JAVA
     res = java.lang.Math.random();
   $$END_JAVA
@@ -34,10 +34,17 @@ function nextBoolean(rng: RandomNumberGenerator) -> boolean {
   $$END_JAVA
   return res;
 }
+function nextDouble(rng: RandomNumberGenerator) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = rng.wrappedValue.nextDouble();
+  $$END_JAVA
+  return res;
+}
 function nextFloat(rng: RandomNumberGenerator) -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = rng.wrappedValue.nextDouble();
+    res = rng.wrappedValue.nextFloat();
   $$END_JAVA
   return res;
 }

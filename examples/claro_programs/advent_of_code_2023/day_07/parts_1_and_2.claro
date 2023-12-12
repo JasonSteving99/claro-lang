@@ -40,11 +40,11 @@ for (hand in handsCopy) {
 }
 print(totalWinnings);
 
-function scoreHand(hand: [string]) -> tuple<int, [int]> {
-  var cardCounts: mut {string: int} = mut {};
+function scoreHand(hand: [char]) -> tuple<int, [int]> {
+  var cardCounts: mut {char: int} = mut {};
   var wildCount = 0;
   for (c in hand) {
-    if (Common::wild and (c == "J")) {
+    if (Common::wild and (c == 'J')) {
       wildCount++;
     } else {
       cardCounts[c] = maps::getOrDefaultFromMut(cardCounts, c, 0) + 1;

@@ -31,7 +31,7 @@ function ceiling(d: double) -> double {
 function ceilingFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = java.lang.Math.ceil(f);
+    res = (float) java.lang.Math.ceil(f);
   $$END_JAVA
   return res;
 }
@@ -46,7 +46,7 @@ function floor(d: double) -> double {
 function floorFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = java.lang.Math.floor(f);
+    res = (float) java.lang.Math.floor(f);
   $$END_JAVA
   return res;
 }
@@ -135,7 +135,7 @@ function sqrt(d: double) -> double {
 function sqrtFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
-    res = java.lang.Math.sqrt(f);
+    res = (float) java.lang.Math.sqrt(f);
   $$END_JAVA
   return res;
 }
