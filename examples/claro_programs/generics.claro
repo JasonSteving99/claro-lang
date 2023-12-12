@@ -130,7 +130,7 @@ print(mappedFloatsRes);
 
 implement Conversion<int, float> {
   function applyConversion(from: int) -> float {
-    return from * 1.0;
+    return from * 1.0F;
   }
 }
 

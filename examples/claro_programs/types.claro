@@ -13,11 +13,11 @@ var l: long = 1L;
 print(l);
 type(l);
 
-var f: float = 1.0;
+var f: float = 1.0F;
 print(f);
 type(f);
 
-var d: double = 1.0D;
+var d: double = 1.0;
 print(d);
 type(d);
 
@@ -84,7 +84,7 @@ print(i2);
 type(i2);
 
 var f2: float;
-f2 = 1.0;
+f2 = 1.0F;
 print(f2);
 type(f2);
 

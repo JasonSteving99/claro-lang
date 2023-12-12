@@ -1,4 +1,4 @@
 
 print(Bottom::asList(1, "one"));
 print(MidA::asList("two", 2));
-print(MidB::asList("two", 2.0));
+print(MidB::asList("two", 2.0F));

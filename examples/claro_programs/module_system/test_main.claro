@@ -31,7 +31,7 @@ print(TestDep2::List([1]));
 
 # Demonstrate that static values exported by dep modules can be read.
 print("----------------------------------------------------------------------------------------------------");
-print("Here's the definition of `TestDep::PI`: {TestDep::PI}");
+print("Here's the definition of `TestDep::SOME_INT`: {TestDep::SOME_INT}");
 print("Here's the definition of `TestDep::SOME_LAZY_STATIC_VAL`: {TestDep::SOME_LAZY_STATIC_VAL}");
 print("`TestDep::SOME_LAZY_STATIC_VAL` was already initialized: {TestDep::SOME_LAZY_STATIC_VAL}");
 

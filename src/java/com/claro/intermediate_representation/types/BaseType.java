@@ -15,7 +15,7 @@ public enum BaseType {
   // TODO(steving) Migrate all primitives to actually be Java primitives.
   INTEGER("int", "Integer", Integer.class),
   LONG("long", "Long", Long.class),
-  FLOAT("float", "Double", Double.class),
+  FLOAT("float", "Float", Float.class),
   DOUBLE("double", "Double", Double.class),
   BOOLEAN("boolean", "Boolean", Boolean.class),
   STRING("string", "String", String.class),

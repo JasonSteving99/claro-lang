@@ -1,12 +1,12 @@
-provider static_MAX_VALUE() -> float {
-  var res: float;
+provider static_MAX_VALUE() -> double {
+  var res: double;
   $$BEGIN_JAVA
     res = java.lang.Double.MAX_VALUE;
   $$END_JAVA
   return res;
 }
-provider static_MIN_VALUE() -> float {
-  var res: float;
+provider static_MIN_VALUE() -> double {
+  var res: double;
   $$BEGIN_JAVA
     res = java.lang.Double.MIN_VALUE;
   $$END_JAVA
@@ -14,8 +14,8 @@ provider static_MIN_VALUE() -> float {
 }
 
 
-function parseFloat(s: string) -> oneof<float, std::Error<InvalidNumberFormat>> {
-  var res: oneof<float, std::Error<InvalidNumberFormat>>;
+function parseDouble(s: string) -> oneof<double, std::Error<InvalidNumberFormat>> {
+  var res: oneof<double, std::Error<InvalidNumberFormat>>;
 
   var errCons = (msg: string) -> std::Error<InvalidNumberFormat> { return std::Error(InvalidNumberFormat({msg = msg})); };
 

@@ -156,10 +156,16 @@ public class ClaroRuntimeUtilities {
       switch (value.getClass().getSimpleName()) {
         case "Integer":
           return Types.INTEGER;
-        case "Double":
+        case "Long":
+          return Types.LONG;
+        case "Float":
           return Types.FLOAT;
+        case "Double":
+          return Types.DOUBLE;
         case "String":
           return Types.STRING;
+        case "Character":
+          return Types.CHAR;
         case "Boolean":
           return Types.BOOLEAN;
         default:

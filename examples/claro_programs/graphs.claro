@@ -33,7 +33,7 @@
 #                                     |
 #                                     v
 #                                   result
-graph function firstGraph(x: float, y: float) -> future<float> {
+graph function firstGraph(x: double, y: double) -> future<double> {
   root result <- @multiply / @squared;
 
   node multiply <- @plus1 * @minusY;
@@ -56,7 +56,7 @@ print(firstConcurrentClaroResult);
 ####################################################################################################
 # DEMONSTRATE BASIC GRAPH PROVIDER SEMANTICS
 ####################################################################################################
-graph provider firstGraphProvider() -> future<float> {
+graph provider firstGraphProvider() -> future<double> {
   root providedRes <- @deferredFirstGraphRes;
   node deferredFirstGraphRes <- firstGraph(10.0, 2.0);
 }

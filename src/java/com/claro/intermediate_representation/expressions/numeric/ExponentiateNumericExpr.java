@@ -25,8 +25,7 @@ public class ExponentiateNumericExpr extends NumericExpr {
     ((Expr) this.getChildren().get(0)).assertSupportedExprType(scopedHeap, SUPPORTED_EXPONENTIATE_OPERAND_TYPES);
     ((Expr) this.getChildren().get(1)).assertSupportedExprType(scopedHeap, SUPPORTED_EXPONENTIATE_OPERAND_TYPES);
 
-    // TODO(steving) THIS SHOULD ACTUALLY RETURN DOUBLE.
-    return Types.FLOAT;
+    return Types.DOUBLE;
   }
 
   @Override

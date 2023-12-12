@@ -1,7 +1,13 @@
 
 files::readOrPanic(resources::Input)
   |> strings::split(^, "\n")
-  |> [[ints::parseInt(x) | x in strings::splitChars(line) where ints::parseInt(x) instanceof int] | line in ^]
+  |> [
+      [
+        ints::parseInt(strings::fromChar(x))
+        | x in strings::splitChars(line) where ints::parseInt(strings::fromChar(x)) instanceof int
+      ]
+      | line in ^
+     ]
   |> fp::map(
        ^,
        (nums: [oneof<int, std::Error<ints::InvalidNumberFormat>>]) -> int {

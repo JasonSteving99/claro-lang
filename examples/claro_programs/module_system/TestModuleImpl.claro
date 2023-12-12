@@ -5,10 +5,10 @@ newtype ImmutableList<T> : [T]
 
 # For any module exported static value, Claro validates that the the module's sources exports a provider function named
 # `static_<static value name>()` that returns the declared type of the static value.
-provider static_PI() -> float {
+provider static_SOME_INT() -> int {
   print("...computing PI...");
   print("......checking TEST_FLAG......: <{TEST_FLAG}>");
-  return 3.14;
+  return 314;
 }
 provider static_SOME_LAZY_STATIC_VAL() -> string {
   print("...computing SOME_LAZY_STATIC_VAL...");
@@ -20,7 +20,7 @@ function intIdentity(i: int) -> int {
 }
 
 function add(lhs: int, rhs: int) -> int {
-  print("TESTING!!! HERE'S THE STATIC VALUE `PI`: {PI}");
+  print("TESTING!!! HERE'S THE STATIC VALUE `SOME_INT`: {SOME_INT}");
   return lhs + rhs;
 }
 

@@ -18,7 +18,7 @@ public class GreaterThanOrEqualToBoolExpr extends BoolExpr {
 
   @Override
   protected ImmutableSet<Type> getSupportedOperandTypes() {
-    return ImmutableSet.of(Types.INTEGER, Types.FLOAT);
+    return ImmutableSet.of(Types.INTEGER, Types.LONG, Types.FLOAT, Types.DOUBLE);
   }
 
   @Override

@@ -196,7 +196,9 @@ public class MatchStmt extends Stmt {
     switch (matchedExprType.baseType()) {
       case ATOM:
       case INTEGER:
+      case LONG:
       case STRING:
+      case CHAR:
       case BOOLEAN:
         validMatchPatternsPossible.set(true);
         flattenedMatchValueTypes.add(matchedExprType);
@@ -1730,12 +1732,16 @@ public class MatchStmt extends Stmt {
               .append(")) {");
         }
       } else {
+        String formattedCaseValue = currCase.get().toString();
+        if (currCase.get() instanceof String) {
+          formattedCaseValue = String.format("\"%s\"", formattedCaseValue);
+        } else if (currCase.get() instanceof Character) {
+          formattedCaseValue = String.format("'%s'", formattedCaseValue);
+        }
         res.get()
             .javaSourceBody()
             .append("\tcase ")
-            .append(currCase.get() instanceof String
-                    ? String.format("\"%s\"", currCase.get())
-                    : currCase.get().toString())
+            .append(formattedCaseValue)
             .append(": {\n");
         codegenDestructuredSequenceMatch(
             caseGroup, flattenedPatternTypes,
@@ -1936,8 +1942,12 @@ public class MatchStmt extends Stmt {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.empty(), Optional.empty(), Optional.of(MaybeWildcardPrimitivePattern.globalWildcardCount++));
       } else if (nullableExpr instanceof IntegerTerm) {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((IntegerTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
+      } else if (nullableExpr instanceof LongTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((LongTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof StringTerm) {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((StringTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
+      } else if (nullableExpr instanceof CharTerm) {
+        return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((CharTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof TrueTerm) {
         return new AutoValue_MatchStmt_MaybeWildcardPrimitivePattern(Optional.of(((TrueTerm) nullableExpr).getValue()), Optional.empty(), Optional.empty());
       } else if (nullableExpr instanceof FalseTerm) {
@@ -1982,8 +1992,12 @@ public class MatchStmt extends Stmt {
         Object primitiveLiteral = this.getOptionalExpr().get();
         if (primitiveLiteral instanceof String) {
           return Types.STRING;
+        } else if (primitiveLiteral instanceof Character) {
+            return Types.CHAR;
         } else if (primitiveLiteral instanceof Integer) {
           return Types.INTEGER;
+        } else if (primitiveLiteral instanceof Long) {
+          return Types.LONG;
         } else if (primitiveLiteral instanceof Boolean) {
           return Types.BOOLEAN;
         } else if (primitiveLiteral instanceof TypeProvider) {
@@ -1993,7 +2007,7 @@ public class MatchStmt extends Stmt {
         } else if (primitiveLiteral instanceof OneofTypeVariantsMatchedSentinel) {
           return ((OneofTypeVariantsMatchedSentinel) primitiveLiteral).toImpliedType(scopedHeap);
         } else {
-          throw new RuntimeException("Internal Compiler Error: Should be unreachable.");
+          throw new RuntimeException("Internal Compiler Error: Should be unreachable. " + primitiveLiteral.getClass());
         }
       } else {
         return Types.$GenericTypeParam.forTypeParamName("$_" + this.getOptionalWildcardId().get() + "_");

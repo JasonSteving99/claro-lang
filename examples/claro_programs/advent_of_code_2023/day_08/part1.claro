@@ -17,12 +17,12 @@ function parseNode(map: Graph, s: string) -> Graph {
   return map;
 }
 
-function countStepsToGoal(dirs: [string], map: Graph) -> int {
+function countStepsToGoal(dirs: [char], map: Graph) -> int {
   var steps = 0;
   var currNode = "AAA";
   while (currNode != "ZZZ") {
     match (dirs[steps++ % len(dirs)]) {
-      case "L" -> currNode = map[currNode].left;
+      case 'L' -> currNode = map[currNode].left;
       case _   -> currNode = map[currNode].right;
     }
   }

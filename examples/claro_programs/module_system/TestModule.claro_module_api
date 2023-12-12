@@ -12,7 +12,7 @@ flag TEST_FLAG: string;
 # value are compile-time errors. Note that static values are also required to be of some deeply-immutable type. This
 # restriction is in place in order to ensure that these static values cannot be the source of data races in a concurrent
 # context (directly or indirectly via graph procedures).
-static PI: float;
+static SOME_INT: int;
 lazy static SOME_LAZY_STATIC_VAL: string;
 
 # This would be illegal as the static value is mutable.

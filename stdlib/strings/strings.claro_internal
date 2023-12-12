@@ -1,8 +1,16 @@
 
-function charAt(s: string, i: int) -> string {
+function fromChar(c: char) -> string {
   var res: string;
   $$BEGIN_JAVA
-    res = String.valueOf(s.charAt(i));
+    res = java.lang.String.valueOf(c);
+  $$END_JAVA
+  return res;
+}
+
+function charAt(s: string, i: int) -> char {
+  var res: char;
+  $$BEGIN_JAVA
+    res = s.charAt(i);
   $$END_JAVA
   return res;
 }
@@ -213,14 +221,14 @@ function splitWithLimit(s: string, regex: string, limit: int) -> [string] {
   $$END_JAVA
   return res;
 }
-function splitChars(s: string) -> [string] {
-  var res: [string];
-  alias ListType : [string]
+function splitChars(s: string) -> [char] {
+  var res: [char];
+  alias ListType : [char]
   $$BEGIN_JAVA
   $$TYPES<ListType>
     res = new ClaroList($$CLARO_TYPE(ListType), s.length());
     for (int i = 0; i < s.length(); i++) {
-      res.add(String.valueOf(s.charAt(i)));
+      res.add(s.charAt(i));
     }
   $$END_JAVA
   return res;

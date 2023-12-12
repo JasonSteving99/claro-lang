@@ -1,0 +1,29 @@
+provider static_MAX_VALUE() -> long {
+  var res: long;
+  $$BEGIN_JAVA
+    res = java.lang.Long.MAX_VALUE;
+  $$END_JAVA
+  return res;
+}
+provider static_MIN_VALUE() -> long {
+  var res: long;
+  $$BEGIN_JAVA
+    res = java.lang.Long.MIN_VALUE;
+  $$END_JAVA
+  return res;
+}
+
+function parseLong(s: string) -> oneof<long, std::Error<InvalidNumberFormat>> {
+  var res: oneof<long, std::Error<InvalidNumberFormat>>;
+
+  var errCons = (msg: string) -> std::Error<InvalidNumberFormat> { return std::Error(InvalidNumberFormat({msg = msg})); };
+
+  $$BEGIN_JAVA
+    try {
+      res = java.lang.Long.parseLong(s);
+    } catch (java.lang.NumberFormatException e) {
+      res = errCons.apply(e.getMessage());
+    }
+  $$END_JAVA
+  return res;
+}

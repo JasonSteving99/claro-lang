@@ -26,7 +26,7 @@ final public class FloatTerm extends Term {
   @Override
   public StringBuilder generateJavaSourceBodyOutput(ScopedHeap scopedHeap) {
     // Let's not depend on Java to autobox (although sometimes we can depend on Java to auto-unbox for arithmetic).
-    return new StringBuilder().append("Double.valueOf(").append(this.value).append(")");
+    return new StringBuilder().append("Float.valueOf(").append(this.value).append("F)");
   }
 
   @Override

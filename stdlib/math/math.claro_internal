@@ -6,6 +6,13 @@ function absInt(i: int) -> int {
   $$END_JAVA
   return res;
 }
+function absDouble(d: double) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = java.lang.Math.abs(d);
+  $$END_JAVA
+  return res;
+}
 function absFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
@@ -14,7 +21,14 @@ function absFloat(f: float) -> float {
   return res;
 }
 
-function ceiling(f: float) -> float {
+function ceiling(d: double) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = java.lang.Math.ceil(d);
+  $$END_JAVA
+  return res;
+}
+function ceilingFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
     res = java.lang.Math.ceil(f);
@@ -22,7 +36,14 @@ function ceiling(f: float) -> float {
   return res;
 }
 
-function floor(f: float) -> float {
+function floor(d: double) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = java.lang.Math.floor(d);
+  $$END_JAVA
+  return res;
+}
+function floorFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
     res = java.lang.Math.floor(f);
@@ -32,6 +53,13 @@ function floor(f: float) -> float {
 
 function maxInt(a: int, b: int) -> int {
   var res: int;
+  $$BEGIN_JAVA
+    res = java.lang.Math.max(a, b);
+  $$END_JAVA
+  return res;
+}
+function maxDouble(a: double, b: double) -> double {
+  var res: double;
   $$BEGIN_JAVA
     res = java.lang.Math.max(a, b);
   $$END_JAVA
@@ -52,6 +80,13 @@ function minInt(a: int, b: int) -> int {
   $$END_JAVA
   return res;
 }
+function minDouble(a: double, b: double) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = java.lang.Math.min(a, b);
+  $$END_JAVA
+  return res;
+}
 function minFloat(a: float, b: float) -> float {
   var res: float;
   $$BEGIN_JAVA
@@ -60,14 +95,28 @@ function minFloat(a: float, b: float) -> float {
   return res;
 }
 
-function roundDownToInt(f: float) -> int {
+function roundDownToInt(d: double) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) java.lang.Math.floor(d);
+  $$END_JAVA
+  return res;
+}
+function roundUpToInt(d: double) -> int {
+  var res: int;
+  $$BEGIN_JAVA
+    res = (int) java.lang.Math.ceil(d);
+  $$END_JAVA
+  return res;
+}
+function roundFloatDownToInt(f: float) -> int {
   var res: int;
   $$BEGIN_JAVA
     res = (int) java.lang.Math.floor(f);
   $$END_JAVA
   return res;
 }
-function roundUpToInt(f: float) -> int {
+function roundFloatUpToInt(f: float) -> int {
   var res: int;
   $$BEGIN_JAVA
     res = (int) java.lang.Math.ceil(f);
@@ -75,7 +124,15 @@ function roundUpToInt(f: float) -> int {
   return res;
 }
 
-function sqrt(f: float) -> float {
+
+function sqrt(d: double) -> double {
+  var res: double;
+  $$BEGIN_JAVA
+    res = java.lang.Math.sqrt(d);
+  $$END_JAVA
+  return res;
+}
+function sqrtFloat(f: float) -> float {
   var res: float;
   $$BEGIN_JAVA
     res = java.lang.Math.sqrt(f);

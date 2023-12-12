@@ -1,58 +1,40 @@
-# TODO(steving) THIS CURRENT SOLUTION IS AN ABOMINATION. IT'S CURRENTLY MAKING A MASSIVE HACK AROUND CLARO'S
-# TODO(steving)   CURRENT LIMITATIONS IN ITS SET OF AVAILABLE BUILTIN PRIMITIVE TYPES - NAMELY THAT IT DOESN'T
-# TODO(steving)   HAVE ACCESS TO `long` AND ONLY HAS ACCESS TO `int`. THERE'S NO DEEP REASON FOR THIS BEYOND
-# TODO(steving)   THE FACT THAT I HAVEN'T HAD TIME TO ADD SUPPORT FOR IT YET. SO PLEASE DO NOT JUDGE CLARO BASED
-# TODO(steving)   SOLELY ON THIS PROGRAM ALONE.
-alias Range : struct {
-  lowInclusive: HackingUtils::Long,
-  highExclusive: HackingUtils::Long,
-  posShiftMapping: HackingUtils::Long
-}
+alias Range : struct { lowInclusive: long, highExclusive: long, posShiftMapping: long }
 
 resources::Input
   |> files::readOrPanic(^)
   |> strings::split(^, "\n\n")
   |> [strings::split(strings::split(s, ":\\s")[1], "\n") | s in ^]
   |> {
-        seeds =
-          [
-            orElse(HackingUtils::longFromString(num), HackingUtils::longFromInt(-1))
-            | num in strings::split(^[0][0], " ")
-          ],
+        seeds = [Utils::orElse(longs::parseLong(num), -1L) | num in strings::split(^[0][0], " ")],
         maps = [[parseRange(nums) | nums in mapping] | mapping in tail(^)]
      }
   # At this point I'm gonna stop trying to be so tricky today and drop down into some good ol' imperative style.
   |> var seedsAndMappings = ^;
 
-var closestLocation = HackingUtils::getMaxLong();
+var closestLocation = longs::MAX_VALUE;
 for (currVal in seedsAndMappings.seeds) {
   for (mapping in seedsAndMappings.maps) {
     currVal = getMappedVal(mapping, currVal);
   }
-  if (HackingUtils::longLessThan(currVal, closestLocation)) {
+  if (currVal < closestLocation) {
     closestLocation = currVal;
   }
 }
 print("Closest seed location: {closestLocation}");
 
 function parseRange(nums: string) -> Range {
-  var longs: [HackingUtils::Long] = [
-    orElse(HackingUtils::longFromString(i), HackingUtils::longFromInt(-1))
-    | i in strings::split(nums, " ")
-  ];
+  var longs: [long] = [Utils::orElse(longs::parseLong(i), -1L) | i in strings::split(nums, " ")];
   return {
     lowInclusive = longs[1],
-    highExclusive = HackingUtils::longAdd(longs[1], longs[2]),
-    posShiftMapping = HackingUtils::longSub(longs[0], longs[1])
+    highExclusive = longs[1] + longs[2],
+    posShiftMapping = longs[0] - longs[1]
   };
 }
 
-function getMappedVal(mapping: [Range], currVal: HackingUtils::Long) -> HackingUtils::Long {
+function getMappedVal(mapping: [Range], currVal: long) -> long {
   for (range in mapping) {
-    if (HackingUtils::longGreaterOrEqualTo(currVal, range.lowInclusive)
-        and
-        HackingUtils::longLessThan(currVal, range.highExclusive)) {
-      return HackingUtils::longAdd(currVal, range.posShiftMapping); # Found the map it's in.
+    if ((currVal >= range.lowInclusive) and (currVal < range.highExclusive)) {
+      return currVal + range.posShiftMapping; # Found the map it's in.
     }
   }
   return currVal; # No mapping.
@@ -64,12 +46,4 @@ function tail<T>(l: [T]) -> [T] {
     return res;
   }
   return [];
-}
-
-# TODO(steving) Seems like Claro really needs this sort of functionality builtin to the stdlib.
-function orElse<A,B>(toNarrow: oneof<A, B>, fallback: A) -> A {
-  if (toNarrow instanceof A) {
-    return toNarrow;
-  }
-  return fallback;
 }

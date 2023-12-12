@@ -5,8 +5,9 @@
 
 atom NOT_FOUND
 
-# TODO(steving) Revisit this once Claro has support for chars.
-function charAt(s: string, i: int) -> string;
+function fromChar(c: char) -> string;
+
+function charAt(s: string, i: int) -> char;
 
 function commonPrefix(s: string, other: string) -> string;
 function commonSuffix(s: string, other: string) -> string;
@@ -49,8 +50,7 @@ function replaceFirst(s: string, regex: string, replacement: string) -> string;
 
 function split(s: string, regex: string) -> [string];
 function splitWithLimit(s: string, regex: string, limit: int) -> [string];
-# TODO(steving) Revisit this once Claro has support for chars.
-function splitChars(s: string) -> [string];
+function splitChars(s: string) -> [char];
 
 function startsWith(s: string, other: string) -> boolean;
 function startsWithFromIndex(s: string, other: string, from: int) -> boolean;

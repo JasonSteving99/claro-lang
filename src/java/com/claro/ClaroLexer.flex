@@ -101,9 +101,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 Integer        = [0-9]+
 Long           = [0-9]+L
-// TODO(steving) Require `F` suffix on `float` values rather than `D` suffix on `double` values.
-Float          = {Integer}\.{Integer}
-Double         = {Integer}\.{Integer}D
+Float          = {Integer}\.{Integer}F
+Double         = {Integer}\.{Integer}
 Char           = '.'
 
 // A variable identifier. We'll just do uppercase for vars.
@@ -354,11 +353,11 @@ PrivilegedInlineJavaTypeCaptures = "$$TYPES<"({Identifier},)*{Identifier}>\n
     // the float that is held in the string yytext
     {Float}            {
                          String lexed = yytext();
-                         return symbol(Tokens.FLOAT, 0, lexed.length(), Double.parseDouble(lexed));
+                         return symbol(Tokens.FLOAT, 0, lexed.length(), lexed);
                        }
     {Double}           {
                          String lexed = yytext();
-                         return symbol(Tokens.DOUBLE, 0, lexed.length(), lexed);
+                         return symbol(Tokens.DOUBLE, 0, lexed.length(), Double.parseDouble(lexed));
                        }
 
     {Identifier}       {

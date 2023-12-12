@@ -295,9 +295,8 @@ terminal LexedValue<String>  ARROW, UP_ARROW, PIPE_ARROW, IMPLICATION_ARROW;
 terminal LexedValue<Boolean> TRUE, FALSE;
 // An integer is also a terminal, but it's of type Integer.
 terminal LexedValue<Integer> INTEGER;
-terminal LexedValue<String>  LONG, DOUBLE;
-// A float is also a terminal, but it's of type Double.
-terminal LexedValue<Double>  FLOAT;
+terminal LexedValue<String>  LONG, FLOAT;
+terminal LexedValue<Double>  DOUBLE;
 // A string is also a terminal, but it's of type String.
 terminal LexedValue<String>  STRING, FMT_STRING_PART;
 terminal LexedValue<Character> CHAR;
@@ -4021,7 +4020,7 @@ primitive ::=
     float:f
     {: RESULT = f; :}
   | DOUBLE:d
-    {: RESULT = new DoubleTerm(Double.parseDouble(d.getVal().substring(0, d.getVal().length() - 1)), d.getCurrentInputLine(), dright, dleft, dleft + d.getLen()); :}
+    {: RESULT = new DoubleTerm(d.getVal(), d.getCurrentInputLine(), dright, dleft, dleft + d.getLen()); :}
   | integer:i
     {: RESULT = i; :}
   | LONG:l
@@ -4038,7 +4037,7 @@ primitive ::=
 
 float ::=
     FLOAT:f
-    {: RESULT = new FloatTerm(f.getVal(), f.getCurrentInputLine(), fright, fleft, fleft + f.getLen()); :}
+    {: RESULT = new FloatTerm(Double.parseDouble(f.getVal().substring(0, f.getVal().length() - 1)), f.getCurrentInputLine(), fright, fleft, fleft + f.getLen()); :}
   ;
 
 integer ::=

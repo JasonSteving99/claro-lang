@@ -1,0 +1,7 @@
+
+newtype InvalidNumberFormat : struct { msg: string }
+
+static MAX_VALUE: long;
+static MIN_VALUE: long;
+
+function parseLong(s: string) -> oneof<long, std::Error<InvalidNumberFormat>>;

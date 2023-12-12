@@ -27,12 +27,12 @@ firstOneof = secondOneof;
 print(firstOneof);
 
 print("Oneof's over different variant types are not mutually assignable:");
-print("oneof<string, int> != oneof<int, string, float>");
-var thirdOneof: oneof<int, string, float> = 1.2;
+print("oneof<string, int> != oneof<int, string, double>");
+var thirdOneof: oneof<int, string, double> = 1.2;
 print(thirdOneof);
 type(thirdOneof);
 
-# Uncomment below line for compile error that `oneof<int, string, float>` isn't compatible with `oneof<string, int>`.
+# Uncomment below line for compile error that `oneof<int, string, double>` isn't compatible with `oneof<string, int>`.
 #firstOneof = thirdOneof;
 #thirdOneof = firstOneof;
 
@@ -150,14 +150,14 @@ print(intOrString);
 # DEMONSTRATE CHECKING IF ONEOF IS "INSTANCEOF" OF SOME TYPE.
 ###############################################################################################
 
-var myOneof: oneof<string, int, float> = 1.0;
+var myOneof: oneof<string, int, double> = 1.0;
 
 print("----------------------------------------------------------------------------------------------------");
 print("Test `instanceof` operator:");
 var isCheckedType = myOneof instanceof int;
 print("`myOneof instanceof int`: {isCheckedType}");
-isCheckedType = myOneof instanceof float;
-print("`myOneof instanceof float`: {isCheckedType}");
+isCheckedType = myOneof instanceof double;
+print("`myOneof instanceof double`: {isCheckedType}");
 
 var oneofList: [oneof<int, string>] = [1, "two", 3, "four"];
 var i = 0;

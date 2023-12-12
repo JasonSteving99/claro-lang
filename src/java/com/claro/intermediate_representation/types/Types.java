@@ -2165,8 +2165,12 @@ public final class Types {
             return LONG;
           case "FLOAT":
             return FLOAT;
+          case "DOUBLE":
+            return DOUBLE;
           case "STRING":
             return STRING;
+          case "CHAR":
+            return CHAR;
           case "BOOLEAN":
             return BOOLEAN;
           case "HTTP_RESPONSE":
