@@ -310,7 +310,7 @@ public class ProgramNode {
         MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
       }
       res.append("\n// Semantically Polymorphic Builtin Type Concrete Monomorphizations Generated Below:\n");
-      for (Types.StructType s : Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.keySet()) {
+      for (Types.StructType s : Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.values()) {
         res.append(s.getConcreteJavaClassRepresentation());
       }
     }
