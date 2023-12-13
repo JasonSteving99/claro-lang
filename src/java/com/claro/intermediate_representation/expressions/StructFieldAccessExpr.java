@@ -48,16 +48,7 @@ public class StructFieldAccessExpr extends Expr {
     GeneratedJavaSource exprCodegen = this.expr.generateJavaSourceOutput(scopedHeap);
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder()
-                .append(this.codegenForRead ? "((" + this.validatedStructType.getFieldTypes()
-                    .get(fieldIndex)
-                    .getJavaSourceType() + ") " : "")
-                .append(exprCodegen.javaSourceBody().toString())
-                .append(".values[")
-                .append(fieldIndex)
-                .append("]")
-                .append(this.codegenForRead ? ")" : "")
-        );
+            new StringBuilder().append(exprCodegen.javaSourceBody().toString()).append(".").append(this.fieldName));
 
     // Already consumed this java source above.
     exprCodegen.javaSourceBody().setLength(0);

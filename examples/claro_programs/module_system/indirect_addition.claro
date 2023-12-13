@@ -11,3 +11,7 @@ function add(lhs: int, rhs: int) -> Addition::IntAlias {
 function addFancyInt(lhs: int, rhs: int) -> Addition::FancyInt {
   return Addition::getFancyInt(lhs + rhs);
 }
+
+provider getSomeStruct() -> struct {x: int, nested: struct {y: int}} {
+  return {x = 10, nested = {y = 100}};
+}
