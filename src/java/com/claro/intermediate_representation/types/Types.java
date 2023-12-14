@@ -503,7 +503,7 @@ public final class Types {
     // the concrete struct variants of this semantically polymorphic type.
     public static HashMap<String, Types.StructType>
         allReferencedConcreteStructTypesToOptionalGenericTypeMappings = Maps.newHashMap();
-    private Optional<Map<Type, Type>> autoValueIgnored_concreteTypeMappings = Optional.empty();
+    public Optional<Map<Type, Type>> autoValueIgnored_concreteTypeMappings = Optional.empty();
 
     public static StructType forFieldTypes(ImmutableList<String> fieldNames, ImmutableList<Type> fieldTypes, boolean isMutable) {
       return new AutoValue_Types_StructType(BaseType.STRUCT, ImmutableMap.of(), fieldNames, fieldTypes, isMutable);
