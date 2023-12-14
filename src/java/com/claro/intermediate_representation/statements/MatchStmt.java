@@ -882,7 +882,8 @@ public class MatchStmt extends Stmt {
         break;
       case STRUCT:
         elementTypes_OUT_PARAM.set(((Types.StructType) matchedExprType).getFieldTypes());
-        getElementAccessPattern_OUT_PARAM.set((type, i) -> "((" + type.getJavaSourceType() + ") %s.values[" + i + "])");
+        getElementAccessPattern_OUT_PARAM.set(
+            (type, i) -> "%s." + ((Types.StructType) matchedExprType).getFieldNames().get(i));
         break;
       case USER_DEFINED_TYPE:
         HashMap<Type, Type> userDefinedConcreteTypeParamsMap = Maps.newHashMap();

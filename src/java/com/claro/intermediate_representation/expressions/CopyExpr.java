@@ -218,62 +218,74 @@ public class CopyExpr extends Expr {
                                     .append(") ")
                                     .append(copiedTupleValSyntheticVar)
                                     .append(copiedExprType.baseType().equals(BaseType.TUPLE)
-                                            ? ".getElement("
-                                            : ".values[")
-                                    .append(i)
-                                    .append(copiedExprType.baseType().equals(BaseType.TUPLE) ? ")" : "]")
+                                            ? ".getElement(" + i + ")"
+                                            : "." + ((Types.StructType) copiedExprType).getFieldNames().get(i))
                                     .append(")")),
                             currElementType,
                             currCoercedElementType,
                             nestingLevel + 1
                         );
                       }).collect(ImmutableList.toImmutableList());
-          res = GeneratedJavaSource.forJavaSourceBody(
-              new StringBuilder("new Claro")
-                  .append(coercedType.baseType().equals(BaseType.TUPLE) ? "Tuple" : "Struct")
-                  .append("(")
-                  .append(coercedType.getJavaSourceClaroType())
-                  .append(", ")
-          );
           if (optionalElementCopyCodegens.stream().noneMatch(Optional::isPresent)
-              && !((SupportsMutableVariant<?>) copiedExprType).isMutable() &&
-              !((SupportsMutableVariant<?>) coercedType).isMutable()) {
+              && !((SupportsMutableVariant<?>) copiedExprType).isMutable()
+              && !((SupportsMutableVariant<?>) coercedType).isMutable()) {
             return Optional.empty();
           }
           // Here we've found some elements that aren't deeply-immutable, so we need to copy them.
-          res.javaSourceBody()
-              .append("((Function<")
-              .append(copiedExprType.getJavaSourceType())
-              .append(", Object[]>) ")
-              .append(copiedTupleValSyntheticVar)
-              .append(" -> new Object[] {")
-              .append(
-                  IntStream.range(
-                          0,
-                          copiedExprType.baseType().equals(BaseType.TUPLE)
-                          ? copiedExprType.parameterizedTypeArgs().size()
-                          : ((Types.StructType) copiedExprType).getFieldTypes().size()
-                      )
-                      .boxed()
-                      .map(
-                          i -> optionalElementCopyCodegens.get(i)
+          switch (coercedType.baseType()) {
+            case TUPLE:
+              res = GeneratedJavaSource.forJavaSourceBody(
+                  new StringBuilder("new ClaroTuple(").append(coercedType.getJavaSourceClaroType()).append(", "));
+              res.javaSourceBody()
+                  .append("((Function<")
+                  .append(copiedExprType.getJavaSourceType())
+                  .append(", Object[]>) ")
+                  .append(copiedTupleValSyntheticVar)
+                  .append(" -> new Object[] {")
+                  .append(
+                      IntStream.range(0, copiedExprType.parameterizedTypeArgs().size()).boxed()
+                          .map(i -> optionalElementCopyCodegens.get(i)
                               .map(GeneratedJavaSource::javaSourceBody)
-                              .orElseGet(() ->
-                                             new StringBuilder(
-                                                 String.format(
-                                                     copiedExprType.baseType().equals(BaseType.TUPLE)
-                                                     ? "%s.getElement(%s)"
-                                                     : "%s.values[%s]",
-                                                     copiedTupleValSyntheticVar,
-                                                     i
-                                                 )))
-                      )
-                      .collect(Collectors.joining(", "))
-              )
-              .append("}).apply(");
-          copiedExprJavaSource.javaSourceBody()
-              .append("))");
-          res = res.createMerged(copiedExprJavaSource);
+                              .orElseGet(() -> new StringBuilder(
+                                  String.format("%s.getElement(%s)", copiedTupleValSyntheticVar, i)))
+                          ).collect(Collectors.joining(", ")))
+                  .append("}).apply(");
+              copiedExprJavaSource.javaSourceBody()
+                  .append("))");
+              res = res.createMerged(copiedExprJavaSource);
+              break;
+            case STRUCT:
+              Types.StructType copiedStructType = (Types.StructType) copiedExprType;
+              String coercedStructJavaSourceType = coercedType.getJavaSourceType();
+              res = GeneratedJavaSource.forJavaSourceBody(
+                  new StringBuilder("((Function<")
+                      .append(copiedExprType.getJavaSourceType())
+                      .append(", ")
+                      .append(coercedStructJavaSourceType)
+                      .append(">) ")
+                      .append(copiedTupleValSyntheticVar)
+                      .append(" -> new ")
+                      .append(coercedStructJavaSourceType).append("(")
+                      .append(
+                          IntStream.range(0, copiedStructType.getFieldNames().size()).boxed()
+                              .map(i -> optionalElementCopyCodegens.get(i)
+                                  .map(GeneratedJavaSource::javaSourceBody)
+                                  .orElseGet(() -> new StringBuilder(
+                                      String.format(
+                                          "%s.%s",
+                                          copiedTupleValSyntheticVar,
+                                          ((Types.StructType) copiedExprType).getFieldNames().get(i)
+                                      )))
+                              ).collect(Collectors.joining(", ")))
+                      .append(")).apply(")
+              );
+              copiedExprJavaSource.javaSourceBody()
+                  .append(")");
+              res = res.createMerged(copiedExprJavaSource);
+              break;
+            default:
+              throw new RuntimeException("Internal Compiler Error! Expected Tuple/Struct, got: " + coercedType);
+          }
           return Optional.of(res);
         case USER_DEFINED_TYPE:
           Types.UserDefinedType copiedExprUserDefinedType = (Types.UserDefinedType) copiedExprType;

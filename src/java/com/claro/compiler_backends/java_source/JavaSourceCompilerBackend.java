@@ -693,7 +693,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
         .addAllConcreteTypeParams(
             orderedConcreteTypeParams.stream().map(Type::toProto).collect(Collectors.toList()))
         .addAllUserDefinedTypeConcreteTypeParamsMetadata(
-            orderedConcreteTypeParams.stream().filter(t -> t instanceof Types.UserDefinedType)
+            orderedConcreteTypeParams.stream()
+                .flatMap(t -> Types.collectAllReferencedUserDefinedTypes(t, ImmutableSet.builder()).build().stream())
                 .map(t -> {
                   Types.UserDefinedType userDefinedType = (Types.UserDefinedType) t;
                   String disambiguatedIdentifier =

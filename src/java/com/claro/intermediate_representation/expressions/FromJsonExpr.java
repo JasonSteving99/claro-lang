@@ -157,10 +157,15 @@ public class FromJsonExpr extends Expr {
     if (!alreadyPeekedType) {
       res.append(GSON_TOKEN).append(" $peeked").append(nestingLevel).append(" = $jsonReader.peek();\n");
     }
+    final ImmutableList<String> errParsedJsonStructTypeAndCodegen =
+        getErrorParsedJson(type, "$jsonReader.getPath()", "$jsonString");
+    final String errParsedJsonStructJavaSourceType = errParsedJsonStructTypeAndCodegen.get(0);
+    final String errorParsedJsonForType = errParsedJsonStructTypeAndCodegen.get(1);
     BiFunction<Type, Boolean, StringBuilder> getFieldParserForType = (fieldType, _alreadyPeeked) ->
         new StringBuilder()
-            .append("((Supplier<$UserDefinedType<ClaroStruct>>) () -> {\n")
-            .append("\t\t")
+            .append("((Supplier<$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append(">>) () -> {\n\t\t")
             .append(getParseJSONJavaSource(fieldType, nestingLevel + 1, /*alreadyPeekedType=*/ _alreadyPeeked))
             .append("\t}).get();");
     switch (type.baseType()) {
@@ -168,9 +173,9 @@ public class FromJsonExpr extends Expr {
         if (!alreadyPeekedType) {
           res.append("if (").append(GSON_TOKEN).append(".BOOLEAN.equals($peeked").append(nestingLevel).append(")) {\n");
         }
-        res.append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.nextBoolean(), $jsonString);\n");
+        res.append("\treturn ")
+            .append(getSuccessParsedJson(type, "$jsonReader.nextBoolean()", "$jsonString"))
+            .append(";\n");
         if (!alreadyPeekedType) {
           res.append("} ");
         }
@@ -180,13 +185,13 @@ public class FromJsonExpr extends Expr {
           res.append("if (").append(GSON_TOKEN).append(".NUMBER.equals($peeked").append(nestingLevel).append(")) {\n");
         }
         res.append("\ttry {\n")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.nextInt(), $jsonString);\n")
+            .append("\treturn ")
+            .append(getSuccessParsedJson(type, "$jsonReader.nextInt()", "$jsonString"))
+            .append(";\n")
             .append("\t} catch (java.lang.NumberFormatException e) {\n")
-            .append("\t\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.getPath(), $jsonString);\n")
+            .append("\t\treturn ")
+            .append(errorParsedJsonForType)
+            .append(";\n")
             .append("\t}\n");
         if (!alreadyPeekedType) {
           res.append("}");
@@ -197,13 +202,13 @@ public class FromJsonExpr extends Expr {
           res.append("if (").append(GSON_TOKEN).append(".NUMBER.equals($peeked").append(nestingLevel).append(")) {\n");
         }
         res.append("\ttry {\n")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.nextDouble(), $jsonString);\n")
+            .append("\treturn ")
+            .append(getSuccessParsedJson(type, "$jsonReader.nextDouble()", "$jsonString"))
+            .append(";\n")
             .append("\t} catch (java.lang.NumberFormatException e) {\n")
-            .append("\t\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(" $jsonReader.getPath(), $jsonString);\n")
+            .append("\t\treturn ")
+            .append(errorParsedJsonForType)
+            .append(";\n")
             .append("\t}\n");
         if (!alreadyPeekedType) {
           res.append("}");
@@ -213,9 +218,9 @@ public class FromJsonExpr extends Expr {
         if (!alreadyPeekedType) {
           res.append("if (").append(GSON_TOKEN).append(".STRING.equals($peeked").append(nestingLevel).append(")) {\n");
         }
-        res.append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.nextString(), $jsonString);\n");
+        res.append("\treturn ")
+            .append(getSuccessParsedJson(type, "$jsonReader.nextString()", "$jsonString"))
+            .append(";\n");
         if (!alreadyPeekedType) {
           res.append("} ");
         }
@@ -231,20 +236,22 @@ public class FromJsonExpr extends Expr {
           // Here it turns out that we actually need to codegen a lookup into the ATOM CACHE of the stdlib module
           // defining this builtin type.
           res.append("\t$jsonReader.nextNull();\n")
-              .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-              .append(type.getJavaSourceClaroType())
-              .append(", ")
+              .append("\treturn ")
               .append(
-                  String.format(
-                      "%s.%s.ATOM_CACHE[%s]",
-                      StdLibModuleRegistry.STDLIB_MODULE_PACKAGE,
-                      StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
-                      InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                  getSuccessParsedJson(
+                      type,
+                      String.format(
+                          "%s.%s.ATOM_CACHE[%s]",
+                          StdLibModuleRegistry.STDLIB_MODULE_PACKAGE,
                           StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
-                          String.format("Nothing$%s", StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)
-                      )
+                          InternalStaticStateUtil.AtomDefinition_CACHE_INDEX_BY_MODULE_AND_ATOM_NAME.build().get(
+                              StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                              String.format("Nothing$%s", StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR)
+                          )
+                      ),
+                      "$jsonString"
                   ))
-              .append(", $jsonString);");
+              .append(";");
           if (!alreadyPeekedType) {
             res.append("} ");
           }
@@ -271,21 +278,25 @@ public class FromJsonExpr extends Expr {
             .append(" = new ClaroList(")
             .append(type.getJavaSourceClaroType())
             .append(");\n")
-            .append("\tfinal Supplier<$UserDefinedType<ClaroStruct>> $parseElement")
+            .append("\tfinal Supplier<$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append(">> $parseElement")
             .append(nestingLevel)
             .append(" = () -> {\n")
             .append("\t\t")
             .append(getParseJSONJavaSource(elemType, nestingLevel + 1, /*alreadyPeekedType=*/ false))
             .append("\t};\n")
             .append("\twhile ($jsonReader.hasNext()) {\n")
-            .append("\t\t$UserDefinedType<ClaroStruct> $parsedElem")
+            .append("\t\t$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append("> $parsedElem")
             .append(nestingLevel)
             .append(" = $parseElement")
             .append(nestingLevel)
             .append(".get();\n")
             .append("\t\tif ($parsedElem")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0] instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
+            .append(".wrappedValue.result instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
             .append("\t\t\treturn $parsedElem")
             .append(nestingLevel)
             .append(";\n")
@@ -296,20 +307,19 @@ public class FromJsonExpr extends Expr {
             .append(elemType.getJavaSourceType())
             .append(") $parsedElem")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0]);\n")
+            .append(".wrappedValue.result);\n")
             .append("\t}\n")
             .append("\t$jsonReader.endArray();\n")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $listBuilder")
-            .append(nestingLevel)
-            .append(", $jsonString);\n");
+            .append("\treturn ")
+            .append(getSuccessParsedJson(type, "$listBuilder" + nestingLevel, "$jsonString"))
+            .append(";\n");
         if (!alreadyPeekedType) {
           res.append("} ");
         }
         break;
       case STRUCT:
         Types.StructType structType = (Types.StructType) type;
+        String structJavaSourceType = structType.getJavaSourceType();
         if (!alreadyPeekedType) {
           res.append("if (")
               .append(GSON_TOKEN)
@@ -320,50 +330,62 @@ public class FromJsonExpr extends Expr {
         res.append("\t$jsonReader.beginObject();\n")
             // This is a fascinating example of a compiler superpower that the users don't have access to. Here,
             // regardless of whether the struct is being parsed to mutable/immutable, I'm going to modify the
-            // array because I know that I'm the sole owner of this struct as I, the compiler, just created it.
-            .append("\tClaroStruct $structBuilder")
+            // fields because I know that I'm the sole owner of this struct as I, the compiler, just created it.
+            .append("\t")
+            .append(structJavaSourceType)
+            .append(" $structBuilder")
             .append(nestingLevel)
-            .append(" = new ClaroStruct(")
-            .append(type.getJavaSourceClaroType())
-            .append(", ")
+            .append(" = new ")
+            .append(structJavaSourceType)
+            .append("(")
             .append(IntStream.range(0, structType.getFieldTypes().size())
                         .boxed()
-                        .map(i -> "(Object) null")
+                        .map(i -> "null")
                         .collect(Collectors.joining(", ")))
             .append(");\n")
             .append("\twhile ($jsonReader.hasNext()) {\n")
-            .append("\t\t$UserDefinedType<ClaroStruct> $parsedField")
+            .append("\t\t$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append("> $parsedField")
             .append(nestingLevel)
             .append(";\n")
             .append("\t\tswitch($jsonReader.nextName()) {\n");
         IntStream.range(0, structType.getFieldTypes().size()).boxed().forEach(
-            i -> res
-                .append("\t\t\tcase \"")
-                .append(structType.getFieldNames().get(i))
-                .append("\":\n")
-                .append("\t\t\t\t$parsedField")
-                .append(nestingLevel)
-                .append(" = ")
-                .append(getFieldParserForType.apply(structType.getFieldTypes().get(i), /*_alreadyPeaked=*/ false))
-                // This is just to save some lines of code, but here I'm going to optimistically put whatever we parsed
-                // into the struct builder, though we may not end up using it.
-                .append("\n\t\t\t\t$structBuilder")
-                .append(nestingLevel)
-                .append(".values[")
-                .append(i)
-                .append("] = $parsedField")
-                .append(nestingLevel)
-                .append(".wrappedValue.values[0];\n")
-                .append("\t\t\t\tbreak;\n")
+            i -> {
+              res
+                  .append("\t\t\tcase \"")
+                  .append(structType.getFieldNames().get(i))
+                  .append("\":\n")
+                  .append("\t\t\t\t$parsedField")
+                  .append(nestingLevel)
+                  .append(" = ")
+                  .append(getFieldParserForType.apply(structType.getFieldTypes().get(i), /*_alreadyPeaked=*/ false))
+                  // This is just to save some lines of code, but here I'm going to optimistically put whatever we parsed
+                  // into the struct builder, though we may not end up using it.
+                  .append("\n\t\t\t\t$structBuilder")
+                  .append(nestingLevel)
+                  .append(".")
+                  .append(structType.getFieldNames().get(i))
+                  .append(" = (")
+                  .append(structType.getFieldTypes().get(i).getJavaSourceType());
+              String parsedFieldResult = "$parsedField" + nestingLevel + ".wrappedValue.result";
+              res
+                  .append(") (")
+                  .append(parsedFieldResult)
+                  .append(" instanceof $UserDefinedType ? /*Error*/ null : ")
+                  .append(parsedFieldResult)
+                  .append(");\n")
+                  .append("\t\t\t\tbreak;\n");
+            }
         );
         res.append("\t\t\tdefault: // This is some unexpected field.\n")
-            .append("\t\t\t\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.getPath(), $jsonString);\n")
+            .append("\t\t\t\treturn ")
+            .append(errorParsedJsonForType)
+            .append(";\n")
             .append("\t\t}\n")
             .append("\t\tif ($parsedField")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0] instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
+            .append(".wrappedValue.result instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
             .append("\t\t\treturn $parsedField")
             .append(nestingLevel)
             .append(";\n")
@@ -373,22 +395,13 @@ public class FromJsonExpr extends Expr {
             // Make sure that we validate that *all* required fields were actually set, otherwise the json parsing is
             // considered a failure. Even if the missing field types were `oneof<..., Nothing>`, Nothing only
             // maps to `null` in the JSON representation, a missing field is an error, not auto-coerced to null.
-            .append("\tfor (int $i = 0; $i < ")
-            .append(structType.getFieldNames().size())
-            .append("; ++$i) {\n")
-            .append("\t\tif ($structBuilder")
-            .append(nestingLevel)
-            .append(".values[$i] == null) {\n")
-            .append("\t\t\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.getPath(), $jsonString);\n")
-            .append("\t\t}")
-            .append("\t}")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $structBuilder")
-            .append(nestingLevel)
-            .append(", $jsonString);\n");
+            .append(
+                structType.getFieldNames().stream()
+                    .map(n -> String.format("\tif ($structBuilder%s.%s == null) { return %s; }", nestingLevel, n, errorParsedJsonForType))
+                    .collect(Collectors.joining("\n")))
+            .append("\n\treturn ")
+            .append(getSuccessParsedJson(type, "$structBuilder" + nestingLevel, "$jsonString"))
+            .append(";\n");
         if (!alreadyPeekedType) {
           res.append("} ");
         }
@@ -411,7 +424,9 @@ public class FromJsonExpr extends Expr {
             .append(" = new ClaroMap(")
             .append(type.getJavaSourceClaroType())
             .append(");\n")
-            .append("\tfinal Supplier<$UserDefinedType<ClaroStruct>> $parseElement")
+            .append("\tfinal Supplier<$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append(">> $parseElement")
             .append(nestingLevel)
             .append(" = () -> {\n")
             .append("\t\t")
@@ -424,14 +439,16 @@ public class FromJsonExpr extends Expr {
             .append("\t\tString $key")
             .append(nestingLevel)
             .append(" = $jsonReader.nextName();\n")
-            .append("\t\t$UserDefinedType<ClaroStruct> $parsedElem")
+            .append("\t\t$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append("> $parsedElem")
             .append(nestingLevel)
             .append(" = $parseElement")
             .append(nestingLevel)
             .append(".get();\n")
             .append("\t\tif ($parsedElem")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0] instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
+            .append(".wrappedValue.result instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
             .append("\t\t\treturn $parsedElem")
             .append(nestingLevel)
             .append(";\n")
@@ -444,14 +461,12 @@ public class FromJsonExpr extends Expr {
             .append(mapType.parameterizedTypeArgs().get(Types.MapType.PARAMETERIZED_TYPE_VALUES).getJavaSourceType())
             .append(") $parsedElem")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0]);\n")
+            .append(".wrappedValue.result);\n")
             .append("\t}\n")
             .append("\t$jsonReader.endObject();\n")
-            .append("\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $mapBuilder")
-            .append(nestingLevel)
-            .append(", $jsonString);\n");
+            .append("\treturn ")
+            .append(getSuccessParsedJson(type, "$mapBuilder" + nestingLevel, "$jsonString"))
+            .append(";\n");
         if (!alreadyPeekedType) {
           res.append("} ");
         }
@@ -460,8 +475,11 @@ public class FromJsonExpr extends Expr {
         // Claro can support a very limited lookahead for parsing oneofs. Here we'll assume that validation has already
         // completed so we know that this oneof's variants can be disambiguated with a single peek().
         Types.OneofType oneofType = (Types.OneofType) type;
-        res.append("\t$UserDefinedType<ClaroStruct> $parsedOneof").append(nestingLevel).append(";\n")
-            .append("\tswitch($peeked").append(nestingLevel).append(") {\n");
+        res.append("\t$UserDefinedType<")
+            .append(errParsedJsonStructJavaSourceType)
+            .append("> $parsedOneof")
+            .append(nestingLevel).append(";\n")
+          .append("\tswitch($peeked").append(nestingLevel).append(") {\n");
         IntStream.range(0, oneofType.getVariantTypes().size()).boxed().forEach(
             i -> {
               res.append("\t\tcase ");
@@ -500,35 +518,111 @@ public class FromJsonExpr extends Expr {
             }
         );
         res.append("\t\tdefault: // This is some unexpected field.\n")
-            .append("\t\t\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $jsonReader.getPath(), $jsonString);\n")
+            .append("\t\t\treturn ")
+            .append(errorParsedJsonForType)
+            .append(";\n")
             .append("\t}\n")
             .append("\tif ($parsedOneof")
             .append(nestingLevel)
-            .append(".wrappedValue.values[0] instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
+            .append(".wrappedValue.result instanceof $UserDefinedType) { // It's necessarily an Error<string> since Claro can't parse user-defined types from JSON automatically.\n")
             .append("\t\treturn $parsedOneof")
             .append(nestingLevel)
             .append(";\n")
             .append("\t} else {\n")
-            .append("\t\treturn ClaroRuntimeUtilities.$getSuccessParsedJson(")
-            .append(type.getJavaSourceClaroType())
-            .append(", $parsedOneof")
-            .append(nestingLevel)
-            .append(".wrappedValue.values[0], $jsonString);\n")
+            .append("\t\treturn ")
+            .append(getSuccessParsedJson(type, "$parsedOneof" + nestingLevel + ".wrappedValue.result", "$jsonString"))
+            .append(";\n")
             .append("\t} ");
         break;
       default:
         throw new RuntimeException("Internal Compiler Error: Should be unreachable! " + type);
     }
     if (!alreadyPeekedType && !type.baseType().equals(BaseType.ONEOF)) {
-      res.append("else { $jsonReader.skipValue(); return ClaroRuntimeUtilities.$getErrorParsedJson(")
-          .append(type.getJavaSourceClaroType())
-          .append(", $jsonReader.getPath(), $jsonString); }\n");
+      res.append("else { $jsonReader.skipValue(); return ")
+          .append(errorParsedJsonForType)
+          .append("; }\n");
     }
-    return res.append("} catch (java.io.IOException e) {\n\treturn ClaroRuntimeUtilities.$getErrorParsedJson(")
-        .append(type.getJavaSourceClaroType())
-        .append(", $jsonReader.getPath(), $jsonString); }\n");
+    return res.append("} catch (java.io.IOException e) {\n\treturn ")
+        .append(errorParsedJsonForType)
+        .append("; }\n");
+  }
+
+  private static ImmutableList<String> getErrorParsedJson(Type targetType, String jsonPathError, String jsonString) {
+    final Types.StructType parsedJsonStructType =
+        Types.StructType.forFieldTypes(
+            ImmutableList.of("result", "rawJson"),
+            ImmutableList.of(
+                Types.OneofType.forVariantTypes(
+                    ImmutableList.of(
+                        targetType,
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                            ImmutableList.of(Types.STRING)
+                        )
+                    )
+                ),
+                Types.STRING
+            ),
+            /*isMutable=*/false
+        );
+    String parsedJsonStructJavaSourceType = parsedJsonStructType.getJavaSourceType();
+    return ImmutableList.of(
+        parsedJsonStructJavaSourceType,
+        "new $UserDefinedType<>(\"ParsedJson\", \"" +
+        StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR +
+        "\", ImmutableList.of(" +
+        targetType.getJavaSourceClaroType() +
+        "), " +
+        parsedJsonStructType.getJavaSourceClaroType() +
+        ", new " +
+        parsedJsonStructJavaSourceType +
+        "(new $UserDefinedType<>(\"Error\", \"" +
+        StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR +
+        "\", ImmutableList.of(Types.STRING), Types.STRING, \"" +
+        "Given JSON string did not match the asserted target type definition.\\n\\tExpected:\\n\\t\\t" +
+        targetType +
+        "\\n\\tAt JsonPath:\\n\\t\\t\" + " +
+        jsonPathError +
+        "), " +
+        jsonString +
+        "))"
+    );
+  }
+
+  private static String getSuccessParsedJson(Type targetType, String parsedRes, String jsonString) {
+    final Types.StructType parsedJsonStructType =
+        Types.StructType.forFieldTypes(
+            ImmutableList.of("result", "rawJson"),
+            ImmutableList.of(
+                Types.OneofType.forVariantTypes(
+                    ImmutableList.of(
+                        targetType,
+                        Types.UserDefinedType.forTypeNameAndParameterizedTypes(
+                            "Error",
+                            /*definingModuleDisambiguator=*/StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR,
+                            ImmutableList.of(Types.STRING)
+                        )
+                    )
+                ),
+                Types.STRING
+            ),
+            /*isMutable=*/false
+        );
+    String parsedJsonStructJavaSourceType = parsedJsonStructType.getJavaSourceType();
+    return "new $UserDefinedType<>(\"ParsedJson\", \"" +
+           StdLibModuleRegistry.STDLIB_MODULE_DISAMBIGUATOR +
+           "\", ImmutableList.of(" +
+           targetType.getJavaSourceClaroType() +
+           "), " +
+           parsedJsonStructType.getJavaSourceClaroType() +
+           ", new " +
+           parsedJsonStructJavaSourceType +
+           "(" +
+           parsedRes +
+           ", " +
+           jsonString +
+           "))";
   }
 
   @Override

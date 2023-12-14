@@ -16,6 +16,7 @@ import io.activej.promise.SettablePromise;
 
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -112,6 +113,15 @@ class $ClaroHttpEndpointResultHandler implements FutureCallback<$ClaroHttpRespon
     promise.set(
         HttpResponse.ofCode(500)
             .withPlainText(
-                "Unhandled Runtime Exception in Http Endpoint Handler!\n" + throwable));
+                "Unhandled Runtime Exception in Http Endpoint Handler!\n" + throwable.getMessage() + "\n\n" +
+                Arrays.toString(throwable.getStackTrace()) + "\n\nCaused by:\n" +
+                Arrays.toString(ultimateCause(throwable).getStackTrace())));
+  }
+
+  private Throwable ultimateCause(Throwable throwable) {
+    if (throwable.getCause() == null) {
+      return throwable;
+    }
+    return ultimateCause(throwable.getCause());
   }
 }
