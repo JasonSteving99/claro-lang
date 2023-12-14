@@ -65,7 +65,24 @@ public class MonomorphizationRequestProcessing {
                                    .setMonomorphizationRequest(e.getValue())
                                    .build())
                       .collect(Collectors.toList()))
-              .build().toByteArray());
+              .addAllReferencedTypesToCodegenCustomClassesFor(
+                  Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.entrySet().stream()
+                      .map(e -> IPCMessages.MonomorphizationResponse.TypeToCodegenCustomClassFor.newBuilder()
+                          .setCustomClassName(e.getKey())
+                          .setType(e.getValue().toProto())
+                          .addAllConcreteTypeMappings(
+                              e.getValue().autoValueIgnored_concreteTypeMappings
+                                  .map(m -> m.entrySet().stream()
+                                      .map(mapping ->
+                                               IPCMessages.MonomorphizationResponse.TypeToCodegenCustomClassFor.TypeMapping.newBuilder()
+                                                   .setGenericType(mapping.getKey().toProto())
+                                                   .setConcreteType(mapping.getValue().toProto())
+                                                   .build()
+                                      ).collect(ImmutableList.toImmutableList()))
+                                  .orElse(ImmutableList.of())
+                          ).build())
+                      .collect(ImmutableList.toImmutableList())
+              ).build().toByteArray());
     } catch (Exception e) {
       // If there's any sort of exception during the actual compilation logic itself, I really need some way to diagnose
       // that in the main coordinator process as debugging the dep module processes is a painful process. So, instead,

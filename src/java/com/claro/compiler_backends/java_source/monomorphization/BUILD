@@ -11,6 +11,7 @@ java_library(
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:monomorphization_ipc_coordinator_compiled_claro_module_java_lib",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_coordinator:subprocess_registration",
         "//src/java/com/claro/compiler_backends/java_source/monomorphization/ipc_protos:ipc_messages_java_proto",
+        "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/module_system/module_serialization/proto/claro_types:claro_types_java_proto",
         "//src/java/com/claro/runtime_utilities",
         "//src/java/com/claro/runtime_utilities/http",
