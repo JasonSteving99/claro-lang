@@ -16,7 +16,6 @@ java_library(
         "//src/java/com/claro/intermediate_representation/types:type",
         "//src/java/com/claro/intermediate_representation/types:types",
         "//src/java/com/claro/intermediate_representation/types/impls:claro_type_implementation",
-        "//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
         "//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls",
     ],
 )

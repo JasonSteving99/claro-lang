@@ -64,7 +64,6 @@ CLARO_BUILTIN_JAVA_DEPS = [
     "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/collections:collections_impls",
     "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/futures:ClaroFuture",
     "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/procedures",
-    "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/builtins_impls/structs",
     "@claro-lang//src/java/com/claro/intermediate_representation/types/impls/user_defined_impls:user_defined_impls",
     "@claro-lang//src/java/com/claro/intermediate_representation/types:base_type",
     "@claro-lang//src/java/com/claro/intermediate_representation/types:concrete_type",

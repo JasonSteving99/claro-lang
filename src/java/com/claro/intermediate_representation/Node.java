@@ -24,7 +24,10 @@ public abstract class Node {
   // declared or not.
   public abstract GeneratedJavaSource generateJavaSourceOutput(ScopedHeap scopedHeap);
 
-  public abstract Object generateInterpretedOutput(ScopedHeap scopedHeap);
+  // TODO(steving) Rip the interpreter out of the compiler. This is defunct and unsupported and just extra noise.
+  public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    throw new RuntimeException("Internal Compiler Error! The interpreted backend is no longer supported!");
+  }
 
   @AutoValue
   public abstract static class GeneratedJavaSource {

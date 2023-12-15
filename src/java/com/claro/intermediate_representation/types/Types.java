@@ -621,7 +621,7 @@ public final class Types {
       $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = this.autoValueIgnored_concreteTypeMappings;
       String concreteClassName = this.getJavaSourceType();
       StringBuilder res =
-          new StringBuilder("class /*")
+          new StringBuilder("final class /*")
               .append(this.toString())
               .append("*/ ")
               .append(concreteClassName)
