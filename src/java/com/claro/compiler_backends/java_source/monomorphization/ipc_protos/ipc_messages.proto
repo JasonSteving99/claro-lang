@@ -45,17 +45,6 @@ message MonomorphizationResponse {
     string unique_module_name = 1;
     MonomorphizationRequest monomorphization_request = 2;
   }
-  message TypeToCodegenCustomClassFor {
-    message TypeMapping {
-      claro.module_system.module_serialization.claro_types.TypeProto generic_type = 1;
-      claro.module_system.module_serialization.claro_types.TypeProto concrete_type = 2;
-    }
-    string custom_class_name = 1;
-    claro.module_system.module_serialization.claro_types.TypeProto type = 2;
-    // This is the mapping of any potential generic type params referenced in the given type so that they can be mapped
-    // to their concrete types to codegen class field types as necessary.
-    repeated TypeMapping concrete_type_mappings = 3;
-  }
   // The actual codegen'd Java-source strings for the requested monomorphization as well as any other local, generic
   // procedure monomorphizations that were triggered by monomorphization of the requested procedure (this can happen
   // when a generic procedure calls another generic procedure ad infinitum).
@@ -73,17 +62,6 @@ message MonomorphizationResponse {
   // MonomorphizationResponse, leaving everything else unset. The coordinator should then check for errors before
   // proceeding.
   string optional_error_message = 3;
-
-  // Because monomorphizations may very well reference totally new types internally that never even get referenced
-  // anywhere else, we can't blindly rely on the codegen for the procedure on its own right without potentially
-  // generating the corresponding classes for those types. E.g.:
-  //    consumer foo<A, B>(a: A, b: B) {
-  //      print({fieldA = a, fieldB = b}); # Super contrived, but this type is likely only ever referenced here.
-  //    }
-  // So, to ensure that the generated Java compiles, the calling compilation unit must do the codegen for any types
-  // referenced during dep module monomorphization (unless for some reason the type(s) have already been verified to
-  // have been codegen'd).
-  repeated TypeToCodegenCustomClassFor referenced_types_to_codegen_custom_classes_for = 4;
 }
 
 
