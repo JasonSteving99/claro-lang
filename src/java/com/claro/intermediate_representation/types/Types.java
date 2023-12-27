@@ -501,9 +501,8 @@ public final class Types {
 
     // Track all structs defined in the overall program. This will be used to codegen the relevant classes to represent
     // the concrete struct variants of this semantically polymorphic type.
-    public static HashMap<String, Types.StructType>
+    public static HashMap<StructType, Optional<Map<Type, Type>>>
         allReferencedConcreteStructTypesToOptionalGenericTypeMappings = Maps.newHashMap();
-    private Optional<Map<Type, Type>> autoValueIgnored_concreteTypeMappings = Optional.empty();
 
     public static StructType forFieldTypes(ImmutableList<String> fieldNames, ImmutableList<Type> fieldTypes, boolean isMutable) {
       return new AutoValue_Types_StructType(BaseType.STRUCT, ImmutableMap.of(), fieldNames, fieldTypes, isMutable);
@@ -524,20 +523,12 @@ public final class Types {
 
     @Override
     public String getJavaSourceType() {
-      String res =
-          String.format(
-              "$ClaroStruct_%s",
-              Hashing.sha256().hashUnencodedChars(
-                  this.getFieldTypes().stream()
-                      .map(Type::getJavaSourceType)
-                      .collect(Collectors.joining(", ", "<", ">")))
-          );
       // Any StructType that makes it to JavaSource codegen must have been a concrete type that needs a monomorphic
       // representation to be generated. We may require the mapping of generic -> concrete types for later codegen so
       // hold onto that here.
-      allReferencedConcreteStructTypesToOptionalGenericTypeMappings.put(res, this);
-      this.autoValueIgnored_concreteTypeMappings = $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen;
-      return res;
+      allReferencedConcreteStructTypesToOptionalGenericTypeMappings.put(
+          this, $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen);
+      return String.format("$ClaroStruct_%s", Hashing.sha256().hashUnencodedChars(this.toString()));
     }
 
     @Override
@@ -611,7 +602,8 @@ public final class Types {
     @Override
     public String getConcreteJavaClassRepresentation() {
       // Configure generic type mappings before codegen to ensure the concrete types are used.
-      $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = this.autoValueIgnored_concreteTypeMappings;
+      $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
+          allReferencedConcreteStructTypesToOptionalGenericTypeMappings.get(this);
       String concreteClassName = this.getJavaSourceType();
       StringBuilder res =
           new StringBuilder("class /*")
