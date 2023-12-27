@@ -1,7 +1,7 @@
 var UP = (-1, 0); var DOWN = (1, 0); var LEFT = (0, -1); var RIGHT = (0, 1);
-alias PipeDirs : {string: {tuple<int, int>}}
+alias PipeDirs : {char: {tuple<int, int>}}
 var PIPE_DIRS: PipeDirs =
-  {"|" : {UP, DOWN}, "-" : {LEFT, RIGHT}, "L" : {UP, RIGHT}, "J" : {UP, LEFT}, "7" : {DOWN, LEFT}, "F" : {DOWN, RIGHT}};
+  {'|' : {UP, DOWN}, '-' : {LEFT, RIGHT}, 'L' : {UP, RIGHT}, 'J' : {UP, LEFT}, '7' : {DOWN, LEFT}, 'F' : {DOWN, RIGHT}};
 
 resources::Input
   |> files::readOrPanic(^)
@@ -25,12 +25,12 @@ var loopPath =
     game.map, firstPipe, PIPE_DIRS, mut {firstPipe, game.startPoint}, mut [game.map[firstPipe[0]][firstPipe[1]]]);
 print(len(loopPath) / 2 + 1);
 
-function findStartPoint(map: [[string]]) -> tuple<int, int> {
+function findStartPoint(map: [[char]]) -> tuple<int, int> {
   var r = 0;
   while (r < len(map)) {
     var c = 0;
     while (c < len(map[0])) {
-      if (map[r][c] == "S") {
+      if (map[r][c] == 'S') {
         return (r, c);
       }
       ++c;
@@ -41,16 +41,16 @@ function findStartPoint(map: [[string]]) -> tuple<int, int> {
 }
 
 function traverseLoop(
-    map: [[string]], loc: tuple<int, int>, PIPE_DIRS: PipeDirs, visited: mut {tuple<int, int>}, path: mut [string])
-    -> mut [string] {
+    map: [[char]], loc: tuple<int, int>, PIPE_DIRS: PipeDirs, visited: mut {tuple<int, int>}, path: mut [char])
+    -> mut [char] {
   var currPipe = map[loc[0]][loc[1]];
-  while (currPipe != "S") {
+  while (currPipe != 'S') {
      # TODO(steving) Figure out how to fix codegen so this works. Looks like Java can't infer current types in codegen.
     # for (dir in PIPE_DIRS[map[loc[0]][loc[1]]]) {
     var dirs = PIPE_DIRS[map[loc[0]][loc[1]]];
     for (dir in dirs) {
       var nextLoc = getNext(loc, dir);
-      if ((len(path) > 2) and (map[nextLoc[0]][nextLoc[1]] == "S")) {
+      if ((len(path) > 2) and (map[nextLoc[0]][nextLoc[1]] == 'S')) {
         return path;
       }
       if (isOutOfBounds(nextLoc, len(map), len(map[0])) or (not sets::add(visited, nextLoc))) {
