@@ -527,13 +527,10 @@ public final class Types {
       String res =
           String.format(
               "$ClaroStruct_%s",
-              // Must hash this synthetically generated string that contains field names and the RESOLVED CONCRETE types
-              // rather than deferring to the existing toString() because that one won't resolve Generic type mappings.
               Hashing.sha256().hashUnencodedChars(
-                  IntStream.range(0, this.getFieldTypes().size()).boxed()
-                      .map(i -> String.format(
-                          "%s = %s", this.getFieldNames().get(i), this.getFieldTypes().get(i).getJavaSourceType()))
-                      .collect(Collectors.joining(", ", "{", "}")))
+                  this.getFieldTypes().stream()
+                      .map(Type::getJavaSourceType)
+                      .collect(Collectors.joining(", ", "<", ">")))
           );
       // Any StructType that makes it to JavaSource codegen must have been a concrete type that needs a monomorphic
       // representation to be generated. We may require the mapping of generic -> concrete types for later codegen so
