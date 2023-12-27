@@ -2,7 +2,10 @@ package com.claro.runtime_utilities;
 
 import com.claro.intermediate_representation.types.*;
 import com.claro.intermediate_representation.types.impls.ClaroTypeImplementation;
+import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
+import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;
 import com.claro.stdlib.StdLibModuleRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
