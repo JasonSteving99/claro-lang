@@ -3,7 +3,6 @@ package com.claro.compiler_backends.java_source.monomorphization;
 import com.claro.compiler_backends.java_source.monomorphization.ipc_coordinator.SubprocessRegistration;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages;
 import com.claro.compiler_backends.java_source.monomorphization.proto.ipc_protos.IPCMessages.MonomorphizationRequest;
-import com.claro.intermediate_representation.types.Types;
 import com.claro.runtime_utilities.ClaroRuntimeUtilities;
 import com.claro.runtime_utilities.http.$ClaroHttpServer;
 import com.claro.runtime_utilities.http.$HttpUtil;
@@ -24,7 +23,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static claro.lang.src$java$com$claro$compiler_backends$java_source$monomorphization$ipc$main_compilation_unit_monomorphization_ipc.DepModuleMonomorphizationService;
@@ -114,21 +112,6 @@ public class MonomorphizationCoordinator {
         // Cache the result so that we can avoid duplicate calls in the future.
         monomorphizationsByModuleAndRequestCache.put(
             module, monomorphization.getMonomorphizationRequest(), monomorphization.getMonomorphizationCodegen());
-        // Update the set of referenced types that will need a custom Java class codegen'd for them.
-        monomorphizationRes.getReferencedTypesToCodegenCustomClassesForList().forEach(
-            t -> {
-              Types.StructType structType = (Types.StructType) Types.parseTypeProto(t.getType());
-              structType.autoValueIgnored_concreteTypeMappings =
-                  Optional.of(t.getConcreteTypeMappingsList().stream().collect(ImmutableMap.toImmutableMap(
-                      m -> Types.parseTypeProto(m.getGenericType()),
-                      m -> Types.parseTypeProto(m.getConcreteType())
-                  )));
-              Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.put(
-                  t.getCustomClassName(),
-                  structType
-              );
-            }
-        );
       }
       // Handle any transitive dep module monomorphizations that were requested by the dep module subprocess.
       for (IPCMessages.MonomorphizationResponse.TransitiveDepModuleMonomorphizationRequest

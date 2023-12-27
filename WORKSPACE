@@ -40,6 +40,19 @@ load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_
 rules_proto_dependencies()
 rules_proto_toolchains()
 
+# Claro's going to require bootstrapping for at least Dep Module Monomorphization, and in the future will ideally
+# iteratively be migrated from an all-Java implementation, to an implementation that uses progressively more Claro. As
+# such, a "bootstrapping compiler", defined via a prior release, will be necessary in order to prevent a circular dep
+# in Claro's Bazel build which would fail to build.
+http_file(
+    name = "bootstrapping_claro_compiler_tarfile",
+    # In some way, it'd be nicer to make use of https://github.com/JasonSteving99/claro-lang/releases/latest/download/..
+    # instead of naming the release explicitly. However, this would make it impossible to cherrypick an old version and
+    # rebuild without manual work.
+    sha256 = "f1c2911ddd333f96970a23ca4c205afa9f209bc41bd70c4e8386efc6bcda15f3",
+    url = "https://github.com/JasonSteving99/claro-lang/releases/download/v0.1.408/claro-cli-install.tar.gz",
+)
+
 # ClaroDocs is built atop Google's Closure Templates in order to ensure that I'm not generating unsafe html since the
 # intention is for users to be able to trust and host ClaroDocs themselves (particularly relevant since ClaroDocs
 # automatically generate inlined docs for all of the binaries dependencies, whether first or 3rd party).

@@ -2,6 +2,7 @@ package com.claro.intermediate_representation.expressions;
 
 import com.claro.compiler_backends.interpreted.ScopedHeap;
 import com.claro.intermediate_representation.types.*;
+import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
 import com.google.common.collect.ImmutableList;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,8 +95,10 @@ public class StructExpr extends Expr {
     AtomicReference<GeneratedJavaSource> structValsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
 
-    StringBuilder resJavaSourceBody = new StringBuilder("new ");
-    resJavaSourceBody.append(this.type.getJavaSourceType()).append("(");
+    StringBuilder resJavaSourceBody = new StringBuilder();
+    resJavaSourceBody.append("new ClaroStruct(");
+    resJavaSourceBody.append(this.type.getJavaSourceClaroType());
+    resJavaSourceBody.append(", ");
     resJavaSourceBody.append(
         this.fieldValues.stream()
             .map(expr -> {
@@ -113,5 +116,16 @@ public class StructExpr extends Expr {
 
     return GeneratedJavaSource.forJavaSourceBody(resJavaSourceBody)
         .createMerged(structValsGenJavaSource.get());
+  }
+
+  @Override
+  public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    return new ClaroStruct(
+        type,
+        this.fieldValues.stream()
+            .map(expr -> expr.generateInterpretedOutput(scopedHeap))
+            .collect(ImmutableList.toImmutableList())
+            .asList()
+    );
   }
 }

@@ -5,6 +5,7 @@ import com.claro.intermediate_representation.types.BaseType;
 import com.claro.intermediate_representation.types.ClaroTypeException;
 import com.claro.intermediate_representation.types.Type;
 import com.claro.intermediate_representation.types.Types;
+import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;
 import com.google.common.collect.ImmutableList;
 
 import java.util.function.Supplier;
@@ -47,11 +48,28 @@ public class StructFieldAccessExpr extends Expr {
     GeneratedJavaSource exprCodegen = this.expr.generateJavaSourceOutput(scopedHeap);
     GeneratedJavaSource res =
         GeneratedJavaSource.forJavaSourceBody(
-            new StringBuilder().append(exprCodegen.javaSourceBody().toString()).append(".").append(this.fieldName));
+            new StringBuilder()
+                .append(this.codegenForRead ? "((" + this.validatedStructType.getFieldTypes()
+                    .get(fieldIndex)
+                    .getJavaSourceType() + ") " : "")
+                .append(exprCodegen.javaSourceBody().toString())
+                .append(".values[")
+                .append(fieldIndex)
+                .append("]")
+                .append(this.codegenForRead ? ")" : "")
+        );
 
     // Already consumed this java source above.
     exprCodegen.javaSourceBody().setLength(0);
 
     return exprCodegen.createMerged(res);
+  }
+
+  @Override
+  public Object generateInterpretedOutput(ScopedHeap scopedHeap) {
+    ClaroStruct exprStruct = (ClaroStruct) this.expr.generateInterpretedOutput(scopedHeap);
+    return exprStruct.values[
+        ((Types.StructType) exprStruct.getClaroType()).getFieldNames().indexOf(this.fieldName)
+        ];
   }
 }

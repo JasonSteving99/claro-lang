@@ -36,8 +36,14 @@ java_library(
 )
 
 java_library(
-    name = "polymorphic_type",
-    srcs = ["PolymorphicType.java"],
+    name = "parameterized_type",
+    srcs = ["ParameterizedType.java"],
+    deps = [
+        ":base_type",
+        ":type",
+        "//:autovalue",
+        "//:guava",
+    ],
 )
 
 java_library(
@@ -47,7 +53,7 @@ java_library(
         ":base_type",
         ":concrete_type",
         ":concrete_types",
-        ":polymorphic_type",
+        ":parameterized_type",
         ":supports_mutable_variant",
         ":type",
         ":type_provider",

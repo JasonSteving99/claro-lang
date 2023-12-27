@@ -309,10 +309,6 @@ public class ProgramNode {
         // Cleanup any threads or subprocesses that got started up by monomorphization.
         MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
       }
-      res.append("\n// Semantically Polymorphic Builtin Type Concrete Monomorphizations Generated Below:\n");
-      for (Types.StructType s : Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.values()) {
-        res.append(s.getConcreteJavaClassRepresentation());
-      }
     }
 
     // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks
@@ -874,6 +870,7 @@ public class ProgramNode {
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroConsumerFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroFunction;\n" +
             "import com.claro.intermediate_representation.types.impls.builtins_impls.procedures.ClaroProviderFunction;\n" +
+            "import com.claro.intermediate_representation.types.impls.builtins_impls.structs.ClaroStruct;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.$UserDefinedType;\n" +
             "import com.claro.intermediate_representation.types.impls.user_defined_impls.ClaroUserDefinedTypeImplementation;\n" +
             "import com.claro.runtime_utilities.ClaroRuntimeUtilities;\n" +

@@ -3,6 +3,5 @@
 function add(lhs: int, rhs: int) -> Addition::IntAlias;
 function addFancyInt(lhs: int, rhs: int) -> Addition::FancyInt;
 
-provider getSomeStruct() -> struct {x: int, nested: struct {y: int}};
 
 newtype List<T> : [T]
