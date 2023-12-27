@@ -309,10 +309,6 @@ public class ProgramNode {
         // Cleanup any threads or subprocesses that got started up by monomorphization.
         MonomorphizationCoordinator.shutdownDepModuleMonomorphization();
       }
-      res.append("\n// Semantically Polymorphic Builtin Type Concrete Monomorphizations Generated Below:\n");
-      for (Types.StructType s : Types.StructType.allReferencedConcreteStructTypesToOptionalGenericTypeMappings.keySet()) {
-        res.append(s.getConcreteJavaClassRepresentation());
-      }
     }
 
     // Just for completeness sake, we'll want to exit this global scope as well just in case there are important checks

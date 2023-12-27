@@ -46,10 +46,3 @@ print(TestDep::immutableListHead(opaqueImmutableList));
 #print(unwrap(opaqueImmutableList));
 # And, you cannot instantiate them. Uncomment for compile-time error.
 #print(TestDep::ImmutableList([1,2,3]));
-
-print("----------------------------------------------------------------------------------------------------");
-var someStruct = TestDep2::getSomeStruct();
-print(someStruct);
-type(someStruct);
-someStruct = {x = 200, nested = someStruct.nested};
-print(someStruct);

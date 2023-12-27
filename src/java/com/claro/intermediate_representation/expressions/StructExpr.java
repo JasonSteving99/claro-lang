@@ -95,8 +95,10 @@ public class StructExpr extends Expr {
     AtomicReference<GeneratedJavaSource> structValsGenJavaSource =
         new AtomicReference<>(GeneratedJavaSource.forJavaSourceBody(new StringBuilder()));
 
-    StringBuilder resJavaSourceBody = new StringBuilder("new ");
-    resJavaSourceBody.append(this.type.getJavaSourceType()).append("(");
+    StringBuilder resJavaSourceBody = new StringBuilder();
+    resJavaSourceBody.append("new ClaroStruct(");
+    resJavaSourceBody.append(this.type.getJavaSourceClaroType());
+    resJavaSourceBody.append(", ");
     resJavaSourceBody.append(
         this.fieldValues.stream()
             .map(expr -> {

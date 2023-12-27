@@ -10,7 +10,6 @@ import com.claro.runtime_utilities.injector.Key;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.*;
-import com.google.common.hash.Hashing;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -489,7 +488,7 @@ public final class Types {
   }
 
   @AutoValue
-  public abstract static class StructType extends Type implements SupportsMutableVariant<StructType>, PolymorphicType {
+  public abstract static class StructType extends Type implements SupportsMutableVariant<StructType> {
     // Instead of using the parameterizedTypesMap I unfortunately have to explicitly list them separately as parallel
     // lists literally just so that the equals() and hashcode() impls correctly distinguish btwn field orderings which
     // ImmutableMap doesn't.
@@ -498,11 +497,6 @@ public final class Types {
     public abstract ImmutableList<Type> getFieldTypes();
 
     abstract boolean getIsMutable();
-
-    // Track all structs defined in the overall program. This will be used to codegen the relevant classes to represent
-    // the concrete struct variants of this semantically polymorphic type.
-    public static HashMap<StructType, Optional<Map<Type, Type>>>
-        allReferencedConcreteStructTypesToOptionalGenericTypeMappings = Maps.newHashMap();
 
     public static StructType forFieldTypes(ImmutableList<String> fieldNames, ImmutableList<Type> fieldTypes, boolean isMutable) {
       return new AutoValue_Types_StructType(BaseType.STRUCT, ImmutableMap.of(), fieldNames, fieldTypes, isMutable);
@@ -519,16 +513,6 @@ public final class Types {
                   .collect(Collectors.joining(", "))
           );
       return this.getIsMutable() ? "mut " + baseFormattedTypeStr : baseFormattedTypeStr;
-    }
-
-    @Override
-    public String getJavaSourceType() {
-      // Any StructType that makes it to JavaSource codegen must have been a concrete type that needs a monomorphic
-      // representation to be generated. We may require the mapping of generic -> concrete types for later codegen so
-      // hold onto that here.
-      allReferencedConcreteStructTypesToOptionalGenericTypeMappings.put(
-          this, $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen);
-      return String.format("$ClaroStruct_%s", Hashing.sha256().hashUnencodedChars(this.toString()));
     }
 
     @Override
@@ -597,85 +581,6 @@ public final class Types {
                           .collect(ImmutableList.toImmutableList()))
                   .setIsMutable(this.isMutable()))
           .build();
-    }
-
-    @Override
-    public String getConcreteJavaClassRepresentation() {
-      // Configure generic type mappings before codegen to ensure the concrete types are used.
-      $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen =
-          allReferencedConcreteStructTypesToOptionalGenericTypeMappings.get(this);
-      String concreteClassName = this.getJavaSourceType();
-      StringBuilder res =
-          new StringBuilder("class /*")
-              .append(this.toString())
-              .append("*/ ")
-              .append(concreteClassName)
-              // TODO(steving) This shouldn't be needed long term. Once all semantically polymorphic builtin types are
-              //   migrated to this new approach, then I should be able to rely on Object::getClass() rather than
-              //   actually tracking Claro Type at runtime.
-              .append(" implements ")
-              .append("com.claro.intermediate_representation.types.impls.builtins_impls.ClaroBuiltinTypeImplementation")
-              .append(" {\n");
-      StringBuilder constructorArgs = new StringBuilder();
-      for (int i = 0; i < this.getFieldTypes().size(); i++) {
-        String fieldName = this.getFieldNames().get(i);
-        String fieldJavaType = this.getFieldTypes().get(i).getJavaSourceType();
-        res.append("\tpublic ").append(fieldJavaType).append(" ").append(fieldName).append(";\n");
-        constructorArgs.append(fieldJavaType).append(" ").append(fieldName);
-        if (i < this.getFieldTypes().size() - 1) {
-          constructorArgs.append(", ");
-        }
-      }
-      // This is actually a big memory overhead savings. Even though I shouldn't technically need the Claro Type to be
-      // represented at runtime long term, at least even with it included, in this monomorphized approach the type is
-      // now singleton.
-      res.append("\tprivate static final com.claro.intermediate_representation.types.Type $TYPE = ")
-          .append(this.getJavaSourceClaroType())
-          .append(";\n");
-      res.append("\tpublic ")
-          .append(concreteClassName)
-          .append("(")
-          .append(constructorArgs)
-          .append(") {\n")
-          .append(
-              this.getFieldNames().stream()
-                  .map(n -> String.format("\t\tthis.%s = %s;", n, n))
-                  .collect(Collectors.joining("\n")))
-          .append("\n\t}\n");
-      res.append("\tpublic com.claro.intermediate_representation.types.Type getClaroType() {\n\t\treturn $TYPE;\n\t}\n");
-
-      String commaSepFieldNames = Joiner.on(", ").join(this.getFieldNames());
-      // Generate the hashCode() impl by hashing all the field values.
-      res.append("\t@Override public int hashCode() {\n" +
-                 "\t\treturn java.util.Objects.hash(")
-          .append(commaSepFieldNames)
-          .append(");\n\t}\n");
-
-      // Generate the equals() impl by checking classes are the same and then checking for field equality one-by-one.
-      res.append("\t@Override public boolean equals(Object obj) {\n")
-          .append("\t\tif (this == obj) return true;\n")
-          .append("\t\tif (obj.getClass() != ").append(concreteClassName).append(".class) return false;\n")
-          .append("\t\t").append(concreteClassName).append(" other  = (").append(concreteClassName).append(") obj;\n")
-          .append(this.getFieldNames().stream()
-                      .map(n -> String.format("\t\tif (!this.%s.equals(other.%s)) return false;", n, n))
-                      .collect(Collectors.joining("\n")))
-          .append("\n\t\treturn true;\n\t}\n");
-
-      // Generate the toString() to give a nice representation of values of this type.
-      res.append("\t@Override public String toString() {\n")
-          .append("\t\treturn String.format(\"")
-          .append(this.isMutable() ? "mut " : "")
-          .append("{")
-          .append(
-              this.getFieldNames().stream().map(n -> String.format("%s = %%s", n)).collect(Collectors.joining(", ")))
-          .append("}\", ")
-          .append(commaSepFieldNames)
-          .append(");\n\t}\n");
-
-      res.append("}\n");
-      // Reset generic type mappings.
-      $GenericTypeParam.concreteTypeMappingsForParameterizedTypeCodegen = Optional.empty();
-      return res.toString();
     }
   }
 
