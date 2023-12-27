@@ -529,11 +529,7 @@ public final class Types {
               "$ClaroStruct_%s",
               // Must hash this synthetically generated string that contains field names and the RESOLVED CONCRETE types
               // rather than deferring to the existing toString() because that one won't resolve Generic type mappings.
-              // Also hash the mutability of the struct to ensure that a separate class will be generated for mutable vs
-              // immutable structs, just as an extra layer of safety that values with these distinct semantics can't be
-              // mistakenly conflated at runtime.
               Hashing.sha256().hashUnencodedChars(
-                  (this.getIsMutable() ? "mut " : "") +
                   IntStream.range(0, this.getFieldTypes().size()).boxed()
                       .map(i -> String.format(
                           "%s = %s", this.getFieldNames().get(i), this.getFieldTypes().get(i).getJavaSourceType()))
@@ -2449,46 +2445,5 @@ public final class Types {
         throw new RuntimeException("Internal Compiler Error: This unknown proto type <" + typeProto.getTypeCase() +
                                    "> could not be deserialized.");
     }
-  }
-
-  public static ImmutableSet.Builder<UserDefinedType> collectAllReferencedUserDefinedTypes(
-      Type type, ImmutableSet.Builder<UserDefinedType> userDefinedTypes) {
-    switch (type.baseType()) {
-      case USER_DEFINED_TYPE:
-        userDefinedTypes.add((UserDefinedType) type);
-      case MAP:
-      case SET:
-      case TUPLE:
-        for (Type t : type.parameterizedTypeArgs().values()) {
-          collectAllReferencedUserDefinedTypes(t, userDefinedTypes);
-        }
-        break;
-      case STRUCT:
-        for (Type t : ((StructType) type).getFieldTypes()) {
-          collectAllReferencedUserDefinedTypes(t, userDefinedTypes);
-        }
-        break;
-      case LIST:
-        collectAllReferencedUserDefinedTypes(((ListType) type).getElementType(), userDefinedTypes);
-        break;
-      case FUNCTION:
-      case CONSUMER_FUNCTION:
-      case PROVIDER_FUNCTION:
-        Optional.ofNullable(((ProcedureType) type).getReturnType()).ifPresent(
-            t -> collectAllReferencedUserDefinedTypes(t, userDefinedTypes)
-        );
-        Optional.ofNullable(((ProcedureType) type).getArgTypes()).ifPresent(
-            args -> args.forEach(
-                t -> collectAllReferencedUserDefinedTypes(t, userDefinedTypes)
-            )
-        );
-        break;
-      case ONEOF:
-        for (Type t : ((OneofType) type).getVariantTypes()) {
-          collectAllReferencedUserDefinedTypes(t, userDefinedTypes);
-        }
-        break;
-    } // Fallthrough for non-structured types.
-    return userDefinedTypes;
   }
 }
