@@ -1,8 +1,6 @@
 # Hello, World!
 
-```
-print("Hello, World!");
-```
+{{EX1}}
 
 As you can already see from the most minimal program possible, Claro programs eliminate unnecessary boilerplate. Every
 Claro program is simply a sequence of statements that are executed from top-to-bottom as if it were a "script". You

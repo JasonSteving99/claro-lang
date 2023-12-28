@@ -5,6 +5,7 @@ write_source_file(
     name = "write_all_docs",
     additional_update_targets = [
         ":generics",
+        "//mdbook_docs/src/chapter_1:hello_world",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",

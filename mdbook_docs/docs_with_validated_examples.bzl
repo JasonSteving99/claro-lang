@@ -47,15 +47,28 @@ def validated_claro_example(name, main_file, hidden_setup = None, append_output 
         outs = ["{0}.validated_claro_example".format(name)],
         srcs = [main_file, "{0}_example_deploy.jar".format(name)],
         cmd = """
-            cat $(location {main_file}) > $(location {name}.validated_claro_example) {maybe_append_output}
+            echo "---" > $(location {name}.validated_claro_example) \
+            && echo '```' >> $(location {name}.validated_claro_example) \
+            && cat $(location {main_file}) >> $(location {name}.validated_claro_example) {maybe_append_output}
         """.format(
             name = name,
             main_file = main_file,
             maybe_append_output = \
                 """\
-                && echo "\n### OUTPUT:" >> $(location {name}.validated_claro_example) \
-                && $(JAVA) -jar $(location {name}_example_deploy.jar) | sed 's/^/# /' | cat >> $(location {name}.validated_claro_example)
-                """.format(name = name) if append_output else ""
+                && echo '' >> $(location {name}.validated_claro_example) \
+                && echo '```' >> $(location {name}.validated_claro_example) \
+                && echo '_Output:_' >> $(location {name}.validated_claro_example) \
+                && echo '```' >> $(location {name}.validated_claro_example) \
+                && printf "%s" "$$($(JAVA) -jar $(location {name}_example_deploy.jar))" | cat >> $(location {name}.validated_claro_example) \
+                && echo '' >> $(location {name}.validated_claro_example) \
+                && echo '```' >> $(location {name}.validated_claro_example) \
+                && echo '---' >> $(location {name}.validated_claro_example)
+                """.format(name = name) if append_output else
+                """\
+                && echo '' >> $(location {name}.validated_claro_example) \
+                && echo '```' >> $(location {name}.validated_claro_example) \
+                && echo '---' >> $(location {name}.validated_claro_example)
+                """.format(name = name)
         ),
         tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],

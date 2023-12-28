@@ -2,9 +2,7 @@
 
 Tuples are a fixed-order, fixed-size collection of values which do not all have to be of the same type.
 
-```
 {{EX1}}
-```
 
 You can see in the example above, tuples interact w/ type validation in an interesting way worth making note of. When
 you index into a tuple, you should generally prefer to use a literal int constant. When you do, Claro can statically

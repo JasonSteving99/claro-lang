@@ -5,9 +5,7 @@ like a Python list in that it allows arbitrary appends, and random access to rea
 Python, as Claro is statically typed, all values in the list must be of the same type, and this type must be
 pre-determined upon declaration of the variable which reference the list.
 
-```
 {{EX1}}
-```
 
 ### Empty Lists
 

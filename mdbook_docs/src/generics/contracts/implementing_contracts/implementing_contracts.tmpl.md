@@ -3,23 +3,17 @@
 Simply defining a contract is not sufficient to actually be useful, however, since the definition itself doesn't provide
 any logic. So, to actually *use* a Contract, we must implement it for a certain (set of) concrete type(s):
 
-```
 {{EX1}}
-```
 
 Now that you have implementations, you can either call them directly:
 
-```
 {{EX2}}
-```
 
 Or, even more valuable, you can also call the generic `sum` function from the 
 [previous section](../contracts.generated_docs.md) over concrete types `int` or `string` because the requirements are 
 met for both!
 
-```
 {{EX3}}
-```
 
 In this way, Claro's Contracts interact with Generics to create a powerful form of code reuse where custom behavior can
 be uniquely dictated by type information. And, unlike in an Object-Oriented language, this code reuse did not rely on
