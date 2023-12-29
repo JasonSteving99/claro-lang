@@ -4,3 +4,8 @@ language = "en"
 multilingual = false
 src = "src"
 title = "The Claro Programming Language (DRAFT)"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/JasonSteving99/claro-lang/"

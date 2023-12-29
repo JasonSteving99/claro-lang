@@ -1,0 +1,7 @@
+var i: int = 10; # Any whole number from -2^31 to 2^31-1.
+var l: long = 10L; # Any whole number from -2^63 to 2^63-1.
+var f: float = 1.15F; # A single-precision 32-bit IEEE 754 floating point number.
+var d: double = 1.15; # A double-precision 64-bit IEEE 754 floating point number.
+var b: boolean = true; # true or false.
+var s: string = "very first string"; # An immutable sequence of chars. Heap allocated.
+var c: char = 'a'; # A single 16-bit Unicode character.

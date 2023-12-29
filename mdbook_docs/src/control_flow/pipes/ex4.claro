@@ -1,0 +1,6 @@
+var greeting =
+  strings::join(
+    ", ",
+    [strings::toUpperCase(s) | s in ["Hello", "world!"]]
+  );
+print(greeting);

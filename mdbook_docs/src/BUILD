@@ -6,6 +6,12 @@ write_source_file(
     additional_update_targets = [
         ":generics",
         "//mdbook_docs/src/chapter_1:hello_world",
+        "//mdbook_docs/src/common_programming_concepts/variables_and_types:variables_and_types",
+        "//mdbook_docs/src/common_programming_concepts/sep_var_decl_and_init:sep_var_decl_and_init",
+        "//mdbook_docs/src/common_programming_concepts/var_reassignment:var_reassignment",
+        "//mdbook_docs/src/control_flow/if_else:if_else",
+        "//mdbook_docs/src/control_flow/pipes:pipes",
+        "//mdbook_docs/src/control_flow/while:while",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",

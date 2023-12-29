@@ -9,13 +9,16 @@ def doc_with_validated_examples(name, doc_template, examples = []):
         if type(ex) == "string":
             validated_claro_example(
                 name = example_target,
+                example_num = i + 1,
                 main_file = ex,
             )
         elif type(ex) == "dict":
             validated_claro_example(
                 name = example_target,
+                example_num = i + 1,
                 main_file = ex["example"],
                 hidden_setup = ex.setdefault("hidden_setup", None),
+                hidden_cleanup = ex.setdefault("hidden_cleanup", None),
                 append_output = ex.setdefault("append_output", True)
             )
         substitutions["EX{0}".format(i + 1)] = example_target
@@ -34,12 +37,28 @@ def doc_with_validated_examples(name, doc_template, examples = []):
         suggested_update_target = "//mdbook_docs/src:write_all_docs",
     )
 
-def validated_claro_example(name, main_file, hidden_setup = None, append_output = True):
+def validated_claro_example(
+        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True):
     if type(hidden_setup) == "string":
         hidden_setup = [hidden_setup]
+    main_with_optional_hidden_cleanup = main_file
+    if hidden_cleanup:
+        main_with_cleanup = name + "_main_with_cleanup.claro"
+        native.genrule(
+            name = name + "_main_with_cleanup",
+            outs = [main_with_cleanup],
+            srcs = [main_file, hidden_cleanup],
+            cmd = """
+                cat $(location {main_file}) > $(OUTS) \
+                && echo "" >> $(OUTS) \
+                && cat $(location {cleanup}) >> $(OUTS)
+                """.format(
+                main_file = main_file, cleanup = hidden_cleanup)
+        )
+        main_with_optional_hidden_cleanup = main_with_cleanup
     claro_binary(
         name = "{0}_example".format(name),
-        main_file = main_file,
+        main_file = main_with_optional_hidden_cleanup,
         srcs = hidden_setup if hidden_setup else [],
     )
     native.genrule(
@@ -47,11 +66,13 @@ def validated_claro_example(name, main_file, hidden_setup = None, append_output 
         outs = ["{0}.validated_claro_example".format(name)],
         srcs = [main_file, "{0}_example_deploy.jar".format(name)],
         cmd = """
-            echo "---" > $(location {name}.validated_claro_example) \
+            echo "#### _Fig {example_num}:_" > $(location {name}.validated_claro_example) \
+            && echo "---" >> $(location {name}.validated_claro_example) \
             && echo '```' >> $(location {name}.validated_claro_example) \
             && cat $(location {main_file}) >> $(location {name}.validated_claro_example) {maybe_append_output}
         """.format(
             name = name,
+            example_num = example_num,
             main_file = main_file,
             maybe_append_output = \
                 """\
