@@ -1,0 +1,5 @@
+var l = [1, 2, 3]; # Immutable list of ints.
+print(l);
+
+# The below line would be illegal as `lists::add` expects a mutable list.
+# lists::add(l, 4);

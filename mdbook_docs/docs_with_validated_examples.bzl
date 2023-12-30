@@ -69,7 +69,7 @@ def validated_claro_example(
             echo "#### _Fig {example_num}:_" > $(location {name}.validated_claro_example) \
             && echo "---" >> $(location {name}.validated_claro_example) \
             && echo '```' >> $(location {name}.validated_claro_example) \
-            && cat $(location {main_file}) >> $(location {name}.validated_claro_example) {maybe_append_output}
+            && printf "%s" "$$(< $(location {main_file}))" >> $(location {name}.validated_claro_example) {maybe_append_output}
         """.format(
             name = name,
             example_num = example_num,

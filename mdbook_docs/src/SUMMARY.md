@@ -11,7 +11,7 @@
         - [While](./control_flow/while/while.generated_docs.md)
         - [Pipes](./control_flow/pipes/pipes.generated_docs.md)
 - [Types](./static_typing.md)
-    - [Builtin Collections](./static_typing/builtin_collections.md)
+    - [Builtin Collections](./static_typing/builtin_colls/builtin_collections.generated_docs.md)
         - [Lists](./static_typing/builtin_colls/list_type/list_type.generated_docs.md)
         - [Sets](./static_typing/builtin_colls/set_type/set_type.generated_docs.md)
         - [Maps](./static_typing/builtin_colls/map_type/map_type.generated_docs.md)

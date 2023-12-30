@@ -15,6 +15,7 @@ write_source_file(
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",
+        "//mdbook_docs/src/static_typing/builtin_colls:builtin_collections",
         "//mdbook_docs/src/static_typing/builtin_colls/list_type:list_type",
         "//mdbook_docs/src/static_typing/builtin_colls/map_type:map_type",
         "//mdbook_docs/src/static_typing/builtin_colls/set_type:set_type",

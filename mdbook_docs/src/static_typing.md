@@ -5,5 +5,5 @@ wrong type to a variable, Claro will emit a compiler error asking for a correcti
 run. This will prevent you from waiting until runtime to find many program errors.
 
 ```
-var s: string = 100.55; # Compiler Error - expected string found float.
+var s: string = 100.55; # Compiler Error - expected string found double.
 ```
