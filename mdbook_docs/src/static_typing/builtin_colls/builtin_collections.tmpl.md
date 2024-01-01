@@ -4,15 +4,28 @@ Claro also rounds out its builtin types with a small set of convenient collectio
 many values using a single variable. These are provided as builtins for your convenience, but their implementations have
 been hand selected to cover the majority of your general purpose programming use cases.
 
+## Ad-Hoc Declarations
+
+Unlike many other languages (e.g. Java/C++/etc.) that require a formal declaration of any type before it can be 
+instantiated, Claro's builtin collections can all be simply instantiated at will as if the type already exists. For 
+example, any struct-like collection of named fields in Java would first require the declaration of a class, and 
+potentially the declaration of other things like a constructor, hashCode() and equals() implementations. In Claro, you
+simply skip all the boilerplate.
+
+For example, the following Claro procedure declares a `struct {row: int, col: int}` inline as the function's return type
+and doesn't need any top-level declaration of that type before it's used:
+
+{{EX1}}
+
 ## Mutability
 
 All of Claro's builtin collection types come in either a **mutable** or (shallowly) **immutable** variant - by default, 
 Claro will assume that any collection literals are intended to be __immutable__. 
 
-{{EX1}}
+{{EX2}}
 
 The following example demonstrates initialization of a **mutable** list of integers:
-{{EX2}}
+{{EX3}}
 
 ## Mutability Annotations are Shallow
 
@@ -21,10 +34,10 @@ complex nested data structures that mix mutability and immutability as needed. T
 different combinations of nested mutability annotations:
 
 This example demonstrates a mutable list whose elements are immutable lists.
-{{EX3}}
+{{EX4}}
 
 This example demonstrates an immutable list whose elements are mutable lists.
-{{EX4}}
+{{EX5}}
 
 ## Data Race Safety via Deep Immutability
 

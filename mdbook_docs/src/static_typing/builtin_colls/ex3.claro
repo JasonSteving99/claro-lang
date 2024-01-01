@@ -1,5 +1,5 @@
-var l: mut [[int]] = mut [];
-for (i in [1, 2, 3]) {
-  lists::add(l, [i, i]); # <-- Add an immutable list to the mutable list.
-}
-print(l);
+var l = mut [1, 2, 3];
+print("Before: {l}");
+
+lists::add(l, 4);      # <-- Mutation happens here.
+print("After:  {l}");

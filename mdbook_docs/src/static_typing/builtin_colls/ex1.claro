@@ -1,5 +1,20 @@
-var l = [1, 2, 3]; # Immutable list of ints.
-print(l);
+function findInNestedList<T>(l: [[T]], t: T) -> struct {row: int, col: int} {
+  var r = 0;
+  for (row in l) {
+    var c = 0;
+    for (elem in row) {
+      if (elem == t) {
+        return {row = r, col = c};  # <-- Just instantiate the struct.
+      }
+      ++c;
+    }
+    ++r;
+  }
+  return {row = -1, col = -1};
+}
 
-# The below line would be illegal as `lists::add` expects a mutable list.
-# lists::add(l, 4);
+[[1, 2],
+ [3, 4],
+ [5, 6]]
+  |> findInNestedList(^, 4)
+  |> print(^);

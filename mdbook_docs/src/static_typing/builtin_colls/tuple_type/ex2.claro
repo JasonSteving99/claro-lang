@@ -1,0 +1,8 @@
+var myPair: tuple<int, string> = (1, "one");
+
+# Claro requires a type cast for non-literal index.
+var index: int = 0;
+#var myInt = myPair[index]; # Compile Error
+var myInt = cast(int, myPair[index]); # OK, opting into runtime type validation.
+print(myInt);
+

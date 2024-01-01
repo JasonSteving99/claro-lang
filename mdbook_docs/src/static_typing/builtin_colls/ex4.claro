@@ -1,7 +1,5 @@
-var l: [mut [int]] = [mut [], mut [], mut []];
-var i = 1;
-for (mutList in l) {
-  lists::add(mutList, i); # <-- Append an int to this inner mutable list.
-  lists::add(mutList, i++);
+var l: mut [[int]] = mut [];
+for (i in [1, 2, 3]) {
+  lists::add(l, [i, i]); # <-- Add an immutable list to the mutable list.
 }
 print(l);

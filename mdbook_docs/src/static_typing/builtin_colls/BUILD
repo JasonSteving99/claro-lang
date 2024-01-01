@@ -8,5 +8,6 @@ doc_with_validated_examples(
         "ex2.claro",
         "ex3.claro",
         "ex4.claro",
+        "ex5.claro",
     ],
 )

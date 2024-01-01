@@ -1,5 +1,5 @@
-var l = mut [1, 2, 3];
-print("Before: {l}");
+var l = [1, 2, 3]; # Immutable list of ints.
+print(l);
 
-lists::add(l, 4);      # <-- Mutation happens here.
-print("After:  {l}");
+# The below line would be illegal as `lists::add` expects a mutable list.
+# lists::add(l, 4);

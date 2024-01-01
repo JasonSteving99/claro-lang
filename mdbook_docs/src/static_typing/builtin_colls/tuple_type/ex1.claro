@@ -1,14 +1,7 @@
 var myPair: tuple<int, string> = (1, "one");
 
-# Claro will interprate literal int subscripts at compile-time for type validation.
+# Claro will interpret literal int subscripts at compile-time for type validation.
 var myInt: int = myPair[0];
 print(myInt);
 var myStr: string = myPair[1];
 print(myStr);
-
-# Claro requires a type cast for non-literal index.
-var index: int = 0;
-#myInt = myPair[index]; # Compile Error
-myInt = cast(int, myPair[index]); # OK, opting into runtime type validation.
-print(myInt);
-

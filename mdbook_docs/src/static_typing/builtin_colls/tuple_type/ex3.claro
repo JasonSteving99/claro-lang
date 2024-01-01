@@ -1,0 +1,5 @@
+var myPair = mut (1, "one");
+print(myPair);
+
+myPair[0] = 99;  # <-- Mutation happens here.
+print(myPair);
