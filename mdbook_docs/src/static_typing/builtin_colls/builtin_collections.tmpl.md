@@ -1,3 +1,5 @@
+<!-- toc -->
+
 # Builtin Collections
 
 Claro also rounds out its builtin types with a small set of convenient collection types that allow you to manipulate
@@ -19,8 +21,8 @@ and doesn't need any top-level declaration of that type before it's used:
 
 ## Mutability
 
-All of Claro's builtin collection types come in either a **mutable** or (shallowly) **immutable** variant - by default, 
-Claro will assume that any collection literals are intended to be __immutable__. 
+All of Claro's builtin collection types come in either a **mutable** or **immutable** variant - by default, Claro will
+assume that any collection literals are intended to be __immutable__. 
 
 {{EX2}}
 

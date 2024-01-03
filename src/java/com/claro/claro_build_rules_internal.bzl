@@ -6,6 +6,7 @@ load("@jflex_rules//cup:cup.bzl", "cup")
 # door" of the public claro_module() and claro_binary() rules.
 visibility([
     "//",
+    "//mdbook_docs/...",
     "//src/java/com/claro/module_system/clarodocs/...",
     "//src/java/com/claro/compiler_backends/java_source/monomorphization/...",
     "//src/java/com/claro/stdlib/claro/...",
@@ -124,6 +125,8 @@ def _invoke_claro_compiler_impl(ctx):
         args.add("--classname", classname)
     if not ctx.attr.debug:
         args.add("--silent")
+    if ctx.attr.expect_errors:
+        args.add("--expect_errors")
     args.add("--package", project_package)
     for src in srcs:
         args.add("--src", src)
@@ -250,6 +253,12 @@ def _invoke_claro_compiler_impl(ctx):
 
 
 def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional_stdlib_deps = [], debug = False, visibility = None):
+    _claro_binary(name, main_file, "{0}.java".format(name), srcs, deps, resources, optional_stdlib_deps, debug, visibility)
+
+def claro_expected_errors(name, main_file, srcs = [], deps = {}, resources = {}, optional_stdlib_deps = [], debug = False, visibility = None):
+    _claro_binary(name, main_file, "{0}.errs".format(name), srcs, deps, resources, optional_stdlib_deps, debug, visibility, expect_errors = True)
+
+def _claro_binary(name, main_file, compiler_out, srcs = [], deps = {}, resources = {}, optional_stdlib_deps = [], debug = False, visibility = None, expect_errors = False):
     # Add optional stdlib dep targets since the user doesn't actually "know" the explicit Bazel target that implements it.
     deps = dict(**deps) # Make a copy of the frozen deps dict.
     for optional_stdlib_dep in optional_stdlib_deps:
@@ -265,23 +274,25 @@ def claro_binary(name, main_file, srcs = [], deps = {}, resources = {}, optional
             False #allowDuplicateValues
         ),
         optional_stdlib_deps = optional_stdlib_deps,
-        compiler_out = "{0}.java".format(name),
+        compiler_out = compiler_out,
         debug = debug,
         visibility = visibility,
+        expect_errors = expect_errors,
     )
-    native.java_binary(
-        name = name,
-        # TODO(steving) I need this package to be derived from the package computed in _invoke_claro_compiler().
-        main_class = "claro.lang." + name,
-        srcs = [":{0}.java".format(name)],
-        deps = CLARO_BUILTIN_JAVA_DEPS +
-            # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
-            # dep more than once for different dep module impls in a claro_* rule.
-            {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
-            # Add the Stdlib Modules compiled java libs as default deps.
-            ["{0}_compiled_claro_module_java_lib".format(Label(stdlib_mod)) for stdlib_mod in CLARO_STDLIB_MODULES.values()],
-        resources = resources.values(),
-    )
+    if not expect_errors:
+        native.java_binary(
+            name = name,
+            # TODO(steving) I need this package to be derived from the package computed in _invoke_claro_compiler().
+            main_class = "claro.lang." + name,
+            srcs = [":{0}.java".format(name)],
+            deps = CLARO_BUILTIN_JAVA_DEPS +
+                # Dict comprehension just to "uniquify" the dep targets. It's technically completely valid to reuse the same
+                # dep more than once for different dep module impls in a claro_* rule.
+                {"{0}_compiled_claro_module_java_lib".format(dep): "" for dep in deps.values()}.keys() +
+                # Add the Stdlib Modules compiled java libs as default deps.
+                ["{0}_compiled_claro_module_java_lib".format(Label(stdlib_mod)) for stdlib_mod in CLARO_STDLIB_MODULES.values()],
+            resources = resources.values(),
+        )
 
 def claro_module(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], optional_stdlib_deps = [], debug = False, **kwargs):
     _claro_module_internal(_invoke_claro_compiler, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps = [], optional_stdlib_deps = optional_stdlib_deps, debug = debug, **kwargs)
@@ -443,6 +454,13 @@ INVOKE_CLARO_COMPILER_ATTRS = {
               "produced by this rule in order for dependent claro_binary() targets to access it directly for the " +
               "sake of incrementality.",
         mandatory = False,
+    ),
+    "expect_errors": attr.bool(
+        doc = "Used to indicate that the given program is expected to have errors and the intent is for compile-time " +
+              "error messages to be redirected to the requested output file instead of any codegen. This was " +
+              "primarily developed for the sake of automatically generating documentation that demonstrates Claro's " +
+              "error messaging in a reproducible way.",
+        default = False,
     )
 }
 

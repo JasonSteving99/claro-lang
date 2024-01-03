@@ -137,4 +137,12 @@ public class JavaSourceCompilerBackendCLIOptions extends OptionsBase {
       defaultValue = ""
   )
   public String output_file_path;
+
+  @Option(
+      name = "expect_errors",
+      help = "Internal Only! This is used to indicate that errors are expected and so stderr will be redirected to " +
+             "stdout in place of any codegen and the program will exit with a 0 exit code on any errors.",
+      defaultValue = "false"
+  )
+  public boolean expect_errors;
 }

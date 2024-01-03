@@ -35,10 +35,7 @@ import com.google.common.io.CharSource;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -76,6 +73,8 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
   private final Optional<String> OPTIONAL_UNIQUE_MODULE_NAME;
   private final Optional<String> OPTIONAL_OUTPUT_FILE_PATH;
 
+  public int ERR_EXIT_CODE = 1; // To be overridden in the case that a compilation err is expected.
+
   public JavaSourceCompilerBackend(String... args) {
     JavaSourceCompilerBackend.javaSourceCompilerBackend = this;
     this.COMMAND_LINE_ARGS = args;
@@ -83,11 +82,11 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
 
     if (options.java_package.isEmpty() || options.srcs.isEmpty()) {
       System.err.println("Error: --java_package and [--src ...]+ are required args.");
-      System.exit(1);
+      System.exit(ERR_EXIT_CODE);
     }
     if (options.classname.isEmpty() == options.unique_module_name.isEmpty()) {
       System.err.println("Error: Exactly one of --unique_module_name and --classname should be set.");
-      System.exit(1);
+      System.exit(ERR_EXIT_CODE);
     }
     if (!options.classname.isEmpty() // this is a claro_binary() with a main method.
         && options.optional_stdlib_modules_used_in_transitive_closure.contains("http")
@@ -102,7 +101,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                          "\t\t\t...\n" +
                          "\t\t\toptional_stdlib_deps = [\"http\"],\n" +
                          "\t\t)");
-      System.exit(1);
+      System.exit(ERR_EXIT_CODE);
     }
 
     this.SILENT = options.silent;
@@ -167,6 +166,20 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                   split -> split[0],
                   split -> split[1]
               ));
+    }
+
+    if (options.expect_errors) {
+      // Return a successful exit code since in this case the user expects the errors.
+      this.ERR_EXIT_CODE = 0;
+      // Redirect any stderr output to stdout.
+      try {
+        PrintStream err = new PrintStream(Files.newOutputStream(createOutputFile().toPath()));
+        System.setOut(err);
+        System.setErr(err);
+      } catch (Exception e) {
+        System.err.println("Failed to redirect err output to requested output file!");
+        System.exit(1);
+      }
     }
   }
 
@@ -406,7 +419,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       Expr.typeErrorsFound.forEach(e -> e.accept(mainSrcFileParser.generatedClassName));
       ProgramNode.miscErrorsFound.forEach(Runnable::run);
       warnNumErrorsFound(totalParserErrorsFound);
-      System.exit(1);
+      System.exit(ERR_EXIT_CODE);
     } catch (ClaroParserException e) {
       ClaroParser.errorMessages.forEach(Runnable::run);
       Expr.typeErrorsFound.forEach(err -> err.accept(mainSrcFileParser.generatedClassName));
@@ -416,7 +429,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                          + nonMainSrcFileParsers.stream().map(p -> p.errorsFound).reduce(Integer::sum).orElse(0));
       if (this.SILENT) {
         // We found errors, there's no point to emit the generated code.
-        System.exit(1);
+        System.exit(ERR_EXIT_CODE);
       } else {
         throw e;
       }
@@ -429,7 +442,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
                          + nonMainSrcFileParsers.stream().map(p -> p.errorsFound).reduce(Integer::sum).orElse(0));
       if (this.SILENT) {
         // We found errors, there's no point to emit the generated code.
-        System.exit(1);
+        System.exit(ERR_EXIT_CODE);
       } else {
         throw e;
       }
@@ -1079,7 +1092,7 @@ public class JavaSourceCompilerBackend implements CompilerBackend {
       System.err.println("An error occurred while trying to open/create the specified output file: " +
                          this.OPTIONAL_OUTPUT_FILE_PATH.get());
       e.printStackTrace();
-      System.exit(1);
+      System.exit(ERR_EXIT_CODE);
     }
     return outputFile;
   }

@@ -16,12 +16,15 @@ write_source_file(
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",
+        "//mdbook_docs/src/static_typing/aliases:aliases",
+        "//mdbook_docs/src/static_typing/aliases/not_a_new_type_decl:not_a_new_type_decl",
         "//mdbook_docs/src/static_typing/builtin_colls:builtin_collections",
         "//mdbook_docs/src/static_typing/builtin_colls/list_type:list_type",
         "//mdbook_docs/src/static_typing/builtin_colls/map_type:map_type",
         "//mdbook_docs/src/static_typing/builtin_colls/set_type:set_type",
         "//mdbook_docs/src/static_typing/builtin_colls/struct_type:struct_type",
         "//mdbook_docs/src/static_typing/builtin_colls/tuple_type:tuple_type",
+        "//mdbook_docs/src/static_typing/user_defined_types:user_defined_types",
     ],
 )
 

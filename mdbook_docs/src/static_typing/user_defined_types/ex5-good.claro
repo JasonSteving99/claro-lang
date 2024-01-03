@@ -1,0 +1,1 @@
+print(timeTraveled(MPH(15.0), Miles(60.0)));
