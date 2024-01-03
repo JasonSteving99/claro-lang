@@ -2,6 +2,7 @@
 
 - [Welcome to Claro!](./chapter_1.md)
     - [Hello, World!](./chapter_1/hello_world.generated_docs.md)
+- [Getting Started!](./getting_started/getting_started.md)
 - [Common Programming Concepts](./common_programming_concepts.md)
     - [Variables & Primitive Types](./common_programming_concepts/variables_and_types/variables_and_types.generated_docs.md)
     - [Separate Variable Declaration & Initialization](./common_programming_concepts/sep_var_decl_and_init/sep_var_decl_and_init.generated_docs.md)
