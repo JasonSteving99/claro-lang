@@ -1,0 +1,5 @@
+
+
+var maybeStr = Maybe("hi");
+type(maybeStr);
+print(maybeStr);

@@ -1,0 +1,2 @@
+var maybeStr = Maybe(std::Error(std::Nothing));
+print(maybeStr);

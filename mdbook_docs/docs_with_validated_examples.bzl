@@ -51,13 +51,23 @@ def validated_claro_example(
             outs = [main_with_cleanup],
             srcs = [main_file, hidden_cleanup],
             cmd = """
-                cat $(location {main_file}) > $(OUTS) \
+                cat $(location {main_file}) | tr -d "$$" > $(OUTS) \
                 && echo "" >> $(OUTS) \
                 && cat $(location {cleanup}) >> $(OUTS)
                 """.format(
                 main_file = main_file, cleanup = hidden_cleanup)
         )
         main_with_optional_hidden_cleanup = main_with_cleanup
+    else: # Simply deleting any occurrences of "$$" in the main program so that hidden lines can be supported.
+        main = name + "_main.claro"
+        native.genrule(
+            name = name + "_main",
+            outs = [main],
+            srcs = [main_file],
+            cmd = 'cat $(location {main_file}) | tr -d "$$" > $(OUTS)'.format(
+                main_file = main_file, cleanup = hidden_cleanup)
+        )
+        main_with_optional_hidden_cleanup = main
     if expect_errors:
         build_rule = claro_expected_errors
     else:
@@ -77,7 +87,7 @@ def validated_claro_example(
         cmd = """
             echo "#### _Fig {example_num}:_" > $(location {name}.validated_claro_example) \
             && echo "---" >> $(location {name}.validated_claro_example) \
-            && echo '```' >> $(location {name}.validated_claro_example) \
+            && echo '```claro' >> $(location {name}.validated_claro_example) \
             && printf "%s" "$$(< $(location {main_file}))" >> $(location {name}.validated_claro_example) {maybe_append_output}
         """.format(
             name = name,
@@ -88,7 +98,7 @@ def validated_claro_example(
                 && echo '' >> $(location {name}.validated_claro_example) \
                 && echo '```' >> $(location {name}.validated_claro_example) \
                 && echo '_{output_msg}:_' >> $(location {name}.validated_claro_example) \
-                && echo '```' >> $(location {name}.validated_claro_example) \
+                && echo '```{output_codeblock_css_class}' >> $(location {name}.validated_claro_example) \
                 && printf "%s" {output_cmd} | cat >> $(location {name}.validated_claro_example) \
                 && echo '' >> $(location {name}.validated_claro_example) \
                 && echo '```' >> $(location {name}.validated_claro_example) \
@@ -96,6 +106,7 @@ def validated_claro_example(
                 """.format(
                     name = name,
                     output_msg = "Compilation Errors" if expect_errors else "Output",
+                    output_codeblock_css_class = "compilation-errs" if expect_errors else "",
                     output_cmd =
                         ('"$$(cat $(location {name}_example.errs))"' if expect_errors
                         else '"$$($(JAVA) -jar $(location {name}_example_deploy.jar))"')

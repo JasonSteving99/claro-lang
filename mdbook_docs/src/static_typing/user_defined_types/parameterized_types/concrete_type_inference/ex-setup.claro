@@ -1,0 +1,1 @@
+newtype Maybe<T> : oneof<T, std::Error<std::Nothing>>

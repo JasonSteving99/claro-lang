@@ -1,0 +1,2 @@
+var maybeStr: Maybe<string> = Maybe(std::Error(std::Nothing));
+print(maybeStr);

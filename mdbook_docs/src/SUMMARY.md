@@ -1,8 +1,14 @@
 # Summary
 
 - [Welcome to Claro!](./chapter_1.md)
-    - [Hello, World!](./chapter_1/hello_world.generated_docs.md)
+
+# User Guide 
+
+- [Hello, World!](./chapter_1/hello_world.generated_docs.md)
 - [Getting Started!](./getting_started/getting_started.md)
+
+# Reference Guide
+
 - [Common Programming Concepts](./common_programming_concepts.md)
     - [Variables & Primitive Types](./common_programming_concepts/variables_and_types/variables_and_types.generated_docs.md)
     - [Separate Variable Declaration & Initialization](./common_programming_concepts/sep_var_decl_and_init/sep_var_decl_and_init.generated_docs.md)
@@ -19,9 +25,14 @@
         - [Maps](./static_typing/builtin_colls/map_type/map_type.generated_docs.md)
         - [Tuples](./static_typing/builtin_colls/tuple_type/tuple_type.generated_docs.md)
         - [Structs](./static_typing/builtin_colls/struct_type/struct_type.generated_docs.md)
+    - [Atoms](./static_typing/atoms/atoms.generated_docs.md)
     - [Aliases](./static_typing/aliases/aliases.generated_docs.md)
         - [Aliases are *Not* a New Type Declaration](./static_typing/aliases/not_a_new_type_decl/not_a_new_type_decl.generated_docs.md)
     - [User Defined Types](./static_typing/user_defined_types/user_defined_types.generated_docs.md)
+        - [Parameterized Types](./static_typing/user_defined_types/parameterized_types/parameterized_types.generated_docs.md)
+            - [Concrete Type Inference](./static_typing/user_defined_types/parameterized_types/concrete_type_inference/concrete_type_inference.generated_docs.md)
+        - [Recursive Types](./static_typing/user_defined_types/recursive_types/recursive_types.generated_docs.md)
+            - [Impossible Recursive Types](./static_typing/user_defined_types/recursive_types/impossible_recursive_types/impossible_recursive_types.generated_docs.md)
 - [Type Inference](./type_inference.md)
     - [Inference Examples](./type_inference/examples.md)
     - [Required Type Annotations](./type_inference/required_type_annotations.md)
