@@ -25,6 +25,8 @@ write_source_file(
         "//mdbook_docs/src/static_typing/builtin_colls/set_type:set_type",
         "//mdbook_docs/src/static_typing/builtin_colls/struct_type:struct_type",
         "//mdbook_docs/src/static_typing/builtin_colls/tuple_type:tuple_type",
+        "//mdbook_docs/src/static_typing/oneofs:oneofs",
+        "//mdbook_docs/src/static_typing/oneofs/narrowing:narrowing",
         "//mdbook_docs/src/static_typing/user_defined_types:user_defined_types",
         "//mdbook_docs/src/static_typing/user_defined_types/recursive_types:recursive_types",
         "//mdbook_docs/src/static_typing/user_defined_types/parameterized_types:parameterized_types",

@@ -1,13 +1,14 @@
 # Parameterized Types
 
-Claro supports the definition of types that may be parameterized with a generic type parameter so that they can be used
-to contain arbitrary types. For example the following is a definition of a type `Maybe<T>` that has the generic type
-param `T`:
+Claro supports the definition of types that may be parameterized with a generic type so that they can be used to contain
+arbitrary types. For example the following is a definition of a type `Maybe<T>` that has the generic type param `T`:
 
 {{EX1}}
 
 This type definition is useful for describing the generic concept of a value that may or may not be present, without
 needing to define repeated declarations for each specific type that may or may not be present:
+
+_Note: Claro's error messaging is a work in progress - the below error message will be improved._
 
 {{EX2}}
 

@@ -25,6 +25,8 @@
         - [Maps](./static_typing/builtin_colls/map_type/map_type.generated_docs.md)
         - [Tuples](./static_typing/builtin_colls/tuple_type/tuple_type.generated_docs.md)
         - [Structs](./static_typing/builtin_colls/struct_type/struct_type.generated_docs.md)
+    - [Oneofs](./static_typing/oneofs/oneofs.generated_docs.md)
+        - ["Narrowing" / Type Guards](./static_typing/oneofs/narrowing/narrowing.generated_docs.md)
     - [Atoms](./static_typing/atoms/atoms.generated_docs.md)
     - [Aliases](./static_typing/aliases/aliases.generated_docs.md)
         - [Aliases are *Not* a New Type Declaration](./static_typing/aliases/not_a_new_type_decl/not_a_new_type_decl.generated_docs.md)
