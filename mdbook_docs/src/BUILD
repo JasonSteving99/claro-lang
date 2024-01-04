@@ -11,6 +11,8 @@ write_source_file(
         "//mdbook_docs/src/common_programming_concepts/var_reassignment:var_reassignment",
         "//mdbook_docs/src/control_flow/if_else:if_else",
         "//mdbook_docs/src/control_flow/for:for",
+        "//mdbook_docs/src/control_flow/match:match",
+        "//mdbook_docs/src/control_flow/match/exhaustiveness_checks:exhaustiveness_checks",
         "//mdbook_docs/src/control_flow/pipes:pipes",
         "//mdbook_docs/src/control_flow/while:while",
         "//mdbook_docs/src/generics/contracts:contracts",

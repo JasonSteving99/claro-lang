@@ -391,27 +391,27 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String MATCH_OVER_UNSUPPORTED_BASE_VALUE_TYPES =
       "Illegal Match Over Type Entirely Composed of Base Types For Which Exact Matches are Impossible to Evaluate.\n" +
-      "\t\tMatched Expression Type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tContains the following unsupported base types:\n" +
-      "\t\t\t- %s";
+      "\tMatched Expression Type:\n" +
+      "\t\t%s\n" +
+      "\tContains the following unsupported base types:\n" +
+      "\t\t- %s";
   private static final String MATCH_CONTAINS_DUPLICATE_DEFAULT_CASES =
       "Illegal Match Containing Multiple Default Cases: Each match block should contain at most one case matching the `_` wildcard.";
   private static final String NON_EXHAUSTIVE_MATCH =
       "Non-exhaustive Match: The given cases do not match every possible value of the matched type `%s`.\n" +
-      "\t\tFor example the following case is unhandled:\n" +
-      "\t\t\t%s\n" +
-      "\t\tYou can also ensure that all possible cases are being handled by adding a final fallback case as below:\n" +
-      "\t\t\tcase _ -> ...;";
+      "\tFor example the following case is unhandled:\n" +
+      "\t\t%s\n" +
+      "\tYou can also ensure that all possible cases are being handled by adding a final fallback case as below:\n" +
+      "\t\tcase _ -> ...;";
   private static final String DUPLICATE_MATCH_CASE =
       "Illegal Duplicate Match Case: All case patterns should be unique within a match block.";
   private static final String USELESS_MATCH_OVER_SINGLE_DEFAULT_CASE =
       "Uselessly Matching Against Single Wildcard Case: Use of match is just unwanted noise when matching over a single wildcard pattern. Remove the match and just write the logic directly:\n" +
-      "\t\tE.g. Instead of:\n" +
-      "\t\t\tvar toMatch = getVal(...);\n" +
-      "\t\t\tmatch (toMatch) {\n\t\t\t\tcase _ -> handleVal(toMatch);\n\t\t\t}\n" +
-      "\t\tRewrite as the following:\n" +
-      "\t\t\thandleVal(getVal(...));";
+      "\tE.g. Instead of:\n" +
+      "\t\tvar toMatch = getVal(...);\n" +
+      "\t\tmatch (toMatch) {\n\t\t\tcase _ -> handleVal(toMatch);\n\t\t\t}\n" +
+      "\tRewrite as the following:\n" +
+      "\t\thandleVal(getVal(...));";
   private static final String USELESS_MATCH_CASE_TYPE_LITERAL_PATTERN_FOR_NON_ONEOF_MATCHED_VAL =
       "Uselessly Matching Non-Oneof Typed Value Against Type Literal: The type of the matched Expr is statically known to be %s, it's useless to match against the type.";
   private static final String USELESS_DEFAULT_CASE_IN_ALREADY_EXHAUSTIVE_MATCH =
@@ -422,10 +422,10 @@ public class ClaroTypeException extends Exception {
       "Wildcard Binding Shadows Declared Variable: Names of wildcard bindings in Match case patterns must not shadow any already-declared variable in scope.";
   private static final String INVALID_PATTERN_MATCHING_WRONG_TYPE =
       "Invalid Pattern Matching Wrong Type: This pattern is unable to match against values of the matched expression type.\n" +
-      "\t\tMatched Expression Type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tPattern Type:\n" +
-      "\t\t\t%s";
+      "\tMatched Expression Type:\n" +
+      "\t\t%s\n" +
+      "\tPattern Type:\n" +
+      "\t\t%s";
   private static final String MODULE_EXPORTED_PROCEDURE_NOT_DEFINED_IN_MODULE_IMPL_FILES =
       "Module Exported Procedure Not Defined In Given Module Implementation Files: The given Module API definition " +
       "expected the following exported procedure to be defined:\n" +

@@ -18,6 +18,8 @@
         - [While Loops](./control_flow/while/while.generated_docs.md)
         - [For Loops](./control_flow/for/for.generated_docs.md)
         - [Pipes](./control_flow/pipes/pipes.generated_docs.md)
+        - [Pattern Matching](./control_flow/match/match.generated_docs.md)
+            - [Static Exhaustiveness Checks](./control_flow/match/exhaustiveness_checks/exhaustiveness_checks.generated_docs.md)
 - [Types](./static_typing.md)
     - [Builtin Collections](./static_typing/builtin_colls/builtin_collections.generated_docs.md)
         - [Lists](./static_typing/builtin_colls/list_type/list_type.generated_docs.md)

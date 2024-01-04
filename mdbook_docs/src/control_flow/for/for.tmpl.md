@@ -31,24 +31,16 @@ type is oneof<...all unique types in the tuple...> but there are no current plan
 Possible use of an uninitialized variable is a compile-time error:
 </div>
 
----
-```
-var s: int;
-for (...) {
-    s = ...;
-}
-print(s); #Error
-```
----
+{{EX4}}
 
 ## Exiting a For Loop Early
 
 You can exit a loop early by using the `break` keyword as below.
 
-{{EX4}}
+{{EX5}}
 
 ## Skipping to the Next Iteration of the For Loop
 
 You can also skip ahead to the loop's next iteration by using the 'continue' keyword as below.
 
-{{EX5}}
+{{EX6}}

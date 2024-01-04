@@ -6,15 +6,7 @@
 Possible use of an uninitialized variable is a compile-time error:
 </div>
 
----
-```
-var s: int;
-while (...) {
-    s = ...;
-}
-print(s); #Error
-```
----
+{{EX4}} 
 
 ## Exiting a While Loop Early
 

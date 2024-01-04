@@ -1,6 +1,13 @@
-for (e in [1, 2, 3, 4, 5]) {
-    if (e == 3) {
-      break;
-    }
-    print(e);
+$$random::create()
+$$  |> random::nextNonNegativeBoundedInt(^, 10)
+$$  |> var r = ^;
+$$var l: mut [int] = mut [];
+$$while (r-- > 0) {
+$$  lists::add(l, r);
+$$}
+$$
+var s: int;
+for (elem in l) {  # <-- `l` could be empty.
+    s = elem;
 }
+print(s);
