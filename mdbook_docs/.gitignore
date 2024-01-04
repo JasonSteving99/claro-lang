@@ -1,2 +1,3 @@
 book
 *.generated_docs.md
+/src/images/ClaroLogo*.png

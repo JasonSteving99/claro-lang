@@ -1,3 +1,7 @@
+.light #claro-logo, .rust #claro-logo {
+    filter: brightness(0);
+}
+
 .language-compilation-errs {
   white-space: pre-wrap;
   color: #f56451;

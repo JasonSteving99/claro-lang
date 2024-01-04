@@ -1,6 +1,6 @@
 # Welcome to Claro!
 
-<img width=300 src="https://raw.githubusercontent.com/JasonSteving99/claro-lang/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg">
+<img id="claro-logo" width=300 src="./images/ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png">
 
 Claro is a statically compiled JVM language whose goal is first and foremost to provide you with the tools for reasoning
 about program design and construction using a very clear and direct mental model - data flowing through a systems of
