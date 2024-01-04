@@ -12,7 +12,14 @@ doc_with_validated_examples(
             "example": "ex2.claro",
             "append_output": False,
         },
-        "ex3.claro",
-#        "ex4.claro",
+        {
+            "example": "ex3.claro",
+            "append_output": False,
+        },
+        "ex4.claro",
+        {
+            "example": "ex5.claro",
+            "expect_errors": True,
+        },
     ],
 )

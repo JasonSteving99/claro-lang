@@ -1,0 +1,7 @@
+var player = {name = "Jason", currLoc = (1, 2)};
+
+match (player) {
+  case {name = "Sarah", currLoc = (3, 4)} -> print("Sarah wins!");
+  case {name = "Jason", currLoc = (1, 2)} -> print("Jason wins!");
+  case _                                  -> print("Keep playing...");
+}

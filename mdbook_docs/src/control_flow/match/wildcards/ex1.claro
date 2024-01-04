@@ -1,0 +1,17 @@
+newtype Square : int
+newtype Rectangle : struct {height: int, width: int}
+newtype Line : int
+
+consumer printShapeArea(shape: oneof<Square, Rectangle, Line>) {
+  var area: int;
+  match (shape) {
+    case Rectangle({height = H:int, width = W:int}) -> area = H * W;
+    case Square(W:int)                              -> area = W * W;
+    case _                                          -> area = 0;
+  }
+  print("Area of {shape}: {area}");
+}
+
+printShapeArea(Square(2));
+printShapeArea(Rectangle({height = 10, width = 10}));
+printShapeArea(Line(2));
