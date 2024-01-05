@@ -1,6 +1,7 @@
-<div align="left">
-  <img src="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg" width=200 height=200>
-</div>
+<picture align="left">
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png" width=200>
+  <img src="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg" width=250 height=250>
+</picture>
 
 # Claro
 
