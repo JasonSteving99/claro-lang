@@ -8,7 +8,7 @@ and run this command:
 ```
 $ ./create_claro_project.sh <project name>
 ```
-
+_Note: The below recording was made with [asciinema](https://asciinema.org/) - try pausing and copying any text._
 <script async id="asciicast-SsZNBSFJpmAHgnzEu7Bj29hRu" src="https://asciinema.org/a/SsZNBSFJpmAHgnzEu7Bj29hRu.js"></script>
 
 More details on using this script can be found at [tools/README.md](tools/README.md)
