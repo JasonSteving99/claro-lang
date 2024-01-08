@@ -4,8 +4,12 @@
 
 # User Guide 
 
-- [Hello, World!](./chapter_1/hello_world.generated_docs.md)
+- [Hello, World](./chapter_1/hello_world.generated_docs.md)
 - [Getting Started!](./getting_started/getting_started.md)
+    - [Understanding the Starter Project](./getting_started/understanding_starter_project/understanding_starter_project.generated_docs.md)
+
+[//]: # (    - [Your First Program]&#40;./getting_started/first_program/first_program.md&#41;)
+[//]: # (    - [Intro to Modules]&#40;./getting_started/intro_to_modules/intro_to_modules.md&#41;)
 
 # Reference Guide
 

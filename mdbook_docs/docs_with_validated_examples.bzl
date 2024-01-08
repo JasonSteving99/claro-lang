@@ -22,6 +22,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
                 hidden_cleanup = ex.setdefault("hidden_cleanup", None),
                 append_output = ex.setdefault("append_output", True),
                 expect_errors = ex.setdefault("expect_errors", False),
+                executable = ex.setdefault("executable", True),
             )
         substitutions["EX{0}".format(i + 1)] = example_target
     generated = "{0}_generated.md".format(name)
@@ -40,7 +41,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
     )
 
 def validated_claro_example(
-        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False):
+        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True):
     if type(hidden_setup) == "string":
         hidden_setup = [hidden_setup]
     main_with_optional_hidden_cleanup = main_file
@@ -72,18 +73,20 @@ def validated_claro_example(
         build_rule = claro_expected_errors
     else:
         build_rule = claro_binary
-    build_rule(
-        name = "{0}_example".format(name),
-        main_file = main_with_optional_hidden_cleanup,
-        srcs = hidden_setup if hidden_setup else [],
-    )
+    if executable:
+        build_rule(
+            name = "{0}_example".format(name),
+            main_file = main_with_optional_hidden_cleanup,
+            srcs = hidden_setup if hidden_setup else [],
+        )
+    else:
+        append_output = False
     native.genrule(
         name = "{0}".format(name),
         outs = ["{0}.validated_claro_example".format(name)],
         srcs = [
             main_file,
-            ("{0}_example.errs" if expect_errors else "{0}_example_deploy.jar").format(name)
-        ],
+        ] + ([("{0}_example.errs" if expect_errors else "{0}_example_deploy.jar").format(name)] if executable else []),
         cmd = """
             echo "#### _Fig {example_num}:_" > $(location {name}.validated_claro_example) \
             && echo "---" >> $(location {name}.validated_claro_example) \

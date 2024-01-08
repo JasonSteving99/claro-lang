@@ -20,6 +20,7 @@ write_source_file(
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",
+        "//mdbook_docs/src/getting_started/understanding_starter_project:understanding_starter_project",
         "//mdbook_docs/src/images:logo",
         "//mdbook_docs/src/static_typing:static_typing",
         "//mdbook_docs/src/static_typing/aliases:aliases",

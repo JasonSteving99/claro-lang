@@ -10,4 +10,5 @@ expand_template(
         "MODULE_DOT_BAZEL": "//examples/bzlmod:MODULE.bazel",
     },
     out = "create_claro_project.sh",
+    visibility = ["//mdbook_docs/src/getting_started/understanding_starter_project:__pkg__"]
 )

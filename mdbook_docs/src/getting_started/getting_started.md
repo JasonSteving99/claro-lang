@@ -1,9 +1,11 @@
 # Create Your First Claro Project with Bazel!
 
 Claro is fundamentally designed around a deep integration with the extremely powerful 
-<a href="https://bazel.build/" target="_blank">Bazel</a> build system - which enables Claro's incremental builds, 
-package management, extremely flexible module system, and build-time metaprogramming capabilities - so you'll need to do
-a bit of Bazel-related setup to prepare your Claro project. 
+<a href="https://bazel.build/" target="_blank">Bazel</a> build system - which enables Claro's 
+<a href="https://bazel.build/run/build#correct-incremental-rebuilds" target="_blank">incremental builds</a>,
+<a href="https://bazel.build/external/overview#bzlmod" target="_blank">external package management</a>, extremely 
+flexible module system, and build-time metaprogramming capabilities - so you'll need to do a bit of Bazel-related setup 
+to prepare your Claro project. 
 
 **You'll only need to do this once**! Bazel does not mandate monorepo style development, but it really shines when used
 in that context. From this single Bazel project, you'll be able to write, build, and run whatever (related or unrelated)
