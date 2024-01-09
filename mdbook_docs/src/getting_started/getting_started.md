@@ -33,7 +33,7 @@ $ ./create_claro_project.sh <project name>
 
 _Note: The below recording was made with <a href="https://asciinema.org/" target="_blank">asciinema</a> - try pausing 
 and copying any text._
-<script async id="asciicast-630055" src="https://asciinema.org/a/630055.js"></script>
+<script async id="asciicast-630055" src="https://asciinema.org/a/630055.js" data-preload="true"></script>
 
 <div class="warning">
 The first time you build/run a Claro program, you will actually be building the Claro compiler and its dependencies from

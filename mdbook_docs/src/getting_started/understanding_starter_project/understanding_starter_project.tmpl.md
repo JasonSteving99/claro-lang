@@ -7,7 +7,7 @@ The `create_claro_project.sh` script generated several files:
 Let's take a brief tour through each file to get a high level understanding of what's going on.
 
 _If you're already familiar with Bazel, jump ahead to writing your 
-[first Claro program](../first_program/first_program.md)._
+[first Claro program](../first_program/first_program.tmpl.md)._
 
 
 <div class="warning">
