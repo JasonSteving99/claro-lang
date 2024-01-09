@@ -1,7 +1,7 @@
 # Your First Program
 
-Now that you've you've set up your starter Claro project in the previous section, let's go through the process of 
-implementing your first program!
+Now that you've set up your starter Claro project in the previous section, let's go through the process of implementing 
+your first program!
 
 ## Create `hello_world.claro`
 
