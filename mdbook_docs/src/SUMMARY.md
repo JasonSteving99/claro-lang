@@ -8,8 +8,7 @@
 - [Getting Started!](./getting_started/getting_started.md)
     - [Understanding the Starter Project](./getting_started/understanding_starter_project/understanding_starter_project.generated_docs.md)
     - [Your First Program](./getting_started/first_program/first_program.generated_docs.md)
-
-[//]: # (    - [Intro to Modules]&#40;./getting_started/intro_to_modules/intro_to_modules.md&#41;)
+    - [Intro to Modules](./getting_started/intro_to_modules/intro_to_modules.generated_docs.md)
 
 # Reference Guide
 
