@@ -10,6 +10,7 @@ default-theme = "navy"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/JasonSteving99/claro-lang/"
 additional-css = ["custom_blocks.css"]
+additional-js = ["highlight.js"]
 
 [output.html.code.hidelines]
 claro = "$$"

@@ -4,13 +4,37 @@ doc_with_validated_examples(
     name = "understanding_starter_project",
     doc_template = "understanding_starter_project.tmpl.md",
     examples = [
-        { "example": "tree", "executable": False, },
-        { "example": "example_MODULE_dot_bazel", "executable": False, },
-        { "example": "example_dot_bazelversion", "executable": False, },
-        { "example": "example_dot_bazelrc", "executable": False, },
-        { "example": "example_BUILD", "executable": False, },
-        { "example": "example_input_dot_txt", "executable": False, },
-        { "example": "example_demo_dot_claro", "executable": False, },
+        {
+            "example": "tree",
+            "executable": False,
+        },
+        {
+            "example": "example_MODULE_dot_bazel",
+            "executable": False,
+            "codeblock_css_class": "claro",
+        },
+        {
+            "example": "example_dot_bazelversion",
+            "executable": False,
+        },
+        {
+            "example": "example_dot_bazelrc",
+            "executable": False,
+        },
+        {
+            "example": "example_BUILD",
+            "executable": False,
+            "codeblock_css_class": "claro",
+        },
+        {
+            "example": "example_input_dot_txt",
+            "executable": False,
+        },
+        {
+            "example": "example_demo_dot_claro",
+            "executable": False,
+            "codeblock_css_class": "claro",
+        },
     ],
 )
 

@@ -23,6 +23,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
                 append_output = ex.setdefault("append_output", True),
                 expect_errors = ex.setdefault("expect_errors", False),
                 executable = ex.setdefault("executable", True),
+                codeblock_css_class = ex.setdefault("codeblock_css_class", ""),
             )
         substitutions["EX{0}".format(i + 1)] = example_target
     generated = "{0}_generated.md".format(name)
@@ -41,7 +42,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
     )
 
 def validated_claro_example(
-        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True):
+        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True, codeblock_css_class = ""):
     if type(hidden_setup) == "string":
         hidden_setup = [hidden_setup]
     main_with_optional_hidden_cleanup = main_file
@@ -90,11 +91,12 @@ def validated_claro_example(
         cmd = """
             echo "#### _Fig {example_num}:_" > $(location {name}.validated_claro_example) \
             && echo "---" >> $(location {name}.validated_claro_example) \
-            && echo '```claro' >> $(location {name}.validated_claro_example) \
+            && echo '```{codeblock_css_class}' >> $(location {name}.validated_claro_example) \
             && printf "%s" "$$(< $(location {main_file}))" >> $(location {name}.validated_claro_example) {maybe_append_output}
         """.format(
             name = name,
             example_num = example_num,
+            codeblock_css_class = "claro" if executable else codeblock_css_class,
             main_file = main_file,
             maybe_append_output = \
                 """\

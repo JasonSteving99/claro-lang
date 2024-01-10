@@ -7,10 +7,12 @@ doc_with_validated_examples(
         {
             "example": ":styling.claro",
             "executable": False,
+            "codeblock_css_class": "claro",
         },
         {
             "example": ":styling.claro_module_api",
             "executable": False,
+            "codeblock_css_class": "claro",
         },
         {
             "example": "tree",
@@ -19,10 +21,12 @@ doc_with_validated_examples(
         {
             "example": "updated_BUILD",
             "executable": False,
+            "codeblock_css_class": "claro",
         },
         {
             "example": "updated_hello_world.claro",
             "executable": False,
+            "codeblock_css_class": "claro",
         },
     ],
 )

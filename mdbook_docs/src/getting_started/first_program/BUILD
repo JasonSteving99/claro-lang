@@ -15,6 +15,7 @@ doc_with_validated_examples(
         {
             "example": ":example_BUILD",
             "executable": False,
+            "codeblock_css_class": "claro",
         },
     ],
 )
