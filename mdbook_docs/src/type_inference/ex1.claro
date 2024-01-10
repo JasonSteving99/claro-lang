@@ -1,0 +1,3 @@
+var i: int = 1;
+var b: boolean = true;
+var l: [tuple<int, boolean>] = [(1, true), (2, false)];

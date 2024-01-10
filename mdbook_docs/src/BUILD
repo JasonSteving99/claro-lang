@@ -41,6 +41,8 @@ write_source_file(
         "//mdbook_docs/src/static_typing/user_defined_types/parameterized_types:parameterized_types",
         "//mdbook_docs/src/static_typing/user_defined_types/parameterized_types/concrete_type_inference:concrete_type_inference",
         "//mdbook_docs/src/static_typing/user_defined_types/recursive_types/impossible_recursive_types:impossible_recursive_types",
+        "//mdbook_docs/src/type_inference:type_inference",
+        "//mdbook_docs/src/type_inference/required_type_annotations:required_type_annotations",
     ],
 )
 

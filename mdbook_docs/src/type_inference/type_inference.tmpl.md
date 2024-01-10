@@ -13,3 +13,16 @@ Python or JavaScript, Claro is 100% statically typed. Therefor, in this regard, 
 Rust/Java/Haskell than it is like any dynamic language. And, importantly, Claro is *not* an "Optionally Statically
 Typed" language like Typescript - the compiler must always statically know the type of every value, you may at times
 simply choose to avoid explicitly including the type annotation in the source code.
+
+## Examples
+
+Instead of:
+
+{{EX1}}
+
+You could write:
+
+{{EX2}}
+
+Each corresponding statement has exactly the same meaning. They differ only syntactically. Each variable is still
+declared to have the same static type you'd expect.
