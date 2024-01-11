@@ -1,0 +1,5 @@
+var myPair = (1, "one"); # <-- This is an **immutable** tuple.
+print(myPair);
+
+myPair[0] = 99;  # <-- Illegal attempted mutation happens here.
+print(myPair);

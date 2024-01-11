@@ -15,12 +15,16 @@ The example below demonstrates the declaration of a new type that **wraps** `int
 
 {{EX1}}
 
+In fact, user defined types can wrap _any_ type - even other user defined types:
+
+{{EX2}}
+
 ## Instantiating an Instance of a User Defined Type
 
 Claro automatically provides a one-arg constructor that allows the user defined type to be instantiated by wrapping the
 declared type.
 
-{{EX2}}
+{{EX3}}
 
 ## User Defined Types "Wrap" an Instance of Another Type
 
@@ -32,13 +36,13 @@ wrapped type to the unwrapped type.
 So, although `newtype Foo : int` simply wraps `int`, it is not interchangeable with `int` and therefore operations like
 `+` are not supported for `Foo` even though they are for `int`.
 
-{{EX3}}
+{{EX4}}
 
 ## "Unwrapping" a User Defined Type
 
 The wrapped type can be accessed by explicitly using the builtin `unwrap()` function.
 
-{{EX4}}
+{{EX5}}
 
 ## Compile Time Enforcement
 
@@ -46,8 +50,8 @@ In the [Aliases section an example was given that demonstrates the pitfall of th
 One primary source of errors could be addressed by simply declaring a new type for each of `MPH`, `Hours`, and `Miles`.
 In this case, this statically prevents accidentally passing args to the function out of order:
 
-{{EX5}}
+{{EX6}}
 
 The above error message would lead you to correct the order of arguments and thereby fix the problem:
 
-{{EX6}}
+{{EX7}}

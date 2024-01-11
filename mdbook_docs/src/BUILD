@@ -16,6 +16,7 @@ write_source_file(
         "//mdbook_docs/src/control_flow/match/structed_data:structured_data",
         "//mdbook_docs/src/control_flow/match/wildcards:wildcards",
         "//mdbook_docs/src/control_flow/pipes:pipes",
+        "//mdbook_docs/src/control_flow/repeat:repeat",
         "//mdbook_docs/src/control_flow/while:while",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",

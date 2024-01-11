@@ -10,6 +10,12 @@ You can check for the existence of a key in a map by using the `in` keyword.
 
 {{EX2}}
 
+## Iterating Over the Entries of a Map
+
+Claro's `for` loop supports iterating over the entries of a map, with each entry modeled as `tuple<K, V>`:
+
+{{EX3}}
+
 ## Stdlib `maps` Module
 
 A large variety of map operations are available in the
@@ -17,9 +23,6 @@ A large variety of map operations are available in the
 declare a default value that will be used as fallback if the read key doesn't exist in the map by using the following
 function declared in the `maps.claro_module_api` file:
 
-```
-# Returns the value to which the specified key is mapped, or `defaultValue` if this map contains no mapping for the key.
-function getOrDefault<K,V>(m: {K:V}, k: K, defaultValue: V) -> V;
-```
+{{EX4}}
 
-{{EX3}}
+{{EX5}}

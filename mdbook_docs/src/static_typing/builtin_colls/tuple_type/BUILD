@@ -3,5 +3,21 @@ load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examp
 doc_with_validated_examples(
     name = "tuple_type",
     doc_template = "tuple_type.tmpl.md",
-    examples = ["ex1.claro", "ex2.claro", "ex3.claro"],
+    examples = [
+        {
+            "example": "ex1.claro",
+            "expect_errors": True,
+        },
+        "ex2.claro",
+        {
+            "example": "ex3.claro",
+            "expect_errors": True,
+        },
+        "ex4.claro",
+        {
+            "example": "ex5.claro",
+            "expect_errors": True,
+        },
+        "ex6.claro",
+    ],
 )

@@ -1,4 +1,5 @@
-var s = mut {1, 2};
-print(10 in s);
-_ = sets::add(s, 10);  # <-- Explicitly ignoring output of function call.
-print(10 in s);
+# Adds the specified element to this set if it is not already present. If this set already contains the element, the
+# call leaves the set unchanged and returns false. This ensures that sets never contain duplicate elements.
+#
+# Returns: true if this set did not already contain the specified element.
+function add<T>(s: mut {T}, t: T) -> boolean;

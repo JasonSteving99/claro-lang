@@ -1,2 +1,4 @@
-var f = Foo(1);
-print(f);
+# The order of `newtype` declarations is unimportant.
+newtype Baz : int
+newtype Foo : Bar
+newtype Bar : Baz

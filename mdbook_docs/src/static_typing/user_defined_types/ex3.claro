@@ -1,3 +1,2 @@
-newtype Foo : int
 var f = Foo(1);
-print(f + 9);
+print(f);

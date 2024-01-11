@@ -1,0 +1,5 @@
+var loopCount = random::nextNonNegativeBoundedInt(random::create(), 10);
+
+repeat (loopCount) {
+    print("Repeating...");
+}

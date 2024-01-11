@@ -1,0 +1,2 @@
+# Returns the value to which the specified key is mapped, or `defaultValue` if this map contains no mapping for the key.
+function getOrDefault<K,V>(m: {K:V}, k: K, defaultValue: V) -> V;

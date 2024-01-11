@@ -1,7 +1,3 @@
-newtype MPH : double
-newtype Hours : double # Arguably you should be using `duration::Duration`.
-newtype Miles : double
-
-function timeTraveled(speed: MPH, distanceTraveled: Miles) -> Hours {
-  return Hours(unwrap(distanceTraveled) / unwrap(speed));
-}
+newtype Foo : int
+var f = Foo(1);
+print(unwrap(f) + 9);

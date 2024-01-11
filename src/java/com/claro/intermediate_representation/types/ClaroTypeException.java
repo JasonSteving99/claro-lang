@@ -201,10 +201,10 @@ public class ClaroTypeException extends Exception {
       "Illegal Type Declaration: Cannot mark %s with the `mut` type modifier, it is inherently immutable.";
   private static final String ILLEGAL_MUTATION_ATTEMPT_ON_IMMUTABLE_VALUE =
       "Illegal Mutation of Immutable Value: Mutation of immutable values is forbidden!\n" +
-      "\t\tFound the immutable type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tIn order to mutate this value, the value's type would need to be updated to:\n" +
-      "\t\t\t%s";
+      "\tFound the immutable type:\n" +
+      "\t\t%s\n" +
+      "\tIn order to mutate this value, the value's type would need to be updated to:\n" +
+      "\t\t%s";
   private static final String INVALID_UNWRAP_OF_BUILTIN_TYPE =
       "Invalid Unwrap of Builtin Type: `unwrap()` is only supported over concrete user-defined custom types wrapping another type. The value you attempted to unwrap is a builtin type, meaning you have already reached the \"bottom\", there is nothing to unwrap.\n" +
       "\t\tFound:\n" +

@@ -10,27 +10,31 @@ doc_with_validated_examples(
         },
         {
             "example": "ex2.claro",
-            "hidden_setup": "ex1.claro",
+            "append_output": False
         },
         {
             "example": "ex3.claro",
-            "expect_errors": True,
-        },
-        "ex4.claro",
-        {
-            "example": "ex5-bad-concat.claro",
-            "expect_errors": True,
+            "hidden_setup": "ex1.claro",
         },
         {
-            "example": "ex5-good.claro",
-            "hidden_setup": "ex5.claro",
+            "example": "ex4.claro",
+            "expect_errors": True,
+        },
+        "ex5.claro",
+        {
+            "example": "ex6-bad-concat.claro",
+            "expect_errors": True,
+        },
+        {
+            "example": "ex6-good.claro",
+            "hidden_setup": "ex6.claro",
         },
     ]
 )
 
 genrule(
-    name = "ex5-bad-concat",
-    srcs = ["ex5.claro", "ex5-bad.claro"],
-    outs = ["ex5-bad-concat.claro"],
-    cmd = "cat $(location ex5.claro) $(location ex5-bad.claro) > $(OUTS)"
+    name = "ex6-bad-concat",
+    srcs = ["ex6.claro", "ex6-bad.claro"],
+    outs = ["ex6-bad-concat.claro"],
+    cmd = "cat $(location ex6.claro) $(location ex6-bad.claro) > $(OUTS)"
 )
