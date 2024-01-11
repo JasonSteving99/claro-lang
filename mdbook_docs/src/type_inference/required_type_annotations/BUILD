@@ -1,5 +1,10 @@
 load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examples")
 
+exports_files(
+    ["ex3.claro", "ex2-cleanup.claro"],
+    visibility = ["//mdbook_docs/src/lambdas_and_first_class_procedures:__pkg__"]
+)
+
 doc_with_validated_examples(
     name = "required_type_annotations",
     doc_template = "required_type_annotations.tmpl.md",

@@ -2,9 +2,7 @@
 
 Consider the example of the generic function:
 
-```
-function filter<T>(l: [T], pred: function<T -> boolean>) -> [T] {...}
-```
+{{EX1}}
 
 If you really squint, you might notice that there's very little information available in the body of the
 `filter<T>(...)` function to tell you about the type `T`. As a result, you're unable to do much with values of such an
@@ -18,14 +16,14 @@ for which the function `foo(arg1: T, arg2: T)` exists."
 
 For example, we should be able to write the following generic function:
 
-{{EX1}}
+{{EX2}}
 
 The function above has a new `requires(...)` clause in the signature which we haven't seen before. This is the mechanism
 by which a function constrains the set of types that may be passed into this function to only types that definitely have
 a certain associated procedure implementation existing. The `requires(...)` clause takes in a list of "Contracts" that
 must be implemented over the generic type. In this case that contract's definition looks like:
 
-{{EX2}}
+{{EX3}}
 
 This Contract specifies a single function signature that any implementation of this Contract must implement. Other
 Contracts may specify more than one signature, or even more than one generic type param. There are no restrictions on

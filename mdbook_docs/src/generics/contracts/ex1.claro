@@ -1,9 +1,4 @@
-requires(Operators<T>)    # <-- What is this `requires(...)`?
-function sum<T>(l: [T]) -> T {
-    var res = l[0];
-    var i = 0;
-    while (++i < len(l)) {
-        res = Operators::add(res, l[i]); # <-- What is this `Operators::add`?
-    }
-    return res;
+function filter<A>(l: [A], pred: function<A -> boolean>) -> [A] {
+  # ...
+$$  return [a | a in l where pred(a)];
 }

@@ -7,7 +7,11 @@ doc_with_validated_examples(
     doc_template = "contracts.tmpl.md",
     examples = [
         {
-            "example": "//mdbook_docs/src/generics/contracts:ex1.claro",
+            "example": "ex1.claro",
+            "append_output": False,
+        },
+        {
+            "example": "//mdbook_docs/src/generics/contracts:ex2.claro",
             "hidden_setup": "//mdbook_docs/src/generics/contracts:ex_contract.claro",
             "append_output": False,
         },

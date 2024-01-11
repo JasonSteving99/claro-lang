@@ -21,7 +21,7 @@ doc_with_validated_examples(
             "hidden_setup": [
                 "//mdbook_docs/src/generics/contracts:ex_contract.claro",
                 "//mdbook_docs/src/generics/contracts/implementing_contracts:ex_impls.claro",
-                "//mdbook_docs/src/generics/contracts:ex1.claro",
+                "//mdbook_docs/src/generics/contracts:ex2.claro",
             ],
         },
     ],

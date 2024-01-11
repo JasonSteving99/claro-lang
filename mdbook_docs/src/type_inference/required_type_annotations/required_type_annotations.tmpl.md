@@ -65,6 +65,9 @@ of how this may happen:
 
 {{EX6}}
 
+_See the [Generic Return Type Inference](../../generics/generic_return_type_inference/generic_return_type_inference.generated_docs.md)
+section for more on this._
+
 ### Any Ambiguously-Typed Expression Passed to a Generic Function Arg Position
 
 Because Claro monomorphizes [generic procedures](../../generics.generated_docs.md), Claro must determine the called 
