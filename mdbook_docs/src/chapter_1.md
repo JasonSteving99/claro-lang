@@ -2,21 +2,49 @@
 
 <img id="claro-logo" width=300 src="./images/ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png">
 
-Claro is a statically compiled JVM language whose goal is first and foremost to provide you with the tools for reasoning
-about program design and construction using a very clear and direct mental model - data flowing through a systems of
-steps where new data may be produced, and existing data may be updated by the system at each step. This stated mental
-model is intentionally simple. Where it may be vague, I hope to add clarity in the rest of these intro docs.
+## Claro is a statically typed JVM language that provides a well-lit path to building simple, highly concurrent, and scalable applications.
 
-Where other languages tend to mostly fall into the "Object-Oriented" (Java, Python, etc) paradigm, or the "Functional
-Programming" (Haskell, Elm, Roc, etc) paradigm, Claro eschews both of these extremes and lands somewhere more
-closely resembling a mix of procedural and declarative programming. Claro aims to be easily digestible to programmers
-coming from other paradigms by actually striving to add as few totally novel features as possible - only adding net-new
-ideas where they can be easily understandable to any user with moderate effort and only after the net-new idea has
-proven to provide some substantial, and observable benefit in the real world. Claro is not an esoteric language
-to be marvelled at by experts, or language geeks (like myself). Claro is a practical language whose mission is to help
-make writing readable, extensible, and performant programs significantly easier than one would achieve using existing
-languages and tools. Rather than depend heavily on layers of frameworks to achieve things like dependency injection,
-safe concurrency and more, Claro gives you powerful capabilities out of the box.
+## Dependency Management Done Right
+---
+Claro was designed with modern build tooling in mind:
+- Swap any dependency without changing a single line of source code
+- Runtime "Dependency Injection" frameworks are a thing of the past
+- First class Module system
+## Fearless Concurrency
+---
+Developed by a Xoogler taking inspiration from years of hands-on development experience with Google-internal backend web
+frameworks, Claro moves well beyond async/await. Claro’s declarative, DAG-based structured concurrency model is the 
+first of its kind in a programming language - statically guaranteeing that programs are:
+- Non-blocking
+- Data-race free
+- Deadlock free
+- Optimally scheduled
+- Scaleable by default
+## Data Oriented
+---
+- Strict separation between data and functionality
+- Mutability tracked at the type system level
+- Extremely flexible built in algebraic data types
+- Model arbitrary data structures with zero boilerplate
+## Unapologetically Practical
+---
+- Bi-directional type inference
+- Robust standard library
+- Builtin external package manager
+- Build time metaprogramming
+## Designed to Scale with You
+---
+- Incremental compilation out of the box
+- Code reuse made simple
+- Develop codebases of any size without devolving into a spaghetti labyrinth
+## Actively In Development
+---
 
-Learning Claro will involve a bit of unlearning of previous language principles, but will leave you with a single,
-well-lit path.
+
+<div class="warning">
+
+**Claro is in active development and is not yet ready for production use**. While Claro has been in active development 
+for more than 3 years, its design and implementation has been done entirely by its single maintainer, 
+<a href="https://www.linkedin.com/in/jasonsteving/" target="_blank">Jason Steving</a> - while the foundation has been 
+laid, contributions are welcome! Anyone with interest is actively encouraged to reach out and get involved!
+</div>
