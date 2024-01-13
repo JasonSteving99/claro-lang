@@ -1,0 +1,6 @@
+graph function foo(argA: A) -> future<FooRes> {
+    root fooRes <- doFoo(@fooA, @fooB);
+    node fooA <- doFooA(@fooC);
+    node fooB <- bar(10, @fooC); # <-- Graph Composition via Call to `bar`.
+    node fooC <- doFooC(argA);
+}

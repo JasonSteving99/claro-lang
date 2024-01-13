@@ -1,0 +1,33 @@
+alias UserId : string
+alias Profile : struct {userId: UserId, name: string}
+alias Show : struct {name: string, episodeCount: int}
+alias Movie : struct {name: string}
+newtype Watchlist : [oneof<Show, Movie>]
+
+function mergeTop10(movies: [Movie], shows: [Show]) -> Watchlist {
+  var watchlist: mut [oneof<Show, Movie>] = mut [];
+  var i = 0;
+  while ((i < len(movies)) and (i < 10)) {
+    lists::add(watchlist, movies[i++]);
+  }
+  while ((i < len(shows) + len(movies)) and (i < 10)) {
+    lists::add(watchlist, shows[i++ - len(movies)]);
+  }
+  return Watchlist(copy(watchlist));
+}
+
+function getTopMovies(profile: Profile) -> future<[Movie]> {
+  # For example purposes only - instead this could make an RPC call.
+  _ = profile;
+  return futures::immediateFuture([{name = "Arrival"}]);
+}
+function getTopShows(profile: Profile) -> future<[Show]> {
+  # For example purposes only - instead this could make an RPC call.
+  _ = profile;
+  return futures::immediateFuture([{name = "Doctor Who", episodeCount = 1000}]);
+}
+
+function getUserFromDB(userId: UserId) -> future<Profile> {
+  # For example purposes only - instead this could make an RPC call.
+  return futures::immediateFuture({userId = userId, name = "Jason"});
+}

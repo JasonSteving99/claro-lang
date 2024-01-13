@@ -1,0 +1,6 @@
+graph function getWatchlist(userId: UserId) -> future<Watchlist> {
+    root recWatchlist <- mergeTop10(@movies, @shows);
+    node movies <- getTopMovies(@profile);
+    node shows <- getTopShows(@profile);
+    node profile <- getUserFromDB(userId);
+}

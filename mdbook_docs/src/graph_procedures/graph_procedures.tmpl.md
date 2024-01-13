@@ -20,14 +20,7 @@ than can generally be achieved with a handcrafted threaded program.
 
 The example below shows syntax vs DAG visualization:
 
-```
-graph function getWatchlist(userId: UserId) -> future<Watchlist> {
-    root recWatchlist <- mergeTop10(@movies, @shows);
-    node movies <- getTopMovies(@profile);
-    node shows <- getTopShows(@profile);
-    node profile <- getUserFromDB(userId);
-}
-```
+{{EX1}}
 
 As you can see clearly in the diagram below, `profile` must run first but `movies` and `shows` may be computed
 concurrently:

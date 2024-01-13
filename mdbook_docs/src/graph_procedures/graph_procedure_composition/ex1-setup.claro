@@ -1,0 +1,19 @@
+newtype B : int
+newtype C : int
+newtype D : int
+newtype BarRes : int
+
+function doBar(d: D) -> future<BarRes> {
+  _ = d;
+  return futures::immediateFuture(BarRes(-1));
+}
+function doBarA(b: B, c: C) -> future<D> {
+  _ = b; _ = c;
+  return futures::immediateFuture(D(-1));
+}
+function doBarB(b: int) -> future<B> {
+  return futures::immediateFuture(B(b));
+}
+function doBarC(c: C) -> future<C> {
+  return futures::immediateFuture(c);
+}
