@@ -26,9 +26,9 @@ As you can see clearly in the diagram below, `profile` must run first but `movie
 concurrently:
 
 <pre class="mermaid">
-    graph LR
-    Profile(Profile) --> Movies
-    Profile --> Shows
-    Movies(Movies) --> recWatchList
-    Shows(Shows) --> recWatchList
+    graph TD
+    profile(profile) --> movies
+    profile --> shows
+    movies(movies) --> recWatchList
+    shows(shows) --> recWatchList
 </pre>

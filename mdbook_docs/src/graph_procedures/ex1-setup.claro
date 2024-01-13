@@ -4,7 +4,7 @@ alias Show : struct {name: string, episodeCount: int}
 alias Movie : struct {name: string}
 newtype Watchlist : [oneof<Show, Movie>]
 
-function mergeTop10(movies: [Movie], shows: [Show]) -> Watchlist {
+function mergeTopTen(movies: [Movie], shows: [Show]) -> Watchlist {
   var watchlist: mut [oneof<Show, Movie>] = mut [];
   var i = 0;
   while ((i < len(movies)) and (i < 10)) {
