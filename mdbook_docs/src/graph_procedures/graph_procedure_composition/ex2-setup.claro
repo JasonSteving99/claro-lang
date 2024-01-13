@@ -1,15 +1,15 @@
-newtype A: int
-newtype FooRes : int
+alias A: int
+alias FooRes : int
 
 function doFoo(a: A, barRes: BarRes) -> future<FooRes> {
   _ = a; _ = barRes;
-  return futures::immediateFuture(FooRes(-1));
+  return futures::immediateFuture(-1);
 }
 function doFooA(c: C) -> future<A> {
   _ = c;
-  return futures::immediateFuture(A(-1));
+  return futures::immediateFuture(-1);
 }
 function doFooC(a: A) -> future<C> {
   _ = a;
-  return futures::immediateFuture(C(-1));
+  return futures::immediateFuture(-1);
 }
