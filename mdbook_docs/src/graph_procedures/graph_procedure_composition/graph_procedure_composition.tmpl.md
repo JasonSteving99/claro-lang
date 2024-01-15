@@ -20,10 +20,10 @@ For Example:
 
 <pre class="mermaid">
     graph TD
-    fooC(fooC) --> fooA
-    fooC(fooC) --> fooB
-    fooA(fooA) --> fooRes
-    fooB(fooB) --> fooRes
+    fooC --> fooA
+    fooC --> fooB
+    fooB --> fooRes
+    fooA --> fooRes
 </pre>
 
 Because `foo(...)` includes a call to `bar(...)` as a subgraph, you can imagine that node `fooB` in graph `foo` actually
