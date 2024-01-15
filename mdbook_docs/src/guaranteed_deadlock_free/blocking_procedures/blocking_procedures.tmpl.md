@@ -6,17 +6,7 @@ hard. So, you may write blacking code in Claro, but as it's really only intended
 forces your hand. Any procedure that makes use of the `<-|` operator either directly or indirectly, must be explicitly
 annotated to be `blocking`:
 
-```
-blocking function doBlocking(...) -> ... {
-    ...do stuff...
-
-    var unwrappedGraphRes: Foo <-| fooGraph(...); # Blocking unwrap.
-
-    ...do stuff using `unwrappedGraphRes`...
-
-    return ...;
-}
-```
+{{EX1}}
 
 To prevent deadlocking, procedures annotated `blocking` may not be called from a Graph. Therefore, you can be confident
 that the threading implementation of any logic defined within a Graph Procedure will certainly not suffer from

@@ -119,6 +119,11 @@ public class DeclarationStmt extends Stmt {
               blocking ? Types.FutureType.wrapping(declaredType) : declaredType
           );
         }
+        if (blocking) {
+          // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
+          // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
+          annotateOptionalActiveProcedureDefBlocking();
+        }
         scopedHeap.initializeIdentifier(this.IDENTIFIER);
       }
       scopedHeap.observeIdentifier(this.IDENTIFIER, declaredType);
@@ -143,11 +148,7 @@ public class DeclarationStmt extends Stmt {
         if (blocking) {
           // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
           // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
-          InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
-              .ifPresent(
-                  procedureDefinitionStmt ->
-                      ((ProcedureDefinitionStmt) procedureDefinitionStmt)
-                          .resolvedProcedureType.getIsBlocking().set(true));
+          annotateOptionalActiveProcedureDefBlocking();
 
           // Let's defer Expr's assertions since that will automatically handle logging.
           int errorsBefore = Expr.typeErrorsFound.size();
@@ -170,6 +171,16 @@ public class DeclarationStmt extends Stmt {
         ((Expr) this.getChildren().get(0)).logTypeError(e);
       }
     }
+  }
+
+  private void annotateOptionalActiveProcedureDefBlocking() {
+    // In service of Claro's goal to provide "Fearless Concurrency" through Graph Functions, any procedure that can
+    // reach a blocking operation is marked as blocking so that we can prevent its usage from Graph Functions.
+    InternalStaticStateUtil.ProcedureDefinitionStmt_optionalActiveProcedureDefinitionStmt
+        .ifPresent(
+            procedureDefinitionStmt ->
+                ((ProcedureDefinitionStmt) procedureDefinitionStmt)
+                    .resolvedProcedureType.getIsBlocking().set(true));
   }
 
   @Override

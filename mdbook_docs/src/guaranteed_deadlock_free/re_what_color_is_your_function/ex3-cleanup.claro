@@ -1,0 +1,2 @@
+_ = myBlockingFn;
+_ = myNonBlockingFn;
