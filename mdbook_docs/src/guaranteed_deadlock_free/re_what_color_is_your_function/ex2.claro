@@ -1,3 +1,8 @@
-# Illegal use of `blocking:...`, and `blocking?` outside of top-level Procedure definition.
-var myBlockingGenericFn:
-    blocking:arg1 function<|[int], blocking? function<int -> boolean>| -> [int]>;
+graph function deferToBlockingGenericFn(l: [int]) -> future<[int]> {
+  root noopRes <- @defer;
+  # Legal call to non-blocking procedure in Graph.
+  node defer   <- filter(l, (x: int) -> boolean { return x > 0; });
+}
+
+var res <-| deferToBlockingGenericFn([-1, 5, 3, 0, 2]);
+print(res);

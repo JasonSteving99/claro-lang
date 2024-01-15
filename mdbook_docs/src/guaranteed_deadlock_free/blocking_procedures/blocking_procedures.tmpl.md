@@ -8,7 +8,12 @@ annotated to be `blocking`:
 
 {{EX1}}
 
-To prevent deadlocking, procedures annotated `blocking` may not be called from a Graph. Therefore, you can be confident
-that the threading implementation of any logic defined within a Graph Procedure will certainly not suffer from
-liveliness issues in the form of deadlocks (of course, you may still write code with bugs such as infinite loops that
-may lead to a "livelock").
+## Graph Procedures May not Call any Blocking Procedures (Directly or Indirectly)
+
+To prevent deadlocking, procedures annotated `blocking` may not be called from a Graph: 
+
+{{EX2}}
+
+Therefore, you can be confident that the threading implementation of any logic defined within a Graph Procedure will 
+certainly not suffer from liveliness issues in the form of deadlocks (of course, you may still write code with bugs such
+as infinite loops that may lead to a "livelock").

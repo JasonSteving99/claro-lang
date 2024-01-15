@@ -12,12 +12,21 @@ doc_with_validated_examples(
         },
         {
             "example": "ex2.claro",
-            "expect_errors": True,
+            "hidden_setup": "ex1.claro",
         },
         {
             "example": "ex3.claro",
             "hidden_setup": "ex1.claro",
-            "hidden_cleanup": "ex3-cleanup.claro",
+            "expect_errors": True,
+        },
+        {
+            "example": "ex4.claro",
+            "expect_errors": True,
+        },
+        {
+            "example": "ex5.claro",
+            "hidden_setup": "ex1.claro",
+            "hidden_cleanup": "ex5-cleanup.claro",
             "append_output": False,
         },
     ],

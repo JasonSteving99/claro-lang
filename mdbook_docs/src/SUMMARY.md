@@ -62,6 +62,6 @@
     - [(Advanced) Conditional Subgraph Execution](./graph_procedures/conditional_subgraph_execution/conditional_subgraph_execution.generated_docs.md)
 - [Guaranteed Deadlock-Free Concurrency](./guaranteed_deadlock_free.md)
     - [Blocking Procedures](./guaranteed_deadlock_free/blocking_procedures/blocking_procedures.generated_docs.md)
-    - [Re: "What Color is Your Function?"](./guaranteed_deadlock_free/re_what_color_is_your_function.md)
+    - [Re: "What Color is Your Function?"](./guaranteed_deadlock_free/re_what_color_is_your_function.generated_docs.md)
         - [(Advanced) Blocking Generics](./guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.generated_docs.md)
 - [Module System](./module_system.md)
