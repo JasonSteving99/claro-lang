@@ -10,7 +10,7 @@ Now that you have implementations, you can either call them directly:
 {{EX2}}
 
 Or, even more valuable, you can also call the generic `sum` function from the 
-[previous section](../contracts.generated_docs.md) over concrete types `int` or `string` because the requirements are 
+[previous section](../contracts.generated_docs.md#fig-2) over concrete types `int` or `string` because the requirements are 
 met for both!
 
 {{EX3}}

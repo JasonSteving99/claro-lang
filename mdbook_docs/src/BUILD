@@ -25,6 +25,8 @@ write_source_file(
         "//mdbook_docs/src/getting_started/intro_to_modules:intro_to_modules",
         "//mdbook_docs/src/getting_started/understanding_starter_project:understanding_starter_project",
         "//mdbook_docs/src/graph_procedures:graph_procedures",
+        "//mdbook_docs/src/graph_procedures/calling_graph_procedures:calling_graph_procedures",
+        "//mdbook_docs/src/graph_procedures/conditional_subgraph_execution:conditional_subgraph_execution",
         "//mdbook_docs/src/graph_procedures/graph_procedure_composition:graph_procedure_composition",
         "//mdbook_docs/src/images:logo",
         "//mdbook_docs/src/lambdas_and_first_class_procedures:lambdas_and_first_class_procedures",

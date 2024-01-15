@@ -8,7 +8,7 @@ You can see in the example below, tuples interact w/ type validation in an inter
 you index into a tuple, you should generally prefer to use a literal int constant. When you do, Claro can statically
 determine the type of the value you're accessing at compile time, which allows safer and more efficient code.
 
-For example, Claro is able to statically find the bug in the below program:
+For example, Claro is able to statically find the bugs in the below program:
 
 {{EX1}}
 

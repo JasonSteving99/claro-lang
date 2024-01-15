@@ -8,13 +8,14 @@ implement Index<[int], int> {
     }
 }
 
-alias SafeRes : tuple<boolean, int>
+atom IndexOutOfBounds
+newtype SafeRes<T> : oneof<T, std::Error<IndexOutOfBounds>>
 
-implement Index<[int], SafeRes> {
-    function get(l: [int], ind: int) -> SafeRes {
+implement Index<[int], SafeRes<int>> {
+    function get(l: [int], ind: int) -> SafeRes<int> {
         if (ind >= 0 and ind < len(l)) {
-            return (true, l[ind]);
+            return SafeRes(l[ind]);
         }
-        return (false, -1);
+        return SafeRes(std::Error(IndexOutOfBounds));
     }
 }

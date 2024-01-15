@@ -200,9 +200,10 @@ public class DeclarationStmt extends Stmt {
       }
       res.append(
           String.format(
-              " = %s%s",
+              " = %s%s%s",
+              blocking ? String.format("((%s) ", identifierValidatedType.getJavaSourceType()) : "",
               exprGeneratedJavaSource.javaSourceBody().toString(),
-              blocking ? ".get()" : ""
+              blocking ? ".get())" : ""
           ));
       // We already consumed the javaSourceBody so we can clear it out.
       exprGeneratedJavaSource.javaSourceBody().setLength(0);

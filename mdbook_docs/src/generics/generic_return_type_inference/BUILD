@@ -5,12 +5,28 @@ doc_with_validated_examples(
     doc_template = "generic_return_type_inference.tmpl.md",
     examples = [
         {
-            "example": "//mdbook_docs/src/generics/generic_return_type_inference:ex1.claro",
+            "example": "ex1.claro",
             "append_output": False,
         },
         {
-            "example": "//mdbook_docs/src/generics/generic_return_type_inference:ex2.claro",
-            "hidden_setup": "//mdbook_docs/src/generics/generic_return_type_inference:ex1.claro",
+            "example": "ex2.claro",
+            "hidden_setup": "ex1.claro",
+        },
+        {
+            "example": "ex3.claro",
+            "hidden_setup": "ex1.claro",
+            "hidden_cleanup": "ex3-cleanup.claro",
+            "expect_errors": True,
+        },
+        {
+            "example": "ex4.claro",
+            "hidden_setup": "ex1.claro",
+            "hidden_cleanup": "ex3-cleanup.claro",
+            "expect_errors": True,
+        },
+        {
+            "example": "ex5.claro",
+            "hidden_setup": "ex1.claro",
         },
     ],
 )

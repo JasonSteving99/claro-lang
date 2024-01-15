@@ -3,5 +3,5 @@ var myPair: tuple<int, string> = (1, "one");
 # Claro will interpret literal int subscripts at compile-time for type validation.
 var myInt: int = myPair[1];     # <-- Wrong index.
 print(myInt);
-var myStr: string = myPair[0];  # <-- Wrong index.
+var myStr: string = myPair[3];  # <-- Out-of-bounds index.
 print(myStr);
