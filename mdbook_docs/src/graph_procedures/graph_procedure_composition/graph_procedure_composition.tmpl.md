@@ -31,15 +31,15 @@ composes around the entire `bar` graph.
 
 <pre class="mermaid">
 graph TD
-    fooC(fooC) --> fooA
-    fooC --> fooB
-    fooB --> fooRes
+    fooC --> fooA
+    fooC --> barC
+    barRes --> fooRes
     subgraph fooB
-        barC(barC) --> barA
-        barB(barB) --> barA
-        barA(barA) --> barRes
+        barC --> barA
+        barB --> barA
+        barA --> barRes
     end
-    fooA(fooA) --> fooRes
+    fooA --> fooRes
 </pre>
 
 This composition is extremely simple to understand in this way. The entire subgraph is started after all data
