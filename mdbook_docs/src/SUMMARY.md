@@ -26,6 +26,8 @@
             - [Matching Structured Data](./control_flow/match/structed_data/structured_data.generated_docs.md)
             - [Wildcard Patterns](./control_flow/match/wildcards/wildcards.generated_docs.md)
             - [Static Exhaustiveness Checks](./control_flow/match/exhaustiveness_checks/exhaustiveness_checks.generated_docs.md)
+        - [Collection Comprehension](./control_flow/collection_comprehension/collection_comprehension.generated_docs.md)
+            - [Comprehension is More Than Syntax Sugar](./control_flow/collection_comprehension/more_than_syntax_sugar/more_than_syntax_sugar.generated_docs.md)
 - [Types](./static_typing/static_typing.generated_docs.md)
     - [Builtin Collections](./static_typing/builtin_colls/builtin_collections.generated_docs.md)
         - [Lists](./static_typing/builtin_colls/list_type/list_type.generated_docs.md)

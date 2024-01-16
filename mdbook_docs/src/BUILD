@@ -9,6 +9,8 @@ write_source_file(
         "//mdbook_docs/src/common_programming_concepts/variables_and_types:variables_and_types",
         "//mdbook_docs/src/common_programming_concepts/sep_var_decl_and_init:sep_var_decl_and_init",
         "//mdbook_docs/src/common_programming_concepts/var_reassignment:var_reassignment",
+        "//mdbook_docs/src/control_flow/collection_comprehension:collection_comprehension",
+        "//mdbook_docs/src/control_flow/collection_comprehension/more_than_syntax_sugar:more_than_syntax_sugar",
         "//mdbook_docs/src/control_flow/if_else:if_else",
         "//mdbook_docs/src/control_flow/for:for",
         "//mdbook_docs/src/control_flow/match:match",
