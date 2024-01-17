@@ -29,10 +29,11 @@ var efficientlyCopied = copy(GIANT_TEST_LIST);
 var secondTestEnd = instant::now();
 
 # Let's see approximately how much time each took!
+var MILLIS_PER_SECOND = 1000.0;
 var NANOS_PER_SECOND = 1000000000.0;
 duration::between(firstTestStart, firstTestEnd)
-  |> duration::toNanos(^)
-  |> print("Manual copy time:  {^/NANOS_PER_SECOND} seconds");
+  |> duration::toMillis(^)
+  |> print("Manual copy time:  {^/MILLIS_PER_SECOND} seconds");
 duration::between(secondTestStart, secondTestEnd)
   |> duration::toNanos(^)
   |> print("Builtin copy time: {^/NANOS_PER_SECOND} seconds");
