@@ -1,0 +1,43 @@
+$$# Claro's list comprehension needs to support unused elem variable: [someExpr | _ in coll]
+$$function discardFirst<A,B>(a: A, b: B) -> B {
+$$  _ = a;
+$$  return b;
+$$}
+$$var numbers: mut [int] = mut [];
+$$lists::ensureCapacity(numbers, 1000);
+$$var i = 0;
+$$while (i++ < 1000) {
+$$  lists::add(numbers, i);
+$$}
+$$var GIANT_TEST_LIST: mut [[[int]]] = mut [];
+$$repeat (100) {
+$$  var innerList = [discardFirst(unused, [x | x in numbers]) | unused in numbers];
+$$  lists::add(GIANT_TEST_LIST, innerList);
+$$}
+$$
+# Compute the number of ints in the test list.
+print("GIANT_TEST_LIST dimensions: {len(GIANT_TEST_LIST)}x{len(GIANT_TEST_LIST[0])}x{len(GIANT_TEST_LIST[0][0])}\n");
+
+# Now, manually copy the test lest using list comprehension.
+var firstTestStart = instant::now();
+var manuallyCopied = mut [[[x | x in l2] | l2 in l1] | l1 in GIANT_TEST_LIST];
+var firstTestEnd = instant::now();
+
+# Now, copy using the builtin `copy(...)` function.
+var secondTestStart = instant::now();
+var efficientlyCopied = copy(GIANT_TEST_LIST);
+var secondTestEnd = instant::now();
+
+# Let's see approximately how much time each took!
+var NANOS_PER_SECOND = 1000000000.0;
+duration::between(firstTestStart, firstTestEnd)
+  |> duration::toNanos(^)
+  |> print("Manual copy time:  {^/NANOS_PER_SECOND} seconds");
+duration::between(secondTestStart, secondTestEnd)
+  |> duration::toNanos(^)
+  |> print("Builtin copy time: {^/NANOS_PER_SECOND} seconds");
+
+# Now just to really finish the demonstration, let's confirm that these copies actually contain equal elements to the
+# giant copied list.
+print("\nmanuallyCopied == GIANT_TEST_LIST:    {manuallyCopied == GIANT_TEST_LIST}");
+print("efficientlyCopied == GIANT_TEST_LIST: {efficientlyCopied == GIANT_TEST_LIST}");

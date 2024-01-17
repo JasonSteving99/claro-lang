@@ -1,0 +1,30 @@
+# This type is recursive (with int as its "bottom" to terminate recursion).
+newtype ComplexData : oneof<int, tuple<ComplexData, ComplexData>, {ComplexData}>
+
+function generateRandomComplexData(rng: random::RandomNumberGenerator, maxDepth: int) -> ComplexData {
+  # ...
+$$  return generateRandomComplexData_impl(rng, 0, maxDepth);
+}
+$$
+$$function generateRandomComplexData_impl(rng: random::RandomNumberGenerator, currDepth: int, maxDepth: int) -> ComplexData {
+$$  if (currDepth == maxDepth) {
+$$    return ComplexData(-1); # Let's just avoid attempting to create some infinitely large data structure.
+$$  }
+$$  var next = lambda () -> ComplexData { return generateRandomComplexData_impl(rng, currDepth + 1, maxDepth); };
+$$  match (random::nextNonNegativeBoundedInt(rng, 3)) {
+$$    case 0 -> # int
+$$      return ComplexData(random::nextNonNegativeBoundedInt(rng, 100));
+$$    case 1 -> # tuple<ComplexData, ComplexData>
+$$      return ComplexData((next(), next()));
+$$    case _ -> # {ComplexData}
+$$      return ComplexData({next(), next(), next()});
+$$  }
+$$}
+
+var someComplexData = generateRandomComplexData(random::forSeed(3), 3);
+print(someComplexData);
+
+# KNOWN COMPILER BUG: CURRENTLY CLARO IS UNABLE TO CORRECTLY GENERATE COPY LOGIC OVER RECURSIVE TYPES!
+#     This currently causes the compiler to stack overflow. This will be resolved in a future release.
+# var copied = copy(someComplexData);
+# print(copied);

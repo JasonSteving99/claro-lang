@@ -24,6 +24,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
                 expect_errors = ex.setdefault("expect_errors", False),
                 executable = ex.setdefault("executable", True),
                 codeblock_css_class = ex.setdefault("codeblock_css_class", ""),
+                deps = ex.setdefault("deps", {}),
             )
         substitutions["EX{0}".format(i + 1)] = example_target
     generated = "{0}_generated.md".format(name)
@@ -42,7 +43,7 @@ def doc_with_validated_examples(name, doc_template, examples = []):
     )
 
 def validated_claro_example(
-        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True, codeblock_css_class = ""):
+        name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True, codeblock_css_class = "", deps = {}):
     if type(hidden_setup) == "string":
         hidden_setup = [hidden_setup]
     main_with_optional_hidden_cleanup = main_file
@@ -79,6 +80,7 @@ def validated_claro_example(
             name = "{0}_example".format(name),
             main_file = main_with_optional_hidden_cleanup,
             srcs = hidden_setup if hidden_setup else [],
+            deps = deps,
         )
     else:
         append_output = False

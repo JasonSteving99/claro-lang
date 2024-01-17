@@ -1,0 +1,13 @@
+var original = {left = mut (1, [10]), right = (["aaa"], mut ["bbb"])};
+var copied = copy(original);
+
+print(original);
+print(copied);
+print("");
+
+copied.left[0] = -99;
+copied.right[1][0] = "MODIFIED";
+
+print(original);
+print(copied);
+print("");
