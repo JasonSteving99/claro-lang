@@ -69,6 +69,13 @@ jobs:
       run: |
         # The docs are auto-generated to ensure that the examples are always up-to-date and actually run.                                                   
         bazel run //mdbook_docs/src:write_all_docs && bazel test //mdbook_docs/src/...
+        if [ $? -eq 0 ]; then
+          echo "Successfully Generated Docs"
+        else
+          echo "Failed to Build Docs"
+          exit 1
+        fi
+        
         cd mdbook_docs
         mdbook build
         git worktree add gh-pages
