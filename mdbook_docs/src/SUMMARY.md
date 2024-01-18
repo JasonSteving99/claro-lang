@@ -16,6 +16,7 @@
     - [Variables & Primitive Types](./common_programming_concepts/variables_and_types/variables_and_types.generated_docs.md)
     - [Separate Variable Declaration & Initialization](./common_programming_concepts/sep_var_decl_and_init/sep_var_decl_and_init.generated_docs.md)
     - [Variable Reassignment](./common_programming_concepts/var_reassignment/var_reassignment.generated_docs.md)
+    - [String Formatting](./common_programming_concepts/string_formatting/string_formatting.generated_docs.md)
     - [Control Flow](./control_flow.md)
         - [If-Else](./control_flow/if_else/if_else.generated_docs.md)
         - [While](./control_flow/while/while.generated_docs.md)
