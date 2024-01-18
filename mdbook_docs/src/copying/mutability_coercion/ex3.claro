@@ -1,0 +1,10 @@
+newtype Foo<T> : [T]
+
+var original: Foo<mut tuple<string, int>> = Foo([mut ("original", 1)]);
+var coercedCopy: Foo<tuple<string, int>> = copy(original);
+
+unwrap(original)[0][0] = "UPDATED";
+unwrap(original)[0][1] = 2;
+
+print("original:    {original}");
+print("coercedCopy: {coercedCopy}");

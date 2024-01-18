@@ -1,7 +1,9 @@
 # Known `copy(...)` Bugs
 
 Currently Claro's copy implementation suffers from two different implementation problems that will be resolved in a
-future release. I'll describe them below just for the sake of clarity:
+future release. I'll describe them below just for the sake of clarity.
+
+<div class="warning">Please feel free to reach out if you'd like to help to address these bugs!</div>
 
 ## Compiler Stack Overflows on Copying Recursive Types
 
@@ -30,3 +32,14 @@ The copied data should have the exact same semantics as the original data that i
 subtle way that is not currently the case. This will be fixed in a future release. 
 
 {{EX2}}
+
+## Mutability Coercion Can Circumvent a User Defined Type's `initializers` Restrictions
+
+User Defined Types support the declaration of `initializers` that restrict the usage of the type's default constructor
+to only the procedures defined within the `initializers` block. Claro's builtin `copy(...)` **currently provides a 
+backdoor to initialize and instance of a user defined type without actually using one its initializers**.
+
+This is fortunately of limited impact as the worst thing a user can do is create instances with a mutability declaration
+that the type would otherwise not support. But regardless, this will be addressed in a future release.  
+
+{{EX3}}

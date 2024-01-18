@@ -6,5 +6,6 @@ doc_with_validated_examples(
     examples = [
         "ex1.claro",
         "ex2.claro",
+        "ex3.claro",
     ],
 )

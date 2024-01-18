@@ -22,6 +22,7 @@ write_source_file(
         "//mdbook_docs/src/control_flow/while:while",
         "//mdbook_docs/src/copying:copying",
         "//mdbook_docs/src/copying/known_bugs:known_bugs",
+        "//mdbook_docs/src/copying/mutability_coercion:mutability_coercion",
         "//mdbook_docs/src/copying/performance:performance",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",

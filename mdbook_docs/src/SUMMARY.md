@@ -58,6 +58,7 @@
         - [Implementing a Contract](./generics/contracts/implementing_contracts/implementing_contracts.generated_docs.md)
     - [Generic Return Type Inference](./generics/generic_return_type_inference/generic_return_type_inference.generated_docs.md)
 - [Copying Data](./copying/copying.generated_docs.md)
+    - [Mutability Coercion on Copy](./copying/mutability_coercion/mutability_coercion.generated_docs.md)
     - [Performance Optimizations](./copying/performance/performance.generated_docs.md)
     - [Known Copy Bugs](./copying/known_bugs/known_bugs.generated_docs.md)
 - [Concurrency](./concurrency.md)
