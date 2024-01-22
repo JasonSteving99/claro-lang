@@ -1,0 +1,41 @@
+{
+  "name": "claro",
+  "displayName": "Claro Syntax Highlighting",
+  "description": "Claro Programming Language Support",
+  "version": "0.0.1",
+  "icon": "image/ClaroLogoFromArrivalHeptapodOfferWeapon1_a.jpeg",
+  "publisher": "annika_rings",
+  "author": {
+    "name": "annika_rings",
+    "url": "https://github.com/AR2202"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "claro",
+        "aliases": [
+          "Claro Programming Language",
+          "claro"
+        ],
+        "extensions": [
+          ".claro",
+          ".claro_module_api"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "claro",
+        "scopeName": "source.claro",
+        "path": "./syntaxes/claro.tmLanguage.json"
+      }
+    ]
+  }
+}

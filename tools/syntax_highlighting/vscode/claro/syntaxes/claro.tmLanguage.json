@@ -1,0 +1,106 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Claro Programming Language",
+	"patterns": [
+		{
+			"include": "#main"
+		}
+	],
+	"repository": {
+		"main": {
+			"patterns": [
+				{
+					"include": "#controlflow"
+				},
+				{
+					"include": "#keywords"
+				},
+				{
+					"include": "#types"
+				},
+				{
+					"include": "#chars"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"include": "#booleans"
+				},
+				{
+					"include": "#numbers"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.other.claro",
+					"match": "\\b(in|repeat|match|return|newtype|var|consumer|provider|function|mut|cast|instanceof|unwrap|atom|alias|graph|root|node)\\b"
+				}
+			]
+		},
+		"controlflow": {
+			"patterns": [
+				{
+					"name": "keyword.control.claro",
+					"match": "\\b(if|while|for|else|case|break)\\b"
+				}
+			]
+		},
+		"types": {
+			"patterns": [
+				{
+					"name": "storage.type.claro",
+					"match": "\\b(int|string|char|long|float|double|boolean|struct|tuple|oneof|lambda|Error|requires|contract|implement|copy|initializers|future|blocking)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.claro",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.claro",
+					"match": "\\\\."
+				}
+			]
+		},
+		"chars": {
+			"name": "string.quoted.single.claro",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "constant.character.escape.claro",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"name": "comment.line.number-sign.claro",
+			"begin": "#",
+			"end": "\\n"
+		},
+		"operators": {
+			"name": "keyword.operator.new.claro",
+			"match": "\\+|-|\\*|\\/|%|==|!=|<|>|<=|>=|&&|\\^|=|;|:|\\@|\\|"
+		},
+		"numbers": {
+			"name": "constant.numeric.claro",
+			"match": "\\b\\d+\\.?\\d*\\b"
+		},
+		"booleans": {
+			"name": "constant.language.claro",
+			"match": "\\b(true|false)\\b"
+		}
+	},
+	"scopeName": "source.claro"
+}
