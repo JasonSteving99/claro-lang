@@ -29,6 +29,8 @@ write_source_file(
         "//mdbook_docs/src/error_handling/error_propagation:error_propagation",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
+        "//mdbook_docs/src/generics/contracts/multiple_type_params:multiple_type_params",
+        "//mdbook_docs/src/generics/contracts/multiple_type_params/implied_types:implied_types",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",
         "//mdbook_docs/src/getting_started/first_program:first_program",
         "//mdbook_docs/src/getting_started/intro_to_modules:intro_to_modules",

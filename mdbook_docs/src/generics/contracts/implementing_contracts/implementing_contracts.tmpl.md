@@ -19,6 +19,14 @@ In this way, Claro's Contracts interact with Generics to create a powerful form 
 be uniquely dictated by type information. And, unlike in an Object-Oriented language, this code reuse did not rely on
 creating any subtyping relationships.
 
+## Static Enforcement of `requires(...)` Clauses
+
+Of course, if you attempted to call a generic procedure that requires some contract(s) to be implemented, a compilation
+error will be triggered if the contract was not actually implemented.
+
+{{EX4}}
+_Note: Claro's error messaging is a work in progress - the above error message will be improved._
+
 ## A Note on Static Dispatch via "Monomorphization"
 
 As a performance note - even beyond the conceptual simplification benefits of avoiding dependence on subtyping

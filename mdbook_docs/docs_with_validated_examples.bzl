@@ -46,6 +46,16 @@ def validated_claro_example(
         name, example_num, main_file, hidden_setup = None, hidden_cleanup = None, append_output = True, expect_errors = False, executable = True, codeblock_css_class = "", deps = {}):
     if type(hidden_setup) == "string":
         hidden_setup = [hidden_setup]
+    # Trim any '$$' occurrences from hidden setup files as well so that examples can be reused.
+    if hidden_setup:
+        for i, setup in enumerate(hidden_setup):
+            native.genrule(
+                name = "{0}_trimmed_setup_{1}".format(name, i),
+                outs = ["{0}_trimmed_setup_{1}.claro".format(name, i)],
+                srcs = [setup],
+                cmd = "cat $(location {0}) | tr -d \"$$\" > $(OUTS)".format(setup)
+            )
+        hidden_setup = ["{0}_trimmed_setup_{1}.claro".format(name, i) for i in range(len(hidden_setup))]
     main_with_optional_hidden_cleanup = main_file
     if hidden_cleanup:
         main_with_cleanup = name + "_main_with_cleanup.claro"

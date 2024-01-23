@@ -24,5 +24,14 @@ doc_with_validated_examples(
                 "//mdbook_docs/src/generics/contracts:ex2.claro",
             ],
         },
+        {
+            "example": "ex4.claro",
+            "hidden_setup": [
+                "//mdbook_docs/src/generics/contracts:ex_contract.claro",
+                "//mdbook_docs/src/generics/contracts/implementing_contracts:ex_impls.claro",
+                "//mdbook_docs/src/generics/contracts:ex2.claro",
+            ],
+            "expect_errors": True,
+        },
     ],
 )
