@@ -25,6 +25,8 @@ write_source_file(
         "//mdbook_docs/src/copying/known_bugs:known_bugs",
         "//mdbook_docs/src/copying/mutability_coercion:mutability_coercion",
         "//mdbook_docs/src/copying/performance:performance",
+        "//mdbook_docs/src/error_handling:error_handling",
+        "//mdbook_docs/src/error_handling/error_propagation:error_propagation",
         "//mdbook_docs/src/generics/contracts:contracts",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/generic_return_type_inference:generic_return_type_inference",

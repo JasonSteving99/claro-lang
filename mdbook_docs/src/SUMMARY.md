@@ -62,6 +62,8 @@
     - [Mutability Coercion on Copy](./copying/mutability_coercion/mutability_coercion.generated_docs.md)
     - [Performance Optimizations](./copying/performance/performance.generated_docs.md)
     - [Known Copy Bugs](./copying/known_bugs/known_bugs.generated_docs.md)
+- [Error Handling](./error_handling/error_handling.generated_docs.md) 
+    - [Error Propagation](./error_handling/error_propagation/error_propagation.generated_docs.md)
 - [Concurrency](./concurrency.md)
     - [Graph Procedures](./graph_procedures/graph_procedures.generated_docs.md)
     - [Graph Procedure Composition](./graph_procedures/graph_procedure_composition/graph_procedure_composition.generated_docs.md)
