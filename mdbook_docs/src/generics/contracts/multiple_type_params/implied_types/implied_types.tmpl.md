@@ -57,10 +57,12 @@ Now, by eliminating one of the implementations you fix the compilation error. In
 
 {{EX6}}
 
-## Deciding Whether to Constrain a Contract's Type Params is a Judgement Call
+## Deciding Whether to Use Implied Types to Constrain a Contract's Implementations is a Judgement Call
 
 If you made it through this entire section, you should have a strong understanding of the purpose and value add of 
-implied types. However, keep in mind that **both unconstrained and implied types have their uses!**
+implied types. However, keep in mind that **both unconstrained and implied types have their uses!** In particular, the 
+return type ambiguity demonstrated in this section may actually be used to good effect, particularly in the case of 
+designing more "fluent" APIs.
 
 Don't just assume that every contract should be defined using implied types. You should be applying good design
 judgement to determine if and when to use this feature or to leave a contract's type parameters unconstrained.

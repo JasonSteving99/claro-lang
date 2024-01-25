@@ -1,0 +1,29 @@
+
+$$
+$$contract Stringify<T> {
+$$  function displayStr(t: T) -> string;
+$$}
+$$
+$$newtype Foo : int
+$$implement Stringify<Foo> {
+$$  function displayStr(t: Foo) -> string {
+$$    var boundingLine = strings::repeated("*", len("{unwrap(t)}") + len("* Foo() *"));
+$$    return "{boundingLine}\n* {t} *\n{boundingLine}";
+$$  }
+$$}
+$$
+$$newtype Bar : string
+$$implement Stringify<Bar> {
+$$  function displayStr(t: Bar) -> string {
+$$    var boundingLine = strings::repeated("-", len(unwrap(t)) + len("| Bar() |"));
+$$    return "{boundingLine}\n| {t} |\n{boundingLine}";
+$$  }
+$$}
+$$
+$$newtype Buzz : string
+$$implement Stringify<Buzz> {
+$$  function displayStr(t: Buzz) -> string {
+$$    var boundingLine = strings::repeated("#", len(unwrap(t)) + len("# Buzz() #"));
+$$    return "{boundingLine}\n# {t} #\n{boundingLine}";
+$$  }
+$$}

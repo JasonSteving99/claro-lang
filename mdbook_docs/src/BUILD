@@ -28,6 +28,7 @@ write_source_file(
         "//mdbook_docs/src/error_handling:error_handling",
         "//mdbook_docs/src/error_handling/error_propagation:error_propagation",
         "//mdbook_docs/src/generics/contracts:contracts",
+        "//mdbook_docs/src/generics/contracts/dynamic_dispatch:dynamic_dispatch",
         "//mdbook_docs/src/generics/contracts/implementing_contracts:implementing_contracts",
         "//mdbook_docs/src/generics/contracts/multiple_type_params:multiple_type_params",
         "//mdbook_docs/src/generics/contracts/multiple_type_params/implied_types:implied_types",

@@ -59,6 +59,7 @@
         - [Implementing a Contract](./generics/contracts/implementing_contracts/implementing_contracts.generated_docs.md)
         - [Multiple Type Params](./generics/contracts/multiple_type_params/multiple_type_params.generated_docs.md)
             - [(Advanced) Implied Types](./generics/contracts/multiple_type_params/implied_types/implied_types.generated_docs.md)
+        - [Dynamic Dispatch](./generics/contracts/dynamic_dispatch/dynamic_dispatch.generated_docs.md)
     - [Generic Return Type Inference](./generics/generic_return_type_inference/generic_return_type_inference.generated_docs.md)
 - [Error Handling](./error_handling/error_handling.generated_docs.md)
     - [Error Propagation](./error_handling/error_propagation/error_propagation.generated_docs.md)
