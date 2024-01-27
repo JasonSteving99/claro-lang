@@ -93,6 +93,13 @@ But yet it will still be completely valid to pass arguments of the same type jus
 
 {{EX8}}
 
+And for the sake of completeness, Claro's generics _also_ allow you to explicitly express that you would like to allow 
+both arguments to potentially have different types:
+
+{{EX9}}
+_\*For the sake of transparency, as Claro's a WIP, there's actually currently an open compiler regression
+that broke this functionality at the moment. TODO(steving) Fix this._
+
 <div class="warning">
 
 **HOT TAKE:** While Java's support for subtyping may **_seem_** like a powerful tool (and sometimes it really is 
@@ -101,4 +108,53 @@ convenient), it's actually explicitly **_taking away type information_**. You in
 </div>
 
 
-# TODO(steving) FINISH THIS SECTION...NEED TO LAND THE PLANE AND ACTUALLY BUILD UP TO DYNAMIC DISPATCH IN CLARO
+## Values Of Unknown Type
+
+So far we've seen that Claro programs do not need to resort to Dynamic Dispatch in situations where the types are
+actually statically guaranteed to be fixed. However, it's not that difficult to conceive of a situation where a specific
+type cannot be known until runtime. 
+
+For example, consider a simple game where different units are dynamically created throughout the course of gameplay. It 
+would be very convenient for the game to be able to implement drawing arbitrary units without being forced to resort to 
+painstakingly hand-write rendering logic for each unit explicitly. In fact, the below video demonstrates a simple
+Asteroids game written in Claro that accomplishes exactly that:
+
+<script async id="asciicast-633650" src="https://asciinema.org/a/633650.js" data-preload="true" data-start-at="9" data-autoplay="true" data-loop="true"></script>
+
+The game's implementation contains a function with the following signature that fully handles the game's rendering logic
+(see the game's full implementation 
+[here](https://github.com/JasonSteving99/claro-lang/blob/d6177ff8719e894f709c42811bd0b7f0a3d6c4d9/examples/claro_programs/asteroids.claro#L121-L123)):
+
+{{EX10}}
+
+Looking more closely, the function accepts an argument `gameUnits: mut [T]` that contains all of the units, including
+the asteroids, the player's ship, and any missiles that the player fired. This function is able to actually handle all
+of these unit types without the programmer needing to hardcode any specific details about them explicitly because of the
+`requires(Unit<T>, Render<T>)` constraint on the function that ensures that whatever is inside the `gameUnits` list,
+all elements will certainly implement the specified contracts. As a result, the function is able to treat all elements
+within the `gameUnits` list interchangeably, even though it has no knowledge whatsoever of what types are actually
+represented within. 
+
+To make things even more interesting, the call (see 
+[full source](https://github.com/JasonSteving99/claro-lang/blob/d6177ff8719e894f709c42811bd0b7f0a3d6c4d9/examples/claro_programs/asteroids.claro#L289)
+) to the `gameTick()` function, passes a `gameUnits` list defined to contain various different unit types:
+
+{{EX11}}
+
+This goes to demonstrate that Claro is smart enough to actually understand that the type
+`oneof<Asteroid, Missile, Spaceship>` satisfies the `requires(Unit<T>, Render<T>)` constraint, because each variant
+implements the required contract (if any didn't, the call would be rejected with a compilation error).
+
+This is Dynamic Dispatch! Because the call was made over types that can't be known until runtime, Claro generates code
+that will perform the necessary type checks to dispatch to the appropriate procedures at runtime.
+
+## Dynamic Dispatch is Rare
+
+If you've made it this far, then congrats! You should have a deep understanding of Dynamic Dispatch in Claro! 
+
+The last thing to mention is that Dynamic Dispatch is **very intentionally** something that you have to explicitly opt
+into in Claro. It is slower and more complicated than the typical Static Dispatch, and Claro has been carefully designed
+to make Dynamic Dispatch a rare occurrence as it's actually only necessary in very specific, limited situations. Your
+takeaway from this section should be that while it is very simple to achieve Dynamic Dispatch in Claro, it is actually
+not a very common situation that you are very likely to run into on a regular basis. But when it does, Claro makes your
+life easy.
