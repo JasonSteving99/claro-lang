@@ -1,0 +1,300 @@
+newtype Location : mut struct {r: int, c: int}
+newtype Spaceship : struct {name: string, pos: mut struct { loc: Location, heading: oneof<UP, DOWN, LEFT, RIGHT>}}
+atom UP atom DOWN atom LEFT atom RIGHT
+newtype Asteroid : struct {loc: Location, heading: oneof<UP, DOWN, LEFT, RIGHT>}
+newtype Missile : struct {loc: Location, heading: oneof<UP, DOWN, LEFT, RIGHT>}
+
+contract Unit<T> {
+  consumer move(t: T);
+  function hasSpeedBoost(t: T) -> boolean;
+}
+implement Unit<Spaceship> {
+  consumer move(t: Spaceship) {
+    unwrap(t) |> updateLoc(^.pos.loc, ^.pos.heading);
+  }
+  function hasSpeedBoost(t: Spaceship) -> boolean { _ = t; return false; }
+}
+implement Unit<Asteroid> {
+  consumer move(t: Asteroid) {
+    unwrap(t) |> updateLoc(^.loc, ^.heading);
+  }
+  function hasSpeedBoost(t: Asteroid) -> boolean { _ = t; return false; }
+}
+implement Unit<Missile> {
+  consumer move(t: Missile) {
+    unwrap(t) |> updateLoc(^.loc, ^.heading);
+  }
+  function hasSpeedBoost(t: Missile) -> boolean { _ = t; return true; }
+}
+consumer updateLoc(wrappedLoc: Location, heading: oneof<UP, DOWN, LEFT, RIGHT>) {
+  var loc = unwrap(wrappedLoc);
+  match (heading) {
+    case _:UP    -> loc.r = loc.r - 1;
+    case _:DOWN  -> loc.r = loc.r + 1;
+    case _:LEFT  -> loc.c = loc.c - 1;
+    case _:RIGHT -> loc.c = loc.c + 1;
+  }
+}
+contract Render<T> {
+  function render(t: T) -> char;
+  function getLoc(t: T) -> Location;
+}
+implement Render<Spaceship> {
+  function render(t: Spaceship) -> char {
+    var res: char;
+    match (unwrap(t).pos.heading) {
+      case _:UP    -> res = '^';
+      case _:DOWN  -> res = 'v';
+      case _:LEFT  -> res = '<';
+      case _:RIGHT -> res = '>';
+    }
+    return res;
+  }
+  function getLoc(t: Spaceship) -> Location { return unwrap(t).pos.loc; }
+}
+implement Render<Asteroid> {
+  function render(t: Asteroid) -> char { _ = t; return '#'; }
+  function getLoc(t: Asteroid) -> Location { return unwrap(t).loc; }
+}
+implement Render<Missile> {
+  function render(t: Missile) -> char {
+    var res: char;
+    match (unwrap(t).heading) {
+      case _:UP    -> res = '|';
+      case _:DOWN  -> res = '|';
+      case _:LEFT  -> res = '-';
+      case _:RIGHT -> res = '-';
+    }
+    return res;
+  }
+  function getLoc(t: Missile) -> Location { return unwrap(t).loc; }
+}
+
+provider getGameBoard() -> [mut [char]] {
+  var outer: mut [[char]] = mut [];
+  repeat (25) {
+    lists::add(outer, strings::splitChars(strings::repeated(" ", 100)));
+  }
+  return copy(outer);
+}
+consumer clearGameBoard(gameBoard: [mut [char]]) {
+  for (row in gameBoard) {
+    var i = 0;
+    while (i < len(row)) {
+      row[i++] = ' ';
+    }
+  }
+}
+
+provider getRandomHeading() -> oneof<UP, DOWN, LEFT, RIGHT> {
+  match (random::nextNonNegativeBoundedInt(random::create(), 4)) {
+    case 0 -> return UP;
+    case 1 -> return DOWN;
+    case 2 -> return LEFT;
+    case 3 -> return RIGHT;
+    case R -> print("IMPOSSIBLE! {R}"); return UP;
+  }
+}
+consumer changeSpaceShipDir(spaceship: Spaceship) {
+  unwrap(spaceship).pos.heading = getRandomHeading(); # Pick a random Spaceship heading.
+}
+
+consumer spawnAsteroid(gameBoard: [mut [char]], gameState: mut [oneof<Spaceship, Asteroid, Missile>]) {
+  var heading = getRandomHeading();
+  var r = random::nextNonNegativeBoundedInt(random::create(), len(gameBoard));
+  var c = random::nextNonNegativeBoundedInt(random::create(), len(gameBoard[0]));
+  lists::add(gameState, Asteroid({loc = Location(mut {r = r, c = c}), heading = heading}));
+}
+
+consumer fireMissile(spaceship: Spaceship, gameState: mut [oneof<Spaceship, Asteroid, Missile>]) {
+  var unwrappedSpaceship = unwrap(spaceship);
+  var missileLoc = copy(unwrappedSpaceship.pos.loc);
+  updateLoc(missileLoc, unwrappedSpaceship.pos.heading);
+  lists::add(gameState, Missile({loc = missileLoc, heading = unwrappedSpaceship.pos.heading}));
+
+  # Just to avoid "chasing" your own missile, change directions after shooting.
+  changeSpaceShipDir(spaceship);
+}
+
+alias GameOverStatus : boolean
+alias ExplosionCount : int
+requires(Unit<T>, Render<T>)
+function gameTick<T>(gameBoard: [mut [char]], gameUnits: mut [T], spaceship: Spaceship, onlyUnitsWSpeedBoost: boolean)
+    -> tuple<GameOverStatus, ExplosionCount> {
+  # Update unit locations.
+  for (unit in gameUnits) {
+    # Missiles should move twice as fast as everything else.
+    if (not onlyUnitsWSpeedBoost or Unit::hasSpeedBoost(unit)) {
+      Unit::move(unit);
+    }
+  }
+  # Track Explosion locations.
+  var explosionLocs: mut {Location} = sets::emptyMutSet();
+  var outOfBoundsLocs: mut {Location} = sets::emptyMutSet();
+  # Populate gameBoard.
+  for (unit in gameUnits) {
+    var wrappedLoc = Render::getLoc(unit);
+    var loc = unwrap(wrappedLoc);
+
+    # Let's say it "exploded" if a unit goes off screen.
+    if (loc.r < 0 or loc.r >= len(gameBoard) or loc.c < 0 or loc.c >= len(gameBoard[0])) {
+      _ = sets::add(outOfBoundsLocs, wrappedLoc);
+      continue;
+    }
+
+    # It's still in play.
+    if (gameBoard[loc.r][loc.c] != ' ') {
+      gameBoard[loc.r][loc.c] = 'X'; # Explosion.
+      _ = sets::add(explosionLocs, wrappedLoc);
+    } else {
+      gameBoard[loc.r][loc.c] = Render::render(unit);
+    }
+  }
+
+  # Filter out any units that just exploded.
+  _ = lists::removeIf(
+    gameUnits,
+    (unit: T) -> boolean {
+      var loc = Render::getLoc(unit);
+      return (loc in explosionLocs) or (loc in outOfBoundsLocs);
+    }
+  );
+
+  return ((unwrap(spaceship).pos.loc in explosionLocs) or (unwrap(spaceship).pos.loc in outOfBoundsLocs), len(explosionLocs));
+}
+
+consumer drawToScreen(gameBoard: [mut [char]], horizBounding: string, explosionCount: int) {
+  # Clear the screen.
+  print("\033[H\033[2J");
+  var scoreMsg = "- Score: {explosionCount} ";
+  string_builder::create()
+    |> string_builder::add(^, scoreMsg)
+    |> string_builder::add(^, strings::suffix(horizBounding, len(scoreMsg)))
+    |> string_builder::add(^, "\n")
+    |> var sb = ^;
+  for (row in gameBoard) {
+    _ = string_builder::add(sb, "|");
+    for (pos in row) {
+      _ = string_builder::add(sb, pos);
+    }
+    _ = string_builder::add(sb, "|\n");
+  }
+  _ = string_builder::add(sb, horizBounding);
+  print(string_builder::build(sb));
+}
+
+consumer gameOver(gameBoard: [mut [char]], spaceshipName: string, horizBounding: string, explosionCount: int) {
+  for (t in [("Game Over!", len(gameBoard)/2 - 1), ("{spaceshipName} Destroyed in Battle!", len(gameBoard)/2 + 1)]) {
+    var msgRow = gameBoard[t[1]];
+    var start = len(msgRow) / 2 - len(t[0]) / 2;
+    var i = 0;
+    while (i < len(t[0])) {
+      msgRow[start + i] = strings::charAt(t[0], i);
+      ++i;
+    }
+  }
+  drawToScreen(gameBoard, horizBounding, explosionCount);
+}
+
+newtype ClosureFn<State, Out> : struct { state: State, fn: function<State -> Out> }
+function callClosure<State, Out>(closureFn: ClosureFn<State, Out>) -> Out {
+  unwrap(closureFn) |> ^.fn(^.state) |> var res = ^; return res;
+}
+
+newtype PeriodicAction<State, Out> : mut struct {
+  lastTriggered: instant::Instant,
+  millisUntilNextTrigger: double,
+  periodMillis: int,
+  action: ClosureFn<State, Out>
+}
+function maybeTriggerPeriodicAction<State, Out>(
+    w_action: PeriodicAction<State, Out>,
+    now: instant::Instant,
+    rng: random::RandomNumberGenerator) -> oneof<std::Nothing, Out> {
+  var action = unwrap(w_action);
+  duration::between(action.lastTriggered, now)
+    |> duration::toMillis(^)
+    |> var timeElapsed = ^ >= action.millisUntilNextTrigger;
+  var res: oneof<std::Nothing, Out> = std::Nothing;
+  if (timeElapsed) {
+    res = callClosure(action.action);
+    action.lastTriggered = now;
+    action.millisUntilNextTrigger = random::nextDouble(rng) * action.periodMillis;
+  }
+  return res;
+}
+
+var horizBounding = strings::repeated("-", 102);
+var gameBoard = getGameBoard();
+
+var spaceshipName = input("Enter Player Name:");
+var spaceship = Spaceship({name = spaceshipName, pos = mut {loc = Location(mut {r = len(gameBoard) / 2, c = len(gameBoard[0]) / 2}), heading = UP}});
+alias GameState : mut [oneof<Asteroid, Missile, Spaceship>]
+var gameState: GameState = mut [spaceship];
+var explosionCount = 0;
+var missilesMoveOnly = false;
+var rng = random::create();
+
+var tickStart = instant::now();
+var changeSpaceShipDirAction = PeriodicAction(
+    mut {
+      lastTriggered = tickStart,
+      millisUntilNextTrigger = random::nextDouble(rng) * 3000,
+      periodMillis = 3000,
+      action = ClosureFn({
+        state = spaceship,
+        fn = (s: Spaceship) -> std::OK { changeSpaceShipDir(s); return std::OK; }
+      })
+    }
+  );
+var asteroidAction = PeriodicAction(
+    mut {
+      lastTriggered = tickStart,
+      millisUntilNextTrigger = random::nextDouble(rng) * 1500,
+      periodMillis = 1500,
+      action = ClosureFn({
+        state = (gameBoard, gameState),
+        fn = (s: tuple<[mut [char]], GameState>) -> std::OK { spawnAsteroid(s[0], s[1]); return std::OK; }
+      })
+    }
+  );
+var missileAction = PeriodicAction(
+    mut {
+      lastTriggered = tickStart,
+      millisUntilNextTrigger = random::nextDouble(rng) * 800,
+      periodMillis = 800,
+      action = ClosureFn({
+        state = (spaceship, gameState),
+        fn = (s: tuple<Spaceship, GameState>) -> std::OK { fireMissile(s[0], s[1]); return std::OK; }
+      })
+    }
+  );
+# Game loop.
+while (true) {
+  var now = instant::now();
+
+  # Change spaceship dir randomly every so often.
+  _ = maybeTriggerPeriodicAction(changeSpaceShipDirAction, now, rng);
+  # Spawn an Asteroid every so often.
+  _ = maybeTriggerPeriodicAction(asteroidAction, now, rng);
+  # Fire a Missile every so often.
+  _ = maybeTriggerPeriodicAction(missileAction, now, rng);
+  # Schedule game tick. (Impl gets even longer if I use PeriodicAction abstraction here unfortunately...)
+  duration::between(tickStart, now)
+    |> duration::toMillis(^)
+    |> var tickTimeElapsed = ^ >= 100;
+  if (tickTimeElapsed) {
+    clearGameBoard(gameBoard);
+    missilesMoveOnly = not missilesMoveOnly;
+    var tickRes = gameTick(gameBoard, gameState, spaceship, missilesMoveOnly);
+    if (tickRes[0]) {
+      break;
+    }
+    explosionCount = explosionCount + tickRes[1];
+    # Re-render game.
+    drawToScreen(gameBoard, horizBounding, explosionCount);
+    tickStart = instant::now();
+  }
+}
+
+gameOver(gameBoard, spaceshipName, horizBounding, explosionCount);

@@ -7,6 +7,15 @@ load("//src/java/com/claro:claro_build_rules.bzl", "gen_claro_builtin_java_deps_
 gen_claro_builtin_java_deps_jar()
 
 claro_binary(
+    name = "asteroids",
+    main_file = "asteroids.claro",
+    deps = {
+        "duration": "//stdlib/time/duration:duration",
+        "instant": "//stdlib/time/instant:instant",
+    }
+)
+
+claro_binary(
     name = "atoms",
     main_file = "atoms.claro",
 )
