@@ -263,36 +263,36 @@ public class ClaroTypeException extends Exception {
       "\t\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG =
       "Illegal Mutable Graph Procedure Arg: As Graph Procedures are multi-threaded by nature, all args must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the mutable type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tTo correct this, consider converting the arg's type to its deeply-immutable variant:\n" +
-      "\t\t\t%s";
+      "\tFound the mutable type:\n" +
+      "\t\t%s\n" +
+      "\tTo correct this, consider converting the arg's type to its deeply-immutable variant:\n" +
+      "\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_ARG_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
       "Illegal Mutable Graph Procedure Arg: As Graph Procedures are multi-threaded by nature, all args must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the mutable type:\n" +
-      "\t\t\t%s";
+      "\tFound the mutable type:\n" +
+      "\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE =
       "Illegal Mutable Graph Procedure Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the mutable type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tTo correct this, consider converting the injected value's type to its deeply-immutable variant:\n" +
-      "\t\t\t%s";
+      "\tFound the mutable type:\n" +
+      "\t\t%s\n" +
+      "\tTo correct this, consider converting the injected value's type to its deeply-immutable variant:\n" +
+      "\t\t%s";
   private static final String
       ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
       "Illegal Mutable Graph Procedure Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the mutable type:\n" +
-      "\t\t\t%s";
+      "\tFound the mutable type:\n" +
+      "\t\t%s";
   private static final String ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE =
       "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the result of node `%s` to have the mutable type:\n" +
-      "\t\t\t%s\n" +
-      "\t\tTo correct this, consider converting to its deeply-immutable variant:\n" +
-      "\t\t\t%s";
+      "\tFound the result of node `%s` to have the mutable type:\n" +
+      "\t\t%s\n" +
+      "\tTo correct this, consider converting to its deeply-immutable variant:\n" +
+      "\t\t%s";
   private static final String
       ILLEGAL_USE_OF_MUTABLE_TYPE_AS_GRAPH_NODE_RESULT_TYPE_W_NO_SUGGESTED_DEEPLY_IMMUTABLE_TYPE =
       "Illegal Mutable Graph Node Result: As Graph Procedures are multi-threaded by nature, all node expression types must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
-      "\t\tFound the result of node `%s` to have the mutable type:\n" +
-      "\t\t\t%s";
+      "\tFound the result of node `%s` to have the mutable type:\n" +
+      "\t\t%s";
   private static final String ILLEGAL_TRANSITIVE_USE_OF_MUTABLE_TYPE_AS_GRAPH_PROCEDURE_INJECTED_VALUE =
       "Illegal Mutable Graph Procedure Transitive Injected Value: As Graph Procedures are multi-threaded by nature, all injected values must be deeply-immutable in order to guarantee that Graph Procedures are data-race free by construction.\n" +
       "\t\tFound the following mutable types being transitively injected into procedures called by Graph Procedure `%s`:" +

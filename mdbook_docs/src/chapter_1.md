@@ -16,10 +16,10 @@ Developed by a Xoogler taking inspiration from years of hands-on development exp
 frameworks, Claro moves well beyond async/await. Claro’s declarative, DAG-based structured concurrency model is the 
 first of its kind in a programming language - statically guaranteeing that programs are:
 - Non-blocking
-- Data-race free
-- Deadlock free
-- Optimally scheduled
-- Scaleable by default
+- [Data-race free](./guaranteed_data_race_free/guaranteed_data_race_free.generated_docs.md)
+- [Deadlock free](./guaranteed_deadlock_free.md)
+- [Optimally scheduled](./graph_procedures/graph_procedures.generated_docs.md)
+- Scalable by default
 ## Data Oriented
 ---
 - Strict separation between data and functionality

@@ -13,6 +13,11 @@ So, to address these issues, when lambdas reference variables in outer scopes, t
 copy of the **current** value referenced by that variable. **Claro's Lambdas have no mechanism to mutate anything not 
 passed in as an explicit argument, and they cannot carry any mutable state**.
 
+<div class="warning">
+
+Read more about how Claro prevents data-races [here](../../guaranteed_data_race_free/guaranteed_data_race_free.generated_docs.md).
+</div>
+
 ### Static Validation
 
 Claro will statically validate that lambdas don't violate the above restrictions:

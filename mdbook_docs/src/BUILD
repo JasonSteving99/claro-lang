@@ -40,6 +40,7 @@ write_source_file(
         "//mdbook_docs/src/graph_procedures/calling_graph_procedures:calling_graph_procedures",
         "//mdbook_docs/src/graph_procedures/conditional_subgraph_execution:conditional_subgraph_execution",
         "//mdbook_docs/src/graph_procedures/graph_procedure_composition:graph_procedure_composition",
+        "//mdbook_docs/src/guaranteed_data_race_free:guaranteed_data_race_free",
         "//mdbook_docs/src/guaranteed_deadlock_free:re_what_color_is_your_function",
         "//mdbook_docs/src/guaranteed_deadlock_free/blocking_procedures:blocking_procedures",
         "//mdbook_docs/src/guaranteed_deadlock_free/re_what_color_is_your_function:blocking_generics",
