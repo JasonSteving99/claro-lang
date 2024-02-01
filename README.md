@@ -13,6 +13,9 @@ building your own Claro programs!
 Learn about all of Claro's features with full examples and explanations to help you learn about the tools at your 
 disposal.
 
+## [StdLib](https://jasonsteving99.github.io/claro-lang/stdlib/default_modules/default_modules.generated_docs.html)
+View the APIs of the various Modules currently available in Claro's StdLib. 
+
 # Learn Claro By Example!
 
 Check out the [example Claro programs](https://github.com/JasonSteving99/claro-lang/tree/main/examples/claro_programs).
