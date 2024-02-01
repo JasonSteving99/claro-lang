@@ -1,10 +1,12 @@
 load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_file")
 load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examples")
+load("//stdlib/utils/expand_template:expand_template.bzl", "expand_template")
 
 write_source_file(
     name = "write_all_docs",
     additional_update_targets = [
         ":generics",
+        ":write_summary_md",
         "//mdbook_docs/src/chapter_1:hello_world",
         "//mdbook_docs/src/common_programming_concepts/variables_and_types:variables_and_types",
         "//mdbook_docs/src/common_programming_concepts/sep_var_decl_and_init:sep_var_decl_and_init",
@@ -67,10 +69,35 @@ write_source_file(
         "//mdbook_docs/src/static_typing/user_defined_types/parameterized_types:parameterized_types",
         "//mdbook_docs/src/static_typing/user_defined_types/parameterized_types/concrete_type_inference:concrete_type_inference",
         "//mdbook_docs/src/static_typing/user_defined_types/recursive_types/impossible_recursive_types:impossible_recursive_types",
+        "//mdbook_docs/src/stdlib:write_all_stdlib_docs",
+        "//mdbook_docs/src/stdlib/default_modules:default_modules",
         "//mdbook_docs/src/type_inference:type_inference",
         "//mdbook_docs/src/type_inference/required_type_annotations:required_type_annotations",
+        "//mdbook_docs/theme:logo",
     ],
 )
+
+
+#################################################################
+# BEGIN: Write Generated MdBook Table of Contents (SUMMARY.md). #
+#################################################################
+expand_template(
+    name = "generate_summary_md",
+    template = "SUMMARY.tmpl.md",
+    substitutions = {
+        "stdlib_toc": "//mdbook_docs/src/stdlib:mdbook_stdlib_toc",
+    },
+    out = "SUMMARY.templatted.md".format(module_name),
+)
+write_source_file(
+    name = "write_summary_md",
+    in_file = "generate_summary_md",
+    out_file = "SUMMARY.md",
+    suggested_update_target = "//mdbook_docs/src:write_all_docs",
+)
+#################################################################
+# END: Write Generated MdBook Table of Contents (SUMMARY.md).   #
+#################################################################
 
 
 doc_with_validated_examples(

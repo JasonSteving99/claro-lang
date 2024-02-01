@@ -1,6 +1,8 @@
 # Summary
 
-- [Welcome to Claro!](./chapter_1.md)
+[Welcome to Claro!](./chapter_1.md)
+
+---
 
 # User Guide 
 
@@ -9,6 +11,8 @@
     - [Understanding the Starter Project](./getting_started/understanding_starter_project/understanding_starter_project.generated_docs.md)
     - [Your First Program](./getting_started/first_program/first_program.generated_docs.md)
     - [Intro to Modules](./getting_started/intro_to_modules/intro_to_modules.generated_docs.md)
+
+---
 
 # Reference Guide
 
@@ -79,3 +83,10 @@
         - [Re: "What Color is Your Function?"](./guaranteed_deadlock_free/re_what_color_is_your_function.generated_docs.md)
         - [(Advanced) Blocking Generics](./guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.generated_docs.md)
 - [Module System](./module_system.md)
+
+---
+
+# StdLib
+
+- [Default Modules](./stdlib/default_modules/default_modules.generated_docs.md)
+{{stdlib_toc}}

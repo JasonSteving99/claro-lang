@@ -12,13 +12,6 @@ there is no possible way to distinguish between the two situations below:
 1. having equal values located at different addresses in memory
 2. having "shared references" to the exact same value in memory
 
-<div class="warning">
-
-**Note**: This exact same observation underpins Claro's "[Fearless Concurrency](../../concurrency.md)" guarantees.
-
-_(TODO(steving) Link to section explicitly explaining the fact that Graph procedure inputs must be deeply immutable.)_ 
-</div>
-
 Claro takes advantage of this fact to generate the most efficient possible code to copy the specific type in question.
 It does so by eliminating any _actual_ copying of deeply immutable data found nested anywhere within a copied value.
 
@@ -44,7 +37,9 @@ However, the performance gain comes from being able to avoid the unnecessary cop
 
 <div class="warning">
 
-**Note**: I'm not claiming that this is a real "benchmark" of any sort - just that this broadly demonstrates the claim.
+**Note**: I'm not claiming that this is a rigorous "benchmark" of any sort - just that this broadly demonstrates the 
+claim.
+
 </div>
 
 

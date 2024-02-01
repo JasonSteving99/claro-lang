@@ -1,3 +1,5 @@
 book
+SUMMARY.md
 *.generated_docs*
 /src/images/ClaroLogo*.png
+/theme/favicon.png

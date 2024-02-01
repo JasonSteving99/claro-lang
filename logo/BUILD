@@ -1,1 +1,4 @@
-exports_files(["ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png"])
+exports_files([
+    "ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg",
+    "ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png",
+])
