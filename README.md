@@ -3,7 +3,7 @@
   <img src="https://github.com/JasonSteving99/claro-lang/blob/main/logo/ClaroLogoFromArrivalHeptapodOfferWeapon1.jpeg" width=250 height=250>
 </picture>
 
-# Read the [Comprehensive User Docs](https://jasonsteving99.github.io/claro-lang/)
+# Visit [docs.clarolang.com](https://docs.clarolang.com) for Comprehensive User Docs
 
 ## [Getting Started](https://jasonsteving99.github.io/claro-lang/getting_started/getting_started.html)
 Get your first Claro project setup, and go through a tutorial walking you through everything you need to know to start
