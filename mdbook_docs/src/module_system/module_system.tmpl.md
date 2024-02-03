@@ -16,19 +16,7 @@ Module APIs are explicitly defined using a .claro_module_api file that will list
 declarations, static values, and Contract implementations that are publicly exposed to consumers that place a dependency
 on this module.
 
-```
-# example.claro_module_api
-
-contract Numeric<T> {
-  function add(lhs: T, rhs: T) -> T;
-  function multiply(lhs: T, rhs: T) -> T;
-}
-
-newtype Foo : int
-implement Numeric<Foo>;
-
-consumer prettyPrint(lhs: Foo);
-```
+{{EX1}}
 
 ### Sources
 
@@ -36,29 +24,9 @@ An API alone simply defines an interface that the module will satisfy in its imp
 must be provided in the form of one or more .claro files. The above API could be satisfied by the below implementation
 files (note: this could be done in a single source file, but here it's split into multiple just as an example):
 
-```
-# contract_impl.claro
+{{EX2}}
 
-implement Numeric<Foo> {
-  function add(lhs: Foo, rhs: Foo) -> Foo {
-    return Foo(unwrap(lhs) + unwrap(rhs));
-  }
-  function multiply(lhs: Foo, rhs: Foo) -> Foo {
-    return Foo(unwrap(lhs) * unwrap(rhs));
-  }
-}
-```
-
-```
-# pretty_print.claro
-
-consumer prettyPrint(f: Foo) {
-  unwrap(f)
-    |> "Foo: {^}"
-    |> Boxes::wrapInBox(^)  # <-- Calling dep Module function.
-    |> print(^);
-}
-```
+{{EX3}}
 
 ### Dependencies
 
@@ -71,39 +39,22 @@ Module that has *at least* the following signature in its API: `function wrapInB
 below, this Module will *choose* to give that downstream dependency Module the name `Boxes`, but any other name could've
 been chosen.
 
+<div class="warning">
+
+**Dependency Naming:** While consumers are allowed to pick any name they want for Modules that they depend on, it should
+be noted that Claro will adopt the convention that all non-StdLib Module names **must begin with an uppercase letter**.
+All StdLib Modules will be named beginning with a lowercase letter. This is intended to allow the set of StdLib modules
+to expand over time without ever having to worry about naming collisions with user defined Modules in existing programs.
+
+Static enforcement of this convention hasn't been implemented yet, but just know that it's coming in a future release. 
+</div>
+
 ## Defining BUILD Target
 
 A Claro Module is fully defined from the above pieces by adding a `claro_module(...)` definition to the corresponding 
 Bazel BUILD file:
 
-```python
-# BUILD
-
-load("@claro-lang//:rules.bzl", "claro_module", "claro_binary")
-
-claro_module(
-    name = "example",
-    module_api_file = "example.claro_module_api",
-    srcs = [
-        "contract_impl.claro",
-        "pretty_print.claro",
-    ],
-    deps = {
-        "Boxes": ":box",  # <-- Notice the name "Boxes" is chosen by the consumer.
-    },
-    # This Module can be consumed by anyone.
-    visibility = ["//visibility:public"],
-)
-
-claro_module(
-    name = "box",
-    module_api_file = "boxes.claro_module_api",
-    srcs = ["boxes.claro"],
-    # No visibility declared means that this Module is private to this Bazel package.
-)
-
-...
-```
+{{EX4}}
 
 ### Building a Module
 
@@ -123,36 +74,6 @@ results have not been previously cached in which case they'll be skipped and the
 To close the loop, the above example Module could be consumed and used in the following executable Claro program in the
 following way.
 
-```
-# test.claro
+{{EX5}}
 
-var f1 = Ex::Foo(1);
-var f2 = Ex::Foo(2);
-
-var addRes = Ex::Numeric::add(f1, f2);
-Ex::prettyPrint(addRes);
-
-var mulRes = Ex::Numeric::multiply(f2, Ex::Foo(5));
-Ex::prettyPrint(mulRes);
-```
-
-```python
-# BUILD
-
-load("@claro-lang//:rules.bzl", "claro_module", "claro_binary")
-
-...
-
-claro_binary(
-    name = "test",
-    main_file = "test.claro",
-    deps = {
-        "Ex": ":example",
-    },
-)
-```
-
-## Example Code
-
-Complete source code for the examples above can be found 
-[here](https://github.com/JasonSteving99/claro-lang/tree/main/mdbook_docs/src/module_system/examples) 
+{{EX6}}

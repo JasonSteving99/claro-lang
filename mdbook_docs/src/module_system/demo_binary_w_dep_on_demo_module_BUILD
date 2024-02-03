@@ -1,0 +1,13 @@
+# BUILD
+
+load("@claro-lang//:rules.bzl", "claro_binary")
+
+...
+
+claro_binary(
+    name = "test",
+    main_file = "test.claro",
+    deps = {
+        "Ex": ":example",
+    },
+)

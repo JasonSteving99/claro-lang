@@ -4,6 +4,5 @@ claro_binary(
     deps = {
         # Deps on modules outside the StdLib require an explicit Build dep.
         "SomeDep": "//path/to/some/dep:module",
-
     },
 )

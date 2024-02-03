@@ -1,3 +1,4 @@
+# test.claro
 
 var f1 = Ex::Foo(1);
 var f2 = Ex::Foo(2);

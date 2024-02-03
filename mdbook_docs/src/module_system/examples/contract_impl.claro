@@ -1,3 +1,4 @@
+# contract_impl.claro
 
 implement Numeric<Foo> {
   function add(lhs: Foo, rhs: Foo) -> Foo {

@@ -1,3 +1,4 @@
+# example.claro_module_api
 
 contract Numeric<T> {
   function add(lhs: T, rhs: T) -> T;
@@ -5,6 +6,3 @@ contract Numeric<T> {
 }
 
 newtype Foo : int
-implement Numeric<Foo>;
-
-consumer prettyPrint(lhs: Foo);

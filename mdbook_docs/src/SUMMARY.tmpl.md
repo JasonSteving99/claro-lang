@@ -71,6 +71,7 @@
     - [Mutability Coercion on Copy](./copying/mutability_coercion/mutability_coercion.generated_docs.md)
     - [Performance Optimizations](./copying/performance/performance.generated_docs.md)
     - [Known Copy Bugs](./copying/known_bugs/known_bugs.generated_docs.md)
+- [Module System](./module_system/module_system.generated_docs.md)
 - [Concurrency](./concurrency.md)
     - [Graph Procedures](./graph_procedures/graph_procedures.generated_docs.md)
     - [Graph Procedure Composition](./graph_procedures/graph_procedure_composition/graph_procedure_composition.generated_docs.md)
@@ -82,7 +83,6 @@
         - [Blocking Procedures](./guaranteed_deadlock_free/blocking_procedures/blocking_procedures.generated_docs.md)
         - [Re: "What Color is Your Function?"](./guaranteed_deadlock_free/re_what_color_is_your_function.generated_docs.md)
         - [(Advanced) Blocking Generics](./guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.generated_docs.md)
-- [Module System](./module_system.md)
 
 ---
 

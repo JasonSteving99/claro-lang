@@ -2,7 +2,7 @@
 
 Whereas other languages with some form of builtin concurrency mechanism may tend to make it harder to write async code
 than blocking code, Claro is very intentional about inverting that balance. Make the good things easy and the bad things
-hard. So, you may write blacking code in Claro, but as it's really only intended to be used in limited contexts, Claro
+hard. So, you may write blocking code in Claro, but as it's really only intended to be used in limited contexts, Claro
 forces your hand. Any procedure that makes use of the `<-|` operator either directly or indirectly, must be explicitly
 annotated to be `blocking`:
 

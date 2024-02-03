@@ -49,6 +49,7 @@ write_source_file(
         "//mdbook_docs/src/images:logo",
         "//mdbook_docs/src/lambdas_and_first_class_procedures:lambdas_and_first_class_procedures",
         "//mdbook_docs/src/lambdas_and_first_class_procedures/lambda_closures:lambda_closures",
+        "//mdbook_docs/src/module_system:module_system",
         "//mdbook_docs/src/procedures/consumers:consumers",
         "//mdbook_docs/src/procedures/functions:functions",
         "//mdbook_docs/src/procedures/providers:providers",
