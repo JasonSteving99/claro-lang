@@ -86,6 +86,8 @@ jobs:
         git update-ref -d refs/heads/gh-pages
         rm -rf *
         mv ../book/* .
+        # Make sure that the GH Pages site has the CNAME file.
+        cp ../../CNAME .
         git add .
         git commit -m "Deploy $GITHUB_SHA to gh-pages"
         git push --force --set-upstream origin gh-pages
