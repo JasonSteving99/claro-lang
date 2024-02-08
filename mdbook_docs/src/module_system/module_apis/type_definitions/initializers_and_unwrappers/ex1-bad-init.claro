@@ -1,0 +1,3 @@
+# ex1-bad-init.claro
+var invalidOddInt = Nums::OddInt(8);
+print(invalidOddInt);

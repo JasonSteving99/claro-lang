@@ -1,0 +1,15 @@
+# BUILD
+load("//:rules.bzl", "claro_binary", "claro_module")
+
+claro_module(
+    name = "ex1_no_initializer",
+    module_api_file = "ex1-no-init.claro_module_api", # `newtype OddInt : int`
+)
+
+claro_binary(
+    name = "bad_init_example",
+    srcs = "ex1-bad-init.claro",
+    deps = {
+        "Nums": ":ex1_no_initializer",
+    }
+)

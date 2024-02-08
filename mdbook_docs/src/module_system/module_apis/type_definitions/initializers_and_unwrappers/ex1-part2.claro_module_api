@@ -1,0 +1,4 @@
+atom NOT_ODD
+initializers OddInt {
+  function getOddInt(x: int) -> oneof<OddInt, std::Error<NOT_ODD>>;
+}
