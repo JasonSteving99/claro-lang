@@ -1,0 +1,13 @@
+# Negative age can be rejected on init...
+var invalidAge = Person::getPerson("Jason", -1);
+print(invalidAge);
+
+var p = Person::getPerson("Jason", 29);
+# Prove that we didn't get a std::Error<InvalidAge>.
+if (p instanceof Person::Person) {
+  print(p);
+
+  # But we can violate the semantics of the type by unwrapping and mutating directly.
+  unwrap(p).age = -1;
+  print(p);
+}

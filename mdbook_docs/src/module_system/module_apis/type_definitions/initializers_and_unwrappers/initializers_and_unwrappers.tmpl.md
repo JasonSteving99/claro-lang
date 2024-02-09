@@ -47,9 +47,12 @@ And now finally, you can use the initializer by simply calling it like any other
 
 {{EX7}}
 
-Now, you know for a fact that anywhere where you come across an instance of an `OddInt` in the entire program, it will
-certainly satisfy its semantic invariants.
+Now you know for a fact that anywhere where you initialize an instance of an `OddInt` in the entire program, it will
+certainly satisfy its semantic invariants. 
 
-## Unwrappers
+<div class="warning">
 
-TODO(steving) Explain Unwrappers in detail.
+**Warning**: Still, keep in mind that if your type is mutable, declaring Initializers is not, on its own, sufficient to
+guarantee that any constraints or invariants are maintained over time. Keep reading to learn about how Unwrappers and
+Opaque Types can give you full control over this.
+</div>

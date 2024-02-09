@@ -54,6 +54,7 @@ write_source_file(
         "//mdbook_docs/src/module_system/module_apis/procedure_signatures:procedure_signatures",
         "//mdbook_docs/src/module_system/module_apis/type_definitions:type_definitions",
         "//mdbook_docs/src/module_system/module_apis/type_definitions/initializers_and_unwrappers:initializers_and_unwrappers",
+        "//mdbook_docs/src/module_system/module_apis/type_definitions/initializers_and_unwrappers/unwrappers:unwrappers",
         "//mdbook_docs/src/procedures/consumers:consumers",
         "//mdbook_docs/src/procedures/functions:functions",
         "//mdbook_docs/src/procedures/providers:providers",
