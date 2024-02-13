@@ -1,0 +1,3 @@
+var config = Config::SERVER_CONFIG;
+print("Server Name: {config.server_name}");
+print("Port:        {config.port}");

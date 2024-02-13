@@ -79,7 +79,7 @@
             - [Unwrappers](./module_system/module_apis/type_definitions/initializers_and_unwrappers/unwrappers/unwrappers.generated_docs.md)
             - [Opaque Types](./module_system/module_apis/type_definitions/opaque_types/opaque_types.generated_docs.md)
         - [Static Values](./module_system/module_apis/static_values/static_values.generated_docs.md)
-        - [Flags](./module_system/module_apis/flags/flags.generated_docs.md)
+            - [Flags](./module_system/module_apis/flags/flags.generated_docs.md)
         - [HTTP Services](./module_system/module_apis/http_services/http_services.generated_docs.md)
     - [Visibility](./module_system/visibility/visibility.generated_docs.md)
 - [Concurrency](./concurrency.md)
