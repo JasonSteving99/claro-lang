@@ -1,0 +1,2 @@
+# ex1-test.claro
+Config::env |> print("env: \"{^}\"");
