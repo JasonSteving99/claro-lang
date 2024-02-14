@@ -1,0 +1,15 @@
+# ex1.claro_module_api
+
+# This encodes the public API of the Buggy-Buggies HTTP service.
+# Claro will generate a non-blocking RPC client for you via the following:
+#   `var myClient: HttpClient<BuggyBuggies> = http::getHttpClient("https://buggy-buggies.gigalixirapp.com");`
+HttpService BuggyBuggies {
+  hostGame: "/api/host/{handle}",
+  friendsJoin: "/api/game/{gameId}/join/{handle}",
+  move: "/api/game/{gameId}/player/{secret}/move/{direction}",
+  worldInfo: "/api/game/{gameId}/player/{secret}/info",
+  reset: "/api/game/{gameId}/player/{secret}/reset"
+}
+
+# Now there's a single static definition of which client will be used for sending reqs to the Buggy Buggies server.
+static BUGGY_BUGGIES_CLIENT: HttpClient<BuggyBuggies>;

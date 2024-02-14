@@ -52,6 +52,7 @@ write_source_file(
         "//mdbook_docs/src/module_system:module_system",
         "//mdbook_docs/src/module_system/module_apis:module_apis",
         "//mdbook_docs/src/module_system/module_apis/flags:flags",
+        "//mdbook_docs/src/module_system/module_apis/http_services:http_services",
         "//mdbook_docs/src/module_system/module_apis/procedure_signatures:procedure_signatures",
         "//mdbook_docs/src/module_system/module_apis/static_values:static_values",
         "//mdbook_docs/src/module_system/module_apis/type_definitions:type_definitions",

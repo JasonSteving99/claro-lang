@@ -1,0 +1,8 @@
+# ex1-impl.claro
+
+# Now there's a single static definition of which client will be used for sending
+# reqs to the Buggy Buggies server.
+provider static_BUGGY_BUGGIES_CLIENT() -> HttpClient<BuggyBuggies> {
+  # This client will send reqs to localhost but could use a public endpoint.
+  return http::getHttpClient("http://localhost:4000");
+}
