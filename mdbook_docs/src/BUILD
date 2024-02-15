@@ -62,6 +62,7 @@ write_source_file(
         "//mdbook_docs/src/procedures/consumers:consumers",
         "//mdbook_docs/src/procedures/functions:functions",
         "//mdbook_docs/src/procedures/providers:providers",
+        "//mdbook_docs/src/resource_files:resource_files",
         "//mdbook_docs/src/static_typing:static_typing",
         "//mdbook_docs/src/static_typing/aliases:aliases",
         "//mdbook_docs/src/static_typing/aliases/not_a_new_type_decl:not_a_new_type_decl",

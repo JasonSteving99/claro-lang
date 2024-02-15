@@ -71,6 +71,7 @@
     - [Mutability Coercion on Copy](./copying/mutability_coercion/mutability_coercion.generated_docs.md)
     - [Performance Optimizations](./copying/performance/performance.generated_docs.md)
     - [Known Copy Bugs](./copying/known_bugs/known_bugs.generated_docs.md)
+- [Resource Files](./resource_files/resource_files.generated_docs.md)
 - [Module System](./module_system/module_system.generated_docs.md)
     - [Module APIs](./module_system/module_apis/module_apis.generated_docs.md)
         - [Procedure Signatures](./module_system/module_apis/procedure_signatures/procedure_signatures.generated_docs.md)
