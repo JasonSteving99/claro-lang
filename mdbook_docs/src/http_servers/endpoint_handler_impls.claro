@@ -1,0 +1,7 @@
+provider static_GENERIC_GREETING() -> string {
+  return "Hello, whoever you are!";
+}
+
+function getGreetingForName(name: string) -> string {
+  return "Hello, {name}!";
+}

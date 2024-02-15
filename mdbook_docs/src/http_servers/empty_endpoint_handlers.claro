@@ -1,0 +1,6 @@
+
+
+# endpoint_handlers Greeter { }
+
+var greeterServer: HttpServer<Greeter> = http::getBasicHttpServerForPort(8080);
+_ = greeterServer; # Not starting the server yet.

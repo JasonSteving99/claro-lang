@@ -1,0 +1,4 @@
+HttpService Greeter {
+  genericGreeting: "/genericGreeting",
+  greeting: "/greeting/{name}"
+}

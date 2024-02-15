@@ -358,9 +358,9 @@ public class ClaroTypeException extends Exception {
       "Invalid HttpServer Generation Requested for HttpService Missing Endpoint Handlers Definition: In order to " +
       "automatically generate an HttpServer for the given HttpService an `endpoint_handlers` block such as the " +
       "following must be defined:\n" +
-      "\t\tendpoint_handlers %s {\n" +
+      "\tendpoint_handlers %s {\n" +
       "%s\n" +
-      "\t\t}";
+      "\t}";
   private static final String UNEXPECTED_ARGS_PASSED_TO_PROVIDER_CALL =
       "Unexpected Args Passed to Provider Call: Found %s args passed to no-arg Provider call.\n" +
       "\t\tFound:\n" +
@@ -1549,9 +1549,9 @@ public class ClaroTypeException extends Exception {
                 .join(
                     endpointHandlerArgCounts.entrySet().stream()
                         .map(e -> String.format(
-                            "\t\t\tgraph %s %s(%s) -> future<HttpResponse> {\n" +
-                            "\t\t\t\t...\n" +
-                            "\t\t\t}",
+                            "\t\tgraph %s %s(%s) -> future<HttpResponse> {\n" +
+                            "\t\t\t...\n" +
+                            "\t\t}",
                             e.getValue() == 0 ? "provider" : "function",
                             e.getKey(),
                             IntStream.range(0, e.getValue())
