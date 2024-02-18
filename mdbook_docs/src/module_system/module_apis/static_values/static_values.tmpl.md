@@ -76,7 +76,7 @@ them at compile time to ensure that you don't accidentally create an infinite lo
 conceptually considered to be in the ["Singleton" scope](https://github.com/google/guice/wiki/Scopes#singleton) in any
 of the mentioned DI frameworks.
 
-[^2]: Learn more about Claro's support for automatic JSON Parsing. (TODO(steving) Add documentation on Claro's JSON Parser generation.)
+[^2]: Learn more about Claro's support for automatic [JSON Parsing](../../../json_parsing/json_parsing.generated_docs.md).
 
 [^3]: Learn more about Claro's support for Resource Files in the StdLib's [files module](../../../stdlib/files_module.generated_docs.md).
 

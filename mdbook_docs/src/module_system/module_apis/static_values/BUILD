@@ -1,6 +1,8 @@
 load("//:rules.bzl", "claro_module", "claro_binary")
 load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examples")
 
+exports_files(["ex-server-config.json"])
+
 doc_with_validated_examples(
     name = "static_values",
     doc_template = "static_values.tmpl.md",

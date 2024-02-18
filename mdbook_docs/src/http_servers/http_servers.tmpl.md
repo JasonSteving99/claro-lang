@@ -1,9 +1,9 @@
 # Basic HTTP Servers
 
 Claro has been carefully designed to be uniquely well-suited for building highly efficient, scalable web servers.
-Claro's "Fearless Concurrency" guarantees are explicitly an effort to make it significantly challenging to make a buggy,
-slow web server - and instead, Claro's novel concurrency model will lead to performant and easy-to-maintain web
-servers naturally falling out of even naive usages of the language.
+Claro's ["Fearless Concurrency"](../fearless_concurrency/fearless_concurrency.md) guarantees are explicitly an effort to
+make it significantly challenging to make a buggy, slow web server - and instead, Claro's novel concurrency model will
+lead to performant and easy-to-maintain web servers naturally falling out of even naive usages of the language.
 
 To actually demonstrate this explicitly, Claro provides very basic support for building HTTP servers that can be used in
 the absence of any sort of 3rd party framework to jump you right into your first web server in Claro. This feature is
@@ -26,7 +26,7 @@ The above defines a very simple service with two basic endpoints.
 Claro will automatically generate a pre-configured, non-blocking web server implementation for your `HttpService`
 definition by using the builtin magic function `http::getBasicHttpServerForPort()`. This function is implemented as a
 compiler intrinsic that will infer the server to automatically generate based on the type asserted on the call. So, we
-can request the Claro generate a web server for the example `Greeter` service as in the example below.
+can get Claro to generate a web server for the example `Greeter` service as in the example below.
 
 <div class="warning">
 Note that no Endpoint Handlers have been implemented yet so we should actually expect the below to fail to compile and
