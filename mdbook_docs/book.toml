@@ -15,3 +15,4 @@ additional-js = ["mermaid@10.6.1.min.js", "mermaid-init.js"]
 [output.html.code.hidelines]
 claro = "$$"
 java = "$$"
+python = "$$"
