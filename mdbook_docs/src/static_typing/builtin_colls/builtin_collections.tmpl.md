@@ -48,5 +48,5 @@ This builtin support for mutability annotations allows Claro to enforce some ver
 contexts, so this is about more than just providing a convenient library of data types.
 </div>
 
-See the [Concurrency](../concurrency.md) section in this book for more details on how Claro will statically leverage 
+See the [Concurrency](../../concurrency.md) section in this book for more details on how Claro will statically leverage 
 knowledge of whether a type is deeply immutable or not to prevent unsafe data races.

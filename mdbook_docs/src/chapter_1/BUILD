@@ -1,6 +1,6 @@
+# BUILD
 load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examples")
-
-exports_files(["hello_world.claro"])
+exports_files(["hello_world.claro", "hello_world.tmpl.md", "BUILD"])
 
 doc_with_validated_examples(
     name = "hello_world",

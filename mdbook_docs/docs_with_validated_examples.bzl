@@ -34,7 +34,8 @@ def doc_with_validated_examples(name, doc_template, examples = []):
         name = "expand_{0}".format(name),
         template = doc_template,
         substitutions = substitutions,
-        out = generated
+        out = generated,
+        visibility = ["//mdbook_docs/src:__subpackages__"],
     )
     write_source_file(
         name = name,

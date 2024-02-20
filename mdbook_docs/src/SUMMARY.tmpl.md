@@ -96,6 +96,9 @@
         - [(Advanced) Blocking Generics](./guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.generated_docs.md)
 - [Basic HTTP Servers](./http_servers/http_servers.generated_docs.md)
 - [JSON Parsing](./json_parsing/json_parsing.generated_docs.md)
+- [Build Time Metaprogramming](./metaprogramming/metaprogramming.generated_docs.md)
+    - [Source Code Templates](./metaprogramming/templating/templating.generated_docs.md)
+    - [(Literal) Code Reuse](./metaprogramming/code_reuse/code_reuse.generated_docs.md)
 
 ---
 

@@ -9,7 +9,7 @@
 Claro was designed with modern build tooling in mind:
 - Swap any dependency without changing a single line of source code
 - Runtime "Dependency Injection" frameworks are a thing of the past
-- First class Module system
+- First class [Module system](module_system/module_system.generated_docs.md)
 ## Fearless Concurrency
 ---
 Developed by a Xoogler taking inspiration from years of hands-on development experience with Google-internal backend web
@@ -23,15 +23,15 @@ first of its kind in a programming language - statically guaranteeing that progr
 ## Data Oriented
 ---
 - Strict separation between data and functionality
-- Mutability tracked at the type system level
+- [Mutability](static_typing/builtin_colls/builtin_collections.generated_docs.md#mutability) tracked at the type system level
 - Extremely flexible built in algebraic data types
-- Model arbitrary data structures with zero boilerplate
+- Model arbitrary data structures with [zero boilerplate](static_typing/builtin_colls/builtin_collections.generated_docs.md#ad-hoc-declarations)
 ## Unapologetically Practical
 ---
-- Bi-directional type inference
-- Robust standard library
+- [Bi-directional type inference](type_inference/type_inference.generated_docs.md)
+- Robust [standard library](stdlib/default_modules/default_modules.generated_docs.md)
 - Builtin external package manager
-- Build time metaprogramming
+- [Build time metaprogramming](metaprogramming/metaprogramming.generated_docs.md)
 ## Designed to Scale with You
 ---
 - Incremental compilation out of the box
