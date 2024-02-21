@@ -9,7 +9,7 @@ genrule(
     cmd = "cat $(SRCS) > $(OUTS)"
 )
 claro_module(
-    name = "Dog",
+    name = "dog",
     module_api_file = ":dog_api", # Updated to use the API with a constructor.
     srcs = ["dog.claro"],
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
@@ -25,7 +25,7 @@ genrule(
     cmd = "cat $(SRCS) > $(OUTS)"
 )
 claro_module(
-    name = "Cat",
+    name = "cat",
     module_api_file = ":cat_api", # Updated to use the API with a constructor.
     srcs = ["cat.claro"],
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},

@@ -29,8 +29,8 @@ doc_with_validated_examples(
             "example": "animals_example.claro",
             "deps": {
                 "AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds",
-                "Cat": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:Cat",
-                "Dog": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:Dog",
+                "Cat": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:cat",
+                "Dog": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:dog",
             }
         },
         {

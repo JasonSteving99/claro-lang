@@ -19,5 +19,5 @@ exports_files(["BUILD"], visibility = ["//mdbook_docs/src/metaprogramming/code_r
             exports = ["AnimalSounds"],
         )
     ]
-    for name, srcs in {"Dog": ["dog.claro"], "Cat": ["cat.claro"]}.items()
+    for name, srcs in {"dog": ["dog.claro"], "cat": ["cat.claro"]}.items()
 ]
