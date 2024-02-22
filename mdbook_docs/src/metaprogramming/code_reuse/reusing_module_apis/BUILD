@@ -21,6 +21,16 @@ doc_with_validated_examples(
             "codeblock_css_class": "claro",
         },
         {
+            "example": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:dog_cons.claro_module_api",
+            "executable": False,
+            "codeblock_css_class": "claro",
+        },
+        {
+            "example": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:cat_cons.claro_module_api",
+            "executable": False,
+            "codeblock_css_class": "claro",
+        },
+        {
             "example": ":BUILD_without_exports",
             "executable": False,
             "codeblock_css_class": "claro",

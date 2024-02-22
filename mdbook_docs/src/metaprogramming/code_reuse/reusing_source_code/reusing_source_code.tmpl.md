@@ -47,16 +47,16 @@ current purposes, this means that instead of creating a whole new Module to cont
 {{EX7}}
 
 This is an example of **_LITERAL_** code reuse - something that's generally not actually possible in other languages.
-In fact, you could take this a step further by factoring out this shared src file directly into the `Animal(...)` Macro
-implementation to _automatically_ make the `getMessageWithName(...)` function available to **all** `Animal(...)`
-declarations.
+In fact, you could take this a step further by factoring out this shared src file directly into the `Animal(...)` 
+[Macro implementation](../reusing_module_apis/reusing_module_apis.generated_docs.md#declaring-a-macro-in-a-bzl-file-to-make-this-factored-out-build-logic-portable)
+to _automatically_ make the `getMessageWithName(...)` function available to **all** `Animal(...)` declarations.
 
 <div class="warning">
 
 The key to this all working is that when the reused function references the `State` Type, it refers to either 
 `Dog::State` or `Cat::State` depending on the context in which it's compiled. And the only field accessed via
 `unwrap(state).name` is valid for both types. In a sense, this form of Build time metaprogramming has given this 
-strongly, statically typed programming language, the ability to drop down into dynamic "duck typing" features when it's
+strongly, statically typed programming language the ability to drop down into dynamic "duck typing" features when it's
 convenient to us. This utterly blurs the lines between the two typing paradigms while still maintaining all of the
 static type validations because all of this is happening at Build time, with Compile time's type-checking validations
 still to follow!  
@@ -71,7 +71,7 @@ But, of course, while composition is generally recommended over the inverted "in
 convenience that inheritance-based designs offer. Specifically, as you saw in the prior example, composition is more
 verbose, as you have to **_explicitly_** opt in to code sharing, whereas inheritance makes this **_implicit_**.
 
-Now, instead of each Module implementing the `AnimalSounds` Contract manually, a single default implementation can be
+Now, instead of each Module implementing the `AnimalSounds` Contract manually, a single default implementation could be
 written...
 
 {{EX8}}
@@ -90,21 +90,21 @@ to provide its custom logic...
 Modern software engineering best practices have been progressing towards the consensus view that you should 
 <a href="https://www.wikiwand.com/en/Composition_over_inheritance#Benefits" target="_blank">prefer composition over inheritance</a>.
 But, even though this _preference_ is generally shared by Claro's author, it shouldn't necessarily indicate that
-inheritance is impossible to achieve. While Claro won't ever add first-class language support for inheritance to the
-language, Claro explicitly leaves these sorts of design decisions to you and provides Build time metaprogramming support
-to allow the community to encode these sorts of organizational design patterns themselves to be available for whoever
-decides they have a good reason for it. You shouldn't need to be hostage to the language designer's agreement or
-prioritization to be able to extend the code organization patterns that can be expressed in the language.
+inheritance is impossible to achieve. While Claro won't ever add first-class support for inheritance to the language,
+Claro explicitly leaves these sorts of design decisions to you and provides Build time metaprogramming support to allow
+the community to encode these sorts of organizational design patterns themselves to be available for whoever decides
+they have a good reason for it. You shouldn't need to be hostage to the language designer's agreement or prioritization
+to be able to extend the code organization patterns that can be expressed in the language.
 </div>
 
 ## Further Flexibility
 
-If you've made it this far, well done! You should now have the core conceptual background that you'll need to use
-Bazel to encode your own relatively sophisticated organizational design patterns in your Claro programs using Build time
-metaprogramming! 
+If you've made it this far, well done! You may never need to use these "power user" features, but you should now have
+the core conceptual background that you'll need to use Bazel to encode your own relatively sophisticated custom 
+organizational design patterns in your Claro programs using Build time metaprogramming! 
 
 Of course, there's always another step deeper into such waters. By continuing on to the next section, we'll continue to
 develop the Animals example _even further_. In particular, we'll demonstrate one such sophisticated design pattern
 called "Abstract Modules" that fully generalizes _all_ of the functionality described in the past two sections, and
-goes _even further_ to provide significant configurability controls on top of what you've seen in the `Animal(...)`
-macro so far.
+goes _even further_ to provide significant configurability controls on top of what you've seen in the example 
+`Animal(...)` macro so far.

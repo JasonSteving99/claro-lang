@@ -15,7 +15,7 @@ exports_files(["BUILD"], visibility = ["//mdbook_docs/src/metaprogramming/code_r
             module_api_file = ":{0}_api".format(name),
             srcs = srcs,
             deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
-            # This Module is referenced in this Module's API so must be exported.
+            # `AnimalSounds` is referenced in this Module's API so must be exported.
             exports = ["AnimalSounds"],
         )
     ]

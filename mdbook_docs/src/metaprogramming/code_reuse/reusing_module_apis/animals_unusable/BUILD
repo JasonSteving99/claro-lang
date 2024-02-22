@@ -7,7 +7,7 @@ claro_module(
     module_api_file = "animal.claro_module_api",
     srcs = ["dog.claro"],
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
-    # This Module is referenced in this Module's API so must be exported.
+    # `AnimalSounds` is referenced in this Module's API so must be exported.
     exports = ["AnimalSounds"],
 )
 claro_module(
@@ -15,7 +15,7 @@ claro_module(
     module_api_file = "animal.claro_module_api",
     srcs = ["cat.claro"],
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
-    # This Module is referenced in this Module's API so must be exported.
+    # `AnimalSounds` is referenced in this Module's API so must be exported.
     exports = ["AnimalSounds"],
 )
 # ...

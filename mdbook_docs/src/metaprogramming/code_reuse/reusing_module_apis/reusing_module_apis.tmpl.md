@@ -26,17 +26,22 @@ Can be implemented multiple times, by more than one Module:
 **In general, the Build targets declared above will be totally sufficient!**
 
 ## Going Deeper
-To make this example more compelling, the API definition above declares that any Module implementing the API will export
-a type that includes a name field, but may configure its own internal state as it wishes. If you read the API closely,
-however, you may notice that as presently defined there'd be no way for any dependent Module to actually interact with
-this API as defined, because there's no way to instantiate the `opaque newtype InternalState`[^1]. So, in order to
-actually make this API useful, implementing Modules would need to somehow explicitly export some Procedure that gives
-dependents the ability to instantiate the `InternalState`. You'll notice that care has been taken to make sure that
-Claro's API syntax is flexible enough to allow for multiple APIs to be conceptually (or in this case, literally)
+The API definition above declares that any Module implementing the API will export a type that includes a name field,
+but may configure its own internal state as it wishes. To make this example more compelling, if you read the API
+closely, however, you may notice that as presently defined there would be no way for any dependent Module to actually
+interact with this API as defined, because there's no way to instantiate the `opaque newtype InternalState`[^1].
+
+So, to actually make this API useful, implementing Modules would need to somehow explicitly export some Procedure that
+gives dependents the ability to instantiate the `InternalState`. You'll notice that care has been taken to make sure
+that Claro's API syntax is flexible enough to allow for multiple APIs to be conceptually (or in this case, literally)
 concatenated to create one larger API for a Module to implement. So that's exactly what we'll do here, with each module
 exporting an additional procedure from its API to act as a "constructor" for its `opaque` type.
 
 {{EX3}}
+
+{{EX4}}
+
+{{EX5}}
 
 <div class="warning">
 
@@ -46,9 +51,9 @@ pattern easier to access without having to manually drop down to a `genrule(...)
 
 And now, importantly, multiple Modules implementing the same API can coexist in the same Claro program with no conflict!
 
-{{EX4}}
+{{EX6}}
 
-{{EX5}}
+{{EX7}}
 
 <div class="warning">
 
@@ -73,25 +78,25 @@ first thought should be to ask how we can factor out the common logic, to avoid 
 `BUILD` file does a much better job of making the similarities between the `Cat` and `Dog` modules explicit, and also
 prevents them from drifting apart accidentally over time.
 
-{{EX6}}
+{{EX8}}
 
 ### Declaring a Macro in a `.bzl` File to Make This Factored Out Build Logic Portable
 
 Now let's say that you wanted to declare another "Animal" in a totally separate package in your project. You could
-easily copy-paste the Build targets found in the previous `BUILD` file... but of course, this would invalidate our goals
+easily copy-paste the Build targets found in the previous `BUILD` file... but of course, this would invalidate our goal
 of avoiding duplication. So instead, as programmers our spider-senses should be tingling that we should factor this
 common logic not just into the loop (list comprehension), but into a full-blown function that can be reused and called
 from anywhere in our project. Bazel thankfully gives us access to defining so-called
-<a href="https://bazel.build/rules/macro-tutorial" target="_blank">"Macros"</a> that fill exactly this purpose.
+<a href="https://bazel.build/rules/macro-tutorial" target="_blank">"Macros"</a> that fill exactly this purpose[^2].
 
 The Build targets in the prior examples could be factored out into a Macro definition in a `.bzl` (Bazel extension file)
 like so:
 
-{{EX7}}
+{{EX9}}
 
-And then, the macro can be used from `BUILD` files like so[^2]:
+And then, the macro can be used from `BUILD` files like so[^3]:
 
-{{EX8}}
+{{EX10}}
 
 It couldn't possibly get much more concise than this! If you find yourself in a situation where you'll be defining lots
 of very similar Modules, it's highly recommended that you at least consider whether an approach similar to this one will
@@ -105,8 +110,16 @@ TODO(steving) Fill out this section describing how this is effectively Dependenc
 than depending on heavyweight DI frameworks.
 
 ---
-[^1]: For more context, read about [Opaque Type's](../../../module_system/module_apis/type_definitions/opaque_types/opaque_types.generated_docs.md).
+[^1]: For more context, read about [Opaque Types](../../../module_system/module_apis/type_definitions/opaque_types/opaque_types.generated_docs.md).
 
-[^2]: In practice, if you want a Bazel Macro to be reusable outside the Build package in which its `.bzl` file is 
-defined, you'll need to use fully qualified target label. E.g. `//full/path/to:target` rather than `:target`, as the
-latter is a "relative" label whose meaning is dependent on the Build package it's used in.   
+[^2]: It's highly recommended to start with Macros, but if you find that a Macro is getting a lot of use (for example if
+you're publishing it for external consumption) you may find it beneficial to convert your Macro into a Bazel 
+<a href="https://bazel.build/extending/rules" target="_blank">Rule</a>. Bazel Rules have much nicer <i>usage</i>
+ergonomics as they enable Bazel to enforce certain higher level constraints such as requiring that certain parameters
+only accept files with a certain suffix. However, Bazel Rules are <b>much</b> more complicated to define than Macros so
+this should really be left to very advanced Bazel users.
+
+[^3]: In practice, if you want a Bazel Macro to be reusable outside the Build package in which its `.bzl` file is 
+defined, you'll need to use fully qualified target labels. E.g. `//full/path/to:target` rather than `:target`, as the
+latter is a "relative" label whose meaning is dependent on the Build package the Macro is <i>used</i> in, which is
+usually not what you want.   
