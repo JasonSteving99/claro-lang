@@ -23,16 +23,18 @@ Can be implemented multiple times, by more than one Module:
 
 {{EX2}}
 
-**In general, the Build targets declared above will be totally sufficient!** But, to make this example more compelling,
-the API definition above declares that any Module implementing the API will export a type that includes a name field,
-but may configure its own internal state as it wishes. If you read the API closely, however, you may notice that as
-presently defined there'd be no way for any dependent Module to actually interact with this API as defined, because
-there's no way to instantiate the `opaque newtype InternalState`[^1]. So, in order to actually make this API useful,
-implementing Modules would need to somehow explicitly export some Procedure that gives dependents the ability to
-instantiate the `InternalState`. You'll notice that care has been taken to make sure that Claro's API syntax is flexible
-enough to allow for multiple APIs to be conceptually (or in this case, literally) concatenated to create one larger API
-for a Module to implement. So that's exactly what we'll do here, with each module exporting an additional procedure from
-its API to act as a "constructor" for its `opaque` type.
+**In general, the Build targets declared above will be totally sufficient!**
+
+## Going Deeper
+To make this example more compelling, the API definition above declares that any Module implementing the API will export
+a type that includes a name field, but may configure its own internal state as it wishes. If you read the API closely,
+however, you may notice that as presently defined there'd be no way for any dependent Module to actually interact with
+this API as defined, because there's no way to instantiate the `opaque newtype InternalState`[^1]. So, in order to
+actually make this API useful, implementing Modules would need to somehow explicitly export some Procedure that gives
+dependents the ability to instantiate the `InternalState`. You'll notice that care has been taken to make sure that
+Claro's API syntax is flexible enough to allow for multiple APIs to be conceptually (or in this case, literally)
+concatenated to create one larger API for a Module to implement. So that's exactly what we'll do here, with each module
+exporting an additional procedure from its API to act as a "constructor" for its `opaque` type.
 
 {{EX3}}
 
@@ -47,6 +49,12 @@ And now, importantly, multiple Modules implementing the same API can coexist in 
 {{EX4}}
 
 {{EX5}}
+
+<div class="warning">
+
+_Read more about [Dynamic Dispatch](../../../generics/contracts/dynamic_dispatch/dynamic_dispatch.generated_docs.md) if
+you're confused how the above Contract Procedure call works._
+</div>
 
 ## Expressing the Above Build Targets More Concisely 
 
@@ -81,7 +89,7 @@ like so:
 
 {{EX7}}
 
-And then, the macro can be used from `BUILD` files like so:
+And then, the macro can be used from `BUILD` files like so[^2]:
 
 {{EX8}}
 
@@ -98,3 +106,7 @@ than depending on heavyweight DI frameworks.
 
 ---
 [^1]: For more context, read about [Opaque Type's](../../../module_system/module_apis/type_definitions/opaque_types/opaque_types.generated_docs.md).
+
+[^2]: In practice, if you want a Bazel Macro to be reusable outside the Build package in which its `.bzl` file is 
+defined, you'll need to use fully qualified target label. E.g. `//full/path/to:target` rather than `:target`, as the
+latter is a "relative" label whose meaning is dependent on the Build package it's used in.   

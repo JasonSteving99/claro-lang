@@ -1,0 +1,6 @@
+# BUILD
+load(":animals.bzl", "Animal")
+
+# An example of **LITERALLY** reusing code.
+Animal(name = "dog", srcs = ["dog.claro", "default_animal_sounds_impl.claro"])
+Animal(name = "cat", srcs = ["cat.claro", "default_animal_sounds_impl.claro"])

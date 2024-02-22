@@ -10,6 +10,10 @@ It will take a bit of conceptual groundwork (unlearning long-held assumptions) t
 in exchange, you'll be given some powerful new ways to think about "_what_" a Claro program is. 
 </div>
 
+Rather than trying to impose specific _code organization_ design patterns on you (e.g. Java trying to force use of
+inheritance) Claro instead aims to be flexible enough to allow you full control of using _and encoding_ your own
+organizational design patterns (potentially including inheritance if you felt so inclined).
+
 Probably the most fundamental idea that you'll need to internalize to fully understand Claro's larger design in a deep
 way is the relationship that a file containing Claro source code actually has with the final resulting program. This is
 a subtle point. It's very possible to write a good amount of Claro code without noticing anything unusual in this

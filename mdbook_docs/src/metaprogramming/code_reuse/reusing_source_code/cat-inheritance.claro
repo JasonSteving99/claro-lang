@@ -1,0 +1,14 @@
+# cat.claro
+$$newtype InternalState : struct { favoriteInsult: string }
+$$
+function makeNoiseImpl(cat: State) -> string {
+  # No more code duplication.
+  return unwrap(unwrap(cat).internal).favoriteInsult;
+}
+$$
+$$function create(name: string, favoriteInsult: string) -> State {
+$$  return State({
+$$    name = name,
+$$    internal = InternalState({favoriteInsult = favoriteInsult})
+$$  });
+$$}

@@ -1,6 +1,6 @@
 # BUILD
 load("@claro-lang//:rules.bzl", "claro_module", "claro_binary")
-exports_files(["BUILD", "animal.claro_module_api"], visibility = ["//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis:__pkg__"])
+exports_files(["BUILD", "animal.claro_module_api"], visibility = ["//mdbook_docs/src/metaprogramming/code_reuse:__subpackages__"])
 
 genrule(
     name = "dog_api",
@@ -15,7 +15,7 @@ claro_module(
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
     # This Module is referenced in this Module's API so must be exported.
     exports = ["AnimalSounds"],
-    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis:__pkg__"],
+    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse:__subpackages__"],
 )
 
 genrule(
@@ -31,6 +31,6 @@ claro_module(
     deps = {"AnimalSounds": "//stdlib/utils/abstract_modules/example/animal:animal_sounds"},
     # This Module is referenced in this Module's API so must be exported.
     exports = ["AnimalSounds"],
-    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis:__pkg__"],
+    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse:__subpackages__"],
 )
 # ...

@@ -8,7 +8,7 @@ claro_binary(
     main_file = "animals_example.claro",
     deps = {
         "AnimalSounds": ":animal_sounds",
-        "Cat": ":Cat",
-        "Dog": ":Dog",
+        "Cat": ":cat",
+        "Dog": ":dog",
     },
 )

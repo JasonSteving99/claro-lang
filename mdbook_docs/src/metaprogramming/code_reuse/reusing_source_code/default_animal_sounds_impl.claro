@@ -1,0 +1,6 @@
+# default_animal_sounds_impl.claro
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(state: State) -> string {
+    return "{makeNoiseImpl(state)} - says {unwrap(state).name}";
+  }
+}

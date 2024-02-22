@@ -1,0 +1,5 @@
+# get_message_with_name.claro
+function getMessageWithName(message: string, state: State) -> string {
+  var name = unwrap(state).name; # All animal States have a top-level `name` field.
+  return "{message} - says {name}";
+}

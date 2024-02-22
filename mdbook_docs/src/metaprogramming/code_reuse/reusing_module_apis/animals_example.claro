@@ -1,9 +1,10 @@
 # animals_example.claro
-var happyDog = Dog::create("Milo", true);
-var unhappyDog = Dog::create("Fido", false);
-var cat = Cat::create("Garfield", "This is worse than Monday morning.");
+var animals: [oneof<Cat::State, Dog::State>] = [
+    Dog::create("Milo", true),
+    Dog::create("Fido", false),
+    Cat::create("Garfield", "This is worse than Monday morning.")
+  ];
 
-var animals: [oneof<Cat::State, Dog::State>] = [happyDog, unhappyDog, cat];
 for (animal in animals) {
   print(AnimalSounds::AnimalSounds::makeNoise(animal));
 }

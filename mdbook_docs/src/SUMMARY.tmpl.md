@@ -102,6 +102,7 @@
         - [Reusing Module APIs](./metaprogramming/code_reuse/reusing_module_apis/reusing_module_apis.generated_docs.md)
         - [Reusing Source Code](./metaprogramming/code_reuse/reusing_source_code/reusing_source_code.generated_docs.md)
         - [Abstract Modules](./metaprogramming/code_reuse/abstract_modules/abstract_modules.generated_docs.md)
+    - [Swapping Dependencies](./metaprogramming/swapping_deps/swapping_deps.generated_docs.md)
 
 ---
 
