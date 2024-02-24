@@ -3,7 +3,7 @@ load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examp
 
 exports_files(
     ["animals_example.claro"],
-    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse/reusing_source_code:__pkg__"],
+    visibility = ["//mdbook_docs/src/metaprogramming/code_reuse:__subpackages__"],
 )
 
 doc_with_validated_examples(
@@ -54,7 +54,7 @@ doc_with_validated_examples(
             "codeblock_css_class": "python",
         },
         {
-            "example": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/macro_animals:animals.bzl",
+            "example": "macro_def",
             "executable": False,
             "codeblock_css_class": "python",
         },
@@ -79,5 +79,6 @@ doc_with_validated_examples(
         "BUILD_without_exports": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/animals:BUILD",
         "list_comp_BUILD_without_exports": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/list_comprehension_animals:BUILD",
         "macro_BUILD_without_exports": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/macro_animals:BUILD",
+        "macro_def": "//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/macro_animals:animals.bzl",
     }.items()
 ]

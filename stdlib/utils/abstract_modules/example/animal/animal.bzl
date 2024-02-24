@@ -4,7 +4,7 @@ visibility(["//stdlib/utils/abstract_modules/example/..."])
 
 Animal = \
     claro_abstract_module(
-        class_name = "Animal",
+        name = "Animal",
         module_api_file = "//stdlib/utils/abstract_modules/example/animal:animal.claro_module_api",
         parameterized_type_names = ["State"],
         default_srcs = ["//stdlib/utils/abstract_modules/example/animal:default_animal_impl.claro"],

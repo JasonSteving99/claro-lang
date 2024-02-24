@@ -1,0 +1,8 @@
+newtype InternalState : struct { favoriteInsult: string }
+
+function create(name: string, favoriteInsult: string) -> State {
+  return State({
+    name = name,
+    internal = InternalState({favoriteInsult = favoriteInsult})
+  });
+}

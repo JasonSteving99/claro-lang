@@ -16,7 +16,7 @@ def claro_abstract_module_internal(**kwargs):
 # systems from other languages provide while not having to touch the compiler internals itself. I'm doing this to show
 # that any Claro user could choose to get into the metaprogramming weeds to express a wide range of patterns themselves.
 def _claro_abstract_module_impl(
-        class_name,
+        name,
         module_api_file,
         parameterized_type_names = [],
         default_srcs = [],
@@ -35,6 +35,7 @@ def _claro_abstract_module_impl(
     def _claro_class(
             name,
             type_params = {},
+            api_extensions = [],
             override = {},
             srcs = [],
             deps = {},
@@ -64,22 +65,24 @@ def _claro_abstract_module_impl(
                 duplicated_deps[default_dep_labels[dep]] = dep_labels[dep]
         if len(duplicated_deps) > 0:
             fail("""
-Found unnecessary deps that are already default deps of the abstract class `{class_name}`:
+Found unnecessary deps that are already default deps of the abstract class `{name}`:
 {duplicated}
 \tRemove these unnecessary deps and reference them in your srcs using the names given above.""".format(
-                    class_name = class_name,
+                    name = name,
                     duplicated = "\n".join(["\t- {0}: {1}".format(name, dep) for name, dep in duplicated_deps.items()])))
 
-        label_prefix = "{class_name}_{impl}".format(class_name = class_name, impl = name)
+        label_prefix = "{name}_{impl}".format(name = name, impl = name)
 
         # Generate an api file that has the type aliases for Key and Value types.
         native.genrule(
             name = label_prefix + "_api",
-            srcs = [module_api_file],
+            srcs = [module_api_file] + api_extensions,
             outs = [label_prefix + ".claro_module_api"],
             cmd = """
                 _typedefs='{0}' && echo $$_typedefs $$(cat $(SRCS)) > $(OUTS)
             """.format(module_parameterized_typedefs.format(**type_params))
+            if module_parameterized_typedefs
+            else "cat $(SRCS) > $(OUTS)"
         )
         claro_module_impl(
             name = name,

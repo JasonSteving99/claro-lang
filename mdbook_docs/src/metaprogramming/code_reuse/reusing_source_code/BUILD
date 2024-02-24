@@ -2,6 +2,8 @@ load("//:rules.bzl", "claro_module", "claro_binary")
 load("//mdbook_docs:docs_with_validated_examples.bzl", "doc_with_validated_examples")
 load("//mdbook_docs/src/metaprogramming/code_reuse/reusing_module_apis/macro_animals:animals.bzl", "Animal")
 
+exports_files(["default_animal_sounds_impl.claro"], visibility = ["//mdbook_docs/src/metaprogramming/code_reuse/abstract_modules:__pkg__"])
+
 doc_with_validated_examples(
     name = "reusing_source_code",
     doc_template = "reusing_source_code.tmpl.md",

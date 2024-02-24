@@ -2,7 +2,7 @@ load("//stdlib/utils/abstract_modules:abstract_module_internal.bzl", "claro_abst
 
 CacheWithCustomLoader = \
     claro_abstract_module_internal(
-        class_name = "CacheWithCustomLoader",
+        name = "CacheWithCustomLoader",
         module_api_file = "@claro-lang//stdlib/cache/loader:custom_cache.claro_module_api",
         parameterized_type_names = ["K", "V"],
         default_srcs = [
