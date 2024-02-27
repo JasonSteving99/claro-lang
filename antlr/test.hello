@@ -1,6 +1,0 @@
-var hi: int;
-hi = 10;
-# ignored
-var bye: int;
-bye = 20 + hi;
-print(hi + bye);
