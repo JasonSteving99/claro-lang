@@ -13,5 +13,6 @@ to be**
 Whereas in other programming languages like Java or Python, you must consciously plan ahead in order to maintain 
 <a href="https://www.wikiwand.com/en/Loose_coupling" target="_blank">"loose coupling"</a> between program components.
 
-This will be evaluated in more detail in following sections, but for now, we'll just take a moment to 
+This guarantee of loose coupling between Modules will be evaluated in more detail in a 
+[following section](../swapping_deps/swapping_deps.generated_docs.md), but for now, we'll just take a moment to 
 explicitly outline exactly what can be exported by a Module's API.

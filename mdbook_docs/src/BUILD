@@ -67,6 +67,7 @@ write_source_file(
         "//mdbook_docs/src/module_system/module_apis/type_definitions/initializers_and_unwrappers:initializers_and_unwrappers",
         "//mdbook_docs/src/module_system/module_apis/type_definitions/initializers_and_unwrappers/unwrappers:unwrappers",
         "//mdbook_docs/src/module_system/module_apis/type_definitions/opaque_types:opaque_types",
+        "//mdbook_docs/src/module_system/swapping_deps:swapping_deps",
         "//mdbook_docs/src/module_system/visibility:visibility",
         "//mdbook_docs/src/procedures/consumers:consumers",
         "//mdbook_docs/src/procedures/functions:functions",

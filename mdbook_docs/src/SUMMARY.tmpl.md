@@ -83,6 +83,7 @@
             - [Flags](./module_system/module_apis/flags/flags.generated_docs.md)
         - [HTTP Services](./module_system/module_apis/http_services/http_services.generated_docs.md)
     - [Visibility](./module_system/visibility/visibility.generated_docs.md)
+    - [Swapping Dependencies](./module_system/swapping_deps/swapping_deps.generated_docs.md)
 - [Concurrency](./concurrency.md)
     - [Graph Procedures](./graph_procedures/graph_procedures.generated_docs.md)
     - [Graph Procedure Composition](./graph_procedures/graph_procedure_composition/graph_procedure_composition.generated_docs.md)
@@ -102,7 +103,7 @@
         - [Reusing Module APIs](./metaprogramming/code_reuse/reusing_module_apis/reusing_module_apis.generated_docs.md)
         - [Reusing Source Code](./metaprogramming/code_reuse/reusing_source_code/reusing_source_code.generated_docs.md)
         - [Abstract Modules](./metaprogramming/code_reuse/abstract_modules/abstract_modules.generated_docs.md)
-    - [Swapping Dependencies](./metaprogramming/swapping_deps/swapping_deps.generated_docs.md)
+    - [Configuring Dependencies with Build Flags](./metaprogramming/swapping_deps/swapping_deps.generated_docs.md)
 
 ---
 

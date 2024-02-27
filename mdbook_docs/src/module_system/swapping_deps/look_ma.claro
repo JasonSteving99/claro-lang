@@ -1,0 +1,5 @@
+provider getMessage() -> string {
+  var msg = "Look ma, no hands!";
+  var line = strings::repeated("-", len(msg) + 4);
+  return "{line}\n| {msg} |\n{line}";
+}
