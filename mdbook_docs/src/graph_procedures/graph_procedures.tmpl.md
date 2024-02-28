@@ -1,7 +1,7 @@
 # Graph Procedures
 
 A __Graph Procedure__ is much like a regular Procedure, with the only difference coming in how you structure code in
-the body. As its mame implies, the body of a Graph Procedure will be structured as a graph of operations. Specifically
+the body. As its name implies, the body of a Graph Procedure will be structured as a graph of operations. Specifically
 it is a DAG (directed-acyclic-graph) where each node in the DAG represents some isolated unit of work which may depend
 on data produced by one or more other nodes and will produce its own resulting data. This structure is inherently
 parallelizable as Claro can analyze the provided DAG to schedule nodes to run as soon as possible once all of the data
