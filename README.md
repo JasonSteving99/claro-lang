@@ -22,7 +22,7 @@ Check out the [example Claro programs](https://github.com/JasonSteving99/claro-l
 
 You may be interested in checking out some
 [solutions](https://github.com/JasonSteving99/claro-lang/tree/main/examples/claro_programs/advent_of_code_2023) to this
-year's [Advent of Code](adventofcode.com) written in Claro!
+year's [Advent of Code](https://adventofcode.com) written in Claro!
 
 # Syntax Highlighting
 
