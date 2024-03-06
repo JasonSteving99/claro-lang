@@ -3915,7 +3915,7 @@ http_endpoints_list ::=
        LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
        ImmutableList<ImmutableList.Builder> fs = fsLexedValue.getVal();
        FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.getCurrentInputLine(), path.right, path.left, path.left + fsLexedValue.getLen());
-       
+
        RESULT = tail.put(endpoint_name, pathFmtStringExpr);
     :}
   | identifier:endpoint_name COLON STRING:path COMMA http_endpoints_list:tail
