@@ -3915,7 +3915,7 @@ http_endpoints_list ::=
        LexedValue<ImmutableList<ImmutableList.Builder>> fsLexedValue = (LexedValue<ImmutableList<ImmutableList.Builder>>) path.value;
        ImmutableList<ImmutableList.Builder> fs = fsLexedValue.getVal();
        FormatStringExpr pathFmtStringExpr = new FormatStringExpr(fs.get(0).build().reverse(), fs.get(1).build().reverse(), fsLexedValue.getCurrentInputLine(), path.right, path.left, path.left + fsLexedValue.getLen());
-
+       
        RESULT = tail.put(endpoint_name, pathFmtStringExpr);
     :}
   | identifier:endpoint_name COLON STRING:path COMMA http_endpoints_list:tail
@@ -3933,6 +3933,20 @@ http_endpoints_list ::=
   | identifier:endpoint_name COLON STRING:path
     {:
        RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, path.getVal());
+    :}
+  | identifier:endpoint_name COLON fmt_string:path COMMA:c 
+  | identifier:endpoint_name COLON STRING:path COMMA:c
+    {: 
+      Symbol currSymbol = new Symbol(
+          -1,
+          cleft,
+          cright,
+          LexedValue.create(
+            (TypeProvider) ImmediateTypeProvider.of(Types.INTEGER),
+            c.getCurrentInputLine(),
+            c.getLen())
+       );
+      report_error("Syntax error: Unexpected comma", currSymbol);
     :}
   ;
 
