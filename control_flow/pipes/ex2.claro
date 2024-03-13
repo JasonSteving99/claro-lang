@@ -1,0 +1,10 @@
+# With piping, these temporary vars are unnecessary.
+var nonPipingSource = ["Claro", "piping", "is", "so", "cool"];
+
+var joinedTmp =
+  strings::join(
+    " is damn ",
+    [nonPipingSource[0], nonPipingSource[len(nonPipingSource) - 1]]
+  );
+
+print("{joinedTmp}! I'll say it again... {joinedTmp}!!");

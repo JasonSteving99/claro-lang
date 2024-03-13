@@ -1,0 +1,2 @@
+newtype OddInt : int
+

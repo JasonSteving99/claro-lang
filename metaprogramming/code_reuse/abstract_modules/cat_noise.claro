@@ -1,0 +1,4 @@
+# cat_noise.claro
+function makeNoiseImpl(cat: State) -> string {
+  return unwrap(unwrap(cat).internal).favoriteInsult;
+}

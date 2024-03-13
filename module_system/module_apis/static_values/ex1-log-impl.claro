@@ -1,0 +1,4 @@
+
+consumer log(msg: string) {
+  print("LOG: {msg}");
+}

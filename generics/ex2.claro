@@ -1,0 +1,11 @@
+var sum: int = reduce([1, 2, 3, 4], lambda (accum, x) -> accum + x, 0);
+
+var totalChars: int =
+  reduce(
+    ["Count", "the", "total", "chars", "in", "these", "strings"],
+    lambda (accum, s) -> accum + len(s),
+    0
+  );
+
+print(sum);
+print(totalChars);

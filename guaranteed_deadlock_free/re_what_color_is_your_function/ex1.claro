@@ -1,0 +1,7 @@
+# Explicitly annotate which arg(s) are blocking-generic.
+blocking:pred function filter<T>(
+    l: [T],
+    pred: blocking? function<T -> boolean>  # <-- Accepting a blocking-generic function arg.
+) -> [T] {
+  return [x | x in l where pred(x)];
+}

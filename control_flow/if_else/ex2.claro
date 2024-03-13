@@ -1,0 +1,11 @@
+var rng = random::forSeed(1);
+var r = random::nextNonNegativeBoundedInt(rng, 100);
+
+var s: string;
+if (r < 33) {
+    s = "red";
+} else if (r < 66) {
+    s = "green";
+}
+
+print(s); # `s` is uninitialized if r >= 66.

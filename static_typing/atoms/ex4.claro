@@ -1,0 +1,13 @@
+alias LightColor : oneof<Red, Yellow, Green>
+
+$$random::forSeed(1)
+$$  |> random::nextNonNegativeBoundedInt(^, 3)
+$$  |> var r = ^;
+$$
+var lightColor: LightColor;
+$$match (r) {
+$$  case 0 -> lightColor = Red;
+$$  case 1 -> lightColor = Yellow;
+$$  case _ -> lightColor = Green;
+$$}
+$$print(lightColor);

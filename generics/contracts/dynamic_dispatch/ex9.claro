@@ -1,0 +1,7 @@
+requires(Stringify<T>, Stringify<V>)
+consumer prettyPrintPair<T, V>(x: T, y: V) {
+  print("First:\n{Stringify::displayStr(x)}");
+  print("Second:\n{Stringify::displayStr(y)}");
+}
+
+prettyPrintPair(Foo(1234), Bar("some string"));

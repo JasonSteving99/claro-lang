@@ -1,0 +1,29 @@
+newtype Node<T> : mut struct {
+  val: T,
+  next: oneof<Node<T>, std::Nothing>
+}
+function findNode<T>(head: Node<T>, index: int) -> oneof<Node<T>, std::Error<IndexOutOfBounds>> {
+  # ...
+$$  if (index < 0) { return std::Error(IndexOutOfBounds); }
+$$  repeat (index) {
+$$    var next = unwrap(head).next;
+$$    if (next instanceof Node<T>) {
+$$      head = next;
+$$    } else {
+$$      return std::Error(IndexOutOfBounds);
+$$    }
+$$  }
+$$  return head;
+}
+
+implement RandomAccess<Node<string>, string> {
+  function read(head: Node<string>, index: int) -> oneof<string, std::Error<IndexOutOfBounds>> {
+    var found ?= findNode(head, index);
+    return unwrap(found).val;
+  }
+  function write(head: Node<string>, index: int, elem: string) -> oneof<std::OK, std::Error<IndexOutOfBounds>> {
+    var found ?= findNode(head, index);
+    unwrap(found).val = elem;
+    return std::OK;
+  }
+}

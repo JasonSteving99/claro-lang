@@ -1,0 +1,7 @@
+var mutList: mut [string] = mut [];
+for (x in [1, 3, 99, 2, 1]) {
+  if (x <= 10) {
+    lists::add(mutList, strings::repeated("*", x));
+  }
+}
+print(mutList);

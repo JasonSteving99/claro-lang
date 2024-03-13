@@ -1,0 +1,5 @@
+var m = {"a": 1, "b": 2};
+
+for (k in ["a", "b", "c"]) {
+  print("{k} in map: {k in m}");
+}

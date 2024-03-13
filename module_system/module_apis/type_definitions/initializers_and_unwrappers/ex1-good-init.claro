@@ -1,0 +1,6 @@
+# ex1-good-init.claro
+var invalidOddInt = Nums::getOddInt(8);
+print(invalidOddInt);
+
+var oddInt = Nums::getOddInt(7);
+print(oddInt);

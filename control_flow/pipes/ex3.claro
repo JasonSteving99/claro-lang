@@ -1,0 +1,6 @@
+["Hello", "world!"]
+  |> [strings::toUpperCase(s) | s in ^]
+  |> strings::join(", ", ^)
+  |> var greeting = ^;
+
+print(greeting);

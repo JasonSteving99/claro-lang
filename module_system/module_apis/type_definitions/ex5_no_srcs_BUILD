@@ -1,0 +1,8 @@
+load("//:rules.bzl", "claro_module")
+
+claro_module(
+    name = "user_error_types",
+    module_api_file = "ex4.claro_module_api",
+    # You could optionally, explicitly declare an empty list.
+    # srcs = [],
+)

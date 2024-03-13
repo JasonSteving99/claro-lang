@@ -1,0 +1,17 @@
+newtype Foo<T> : T
+
+initializers Foo {
+  # Calling this function should be the **only** way to get an instance of Foo<T>.
+  function getFooForInts(ints: [int]) -> Foo<[int]> {
+    return Foo(ints);
+  }
+}
+
+var original: Foo<[int]> = getFooForInts([0, 1, 2]);
+
+# The fact that this is somehow permitted is arguably a bug... why are you able
+# to initialize a Foo<T> without invoking the declared initializer?? This seems
+# to break the semantic intent of declaring initializers to restrict the direct
+# instantiation of user defined types to have to "go through the front door".
+var coercedCopy: Foo<mut [int]> = copy(original);
+print(coercedCopy);

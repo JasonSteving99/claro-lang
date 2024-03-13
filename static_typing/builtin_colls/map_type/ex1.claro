@@ -1,0 +1,5 @@
+var myMap: mut {string: int} = mut {};
+myMap["Jason"] = 28;
+print("Jason" in myMap); # true
+myMap["Kenny"] = 29;
+print(myMap); # mut {"Jason": 28, "Kenny": 29}

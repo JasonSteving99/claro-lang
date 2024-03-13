@@ -1,0 +1,5 @@
+provider getInt() -> int {
+    return 10;
+}
+
+print(getInt());

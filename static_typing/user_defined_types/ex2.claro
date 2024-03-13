@@ -1,0 +1,4 @@
+# The order of `newtype` declarations is unimportant.
+newtype Baz : int
+newtype Foo : Bar
+newtype Bar : Baz

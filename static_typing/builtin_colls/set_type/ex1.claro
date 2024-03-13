@@ -1,0 +1,3 @@
+var mySet: {int} = {1, 6, -12};
+print(10 in mySet);
+print(6 in mySet);

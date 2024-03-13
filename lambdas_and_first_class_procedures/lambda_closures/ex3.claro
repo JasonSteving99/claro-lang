@@ -1,0 +1,28 @@
+newtype ClosureFn<State, Out> : struct {
+  state: State,
+  fn: function<State -> Out>
+}
+
+function callClosure<State, Out>(closureFn: ClosureFn<State, Out>) -> Out {
+  var toApply = unwrap(closureFn).fn;
+  return toApply(unwrap(closureFn).state);
+}
+
+var mutList = mut [1];
+var getAndIncrClosure: ClosureFn<mut [int], int> =
+  ClosureFn({
+    state = mutList,
+    fn = l -> {
+      var res = l[0];
+      l[0] = l[0] + 1; # Update the "captured" state.
+      return res;
+    }
+  });
+
+print(mutList);                        # mut [1]
+print(callClosure(getAndIncrClosure)); # 1
+print(callClosure(getAndIncrClosure)); # 2
+print(callClosure(getAndIncrClosure)); # 3
+# "Spooky Action at a Distance" mutating `mutList` on the lines above when
+# `mutList` was never directly referenced.
+print(mutList);                        # mut [4]

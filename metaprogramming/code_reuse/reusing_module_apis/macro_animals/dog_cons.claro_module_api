@@ -1,0 +1,2 @@
+# dog_cons.claro_module_api
+function create(name: string, isHappy: boolean) -> State;

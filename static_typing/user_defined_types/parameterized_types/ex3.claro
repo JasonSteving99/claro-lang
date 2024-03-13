@@ -1,0 +1,1 @@
+newtype Invalid<X> : struct {row: int, col: int}

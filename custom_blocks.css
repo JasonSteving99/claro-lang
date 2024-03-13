@@ -1,0 +1,22 @@
+.light #claro-logo, .rust #claro-logo {
+    filter: brightness(0);
+}
+
+.language-compilation-errs {
+  white-space: pre-wrap;
+  color: #f56451;
+}
+
+/* HighlightJS is tokenizing into 4 groups of keywords just to make for an easy first pass at syntax highlighting. */
+.hljs-keyword1 {
+  color: #CC7832
+}
+.hljs-keyword2 {
+  color: #3C85BA
+}
+.hljs-keyword3 {
+  color: #0F9795
+}
+.hljs-keyword4 {
+  color: #86A659
+}

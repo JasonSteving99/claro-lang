@@ -1,0 +1,10 @@
+# contract_impl.claro
+
+implement Numeric<Foo> {
+  function add(lhs: Foo, rhs: Foo) -> Foo {
+    return Foo(unwrap(lhs) + unwrap(rhs));
+  }
+  function multiply(lhs: Foo, rhs: Foo) -> Foo {
+    return Foo(unwrap(lhs) * unwrap(rhs));
+  }
+}

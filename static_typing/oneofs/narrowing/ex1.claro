@@ -1,0 +1,7 @@
+$$var intOrStr: oneof<int, string> = 10;
+$$
+if (intOrStr instanceof int) {
+  # Claro automatically "narrows" the variable to have type `int`.
+  var addRes = intOrStr + 10;
+  print("{intOrStr} + 10 = {addRes}");
+}

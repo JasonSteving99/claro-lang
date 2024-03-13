@@ -1,0 +1,6 @@
+function reduce<A, B>(l: [A], fn: function<|B, A| -> B>, accum: B) -> B {
+  for (e in l) {
+    accum = fn(accum, e);
+  }
+  return accum;
+}

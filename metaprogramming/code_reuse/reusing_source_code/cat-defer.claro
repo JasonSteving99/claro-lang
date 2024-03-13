@@ -1,0 +1,16 @@
+# cat.claro
+$$newtype InternalState : struct { favoriteInsult: string }
+$$
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(cat: State) -> string {
+    var noise = unwrap(unwrap(cat).internal).favoriteInsult;
+    return getMessageWithName(noise, cat); # Analogous code repeated in dog.claro.
+  }
+}
+$$
+$$function create(name: string, favoriteInsult: string) -> State {
+$$  return State({
+$$    name = name,
+$$    internal = InternalState({favoriteInsult = favoriteInsult})
+$$  });
+$$}

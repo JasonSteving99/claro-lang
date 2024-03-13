@@ -1,0 +1,3 @@
+contract Operators<X> {
+    function add(lhs: X, rhs: X) -> X;
+}

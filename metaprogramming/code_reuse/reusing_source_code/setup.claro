@@ -1,0 +1,4 @@
+newtype State : struct {
+  name: string,
+  internal: InternalState
+}

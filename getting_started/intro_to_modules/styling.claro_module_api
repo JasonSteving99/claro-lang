@@ -1,0 +1,9 @@
+# Wraps the given string in a "box" of dashes.
+# E.g.
+#   Input:
+#     "Foo"
+#   Output:
+#     -------
+#     | Foo |
+#     -------
+function wrapInBox(s: string) -> string;

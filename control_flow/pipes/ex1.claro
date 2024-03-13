@@ -1,0 +1,5 @@
+["Claro", "piping", "is", "so", "cool"]
+  |> [^[0], ^[len(^) - 1]] # <-- Get the first and last element of the list.
+  |> strings::join(" is damn ", ^)
+  |> "{^}! I'll say it again... {^}!!"  # <-- Can backreference prev value more than once.
+  |> print(^);

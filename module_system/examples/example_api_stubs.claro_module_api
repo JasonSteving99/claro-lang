@@ -1,0 +1,3 @@
+implement Numeric<Foo>;
+
+consumer prettyPrint(lhs: Foo);

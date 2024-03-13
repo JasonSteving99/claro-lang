@@ -1,0 +1,11 @@
+newtype Foo<T> : T
+var myStruct2 = {a = {x = 1, y = "ninety-nine"}, z = Foo(true)};
+
+match (Foo(myStruct2)) {
+  case Foo({a = {x = 1, y = "two"},  z = Foo(false)}) -> print("Foo(\{a = \{x = 1, y = \"two\"},  z = Foo(false)})");
+  case Foo({a = {x = 3, y = "zero"}, z = Foo(false)}) -> print("Foo(\{a = \{x = 3, y = \"zero\"}, z = Foo(false)})");
+  case Foo({a = {x = 1, y = _},      z = Foo(false)}) -> print("Foo(\{a = \{x = 1, y = _},        z = Foo(false)})");
+  case Foo({a = {x = _, y = "two"},  z = Foo(false)}) -> print("Foo(\{a = \{x = _, y = \"two\"},  z = Foo(false)})");
+  case Foo({a = A,                   z = Foo(true)})  -> print("Foo(\{a = A, z = Foo(true)}) where A = {A}");
+  case Foo({a = {x = 3, y = "six"},  z = Foo(false)}) -> print("Foo(\{a = \{x = 3, y = \"six\"},  z = Foo(false)})");
+}

@@ -1,0 +1,6 @@
+blocking function doBlocking(x: int) -> Bar<Foo> {
+  # ...do stuff...
+  var unwrappedGraphRes: Foo <-| fooGraph(x);  # <-- Blocking unwrap.
+  # ...do stuff using `unwrappedGraphRes`...
+  return Bar(unwrappedGraphRes);
+}

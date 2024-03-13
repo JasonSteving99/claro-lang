@@ -1,0 +1,2 @@
+intOrStr = -1;
+_ = intOrStr; # Throw away the value.

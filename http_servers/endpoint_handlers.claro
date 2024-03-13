@@ -1,0 +1,15 @@
+
+
+endpoint_handlers Greeter {
+  graph provider genericGreeting() -> future<HttpResponse> {
+    root httpRes <- http::getOk200HttpResponseForJson(@json);
+    node json    <- EndpointHandlerImpls::GENERIC_GREETING;
+  }
+  graph function greeting(name: string) -> future<HttpResponse> {
+    root httpRes <- http::getOk200HttpResponseForJson(@json);
+    node json    <- EndpointHandlerImpls::getGreetingForName(name);
+  }
+}
+
+var greeterServer: HttpServer<Greeter> = http::getBasicHttpServerForPort(8080);
+_ = greeterServer; # Not starting the server yet.

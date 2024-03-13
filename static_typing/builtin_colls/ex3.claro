@@ -1,0 +1,5 @@
+var l = mut [1, 2, 3];
+print("Before: {l}");
+
+lists::add(l, 4);      # <-- Mutation happens here.
+print("After:  {l}");

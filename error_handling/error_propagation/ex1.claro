@@ -1,0 +1,28 @@
+atom IndexTooHigh
+atom IndexTooLow
+function safeGet<T>(l: [T], i: int)
+  -> oneof<T, std::Error<IndexTooHigh>, std::Error<IndexTooLow>> {
+  # ...
+$$  if (i < 0) {
+$$    return std::Error(IndexTooLow);
+$$  } else if (i >= len(l)) {
+$$    return std::Error(IndexTooHigh);
+$$  }
+$$  return l[i];
+}
+
+function getRandomPairFromList<T>(l: [T], rng: random::RandomNumberGenerator)
+    -> oneof<tuple<T, T>, std::Error<IndexTooHigh>, std::Error<IndexTooLow>> {
+  # std::Error may propagate from either call to safeGet(...).
+  var first: T ?= safeGet(l, random::nextNonNegativeBoundedInt(rng, 5));
+  # Note the type annotation isn't necessary.
+  var second ?= safeGet(l, random::nextNonNegativeBoundedInt(rng, 5));
+  return (first, second);
+}
+
+var rng = random::forSeed(0);
+
+var firstPair = getRandomPairFromList([1, 2, 3, 4], rng);
+print(firstPair);
+var secondPair = getRandomPairFromList([1, 2, 3, 4], rng);
+print(secondPair);

@@ -1,0 +1,6 @@
+var mySpeed: MPH = 15.0;
+var myDistance: Miles = 60.0;
+
+# Aliases provide zero compile-time protection from mistakenly passing these
+# args out-of-order.
+print(timeTraveled(myDistance, mySpeed));

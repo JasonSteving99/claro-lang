@@ -1,0 +1,11 @@
+var graphFuture: future<Foo> = fooGraph(...);
+
+# These two instructions are likely running concurrently with respect to
+# `graphFuture`, as `graphFuture` likely hasn't finished yet, but they are
+# definitely serialized with respect to each other.
+doSomething(...);
+doAnotherThing(...);
+
+# Blocking the current thread to "unwrap" the `future<Foo>` into a raw `Foo`
+# value we can operate on.
+var graphRes: Foo <-| graphFuture;

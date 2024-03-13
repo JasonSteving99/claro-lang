@@ -1,0 +1,5 @@
+newtype InternalState : std::Nothing
+
+function create(name: string) -> State {
+  return State({name = name, internal = InternalState(std::Nothing)});
+}

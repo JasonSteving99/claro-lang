@@ -1,0 +1,2 @@
+var myStruct: struct {x: int, y: int} = {x = 1, y = 2};
+print(myStruct);

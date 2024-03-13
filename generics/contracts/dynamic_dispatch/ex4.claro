@@ -1,0 +1,9 @@
+#### CLARO ####
+prettyPrint(Foo(1234));
+prettyPrint(Bar("some string"));
+prettyPrint(Buzz("another"));
+
+requires(Stringify<T>)
+consumer prettyPrint<T>(t: T) {
+  print(Stringify::displayStr(t));
+}

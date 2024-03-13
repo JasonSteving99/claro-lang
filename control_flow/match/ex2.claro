@@ -1,0 +1,10 @@
+$$var x = 2;
+$$
+var sizeStr: string;
+match (x) {
+  case 1 -> sizeStr = "small";
+  case 2 -> sizeStr = "medium";
+  case _ -> sizeStr = "large";
+}
+$$
+$$print(sizeStr);

@@ -1,0 +1,11 @@
+$$random::forSeed(1)
+$$  |> random::nextNonNegativeBoundedInt(^, 3)
+$$  |> var r = ^;
+$$
+$$var lightColor: oneof<Red, Yellow, Green>;
+$$match (r) {
+$$  case 0 -> lightColor = Red;
+  case 1 -> lightColor = Yelow;  # <-- Claro will catch this misspelling for you.
+$$  case _ -> lightColor = Green;
+$$}
+$$print(lightColor);

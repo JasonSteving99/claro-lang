@@ -1,0 +1,9 @@
+# cat.claro
+newtype InternalState : struct { favoriteInsult: string }
+
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(cat: State) -> string {
+    # Cats are mean, they're going to say mean things no matter what.
+    return unwrap(unwrap(cat).internal).favoriteInsult;
+  }
+}

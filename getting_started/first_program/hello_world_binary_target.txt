@@ -1,0 +1,5 @@
+
+claro_binary(
+  name = "hello_world",
+  main_file = "hello_world.claro",
+)

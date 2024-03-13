@@ -1,0 +1,11 @@
+function add(x: int, y: int) -> int {
+  return x + y;
+}
+
+var applyBiConsumer =
+    lambda (x: int, y: int, mapFn: function<|int, int| -> int>) -> {
+        print(mapFn(x, y));
+    };
+
+# Pass a reference to the `add()` function as a first class arg.
+applyBiConsumer(10, 5, add); #15.

@@ -1,0 +1,28 @@
+var s = "!EXAMPLE!";
+print("prefix---{s}--suffix");
+
+provider foo() -> string {
+  return "WOW!";
+}
+
+# Formatted expressions really are arbitrary expressions, you can even call
+# arbitrary procedures from them.
+print("prefix---{foo()}---suffix");
+
+# Format strings can even be nested, though you should probably have a good
+# reason for doing this.
+print("prefix---{"inner+++{s}+++inner"}---suffix");
+
+# You can also use multiple fmt arg expressions!
+print("Name:\t{getRandomName()}\nAge:\t{random::nextNonNegativeBoundedInt(random::forSeed(1), 20)}");
+
+provider getRandomName() -> string {
+  # ...
+$$  var names = ["Milo", "Millie", "Ruby"];
+$$
+$$  random::forSeed(2)
+$$    |> random::nextNonNegativeBoundedInt(^, 3)
+$$    |> var ind = ^;
+$$
+$$  return names[ind];
+}

@@ -1,0 +1,12 @@
+var l = mut [1, 2, 3];
+var myCopy = copy(l);
+
+print("Before update:");
+print("l:      {l}");
+print("myCopy: {myCopy}");
+
+myCopy[2] = -99999;
+
+print("\nAfter update:");
+print("l:      {l}");
+print("myCopy: {myCopy}");

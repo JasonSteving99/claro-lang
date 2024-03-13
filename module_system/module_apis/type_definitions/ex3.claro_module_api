@@ -1,0 +1,17 @@
+# ex1.claro_module_api
+
+alias ComplexStruct : struct {
+  fieldA: tuple<
+    struct {
+      innerA: int,
+      innerB: [[char]]
+    },
+    int,
+    float
+  >,
+  fieldB: provider<oneof<int, string>>
+}
+
+# It'll be much easier for users to be able to refer to this type using the exported
+# alias rather than the type itself.
+provider getRandomComplexStruct() -> ComplexStruct;

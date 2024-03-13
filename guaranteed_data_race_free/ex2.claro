@@ -1,0 +1,6 @@
+graph provider someGraph() -> future<SomeRes> {
+    root res   <- computeRes(@nodeB, @nodeC);
+    node nodeB <- doNodeBThing(@nodeA);
+    node nodeC <- doNodeCThing(@nodeA);
+    node nodeA <- getMutableThing();
+}

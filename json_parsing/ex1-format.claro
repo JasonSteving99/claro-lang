@@ -1,0 +1,12 @@
+alias ServerConfig : struct {
+  server_name: string,
+  port: int,
+  logging: struct {
+    filename: string
+  },
+  database: struct {
+    host: string,
+    port: int,
+    database_name: string
+  }
+}

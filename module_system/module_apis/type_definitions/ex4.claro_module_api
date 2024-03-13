@@ -1,0 +1,7 @@
+# ex4.claro_module_api
+
+alias UserLookupError : oneof<USER_NOT_FOUND, USER_DELETED, USER_SUSPENDED>
+
+atom USER_NOT_FOUND
+atom USER_DELETED
+atom USER_SUSPENDED

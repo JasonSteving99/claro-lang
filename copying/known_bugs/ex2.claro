@@ -1,0 +1,13 @@
+var X = mut [99];
+var l1 = [X, X];
+var l2 = copy(l1);
+print("l1: {l1}");
+print("l2: {l2}");
+
+l1[0][0] = -1;
+print("\nl1: {l1}  # <-- Notice that both list elements have updated after a single write to the shared reference.");
+print("l2: {l2}");
+
+l2[0][0] = -2;
+print("\nl1: {l1}");
+print("l2: {l2}  # <-- This is arguably a bug. The shared reference was severed.");

@@ -1,0 +1,4 @@
+
+unwrappers Person {
+  function setAge(p: Person, newAge: int) -> oneof<std::OK, std::Error<InvalidAge>>;
+}

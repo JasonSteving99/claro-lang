@@ -1,0 +1,8 @@
+consumer show(s: string, age: int, heightFt: int) {
+    # String formatting.
+    print("{s} is {age} years old and {heightFt}ish feet tall.");
+}
+
+# Calling the consumer. Syntactically, consumers are always used as statements,
+# never as an expression (something that has a value).
+show("Laura", 29, 5);

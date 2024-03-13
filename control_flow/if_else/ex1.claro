@@ -1,0 +1,13 @@
+var rng = random::forSeed(1);
+var r = random::nextNonNegativeBoundedInt(rng, 100);
+
+var s: string;
+if (r < 33) { # Curly braces are mandatory.
+    s = "small";
+} else if (r < 66) {
+    s = "medium";
+} else {
+    s = "large";
+}
+
+print(s); # Prints "small", "medium", or "large".

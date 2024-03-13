@@ -1,0 +1,9 @@
+# animal.claro_module_api
+opaque newtype InternalState
+
+newtype State : struct {
+  name: string,
+  internal: InternalState
+}
+
+implement AnimalSounds::AnimalSounds<State>;

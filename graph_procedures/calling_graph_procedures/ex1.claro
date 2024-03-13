@@ -1,0 +1,2 @@
+$$var someUserId: UserId = "Jake";
+var graphRes: future<Watchlist> = getWatchlist(someUserId);

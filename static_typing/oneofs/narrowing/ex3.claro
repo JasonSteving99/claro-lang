@@ -1,0 +1,22 @@
+newtype LinkedNode<T> : struct {
+  val: T,
+  next: oneof<LinkedNode<T>, std::Nothing>
+}
+
+alias SB : string_builder::StringBuilder
+function renderLinkedList<T>(head: LinkedNode<T>, sb: SB) -> SB {
+  _ = string_builder::add(sb, "{unwrap(head).val} -> ");
+  var next = unwrap(head).next;
+  if (next instanceof LinkedNode<T>) {
+    return renderLinkedList(next, sb);   # <-- Type of `next` was "narrowed" to `LinkedNode<T>`.
+  } else {
+    return string_builder::add(sb, "*END*");
+  }
+}
+
+var linkedList = LinkedNode({val = 1, next = LinkedNode({val = 2, next = LinkedNode({val = 3, next = std::Nothing})})});
+
+string_builder::create()
+  |> renderLinkedList(linkedList, ^)
+  |> string_builder::build(^)
+  |> print(^);

@@ -1,0 +1,20 @@
+atom IndexOutOfBounds
+function safeGet<T>(l: [T], i: int) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (i < 0 or i >= len(l)) {
+    return std::Error(IndexOutOfBounds);
+  }
+  return l[i];
+}
+
+var l = [1, 2, 3];
+match (safeGet(l, getRandomIndex())) {
+  case _:std::Error<IndexOutOfBounds> -> print("Index out of bounds!");
+  case X                              -> print("Successfully retrieved: {X}");
+}
+# ...
+$$provider getRandomIndex() -> int {
+$$  random::forSeed(1)
+$$    |> random::nextNonNegativeBoundedInt(^, 8)
+$$    |> var i = ^;
+$$  return i;
+$$}

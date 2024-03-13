@@ -1,0 +1,21 @@
+# dog.claro
+newtype InternalState : struct { isHappy: boolean }
+
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(dog: State) -> string {
+    var noise: string;
+    if (unwrap(unwrap(dog).internal).isHappy) {
+      noise = "Woof!";
+    } else {
+      noise = "Grrrr...";
+    }
+    return "{noise} - says {unwrap(dog).name}"; # Analogous code in cat.claro.
+  }
+}
+
+function create(name: string, isHappy: boolean) -> State {
+  return State({
+    name = name,
+    internal = InternalState({isHappy = isHappy})
+  });
+}

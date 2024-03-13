@@ -1,0 +1,7 @@
+var x = # ...
+$$ 2;
+match (2) {
+  case x -> print("Matched variable {x}");
+  case 1 -> print("1!");
+  case _ -> print("default!");
+}

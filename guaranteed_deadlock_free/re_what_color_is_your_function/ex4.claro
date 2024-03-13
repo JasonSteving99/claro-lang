@@ -1,0 +1,3 @@
+# Illegal use of `blocking:...`, and `blocking?` outside of top-level Procedure definition.
+var myBlockingGenericFn:
+    blocking:arg1 function<|[int], blocking? function<int -> boolean>| -> [int]>;

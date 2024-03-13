@@ -1,0 +1,29 @@
+contract Unit<T> {
+  consumer move(t: T);
+  function hasSpeedBoost(t: T) -> boolean;
+}
+
+contract Render<T> {
+  function render(t: T) -> char;
+  function getLoc(t: T) -> Location;
+}
+
+requires(Unit<T>, Render<T>)
+function gameTick<T>(gameUnits: mut [T], gameBoard: [mut [char]], spaceship: Spaceship, onlyUnitsWSpeedBoost: boolean)
+    -> tuple<GameOverStatus, ExplosionCount> {
+$$  # The full implementation is too long for these docs. For the full implementation, see:
+$$  # See https://github.com/JasonSteving99/claro-lang/blob/d6177ff8719e894f709c42811bd0b7f0a3d6c4d9/examples/claro_programs/asteroids.claro#L121-L123
+  # ...
+  # Update unit locations.
+  for (unit in gameUnits) {
+    # ...
+    Unit::move(unit);
+  }
+  # ...
+  # Populate gameBoard.
+  for (unit in gameUnits) {
+    # ...
+    gameBoard[loc.r][loc.c] = Render::render(unit);
+  }
+  # ...
+}

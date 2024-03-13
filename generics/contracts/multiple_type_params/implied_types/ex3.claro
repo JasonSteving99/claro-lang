@@ -1,0 +1,3 @@
+var myLinkedList = Node(mut {val = "head", next = Node(mut {val = "middle", next = Node(mut {val = "tail", next = std::Nothing})})});
+
+print(RandomAccess::read(myLinkedList, 1));

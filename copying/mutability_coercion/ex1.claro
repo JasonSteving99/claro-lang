@@ -1,0 +1,32 @@
+var original = mut [[1, 2, 3], [4, 5], [6]];
+var coercedCopy: [mut [int]] = copy(original);
+type(coercedCopy);
+print("Elements of `coercedCopy` match `original`?: {checkElementsMatch(original, coercedCopy)}\n");
+
+# Now demonstrate that the lists are now independent.
+print("Before mutation -");
+print("original:    {original}");
+print("coercedCopy: {coercedCopy}\n");
+
+original[0]       = [-11111111];
+coercedCopy[0][0] = -22222222;  # <-- Outer list is now immutable, so modifying now mutable inner list.
+
+print("After mutation -");
+print("original:    {original}");
+print("coercedCopy: {coercedCopy}");
+
+function checkElementsMatch(original: mut [[int]], coercedCopy: [mut [int]]) -> boolean {
+  # ...
+$$  var i = 0;
+$$  while (i < len(original)) {
+$$    var j = 0;
+$$    while (j < len(original[i])) {
+$$      if (original[i][j] != coercedCopy[i][j]) {
+$$        return false;
+$$      }
+$$      ++j;
+$$    }
+$$    ++i;
+$$  }
+$$  return true;
+}

@@ -1,0 +1,9 @@
+# person.claro
+initializers Person {
+  function getPerson(name: string, age: int) -> oneof<Person, std::Error<InvalidAge>> {
+    if (age < 0 or age > 100) {
+      return std::Error(InvalidAge);
+    }
+    return Person(mut {name = name, age = age});
+  }
+}

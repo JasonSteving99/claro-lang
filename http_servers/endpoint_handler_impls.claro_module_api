@@ -1,0 +1,3 @@
+static GENERIC_GREETING: string;
+
+function getGreetingForName(name: string) -> string;

@@ -1,0 +1,4 @@
+function filter<A>(l: [A], pred: function<A -> boolean>) -> [A] {
+  # ...
+$$  return [a | a in l where pred(a)];
+}

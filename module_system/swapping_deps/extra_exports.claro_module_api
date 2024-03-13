@@ -1,0 +1,8 @@
+# extra_exports.claro_module_api
+provider getMessage() -> string;
+
+provider getMessageFromDB() -> future<string>;
+
+opaque newtype SecretMessage
+
+static SOME_OTHER_MESSAGE : SecretMessage;

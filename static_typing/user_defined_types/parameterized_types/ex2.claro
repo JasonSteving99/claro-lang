@@ -1,0 +1,5 @@
+var maybeInt: Maybe<int> = Maybe(10);
+print(maybeInt);
+
+var maybeStr = Maybe("hi");
+print(maybeStr);

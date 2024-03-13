@@ -1,0 +1,11 @@
+var i = 1;
+var f = (x: int) -> int {
+    # This lambda captures a **copy** of the variable `i`.
+    return x + i;
+};
+
+for (x in [0, 1, 5, 5]) {
+  print("i:    {i}");
+  print("f({x}): {f(x)}\n");
+  i = i * 10;  # <-- This update of `i` is not observed by the lambda.
+}

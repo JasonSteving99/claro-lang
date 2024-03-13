@@ -1,0 +1,9 @@
+requires(Stringify<T>)
+consumer prettyPrintList<T>(l: [T]) {
+  for (e in l) {
+    print(Stringify::displayStr(e));
+  }
+}
+
+var elems: [oneof<Foo, Bar, Buzz>] = [Foo(1234), Bar("some string"), Buzz("another")];
+prettyPrintList(elems);

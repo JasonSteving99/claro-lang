@@ -1,0 +1,3 @@
+$$var someUserId: UserId = "Jake";
+var graphRes: Watchlist <-| getWatchlist(someUserId);
+print(graphRes);

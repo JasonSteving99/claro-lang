@@ -1,0 +1,7 @@
+# init-impl.claro
+function getOddInt(x: int) -> oneof<OddInt, std::Error<NOT_ODD>> {
+  if (x % 2 == 1) {
+    return OddInt(x);
+  }
+  return std::Error(NOT_ODD);
+}

@@ -1,0 +1,26 @@
+# BUILD
+
+load("@claro-lang//:rules.bzl", "claro_module")
+
+claro_module(
+    name = "example",
+    module_api_file = "example.claro_module_api",
+    srcs = [
+        "contract_impl.claro",
+        "pretty_print.claro",
+    ],
+    deps = {
+        "Boxes": ":box",  # <-- Notice the name "Boxes" is chosen by the consumer.
+    },
+    # This Module can be consumed by anyone.
+    visibility = ["//visibility:public"],
+)
+
+claro_module(
+    name = "box",
+    module_api_file = "boxes.claro_module_api",
+    srcs = ["boxes.claro"],
+    # No visibility declared means that this Module is private to this Bazel package.
+)
+
+# ...

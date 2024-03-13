@@ -1,0 +1,21 @@
+contract Index<T, R> {
+    function get(l: T, ind: int) -> R;
+}
+
+implement Index<[int], int> {
+    function get(l: [int], ind: int) -> int {
+        return l[ind];
+    }
+}
+
+atom IndexOutOfBounds
+newtype SafeRes<T> : oneof<T, std::Error<IndexOutOfBounds>>
+
+implement Index<[int], SafeRes<int>> {
+    function get(l: [int], ind: int) -> SafeRes<int> {
+        if (ind >= 0 and ind < len(l)) {
+            return SafeRes(l[ind]);
+        }
+        return SafeRes(std::Error(IndexOutOfBounds));
+    }
+}

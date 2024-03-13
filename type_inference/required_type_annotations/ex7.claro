@@ -1,0 +1,10 @@
+consumer foo<A>(a: A) {
+  # ...
+$$  print(a);
+}
+
+var t = (1, "one");
+var i: int = # ...
+$$  random::nextNonNegativeBoundedInt(random::create(), 2);
+
+foo(cast(int, t[i]));

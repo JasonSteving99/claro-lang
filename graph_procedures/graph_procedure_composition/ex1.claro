@@ -1,0 +1,6 @@
+graph function bar(argB: int, argC: C) -> future<BarRes> {
+    root barRes <- doBar(@barA);
+    node barA <- doBarA(@barB, @barC);
+    node barB <- doBarB(argB);
+    node barC <- doBarC(argC);
+}

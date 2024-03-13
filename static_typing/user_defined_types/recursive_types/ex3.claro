@@ -1,0 +1,5 @@
+newtype Node<T> : struct {
+  val: T,
+  left: oneof<Node<T>, std::Nothing>,
+  right: oneof<Node<T>, std::Nothing>
+}

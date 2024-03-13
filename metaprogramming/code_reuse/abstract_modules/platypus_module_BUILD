@@ -1,0 +1,13 @@
+# BUILD
+load(":animal.bzl", "Animal")
+
+# ...
+
+Animal(
+    name = "platypus",
+    api_extensions = [":platypus_cons.claro_module_api"],
+    override = {
+        "AnimalSoundsImpl": ":platypus_animal_sounds_impl.claro",
+        "InternalStateAndConstructor": ":platypus_state_and_cons.claro",
+    },
+)

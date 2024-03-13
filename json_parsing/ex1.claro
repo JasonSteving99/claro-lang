@@ -1,0 +1,15 @@
+
+resources::ServerConfigJSON
+  |> files::readOrPanic(^)
+  |> var parsedConfig: std::ParsedJson<ServerConfig> = fromJson(^);
+
+var parsedResult = unwrap(parsedConfig).result;
+if (parsedResult instanceof ServerConfig) {
+  print("Config has correct format and was parsed successfully!");
+  print(strings::repeated("-", 50));
+  print("Server Name: {parsedResult.server_name}");
+  print("Port:        {parsedResult.port}");
+} else {
+  print("JSON parsing failed!");
+  print(parsedResult);
+}

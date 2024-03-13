@@ -1,0 +1,7 @@
+requires(Index<C, R>)
+function pickRandom<C, R>(collection: C, maxInd: int) -> R {
+  return Index::get(collection, random::nextNonNegativeBoundedInt(random::create(), maxInd + 1));
+}
+
+# Ambiguous Contract Procedure Call - should the call return `int` or `SafeRes`?
+var ambiguous = pickRandom([1, 2, 3], 10);

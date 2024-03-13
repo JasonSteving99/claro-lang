@@ -1,0 +1,2 @@
+# Ambiguous Contract Procedure Call - should the call return `int` or `SafeRes`?
+var ambiguous = Index::get(l, 10);

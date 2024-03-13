@@ -1,0 +1,13 @@
+################################################################################
+# WARNING: This file is not actually being executed to produce the docs as for
+# some reason when running it during the mdbook_docs build sandboxing process
+# the request is failing. So instead, I've manually run the program myself and
+# copied its output into the doc.
+################################################################################
+
+
+_ = http::getOk200HttpResponseForHtml("");
+var hostGameRes: oneof<string, std::Error<string>>
+  <-| BuggyBuggies::hostGame(BuggyBuggies::BUGGY_BUGGIES_CLIENT, "jason");
+
+print("Host Game JSON Response:\n{hostGameRes}");

@@ -1,0 +1,7 @@
+# person.claro_module_api
+newtype Person : mut struct {name: string, age: int}
+
+atom InvalidAge
+initializers Person {
+  function getPerson(name: string, age: int) -> oneof<Person, std::Error<InvalidAge>>;
+}

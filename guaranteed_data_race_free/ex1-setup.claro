@@ -1,0 +1,12 @@
+alias SomeRes : int
+
+function computeRes(b: int, c: int) -> future<SomeRes> {
+  _ = (b, c);
+  return futures::immediateFuture(-1);
+}
+function doNodeBThing(b: int) -> future<int> {
+  return futures::immediateFuture(b);
+}
+function doNodeCThing(c: int) -> future<int> {
+  return futures::immediateFuture(c);
+}

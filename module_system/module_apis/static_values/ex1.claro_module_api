@@ -1,0 +1,17 @@
+# ex1.claro_module_api
+
+# Throughout the server's lifetime this configuration won't change.
+static SERVER_CONFIG : ServerConfig;
+
+alias ServerConfig : struct {
+  server_name: string,
+  port: int,
+  logging: struct {
+    filename: string
+  },
+  database: struct {
+    host: string,
+    port: int,
+    database_name: string
+  }
+}

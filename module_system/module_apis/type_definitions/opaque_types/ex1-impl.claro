@@ -1,0 +1,5 @@
+# ex1-impl.claro
+newtype Person : struct {
+  name: string,
+  userID: int
+}

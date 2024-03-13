@@ -1,0 +1,1 @@
+print(Style::wrapInBox("Hello, World!"));

@@ -1,0 +1,8 @@
+newtype InternalState : struct { isWearingFedora: boolean }
+
+function create(name: string, isWearingFedora: boolean) -> State {
+  return State({
+    name = name,
+    internal = InternalState({isWearingFedora = isWearingFedora})
+  });
+}

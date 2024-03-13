@@ -1,0 +1,12 @@
+$$var x = 2;
+$$
+var sizeStr: string;
+if (x <= 1) {
+  sizeStr = "small";
+} else if (x == 2) {
+  sizeStr = "medium";
+} else {
+  sizeStr = "large";
+}
+$$
+$$print(sizeStr);

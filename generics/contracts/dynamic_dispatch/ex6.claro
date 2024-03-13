@@ -1,0 +1,6 @@
+#### CLARO ####
+requires(Stringify<T>)
+consumer prettyPrintPair<T>(x: T, y: T) {
+  print("First:\n{Stringify::displayStr(x)}");
+  print("Second:\n{Stringify::displayStr(y)}");
+}

@@ -1,0 +1,14 @@
+
+claro_binary(
+  name = "hello_world",
+  main_file = "hello_world.claro",
+  deps = {                                            # <-- New
+    "Style": ":styling",
+  },
+)
+
+claro_module(                                         # <-- New
+  name = "styling",
+  module_api_file = "styling.claro_module_api",
+  srcs = ["styling.claro"],
+)

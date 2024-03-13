@@ -1,0 +1,3 @@
+var f: function<int -> int> = x -> x + 1;
+var c: consumer<int> = x -> { print(x); };
+var p: provider<int> = () -> 10;

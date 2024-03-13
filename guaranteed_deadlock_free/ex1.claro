@@ -1,0 +1,1 @@
+function filter<T>(l: [T], pred: function<T -> boolean>) -> [T];

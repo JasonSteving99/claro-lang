@@ -1,0 +1,2 @@
+# ex1-test2.claro
+Config::SUBJECT |> print("Hello, {^}!");

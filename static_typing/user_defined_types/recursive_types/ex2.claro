@@ -1,0 +1,7 @@
+var tree =
+  IntNode({
+    val = 1,
+    left = IntNode({val = 2, left = std::Nothing, right = std::Nothing}),
+    right = IntNode({val = 3, left = std::Nothing, right = std::Nothing})
+  });
+print(tree);

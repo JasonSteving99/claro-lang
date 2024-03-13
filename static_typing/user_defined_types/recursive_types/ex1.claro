@@ -1,0 +1,5 @@
+newtype IntNode : struct {
+  val: int,
+  left: oneof<IntNode, std::Nothing>,
+  right: oneof<IntNode, std::Nothing>
+}

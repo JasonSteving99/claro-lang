@@ -1,0 +1,10 @@
+$$load("//@claro-lang:rules.bzl", "claro_module")
+$$
+claro_module(
+    name = "example",
+    # ...
+$$    module_api_file = "example.claro_module_api",
+$$    srcs = ["example.claro"],
+    # Now, visibility is granted to every target at or below the `//some/other` directory (package).
+    visibility = ["//some/other:__subpackages__"],
+)

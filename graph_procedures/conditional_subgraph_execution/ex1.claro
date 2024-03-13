@@ -1,0 +1,39 @@
+graph function getHomepage(userId : UserId) -> future<Homepage> {
+    root homepage <- renderPage(@basePage, @maybeUpgradeBanner);
+    node basePage <- getBasePageFromDB();
+    node maybeUpgradeBanner
+        <- getOptionalUpgradeBannerFromDB(
+               @userIsPremium,
+               @upgradeBanner  # <-- "Lazy Subgraph" injection requested.
+           );
+    node userIsPremium <- checkPremiumFromDB(userId);
+    node upgradeBanner <- getUpgradeBannerFromDB(@specialOffers);
+    node specialOffers <- getSpecialOffers();
+}
+
+function getOptionalUpgradeBannerFromDB(
+    alreadyPremium: boolean,
+    getUpgradeBannerFromDBProvider: provider<future<Html>>
+) -> future<Html> {
+    if (alreadyPremium) {
+        return futures::immediateFuture(getBasicBanner());
+    }
+    # Actually invoke the lazy subgraph here since the user isn't premium.
+    return getUpgradeBannerFromDBProvider();
+}
+
+function getUpgradeBannerFromDB(specialOffers: [Offer]) -> future<Html> {
+  # ...
+$$  # Just an example - real implementation would send DB query.
+$$  _ = specialOffers;
+$$  return futures::immediateFuture(Html("<div>some html</div>"));
+}
+
+provider getSpecialOffers() -> future<[Offer]> {
+  # ...
+$$  # Just an example - real implementation would send an RPC to some downstream service.
+$$  var res: [Offer] = [];
+$$  return futures::immediateFuture(res);
+}
+
+# ...

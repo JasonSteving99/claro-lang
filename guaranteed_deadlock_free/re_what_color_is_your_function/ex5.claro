@@ -1,0 +1,7 @@
+# A blocking function var, to which you may *only* pass blocking functions.
+var myBlockingFn: blocking function<|[int], blocking function<int -> boolean>| -> [int]>
+    = filter;
+
+# A non-blocking function var, to which you may *only* pass non-blocking functions.
+var myNonBlockingFn: function<|[int], function<int -> boolean>| -> [int]>
+    = filter;

@@ -1,0 +1,10 @@
+graph function deferToBlockingGenericFn(l: [int]) -> future<[int]> {
+  root noopRes <- @defer;
+  # Illegal call to blocking procedure in Graph.
+  node defer   <- filter(l, doBlocking);
+}
+
+blocking function doBlocking(x: int) -> boolean {
+$$  var unwrappedGraphRes <-| futures::immediateFuture(x);  # <-- Blocking unwrap.
+$$ return unwrappedGraphRes > 0;
+}

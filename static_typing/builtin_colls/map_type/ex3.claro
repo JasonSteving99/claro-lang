@@ -1,0 +1,7 @@
+var m = {"a": 1, "b": 2};
+
+for (entry in m) {
+  var k = entry[0];
+  var v = entry[1];
+  print("{k} -> {v}");
+}

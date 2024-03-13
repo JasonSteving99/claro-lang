@@ -1,0 +1,3 @@
+var gameUnits: mut [oneof<Asteroid, Missile, Spaceship>];
+# ...
+var gameTickRes = gameTick(gameUnits, ...);

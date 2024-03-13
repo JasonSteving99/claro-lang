@@ -1,0 +1,2 @@
+# This `$java_type` feature is only accessible to the StdLib.
+newtype Cache<K, V>: $java_type<K, V>("com.github.benmanes.caffeine.cache.AsyncLoadingCache<%s, %s>")

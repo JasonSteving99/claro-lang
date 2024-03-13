@@ -1,0 +1,34 @@
+atom TooHigh
+atom TooLow
+newtype IndexOutOfBounds : struct {
+  reason: oneof<TooHigh, TooLow>,
+  index: int
+}
+function safeGet<T>(l: [T], i: int) -> oneof<T, std::Error<IndexOutOfBounds>> {
+  if (i < 0) {
+    return std::Error(IndexOutOfBounds({reason = TooLow, index = i}));
+  } else if (i >= len(l)) {
+    return std::Error(IndexOutOfBounds({reason = TooHigh, index = i}));
+  }
+  return l[i];
+}
+
+var l = [1, 2, 3];
+match (safeGet(l, getRandomIndex())) {
+  case std::Error(ERR) ->
+    var unwrappedErr = unwrap(ERR);
+    match (unwrappedErr.reason) {
+      case _:TooHigh ->
+        print("Index {unwrappedErr.index} is too high!");
+      case _:TooLow ->
+        print("Index {unwrappedErr.index} is too low!");
+    }
+  case X -> print("Successfully retrieved: {X}");
+}
+# ...
+$$provider getRandomIndex() -> int {
+$$  random::forSeed(1)
+$$    |> random::nextNonNegativeBoundedInt(^, 8)
+$$    |> var i = ^;
+$$  return i;
+$$}

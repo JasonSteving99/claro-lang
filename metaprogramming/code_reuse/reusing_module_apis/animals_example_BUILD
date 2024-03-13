@@ -1,0 +1,14 @@
+# BUILD
+load("@claro-lang//:rules.bzl", "claro_module", "claro_binary")
+
+# ...
+
+claro_binary(
+    name = "animals_example",
+    main_file = "animals_example.claro",
+    deps = {
+        "AnimalSounds": ":animal_sounds",
+        "Cat": ":cat",
+        "Dog": ":dog",
+    },
+)

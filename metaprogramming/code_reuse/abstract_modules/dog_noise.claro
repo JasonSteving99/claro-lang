@@ -1,0 +1,7 @@
+# dog_noise.claro
+function makeNoiseImpl(dog: State) -> string {
+  if (unwrap(unwrap(dog).internal).isHappy) {
+    return "Woof!";
+  }
+  return "Grrrr...";
+}

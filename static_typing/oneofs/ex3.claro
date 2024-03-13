@@ -1,0 +1,6 @@
+if (10 instanceof int) {
+  print("Obviously an int");
+}
+if (10 instanceof string) {
+  print("Obviously not a string");
+}

@@ -1,0 +1,16 @@
+# BUILD
+load(":animal.bzl", "Animal")
+
+[
+    Animal(
+        name = animal,
+        api_extensions = [":{0}_cons.claro_module_api".format(animal)],
+        override = {
+            "InternalStateAndConstructor": ":{0}_state_and_cons.claro".format(animal),
+            "MakeNoiseImpl": ":{0}_noise.claro".format(animal),
+        },
+    )
+    for animal in ["dog", "cat"]
+]
+
+# ...

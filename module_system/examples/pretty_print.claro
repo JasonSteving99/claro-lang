@@ -1,0 +1,8 @@
+# pretty_print.claro
+
+consumer prettyPrint(f: Foo) {
+  unwrap(f)
+    |> "Foo: {^}"
+    |> Boxes::wrapInBox(^)  # <-- Calling dep Module function.
+    |> print(^);
+}
