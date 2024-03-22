@@ -3934,6 +3934,34 @@ http_endpoints_list ::=
     {:
        RESULT = ImmutableMap.<IdentifierReferenceTerm, Object>builder().put(endpoint_name, path.getVal());
     :}
+
+  /*Report on unexpected trailing commas.*/
+  | identifier:endpoint_name COLON fmt_string:path COMMA:c 
+    {: 
+      Symbol currSymbol = new Symbol(
+          -1,
+          cleft,
+          cright,
+          LexedValue.create(
+            String.valueOf(c.getVal()),
+            c.getCurrentInputLine(),
+            c.getLen())
+       );
+      report_error("Syntax error: Unexpected trailing comma", currSymbol);
+    :}
+  | identifier:endpoint_name COLON STRING:path COMMA:c
+    {: 
+      Symbol currSymbol = new Symbol(
+          -1,
+          cleft,
+          cright,
+          LexedValue.create(
+            String.valueOf(c.getVal()),
+            c.getCurrentInputLine(),
+            c.getLen())
+       );
+      report_error("Syntax error: Unexpected trailing comma", currSymbol);
+    :}
   ;
 
 endpoint_handlers_block_stmt ::=
