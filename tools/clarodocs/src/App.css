@@ -1,0 +1,89 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* HighlightJS is tokenizing into 4 groups of keywords just to make for an easy first pass at syntax highlighting. */
+.hljs-keyword1 {
+  color: #CC7832
+}
+.hljs-keyword2 {
+  color: #3C85BA
+}
+.hljs-keyword3 {
+  color: #0F9795
+}
+.hljs-keyword4 {
+  color: #86A659
+}
+
+.demo-logo {
+   background-image: url(https://docs.clarolang.com/images/ClaroLogoFromArrivalHeptapodOfferWeapon-transparentBackground.png);
+   background-size: 50px auto;
+   width: 50px;
+   height: auto;
+   background-repeat: no-repeat;
+   margin-left: 25px;
+   margin-right: 75px;
+}
+
+/* Setup blinking to signal which type def the user just clicked on. */
+.blink {
+  animation: blink 0.5s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The down arrow looks terrible when the font is scaled up like we're doing for the breadcrumb on this site. */
+.ant-breadcrumb .anticon-down {
+  display: none;
+}
+
+.clickable {
+  cursor: pointer;
+}

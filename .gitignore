@@ -25,3 +25,5 @@
 .bazelversion
 # User-specific .bazelrc
 user.bazelrc
+# Created for ClaroDocs JS development.
+**/node_modules
