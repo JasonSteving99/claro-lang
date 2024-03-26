@@ -1,12 +1,21 @@
 package(default_visibility = ["//visibility:public"])
 
 java_library(
+    name = "java_source_compiler_backend_cli_options",
+    srcs = ["JavaSourceCompilerBackendCLIOptions.java"],
+    deps = [
+      "//:google-options",
+    ],
+    visibility = ["//tools/clarodocs/generator:__pkg__"],
+)
+
+java_library(
     name = "java_source",
     srcs = [
         "JavaSourceCompilerBackend.java",
-        "JavaSourceCompilerBackendCLIOptions.java",
     ],
     deps = [
+      ":java_source_compiler_backend_cli_options",
       "//:autovalue",
       "//:google-options",
       "//:guava",

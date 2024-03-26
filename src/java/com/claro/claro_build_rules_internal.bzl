@@ -12,6 +12,7 @@ visibility([
     "//src/java/com/claro/stdlib/claro/...",
     "//src/java/com/claro/stdlib/utils/...",
     "//stdlib/...",
+    "//tools/clarodocs/generator/...",
     # TODO(steving) THIS IS A TEMPORARY HACK FOR ME TO COLLECT FEATURES THAT I DISCOVER ARE NECESSARY DURING AoC.
     "//examples/claro_programs/advent_of_code_2023/utils/..."
 ])

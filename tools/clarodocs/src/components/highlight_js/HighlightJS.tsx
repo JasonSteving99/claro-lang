@@ -50,10 +50,19 @@ export class HighlightJS extends React.Component {
             const setSelectedModule = this.props.setSelectedModule;
             const setTargetType = this.props.setTargetType;
 
-            const depName = el.nodeValue.trim();
-            const targetType = codeEl.childNodes[i + 2].nodeValue.trim();
+            const depName = el.textContent.trim();
+            const targetType = codeEl.childNodes[i + 2].textContent.trim();
+
+            // Validate whether this reference is actually something that we can link to.
+            if(!(depName in this.props.selectedModuleDepsTooltips)) {
+              console.error(`Referenced Module Not Found: ${depName}::${targetType}`)
+              i++;
+              continue;
+            }
+
+            const _selectedModule = this.props.selectedModuleDepsTooltips[depName].path;
             function _setSelectedModule(e) {
-              setSelectedModule('//src:some_dep');
+              setSelectedModule(_selectedModule);
               setTargetType(targetType);
             }
             // First replace the dep reference with its tooltip
@@ -73,6 +82,8 @@ export class HighlightJS extends React.Component {
             // Just wrap up all those nodes to make it easy to replace them all at once.
             const matchedDepTypeRef = this.wrapInElement("span", Array.from(codeEl.childNodes).slice(i, i + 3));
             codeEl.replaceChild(newTargetTypeNode, matchedDepTypeRef);
+
+            i++;
           }
         }
       }
@@ -156,7 +167,7 @@ hljs.registerLanguage(
         ),
       ]
       /* Add highlighting for the first group of tokens. */
-      .concat("!= \\* \\+ \\+\\+ - -- -> / : ; < <- <= = == > >= \\?= @ \\^ \\|>"
+      .concat("!= \\* \\+ \\+\\+ - -- -> / : ; < <- <= = == > >= \\?= @ , { } \\[ ] \\( \\) \\^ \\|>"
                .split(" ")
                .map((x) => { return {className: "keyword2", begin: x}; }))
       /* Add highlighting for the second group of tokens. */

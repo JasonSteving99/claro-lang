@@ -13,6 +13,8 @@ claro_binary(
         "Utils": "//examples/claro_programs/demo_server/buggy_buggies/utils:utils",
     },
     optional_stdlib_deps = ["http"],
+    # This is just a great demo program for the new ClaroDocs generated site.
+    visibility = ["//tools/clarodocs/generator:__pkg__"],
 )
 
 clarodocs(

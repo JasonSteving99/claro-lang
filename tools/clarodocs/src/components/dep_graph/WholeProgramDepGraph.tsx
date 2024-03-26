@@ -12,7 +12,6 @@ export function WholeProgramDepGraph({ rootDeps, modules, selectedModule, setSel
   for (let module of Object.entries(modules)) {
     const moduleName = module[0].slice(module[0].indexOf(':') + 1);
     const deps = module[1].deps;
-    console.log(deps);
     if (Object.entries(deps).length > 0) {
       Object.entries(deps)
         .toSorted((d1, d2) => d1[0].localeCompare(d2[0]))

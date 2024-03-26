@@ -2,7 +2,7 @@
 import './App.css';
 
 import React, { useEffect, useState } from 'react';
-import { getClaroModules } from './claro_module_apis/demo';
+import { getClaroModules, getRootDeps } from './claro_module_apis/demo';
 import { HighlightJS } from './components/highlight_js/HighlightJS';
 import { DepGraph } from './components/dep_graph/DepGraph';
 import { WholeProgramDepGraph } from './components/dep_graph/WholeProgramDepGraph';
@@ -17,10 +17,10 @@ function App() {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  const [ selectedModule, setSelectedModule ] = useState('//src:demo');
+  const [ selectedModule, setSelectedModule ] = useState('');
   const [ targetType, setTargetType ] = useState('');
 
-  const ClaroModules = getClaroModules(setSelectedModule);
+  const [ ClaroModules, rootDeps ] = getClaroModules(setSelectedModule);
 
   // We'll reuse these tooltip components every time the dep is referenced in the Module API.
   const selectedModuleDepsTooltips = ClaroModules[selectedModule]?.deps;
@@ -47,7 +47,11 @@ function App() {
         <React.StrictMode>
           <Sider style={{  minHeight: '92vh' }}>
             <h1 style={{ float: "top", color: "white" }}>Modules</h1>
-            <ModuleTree  selectedModule={selectedModule} setSelectedModule={setSelectedModule} style={{ height: '80vh', overflow: 'scroll' }}/>
+            <ModuleTree
+              selectedModule={selectedModule}
+              setSelectedModule={setSelectedModule}
+              style={{ height: '80vh', overflow: 'scroll' }}
+            />
           </Sider>
         </React.StrictMode>
         <Layout>
@@ -112,7 +116,7 @@ function App() {
                 Object.entries(ClaroModules)
                   .map(
                     ([dependent, { deps }]) => {
-                      let selectedModuleDep = Object.entries(deps).filter(([_, { path }]) => path === selectedModule);
+                      let selectedModuleDep = Object.values(deps).filter(({ path }) => path === selectedModule);
                       if (selectedModuleDep.length > 0) {
                         // Return the name that the dependent uses for selectedModule.
                         return {dependentName: dependent, depName: selectedModuleDep[0][0]};
@@ -140,15 +144,10 @@ function App() {
     );
   }
 
-  const headerNavItems: MenuProps['items'] = ['Dep Graph', 'APIs'].map((key) => ({
-    key,
-    label: key,
-  }));
-
   function ProgramDepGraphVisualization() {
     return (
       <WholeProgramDepGraph
-        rootDeps={['//src:demo', '//src:some_dep']}
+        rootDeps={rootDeps}
         modules={ClaroModules}
         selectedModule={selectedModule}
         setSelectedModule={setSelectedModule}
@@ -156,6 +155,11 @@ function App() {
       />
     );
   }
+
+  const headerNavItems: MenuProps['items'] = ['Dep Graph', 'APIs'].map((key) => ({
+    key,
+    label: key,
+  }));
 
   const content = showDepGraph ? <ProgramDepGraphVisualization /> : <APIs />;
 

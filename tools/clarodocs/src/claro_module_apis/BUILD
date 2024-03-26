@@ -3,7 +3,7 @@ load("//tools/clarodocs:defs.bzl", "TRANSPILER")
 
 ts_project(
     name = "claro_module_apis",
-    srcs = glob(["*.tsx"]),
+    srcs = glob(["*.tsx", "testjson.json"]),
     declaration = True,
     resolve_json_module = True,
     transpiler = TRANSPILER,

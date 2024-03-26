@@ -6,7 +6,7 @@ import { DownOutlined } from '@ant-design/icons';
 import { getClaroModules } from '../../claro_module_apis/demo';
 
 
-const treeData: TreeDataNode[] = generateTreeData(getClaroModules(null));
+const treeData: TreeDataNode[] = generateTreeData(getClaroModules(null)[0]);
 
 export function ModuleTree({ style, selectedModule, setSelectedModule }): React.FC {
   const onSelect: TreeProps['onSelect'] = (selectedKeys, info) => {
