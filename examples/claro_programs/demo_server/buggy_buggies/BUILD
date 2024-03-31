@@ -1,5 +1,5 @@
 load("//:rules.bzl", "claro_binary")
-load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
+load("//tools/clarodocs/generator:clarodocs_rules.bzl", "clarodocs")
 
 
 # This is an in-progress refactoring of Claro's first demo server into something that resembles a well-organized
@@ -13,6 +13,8 @@ claro_binary(
         "Utils": "//examples/claro_programs/demo_server/buggy_buggies/utils:utils",
     },
     optional_stdlib_deps = ["http"],
+    # This is just a great demo program for the new ClaroDocs generated site.
+    visibility = ["//tools/clarodocs/generator:__pkg__"],
 )
 
 clarodocs(

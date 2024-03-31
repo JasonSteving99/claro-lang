@@ -13,6 +13,7 @@ java_proto_library(
         "//src/java/com/claro/module_system/clarodocs:__subpackages__",
         "//src/java/com/claro/module_system/module_serialization/json:__pkg__",
         "//src/java/com/claro/stdlib/utils:__pkg__",
+        "//tools/clarodocs/generator:__pkg__",
     ]
 )
 

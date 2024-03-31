@@ -12,6 +12,7 @@ visibility([
     "//src/java/com/claro/stdlib/claro/...",
     "//src/java/com/claro/stdlib/utils/...",
     "//stdlib/...",
+    "//tools/clarodocs/generator/...",
     # TODO(steving) THIS IS A TEMPORARY HACK FOR ME TO COLLECT FEATURES THAT I DISCOVER ARE NECESSARY DURING AoC.
     "//examples/claro_programs/advent_of_code_2023/utils/..."
 ])
@@ -241,7 +242,8 @@ def _invoke_claro_compiler_impl(ctx):
                 files = depset(
                     direct = srcs + [ctx.outputs.compiler_out],
                     transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
-                )
+                ),
+                direct_deps = ctx.attr.deps,
             ),
             transitive_subgraph_dep_modules = depset(
                 direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],
