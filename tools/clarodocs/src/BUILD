@@ -33,6 +33,7 @@ ts_project(
         "//tools/clarodocs/src/components/input",
         "//tools/clarodocs/src/components/module_tree",
         "//tools/clarodocs/src/claro_module_apis",
+        "//tools/clarodocs/src/hooks:use_search_params_hook",
     ],
 )
 

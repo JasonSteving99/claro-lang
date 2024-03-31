@@ -17,7 +17,7 @@ export function getClaroModules(setSelectedModule) {
       // Copy the data so that it's not overwritten.
       const fmtMod = formatUniqueModuleName(mod);
       claroModules[fmtMod] = {};
-      claroModules[fmtMod]['api'] = data.depGraph[mod].api;
+      claroModules[fmtMod]['api'] = data.depGraph[mod].api.trim();
       claroModules[fmtMod]['deps'] = {};
 
       for (let dep of Object.keys(data.depGraph[mod].deps)) {

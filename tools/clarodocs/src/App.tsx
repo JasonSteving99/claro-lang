@@ -7,24 +7,53 @@ import { HighlightJS } from './components/highlight_js/HighlightJS';
 import { DepGraph } from './components/dep_graph/DepGraph';
 import { WholeProgramDepGraph } from './components/dep_graph/WholeProgramDepGraph';
 import { ModuleTree } from './components/module_tree/ModuleTree';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  useSearchParams
+} from "react-router-dom";
+// import { useSearchParamsState } from './hooks/UseSearchParamsHook';
 
 import { Breadcrumb, ConfigProvider, Layout, Menu, theme } from 'antd';
 const { Header, Sider, Content } = Layout;
 
-function App() {
-  const [showDepGraph, setShowDepGraph] = useState(true);
-  const {
-    token: { colorBgContainer, borderRadiusLG },
-  } = theme.useToken();
+function AppImpl() {
+  const [ searchParams, setSearchParams ] = useSearchParams();
 
-  const [ selectedModule, setSelectedModule ] = useState('');
-  const [ targetType, setTargetType ] = useState('');
+  const showDepGraph = searchParams.get('showDepGraph') === null || searchParams.get('showDepGraph') === 'true';
+  let selectedModule = searchParams.get('selectedModule') || '';
+  const targetType = searchParams.get('targetType') || '';
+
+  const setShowDepGraph = function() {
+    setSearchParams({
+      showDepGraph: !showDepGraph,
+      selectedModule: '',
+      targetType: ''
+    });
+  }
+  const setSelectedModule = function(newSelectedModule) {
+    setSearchParams({
+      showDepGraph: false,
+      selectedModule: newSelectedModule,
+      targetType: targetType
+    });
+  }
+  const setSelectedModuleAndTargetType = function(newSelectedModule, newTargetType) {
+    setSearchParams({
+      showDepGraph: false,
+      selectedModule: newSelectedModule,
+      targetType: newTargetType
+    });
+  }
+  const setTargetType = function(newTargetType) {
+    setSearchParams({
+      showDepGraph: showDepGraph,
+      selectedModule: selectedModule,
+      targetType: newTargetType
+    });
+  }
 
   const [ ClaroModules, rootName, rootDeps ] = getClaroModules(setSelectedModule);
-
-  // We'll reuse these tooltip components every time the dep is referenced in the Module API.
-  const selectedModuleDepsTooltips = ClaroModules[selectedModule]?.deps;
-
 
   useEffect(
     () => {
@@ -42,6 +71,19 @@ function App() {
   );
 
   function APIs() {
+    if (!selectedModule) {
+      // Ensure that this still works even if the user just clicked the APIs tab directly without manually selecting a
+      // module.
+      selectedModule = Object.keys(ClaroModules).toSorted()[0];
+    }
+
+    // We'll reuse these tooltip components every time the dep is referenced in the Module API.
+    const selectedModuleDepsTooltips = ClaroModules[selectedModule]?.deps;
+
+    const {
+      token: { colorBgContainer, borderRadiusLG },
+    } = theme.useToken();
+
     return (
       <Layout hasSider>
         <React.StrictMode>
@@ -131,9 +173,8 @@ function App() {
               className="claro"
               style={{ textAlign: "left" }}
               id={selectedModule}
-              setSelectedModule={setSelectedModule}
               targetType={targetType}
-              setTargetType={setTargetType}
+              setSelectedMOduleAndTargetType={setSelectedModuleAndTargetType}
               selectedModuleDepsTooltips={selectedModuleDepsTooltips}
             >
               {ClaroModules[selectedModule]?.api}
@@ -152,7 +193,6 @@ function App() {
         modules={ClaroModules}
         selectedModule={selectedModule}
         setSelectedModule={setSelectedModule}
-        setShowDepGraph={setShowDepGraph}
       />
     );
   }
@@ -170,14 +210,14 @@ function App() {
   return (
     <div className="App" style={{ display: "flex", width: "100vw" }}>
       <Layout>
-        <Header style={{ display: 'flex', height: '8vh' }}>
+        <Header style={{ display: 'flex', height: '12vh' }}>
           <div className="demo-logo" />
           <Menu
             theme="dark"
             mode="horizontal"
             selectedKeys={[showDepGraph ? 'Dep Graph' : 'APIs']}
             items={headerNavItems}
-            onClick={({ key }) => setShowDepGraph(!showDepGraph)}
+            onClick={({ key }) => setShowDepGraph()}
             style={{ flex: 1, minWidth: 200 }}
           />
         </Header>
@@ -187,6 +227,19 @@ function App() {
       </Layout>
     </div>
   );
+}
+
+function App() {
+  // We'll wrap everything in a React Router literally just so that it can easily maintain state from query params.
+  // The useSearchParams() function simply doesn't work outside of this RouterProvider context. Lame.
+  const router = createBrowserRouter([
+    {
+      path: "/",
+      element: <AppImpl />,
+    },
+  ]);
+
+  return <RouterProvider router={router} />
 }
 
 export default App;

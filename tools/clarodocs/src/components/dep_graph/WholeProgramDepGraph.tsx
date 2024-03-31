@@ -1,6 +1,6 @@
 import { Mermaid } from '../mermaid/Mermaid';
 
-export function WholeProgramDepGraph({ rootName, rootDeps, modules, selectedModule, setSelectedModule, setShowDepGraph }) {
+export function WholeProgramDepGraph({ rootName, rootDeps, modules, selectedModule, setSelectedModule}) {
   let mermaidGraph = 'graph LR;\n';
 
   for (let rootDep of Object.keys(rootDeps).toSorted()) {
@@ -24,8 +24,7 @@ export function WholeProgramDepGraph({ rootName, rootDeps, modules, selectedModu
     }
     // Every node navigates to its Module API page.
     nodeOnClickCallbacks[module[0]] = () => {
-      setSelectedModule(module[0]);
-      setShowDepGraph(false); // Navigate to the API.
+      setSelectedModule(module[0]); // Navigate to the API.
     }
   }
 

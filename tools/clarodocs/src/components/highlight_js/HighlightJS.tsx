@@ -47,8 +47,7 @@ export class HighlightJS extends React.Component {
           const nextNode = codeEl.childNodes[i + 1];
           if (this.isExpectedSpan(nextNode, '::')) {
             // Make sure that `this` doesn't escape the current scope.
-            const setSelectedModule = this.props.setSelectedModule;
-            const setTargetType = this.props.setTargetType;
+            const setSelectedMOduleAndTargetType = this.props.setSelectedMOduleAndTargetType;
 
             const depName = el.textContent.trim();
             const targetType = codeEl.childNodes[i + 2].textContent.trim();
@@ -62,8 +61,7 @@ export class HighlightJS extends React.Component {
 
             const _selectedModule = this.props.selectedModuleDepsTooltips[depName].path;
             function _setSelectedModule(e) {
-              setSelectedModule(_selectedModule);
-              setTargetType(targetType);
+              setSelectedMOduleAndTargetType(_selectedModule, targetType);
             }
             // First replace the dep reference with its tooltip
             const newTargetTypeNode = document.createElement('span');
