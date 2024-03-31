@@ -4,21 +4,18 @@ load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@npm//tools/clarodocs:eslint/package_json.bzl", eslint_bin = "bin")
 load("@npm//tools/clarodocs:tsconfig-to-swcconfig/package_json.bzl", tsconfig_to_swcconfig = "bin")
 load("@npm//tools/clarodocs:vite/package_json.bzl", "bin")
+load("//tools/clarodocs:defs.bzl", "RUNTIME_DEPS")
+
+# Enable clarodocs() usages from arbitrary BUILD files to start a dev server.
+js_library(
+    name = "runtime_deps",
+    srcs = ["index.html", "package.json"],
+    visibility = ["//visibility:public"],
+)
 
 npm_link_all_packages()
 
 eslint_bin.eslint_binary(name = "eslint")
-
-RUNTIME_DEPS = [
-    "index.html",
-    "package.json",
-    "//tools/clarodocs:node_modules/react-dom",
-    "//tools/clarodocs:node_modules/react",
-    "//tools/clarodocs:node_modules/web-vitals",
-    "//tools/clarodocs/src:assets",
-    "//tools/clarodocs/src",
-    "//tools/clarodocs/public",
-]
 
 ts_config(
     name = "tsconfig",
@@ -52,6 +49,7 @@ bin.vite_binary(
     name = "vite",
     chdir = package_name(),
     data = ["vite.config"],
+    visibility = ["//visibility:public"],
 )
 
 # Fast developer round-trip under ibazel

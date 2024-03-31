@@ -242,7 +242,8 @@ def _invoke_claro_compiler_impl(ctx):
                 files = depset(
                     direct = srcs + [ctx.outputs.compiler_out],
                     transitive = [dep[ClaroModuleInfo].info.files for dep in ctx.attr.deps]
-                )
+                ),
+                direct_deps = ctx.attr.deps,
             ),
             transitive_subgraph_dep_modules = depset(
                 direct = [dep[ClaroModuleInfo].info for dep in ctx.attr.deps],

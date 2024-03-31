@@ -7,6 +7,22 @@ import java.util.List;
 
 public class ClaroDocsCLIOptions extends OptionsBase {
   @Option(
+      name = "root_name",
+      help = "The name of the root claro_binary().",
+      defaultValue = ""
+  )
+  public String rootName;
+
+  @Option(
+      name = "root_dep",
+      help = "A string in the format '<module_name>:<unique_module_name>' representing the binding of a concrete " +
+             "Module dependency directly depended upon by the root claro_binary().",
+      allowMultiple = true,
+      defaultValue = ""
+  )
+  public List<String> rootDeps;
+
+  @Option(
       name = "module",
       help = "A list of string paths to the .claro_module files for which ClaroDocs will be generated.",
       allowMultiple = true,

@@ -3,10 +3,11 @@ load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 load("//tools/clarodocs:lint.bzl", "eslint_test")
 load("//tools/clarodocs:defs.bzl", "ASSET_PATTERNS", "SRC_PATTERNS", "TEST_PATTERNS", "TRANSPILER")
 
+package(default_visibility = ["//visibility:public"])
+
 js_library(
     name = "assets",
     srcs = glob(ASSET_PATTERNS),
-    visibility = ["//tools/clarodocs:__subpackages__"],
 )
 
 ts_project(
@@ -20,7 +21,6 @@ ts_project(
     resolve_json_module = True,
     transpiler = TRANSPILER,
     tsconfig = "//tools/clarodocs:tsconfig",
-    visibility = ["//tools/clarodocs:__subpackages__"],
     deps = [
         "//tools/clarodocs:node_modules/@types/react",
         "//tools/clarodocs:node_modules/antd",

@@ -1,27 +1,34 @@
 import { useEffect, useRef } from 'react';
 import { Tooltip } from 'antd';
-import data from './testjson.json' assert { type: 'json' };
+
+// This `__MODULE_DEP_GRAPH_CONFIG__` global is set by Vite as part of the --config. This uses esbuild define under the hood.
+const data = __MODULE_DEP_GRAPH_CONFIG__;
 
 export function getClaroModules(setSelectedModule) {
+  const rootDeps = {};
+  Object.entries(data.root.rootDeps).forEach(
+    e => rootDeps[e[0]] = formatUniqueModuleName(e[1])
+  )
+
   const claroModules = {};
   const hasDependents = new Set();
-  Object.keys(data).forEach(
+  Object.keys(data.depGraph).forEach(
     mod => {
       // Copy the data so that it's not overwritten.
       const fmtMod = formatUniqueModuleName(mod);
       claroModules[fmtMod] = {};
-      claroModules[fmtMod]['api'] = data[mod].api;
+      claroModules[fmtMod]['api'] = data.depGraph[mod].api;
       claroModules[fmtMod]['deps'] = {};
 
-      for (let dep of Object.keys(data[mod].deps)) {
-        claroModules[fmtMod].deps[dep] = formatUniqueModuleName(data[mod].deps[dep]);
+      for (let dep of Object.keys(data.depGraph[mod].deps)) {
+        claroModules[fmtMod].deps[dep] = formatUniqueModuleName(data.depGraph[mod].deps[dep]);
         hasDependents.add(claroModules[fmtMod].deps[dep]);
       }
       claroModules[fmtMod].deps = getDepTooltips(claroModules[fmtMod].deps, setSelectedModule);
     }
   );
-  const rootDeps = Object.keys(claroModules).filter(m => !(m in hasDependents));
-  return [claroModules, rootDeps];
+
+  return [claroModules, data.root.rootName, rootDeps];
 }
 
 function getDepTooltips(deps, setSelectedModule) {

@@ -1,11 +1,11 @@
 import { Mermaid } from '../mermaid/Mermaid';
 
-export function WholeProgramDepGraph({ rootDeps, modules, selectedModule, setSelectedModule, setShowDepGraph }) {
+export function WholeProgramDepGraph({ rootName, rootDeps, modules, selectedModule, setSelectedModule, setShowDepGraph }) {
   let mermaidGraph = 'graph LR;\n';
 
-  for (let rootDep of rootDeps) {
-    const depName = rootDep.slice(rootDep.indexOf(':') + 1);
-    mermaidGraph += `rootNode{{"claro_binary()"}}-->${rootDep}[${depName}];`;
+  for (let rootDep of Object.keys(rootDeps).toSorted()) {
+    const depName = rootDeps[rootDep].slice(rootDeps[rootDep].indexOf(':') + 1);
+    mermaidGraph += `rootNode{{"${rootName}"}}--${rootDep}-->${rootDeps[rootDep]}[${depName}];\n`;
   }
 
   const nodeOnClickCallbacks = {};

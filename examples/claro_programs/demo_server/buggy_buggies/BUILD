@@ -1,5 +1,5 @@
 load("//:rules.bzl", "claro_binary")
-load("//src/java/com/claro/module_system/clarodocs:clarodocs_rules.bzl", "clarodocs")
+load("//tools/clarodocs/generator:clarodocs_rules.bzl", "clarodocs")
 
 
 # This is an in-progress refactoring of Claro's first demo server into something that resembles a well-organized

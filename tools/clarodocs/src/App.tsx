@@ -20,7 +20,7 @@ function App() {
   const [ selectedModule, setSelectedModule ] = useState('');
   const [ targetType, setTargetType ] = useState('');
 
-  const [ ClaroModules, rootDeps ] = getClaroModules(setSelectedModule);
+  const [ ClaroModules, rootName, rootDeps ] = getClaroModules(setSelectedModule);
 
   // We'll reuse these tooltip components every time the dep is referenced in the Module API.
   const selectedModuleDepsTooltips = ClaroModules[selectedModule]?.deps;
@@ -116,7 +116,7 @@ function App() {
                 Object.entries(ClaroModules)
                   .map(
                     ([dependent, { deps }]) => {
-                      let selectedModuleDep = Object.values(deps).filter(({ path }) => path === selectedModule);
+                      let selectedModuleDep = Object.entries(deps).filter(([, { path }]) => path === selectedModule);
                       if (selectedModuleDep.length > 0) {
                         // Return the name that the dependent uses for selectedModule.
                         return {dependentName: dependent, depName: selectedModuleDep[0][0]};
@@ -147,6 +147,7 @@ function App() {
   function ProgramDepGraphVisualization() {
     return (
       <WholeProgramDepGraph
+        rootName={rootName}
         rootDeps={rootDeps}
         modules={ClaroModules}
         selectedModule={selectedModule}

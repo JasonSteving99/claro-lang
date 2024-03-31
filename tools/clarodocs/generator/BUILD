@@ -1,5 +1,14 @@
 load("//tools/clarodocs/generator:clarodocs_rules.bzl", "clarodocs")
 
+exports_files(["vite-config.tmpl.js"])
+
+load("@aspect_rules_js//js:defs.bzl", "js_library", "js_run_devserver")
+js_library(
+    name = "test_setup_sh",
+    srcs = ["test_setup.sh"],
+    visibility = ["//visibility:public"],
+)
+
 java_binary(
     name = "clarodocs_generator",
     main_class = "com.claro.tools.clarodocs.generator.ClaroDocsGenerator",

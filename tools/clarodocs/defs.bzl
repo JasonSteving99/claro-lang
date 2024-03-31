@@ -13,6 +13,16 @@ SRC_PATTERNS = [
     "*.ts",
 ]
 
+RUNTIME_DEPS = [
+    "//tools/clarodocs:runtime_deps",
+    "//tools/clarodocs:node_modules/react-dom",
+    "//tools/clarodocs:node_modules/react",
+    "//tools/clarodocs:node_modules/web-vitals",
+    "//tools/clarodocs/src:assets",
+    "//tools/clarodocs/src",
+    "//tools/clarodocs/public",
+]
+
 # Filename conventions described at
 # https://create-react-app.dev/docs/running-tests#filename-conventions
 TEST_PATTERNS = [

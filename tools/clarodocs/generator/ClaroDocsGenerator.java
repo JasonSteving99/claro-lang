@@ -27,6 +27,7 @@ public class ClaroDocsGenerator {
     ImmutableSet<String> optionalStdlibModules = ImmutableSet.copyOf(options.optional_stdlib_modules);
     Set<String> allStdlibModules = Sets.union(stdlibModules, optionalStdlibModules);
 
+
     ImmutableMap<String, ImmutableList<Object>> modules =
         options.modules.stream()
             .map(ClaroDocsGenerator::readClaroModuleFile)
@@ -77,19 +78,35 @@ public class ClaroDocsGenerator {
     // Generate the JSON config.
     StringBuilder sb = new StringBuilder();
     sb.append("{\n");
+    sb.append("\t\"root\": {\n\t\t\"rootName\": \"").append(options.rootName).append("\",\n");
+    sb.append("\t\t\"rootDeps\": {\n");
+    for (int i = 0; i < options.rootDeps.size(); i++) {
+      String s = options.rootDeps.get(i);
+      int separatorInd = s.indexOf(':');
+      String depName = s.substring(0, separatorInd);
+      String uniqueModuleName = s.substring(separatorInd + 1);
+      sb.append("\t\t\t\"").append(depName).append("\": \"").append(uniqueModuleName).append("\"");
+      // No trailing commas.
+      if (i < options.rootDeps.size() - 1) {
+        sb.append(",\n");
+      }
+    }
+    sb.append("\t\t}\n");
+    sb.append("\t},\n");
+    sb.append("\t\"depGraph\": {\n");
     {
       int i = 0;
       for (Map.Entry<String, ImmutableList<Object>> entry : modules.entrySet()) {
         String module = entry.getKey();
         ImmutableList<Object> meta = entry.getValue();
         sb.append('"').append(module).append("\": {\n");
-        sb.append("\t\"api\": \"")
+        sb.append("\t\t\"api\": \"")
             .append(((String) meta.get(0)).replace("\n", "\\n").replace("\"", "\\\""))
             .append("\",\n");
-        sb.append("\"deps\": ");
+        sb.append("\t\t\"deps\": ");
         sb.append(((ImmutableMap<String, String>) meta.get(1)).entrySet().stream()
                       .map(e -> String.format("\"%s\": \"%s\"", e.getKey(), e.getValue()))
-                      .collect(Collectors.joining(",\n", "{", "}\n")));
+                      .collect(Collectors.joining(",\n\t\t\t", "{\n", "}\n")));
         // No trailing commas.
         if (i++ < modules.size() - 1) {
           sb.append("},\n");
@@ -98,7 +115,7 @@ public class ClaroDocsGenerator {
         }
       }
     }
-    sb.append("}\n");
+    sb.append("\t}\n}\n");
 
     // Write it to the output file.
     createOutputFile(options.out);
