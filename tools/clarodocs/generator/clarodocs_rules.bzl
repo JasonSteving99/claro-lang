@@ -27,7 +27,7 @@ def clarodocs(name, root, out = None):
         substitutions = {
             "{{MODULE_DEP_GRAPH_CONFIG_JSON}}": dep_graph_json_config,
         },
-        out = "vite-config.js",
+        out = name + "-vite-config.js",
     )
     # The clarodocs site itself is hosted from `.../tools/clarodocs/` so in order for Vite to reference the generated
     # config at startup time we'll just move two levels back so that the current `native.package_name()` call works.
@@ -35,10 +35,10 @@ def clarodocs(name, root, out = None):
     # Fast developer round-trip under ibazel
     js_run_devserver(
         name = name,
-        args = [".", "--config", generated_vite_config_relative_location + "/vite-config.js"],
+        args = [".", "--config", generated_vite_config_relative_location + "/" + name + "-vite-config.js"],
         # TODO(steving) Figure out why js_run_devserver() isn't noticing that the dep_graph_json_config is changing as
         # TODO(steving)   the program's source code changes.
-        data = RUNTIME_DEPS + [dep_graph_json_config + "_lib", "vite-config.js"],
+        data = RUNTIME_DEPS + [dep_graph_json_config + "_lib", name + "-vite-config.js"],
         tool = "@claro-lang//tools/clarodocs:vite",
     )
 

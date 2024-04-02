@@ -210,7 +210,7 @@ function AppImpl() {
   return (
     <div className="App" style={{ display: "flex", width: "100vw" }}>
       <Layout>
-        <Header style={{ display: 'flex', height: '12vh' }}>
+        <Header style={{ display: 'flex', height: '8vh' }}>
           <div className="demo-logo" />
           <Menu
             theme="dark"
