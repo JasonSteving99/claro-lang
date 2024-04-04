@@ -1,7 +1,7 @@
 module(
     name = "claro-lang",
     repo_name = "claro-lang",
-    version = "0.1.500",
+    version = "0.1.501",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.0.1")
@@ -10,11 +10,11 @@ bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.3")
 
 # Deps related to ClaroDocs
-bazel_dep(name = "aspect_rules_lint", version = "0.12.0", dev_dependency = True)
-bazel_dep(name = "aspect_rules_jest", version = "0.19.6", dev_dependency = True)
-bazel_dep(name = "aspect_rules_js", version = "1.38.0", dev_dependency = True)
-bazel_dep(name = "aspect_rules_swc", version = "1.2.2", dev_dependency = True)
-bazel_dep(name = "aspect_rules_ts", version = "2.1.1", dev_dependency = True)
+bazel_dep(name = "aspect_rules_lint", version = "0.12.0")
+bazel_dep(name = "aspect_rules_jest", version = "0.19.6")
+bazel_dep(name = "aspect_rules_js", version = "1.38.0")
+bazel_dep(name = "aspect_rules_swc", version = "1.2.2")
+bazel_dep(name = "aspect_rules_ts", version = "2.1.1")
 
 # -- bazel_dep definitions -- #
 
