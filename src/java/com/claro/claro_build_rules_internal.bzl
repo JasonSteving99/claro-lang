@@ -313,8 +313,9 @@ def bootstrapped_claro_module(name, module_api_file, srcs = ["@claro-lang//:empt
 
 # In order to avoid a circular dep back into the local build of the compiler, this compilation unit must be built using
 # the "bootstrapping compiler" based on a prior precompiled release of the compiler from github.
-def bootstrapped_claro_module_internal(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, **kwargs):
-    native.exports_files([module_api_file])
+def bootstrapped_claro_module_internal(name, module_api_file, srcs = ["@claro-lang//:empty_claro_src"], deps = {}, resources = {}, exports = [], exported_custom_java_deps = [], debug = False, export_module_api = True, **kwargs):
+    if export_module_api:
+        native.exports_files([module_api_file])
     _claro_module_internal(
         _invoke_claro_compiler_internal, name, module_api_file, srcs, deps, resources, exports, exported_custom_java_deps, optional_stdlib_deps = [], debug = debug, add_stdlib_deps = False,
         claro_compiler = "@claro-lang//:bootstrapping_claro_compiler_binary",

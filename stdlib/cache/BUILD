@@ -22,7 +22,7 @@ bootstrapped_claro_module_internal(
         "//:future_converter",
     ],
     visibility = ["//visibility:public"],
-    debug = True
+    export_module_api = False,
 )
 
 # TODO(steving) `module_api_file` should be concatenative like `srcs`.
