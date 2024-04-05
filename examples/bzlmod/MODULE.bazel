@@ -1,4 +1,10 @@
 module(name = "example-claro-module")
 
-bazel_dep(name = "claro-lang", version = "0.1.502")
+bazel_dep(name = "claro-lang", version = "0.1.503")
 
+# NOTE: These "dev dependencies" are only necessary if you'd like to use ClaroDocs to visualize
+#       Claro programs as a local dev server. With these dependencies added, you should be able to
+#       `load("@claro-lang//tools/clarodocs/generator:clarodocs_rules.bzl", "clarodocs")` in your
+#       BUILD files. Then: `clarodocs(name = ..., root = ":some_claro_binary")` targets can be run.
+bazel_dep(name = "aspect_bazel_lib", version = "2.0.1", dev_dependency = True)
+bazel_dep(name = "aspect_rules_js", version = "1.38.0", dev_dependency = True)

@@ -14,13 +14,13 @@ SRC_PATTERNS = [
 ]
 
 RUNTIME_DEPS = [
-    "//tools/clarodocs:runtime_deps",
-    "//tools/clarodocs:node_modules/react-dom",
-    "//tools/clarodocs:node_modules/react",
-    "//tools/clarodocs:node_modules/web-vitals",
-    "//tools/clarodocs/src:assets",
-    "//tools/clarodocs/src",
-    "//tools/clarodocs/public",
+    "@claro-lang//tools/clarodocs:runtime_deps",
+    "@claro-lang//tools/clarodocs:node_modules/react-dom",
+    "@claro-lang//tools/clarodocs:node_modules/react",
+    "@claro-lang//tools/clarodocs:node_modules/web-vitals",
+    "@claro-lang//tools/clarodocs/src:assets",
+    "@claro-lang//tools/clarodocs/src",
+    "@claro-lang//tools/clarodocs/public",
 ]
 
 # Filename conventions described at
@@ -35,5 +35,5 @@ TEST_PATTERNS = [
 # Partially-apply our (generated) .swcrc config file to the swc starlark function
 TRANSPILER = partial.make(
     swc,
-    swcrc = "//tools/clarodocs:.swcrc",
+    swcrc = "@claro-lang//tools/clarodocs:.swcrc",
 )
