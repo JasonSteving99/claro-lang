@@ -26,7 +26,10 @@ echo '{{DOT_BAZEL_RC}}' > "$dest/.bazelrc"
 echo '{{DOT_BAZEL_VERSION}}' > "$dest/.bazelversion"
 
 # MODULE.bazel
-echo '{{MODULE_DOT_BAZEL}}' > "$dest/MODULE.bazel"
+cat << \EOF > "$dest/MODULE.bazel"
+{{MODULE_DOT_BAZEL}}
+EOF
+
 
 # BUILD
 echo "load(\"@claro-lang//:rules.bzl\", \"claro_binary\")
