@@ -1,5 +1,26 @@
 load("//src/java/com/claro:claro_build_rules_internal.bzl", "bootstrapped_claro_module_internal", "bootstrapped_claro_module", "CLARO_BUILTIN_JAVA_DEPS")
 
+# We need to ensure that users don't need to have Java installed at all. So, this hack ensures hermeticity by ensuring that the 
+# Dep Module Monomorphization subprocesses are invoked using the hermetic Java toolchain, rather than just attempting to directly
+# invoke `java -jar ...`. This is certainly a bit of a hack that relies on some very specific Bazel behavior that risks being
+# changed in later Bazel versions. So, while this helps address a problem with Claro's monomorphization, I still can't wait for
+# subprocesses to no longer be required.
+genrule(
+	name = "get_java_path",
+ 	outs = ["java_path.txt"],
+	cmd = "realpath $(JAVA) > $(OUTS)",
+	toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+
+genrule(
+    name = "monomorphization_coordinator_with_bazel_java",
+    srcs = ["java_path.txt", "MonomorphizationCoordinator.tmpl.java"],
+    outs = ["MonomorphizationCoordinator.java"],
+    cmd = """
+	sed "s#{{BAZEL_JAVA_PATH}}#$$(<$(location java_path.txt))#g" $(location MonomorphizationCoordinator.tmpl.java) > $(OUTS)
+    """
+)
+
 java_library(
     name = "monomorphization_coordinator",
     srcs = ["MonomorphizationCoordinator.java"],

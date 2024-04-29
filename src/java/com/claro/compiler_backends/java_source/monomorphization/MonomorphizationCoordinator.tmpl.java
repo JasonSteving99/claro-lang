@@ -181,7 +181,8 @@ public class MonomorphizationCoordinator {
         }
         ProcessBuilder depModuleSubprocess =
             new ProcessBuilder()
-                .command("java", "-jar", DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH,
+                // .command("/private/var/tmp/_bazel_jasonsteving/895b6e2a5639ccc5f59fc3ca15e75bfa/external/rules_java~5.5.1~toolchains~remotejdk11_macos_aarch64/zulu-11.jdk/Contents/Home/bin/java", "-jar", DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH,
+                .command("{{BAZEL_JAVA_PATH}}", "-jar", DEP_MODULE_MONOMORPHIZATION_SUBPROCESS_BINARY_PATH,
                          "--coordinator_port", String.valueOf(coordinatorPort),
                          "--dep_module_file_path", DEP_GRAPH_CLARO_MODULE_PATHS_BY_UNIQUE_MODULE_NAME.get(uniqueModuleName),
                          // TODO(steving) DELETE THIS, The uniqe name should be looked up in the .claro_module.
@@ -190,7 +191,7 @@ public class MonomorphizationCoordinator {
                 .redirectOutput(ProcessBuilder.Redirect.INHERIT)
                 .redirectError(ProcessBuilder.Redirect.INHERIT);
         depModuleSubprocess.environment().putAll(RUNFILES_ENV_VARS);
-        depModuleSubprocess.start();
+	depModuleSubprocess.start();
       } catch (IOException e) {
         throw new RuntimeException(
             "Internal Compiler Error! Unable to start dep module monomorphization subprocess for module: " +
