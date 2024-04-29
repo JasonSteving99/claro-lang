@@ -1,6 +1,6 @@
 module(name = "example-claro-module")
 
-bazel_dep(name = "claro-lang", version = "0.1.503")
+bazel_dep(name = "claro-lang", version = "0.1.506")
 
 # NOTE: These "dev dependencies" are only necessary if you'd like to use ClaroDocs to visualize
 #       Claro programs as a local dev server. With these dependencies added, you should be able to
