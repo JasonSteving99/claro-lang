@@ -36,7 +36,7 @@ def expand_template(name, template, substitutions = {}, out = "", visibility = [
         name = name,
         srcs = [name + "_bin_deploy.jar"],
         outs = [out],
-        toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+        toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
         cmd = "$(JAVA) -jar $(SRCS) > $(OUTS)",
         visibility = visibility,
     )
