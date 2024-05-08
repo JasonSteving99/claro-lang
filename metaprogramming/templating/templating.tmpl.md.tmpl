@@ -1,0 +1,65 @@
+# Source Code Templates
+
+The first, extremely simple Build-time Metaprogramming example that we'll look at is one way to create and use source
+code templates at Build time.
+
+As a contrived example, imagine that you're writing an
+[HTTP Service's](../../http_servers/http_servers.generated_docs.md) homepage
+[Endpoint Handler](../../http_servers/http_servers.generated_docs.md#implementing-endpoint-handlers) where you want to
+just serve some hardcoded static HTML representing our site's trivial homepage. Of course, you may decide to just
+directly write out the HTML string inline, but it would probably be more useful to create a separate `homepage.html`
+file so that you can get IDE support for your HTML. You could of course depend on `homepage.html` as a Resource file to
+read at runtime, but we could also opt to directly embed the file's HTML contents into the source code at Build time so
+that we don't have to spend any time reading the file while the program is running.
+
+To do this, we could make our source file a template with a format string `{{HOMEPAGE_HTML}}` to be replaced:
+
+{{EX1}}
+
+## `expand_template(...)` Macro
+
+Bazel provides ample tooling for you to write this functionality entirely from scratch, but to make it easier to get up
+and running, Claro provides an `expand_template(...)` Bazel macro out of the box. The `BUILD` file below expands the
+template by converting the given `homepage.html` file to a single line with all `"` escaped and inserting it into the
+`ex1.claro.tmpl`:
+
+{{EX2}}
+
+And now you end up with a valid Claro source file: 
+
+{{EX3}}
+
+## (Aside) Claro's Entire Docs Site is Generated at Build Time Using This Templating Approach!
+
+Bazel's support for this Build time execution is an extremely powerful tool that can be used for all sorts of things
+where you'd like to derive some files (program source code or otherwise) from some other file(s) representing canonical
+source(s) of truth. 
+
+In fact, **this docs site** was dynamically generated at Build time by first executing each and every sample Claro code
+snippet and templating the snippet's output into the markdown file that eventually gets converted to HTML. To make this
+example more explicit, this site's [Hello, World!](../../chapter_1/hello_world.generated_docs.md) page was generated
+from literally the below template:
+
+{{EX4}}
+
+And the corresponding BUILD file contains the following `doc_with_validated_examples(...)` declaration which is built
+on top of the `expand_template(...)` macro described above:
+
+{{EX5}}
+
+Which generates this final output markdown:
+
+#### _Fig 6:_
+---
+<pre><code class="language-md hljs">{{HELLO_WORLD_PAGE_MD_EXAMPLE}}</code></pre>
+---
+
+This is a powerful example of Build-time Metaprogramming being put to good use. This approach is not just convenient,
+but provides some legitimate guarantees that wherever this approach was used, if the site deploys, then the sample code
+on the site is guaranteed to _actually_ be valid because otherwise Bazel would have failed the build! You can imagine
+how useful this is for an actively in-development language where things are subject to potentially change at any time.
+
+Feel free to dig into the source code of Claro's docs site
+<a href="https://github.com/JasonSteving99/claro-lang/tree/main/mdbook_docs" target="_blank">here</a> if you want to get
+more into the weeds on this example.
+

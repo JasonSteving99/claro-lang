@@ -1,0 +1,9 @@
+load("@claro-lang//:rules.bzl", "claro_binary")
+
+claro_binary(
+  name = "demo_bin",
+  main_file = "demo.claro",
+  resources = {
+    "Input": "input.txt",
+  }
+)

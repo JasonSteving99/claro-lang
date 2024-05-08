@@ -1,0 +1,10 @@
+var employee = {name = "Bob", title = "Intern"};
+
+var permission: boolean;
+match (employee) {
+  case {name = "Sarah", title = "Manager"} -> permission = true;
+  case {name = "Joe",   title = "Manager"} -> permission = true;
+  case _                                   -> permission = false;
+}
+
+print("Permission granted for {employee.name}?: {permission}");

@@ -1,0 +1,15 @@
+# BUILD
+load("//:rules.bzl", "claro_binary", "claro_module")
+
+claro_module(
+    name = "ex1_with_initializer",
+    module_api_file = "ex1-with-init.claro_module_api",
+)
+
+claro_binary(
+    name = "rejected_init_example",
+    srcs = "ex1-bad-init.claro", # Same as before. We'll expect an error.
+    deps = {
+        "Nums": ":ex1_with_initializer", # Now defines an Initializer.
+    }
+)

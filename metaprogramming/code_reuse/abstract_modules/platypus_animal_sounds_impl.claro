@@ -1,0 +1,11 @@
+# platypus_animal_sounds_impl.claro
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(state: State) -> string {
+    var name = unwrap(state).name;
+    if (unwrap(unwrap(state).internal).isWearingFedora) { # https://youtu.be/KFssdwb7dF8?si=Omgf1-D3qIBY6jO9
+      var codename = name[0];
+      return "!!!!!!!!!! REDACTED TOP SECRET MESSAGE !!!!!!!!!! - Agent {codename}";
+    }
+    return "Chirp Chirp - says {name}";
+  }
+}

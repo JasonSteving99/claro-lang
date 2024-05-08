@@ -1,0 +1,7 @@
+newtype Bar<T> : T
+newtype Foo : int
+
+graph function fooGraph(i: int) -> future<Foo> {
+  root res <- @foo;
+  node foo <- Foo(i);
+}

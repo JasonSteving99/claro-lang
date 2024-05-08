@@ -1,0 +1,8 @@
+# example.claro_module_api
+
+contract Numeric<T> {
+  function add(lhs: T, rhs: T) -> T;
+  function multiply(lhs: T, rhs: T) -> T;
+}
+
+newtype Foo : int

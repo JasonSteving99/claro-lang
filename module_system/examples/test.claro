@@ -1,0 +1,10 @@
+# test.claro
+
+var f1 = Ex::Foo(1);
+var f2 = Ex::Foo(2);
+
+var addRes = Ex::Numeric::add(f1, f2);
+Ex::prettyPrint(addRes);
+
+var mulRes = Ex::Numeric::multiply(f2, Ex::Foo(5));
+Ex::prettyPrint(mulRes);

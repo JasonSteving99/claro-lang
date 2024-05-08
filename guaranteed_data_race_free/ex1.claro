@@ -1,0 +1,5 @@
+graph function someGraph(mutArg: mut [int]) -> future<SomeRes> {
+    root res   <- computeRes(@nodeB, @nodeC);
+    node nodeB <- doNodeBThing(mutArg);
+    node nodeC <- doNodeCThing(mutArg);
+}

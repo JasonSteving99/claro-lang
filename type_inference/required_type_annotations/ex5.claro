@@ -1,0 +1,6 @@
+var t = (1, "one", 1.1);
+var i = random::nextNonNegativeBoundedInt(random::create(), 3);
+
+# This program crashes at runtime a third of the time...
+var t_int = cast(int , t[i]);
+print(t_int);

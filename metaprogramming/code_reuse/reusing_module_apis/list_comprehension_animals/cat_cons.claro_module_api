@@ -1,0 +1,2 @@
+# cat_cons.claro_module_api
+function create(name: string, favoriteInsult: string) -> State;

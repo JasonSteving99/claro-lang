@@ -1,0 +1,4 @@
+graph function attemptToDeferToBlockingFn(x: int) -> future<Bar<Foo>> {
+  root noopRes <- @defer;
+  node defer   <- doBlocking(x);  # <-- Illegal call to blocking procedure in Graph.
+}

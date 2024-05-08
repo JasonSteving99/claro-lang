@@ -1,0 +1,17 @@
+$$var intOrStr: oneof<int, string>;
+$$
+$$random::forSeed(20000)
+$$  |> random::nextNonNegativeBoundedInt(^, 2)
+$$  |> var r = ^;
+$$
+match (r) {
+  case 0 -> intOrStr = 10;
+  case _ -> intOrStr = "ten";
+}
+print("intOrStr: {intOrStr}");
+
+if (intOrStr instanceof int) {
+  print("Found an int!");
+} else {
+  print("Found a string!");
+}

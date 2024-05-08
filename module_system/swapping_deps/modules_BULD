@@ -1,0 +1,14 @@
+# BUILD
+load("@claro-lang//:rules.bzl", "claro_binary", "claro_module")
+
+claro_module(
+    name = "hello_world",
+    module_api_file = "get_message.claro_module_api",
+    srcs = ["hello_world.claro"],
+)
+claro_module(
+    name = "look_ma",
+    module_api_file = "get_message.claro_module_api",
+    srcs = ["look_ma.claro"],
+)
+# ...

@@ -1,0 +1,4 @@
+#### CLARO ####
+prettyPrintPair(Foo(1234), Foo(5678));
+print("");
+prettyPrintPair(Bar("some string"), Bar("another"));

@@ -1,0 +1,13 @@
+var l = [1,2,3];
+
+var unsafeRes: int = Index::get(l, 1);
+var safeRes: SafeRes<int> = Index::get(l, 1);
+
+print(unsafeRes);
+print(safeRes);
+
+safeRes = Index::get(l, 10);
+print(safeRes);
+
+# Out of bounds runtime err.
+# unsafeRes: int = Index::get(l, 10);

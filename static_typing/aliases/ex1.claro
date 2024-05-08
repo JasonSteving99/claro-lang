@@ -1,0 +1,13 @@
+# You can imagine that typing this out could be verbose/annoying.
+alias IntsToTupleFn: function<|int, int| -> tuple<int, int>>
+
+consumer prettyPrint(name: string, fn: IntsToTupleFn, arg1: int, arg2: int) {
+  var res = fn(arg1, arg2);
+  print("{name}({arg1}, {arg2}) -> {res}");
+}
+
+var swapped: IntsToTupleFn = lambda (a, b) -> (b, a);
+prettyPrint("swapped", swapped, 1, 2);
+
+var doubled: IntsToTupleFn = lambda (a, b) -> (2*a, 2*b);
+prettyPrint("doubled", doubled, 1, 2);

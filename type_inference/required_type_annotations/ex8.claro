@@ -1,0 +1,5 @@
+consumer apply<A>(a: A, c: consumer<A>) {
+  c(a);
+}
+
+apply(1, x -> { print(x + 10); });

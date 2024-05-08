@@ -1,0 +1,14 @@
+load("//@claro-lang:rules.bzl", "claro_module", "claro_binary")
+
+# This module is the one defining the `env` Flag.
+claro_module(
+    name = "config",
+    module_api_file = "ex1.claro_module_api",
+    # Notice no srcs are specified as Flags do not require a provider like other Static Values do.
+)
+
+claro_binary(
+    name = "demo",
+    main_file = "ex1-test.claro",
+    deps = {"Config": ":config"},
+)

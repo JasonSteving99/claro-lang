@@ -1,0 +1,412 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Abstract Modules - The Claro Programming Language (DRAFT)</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../../custom_blocks.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../../chapter_1.html">Welcome to Claro!</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">User Guide</li><li class="chapter-item expanded "><a href="../../../chapter_1/hello_world.generated_docs.html"><strong aria-hidden="true">1.</strong> Hello, World</a></li><li class="chapter-item expanded "><a href="../../../getting_started/getting_started.html"><strong aria-hidden="true">2.</strong> Getting Started!</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../getting_started/understanding_starter_project/understanding_starter_project.generated_docs.html"><strong aria-hidden="true">2.1.</strong> Understanding the Starter Project</a></li><li class="chapter-item expanded "><a href="../../../getting_started/first_program/first_program.generated_docs.html"><strong aria-hidden="true">2.2.</strong> Your First Program</a></li><li class="chapter-item expanded "><a href="../../../getting_started/intro_to_modules/intro_to_modules.generated_docs.html"><strong aria-hidden="true">2.3.</strong> Intro to Modules</a></li><li class="spacer"></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference Guide</li><li class="chapter-item expanded "><a href="../../../common_programming_concepts.html"><strong aria-hidden="true">3.</strong> Common Programming Concepts</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../common_programming_concepts/variables_and_types/variables_and_types.generated_docs.html"><strong aria-hidden="true">3.1.</strong> Variables & Primitive Types</a></li><li class="chapter-item expanded "><a href="../../../common_programming_concepts/sep_var_decl_and_init/sep_var_decl_and_init.generated_docs.html"><strong aria-hidden="true">3.2.</strong> Separate Variable Declaration & Initialization</a></li><li class="chapter-item expanded "><a href="../../../common_programming_concepts/var_reassignment/var_reassignment.generated_docs.html"><strong aria-hidden="true">3.3.</strong> Variable Reassignment</a></li><li class="chapter-item expanded "><a href="../../../common_programming_concepts/string_formatting/string_formatting.generated_docs.html"><strong aria-hidden="true">3.4.</strong> String Formatting</a></li><li class="chapter-item expanded "><a href="../../../control_flow.html"><strong aria-hidden="true">3.5.</strong> Control Flow</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../control_flow/if_else/if_else.generated_docs.html"><strong aria-hidden="true">3.5.1.</strong> If-Else</a></li><li class="chapter-item expanded "><a href="../../../control_flow/while/while.generated_docs.html"><strong aria-hidden="true">3.5.2.</strong> While</a></li><li class="chapter-item expanded "><a href="../../../control_flow/for/for.generated_docs.html"><strong aria-hidden="true">3.5.3.</strong> For</a></li><li class="chapter-item expanded "><a href="../../../control_flow/repeat/repeat.generated_docs.html"><strong aria-hidden="true">3.5.4.</strong> Repeat</a></li><li class="chapter-item expanded "><a href="../../../control_flow/pipes/pipes.generated_docs.html"><strong aria-hidden="true">3.5.5.</strong> Pipes</a></li><li class="chapter-item expanded "><a href="../../../control_flow/match/match.generated_docs.html"><strong aria-hidden="true">3.5.6.</strong> Pattern Matching</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../control_flow/match/structed_data/structured_data.generated_docs.html"><strong aria-hidden="true">3.5.6.1.</strong> Matching Structured Data</a></li><li class="chapter-item expanded "><a href="../../../control_flow/match/wildcards/wildcards.generated_docs.html"><strong aria-hidden="true">3.5.6.2.</strong> Wildcard Patterns</a></li><li class="chapter-item expanded "><a href="../../../control_flow/match/exhaustiveness_checks/exhaustiveness_checks.generated_docs.html"><strong aria-hidden="true">3.5.6.3.</strong> Static Exhaustiveness Checks</a></li></ol></li><li class="chapter-item expanded "><a href="../../../control_flow/collection_comprehension/collection_comprehension.generated_docs.html"><strong aria-hidden="true">3.5.7.</strong> Collection Comprehension</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../control_flow/collection_comprehension/more_than_syntax_sugar/more_than_syntax_sugar.generated_docs.html"><strong aria-hidden="true">3.5.7.1.</strong> Comprehension is More Than Syntax Sugar</a></li></ol></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../static_typing/static_typing.generated_docs.html"><strong aria-hidden="true">4.</strong> Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/builtin_collections.generated_docs.html"><strong aria-hidden="true">4.1.</strong> Builtin Collections</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/list_type/list_type.generated_docs.html"><strong aria-hidden="true">4.1.1.</strong> Lists</a></li><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/set_type/set_type.generated_docs.html"><strong aria-hidden="true">4.1.2.</strong> Sets</a></li><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/map_type/map_type.generated_docs.html"><strong aria-hidden="true">4.1.3.</strong> Maps</a></li><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/tuple_type/tuple_type.generated_docs.html"><strong aria-hidden="true">4.1.4.</strong> Tuples</a></li><li class="chapter-item expanded "><a href="../../../static_typing/builtin_colls/struct_type/struct_type.generated_docs.html"><strong aria-hidden="true">4.1.5.</strong> Structs</a></li></ol></li><li class="chapter-item expanded "><a href="../../../static_typing/oneofs/oneofs.generated_docs.html"><strong aria-hidden="true">4.2.</strong> Oneofs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/oneofs/narrowing/narrowing.generated_docs.html"><strong aria-hidden="true">4.2.1.</strong> "Narrowing" / Type Guards</a></li></ol></li><li class="chapter-item expanded "><a href="../../../static_typing/atoms/atoms.generated_docs.html"><strong aria-hidden="true">4.3.</strong> Atoms</a></li><li class="chapter-item expanded "><a href="../../../static_typing/aliases/aliases.generated_docs.html"><strong aria-hidden="true">4.4.</strong> Aliases</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/aliases/not_a_new_type_decl/not_a_new_type_decl.generated_docs.html"><strong aria-hidden="true">4.4.1.</strong> Aliases are Not a New Type Declaration</a></li></ol></li><li class="chapter-item expanded "><a href="../../../static_typing/user_defined_types/user_defined_types.generated_docs.html"><strong aria-hidden="true">4.5.</strong> User Defined Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/user_defined_types/parameterized_types/parameterized_types.generated_docs.html"><strong aria-hidden="true">4.5.1.</strong> Parameterized Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/user_defined_types/parameterized_types/concrete_type_inference/concrete_type_inference.generated_docs.html"><strong aria-hidden="true">4.5.1.1.</strong> Concrete Type Inference</a></li></ol></li><li class="chapter-item expanded "><a href="../../../static_typing/user_defined_types/recursive_types/recursive_types.generated_docs.html"><strong aria-hidden="true">4.5.2.</strong> Recursive Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../static_typing/user_defined_types/recursive_types/impossible_recursive_types/impossible_recursive_types.generated_docs.html"><strong aria-hidden="true">4.5.2.1.</strong> Impossible Recursive Types</a></li></ol></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../type_inference/type_inference.generated_docs.html"><strong aria-hidden="true">5.</strong> Type Inference</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../type_inference/required_type_annotations/required_type_annotations.generated_docs.html"><strong aria-hidden="true">5.1.</strong> Required Type Annotations</a></li></ol></li><li class="chapter-item expanded "><a href="../../../procedures.html"><strong aria-hidden="true">6.</strong> Procedures</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../procedures/functions/functions.generated_docs.html"><strong aria-hidden="true">6.1.</strong> Functions</a></li><li class="chapter-item expanded "><a href="../../../procedures/consumers/consumers.generated_docs.html"><strong aria-hidden="true">6.2.</strong> Consumers</a></li><li class="chapter-item expanded "><a href="../../../procedures/providers/providers.generated_docs.html"><strong aria-hidden="true">6.3.</strong> Providers</a></li></ol></li><li class="chapter-item expanded "><a href="../../../lambdas_and_first_class_procedures/lambdas_and_first_class_procedures.generated_docs.html"><strong aria-hidden="true">7.</strong> Lambdas & First Class Procedures</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../lambdas_and_first_class_procedures/lambda_closures/lambda_closures.generated_docs.html"><strong aria-hidden="true">7.1.</strong> Lambdas are Restricted "Closures"</a></li></ol></li><li class="chapter-item expanded "><a href="../../../error_handling/error_handling.generated_docs.html"><strong aria-hidden="true">8.</strong> Error Handling</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../error_handling/error_propagation/error_propagation.generated_docs.html"><strong aria-hidden="true">8.1.</strong> Error Propagation</a></li></ol></li><li class="chapter-item expanded "><a href="../../../generics.generated_docs.html"><strong aria-hidden="true">9.</strong> Generics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../generics/contracts/contracts.generated_docs.html"><strong aria-hidden="true">9.1.</strong> Contracts</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../generics/contracts/implementing_contracts/implementing_contracts.generated_docs.html"><strong aria-hidden="true">9.1.1.</strong> Implementing a Contract</a></li><li class="chapter-item expanded "><a href="../../../generics/contracts/multiple_type_params/multiple_type_params.generated_docs.html"><strong aria-hidden="true">9.1.2.</strong> Multiple Type Params</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../generics/contracts/multiple_type_params/implied_types/implied_types.generated_docs.html"><strong aria-hidden="true">9.1.2.1.</strong> (Advanced) Implied Types</a></li></ol></li><li class="chapter-item expanded "><a href="../../../generics/contracts/dynamic_dispatch/dynamic_dispatch.generated_docs.html"><strong aria-hidden="true">9.1.3.</strong> Dynamic Dispatch</a></li></ol></li><li class="chapter-item expanded "><a href="../../../generics/generic_return_type_inference/generic_return_type_inference.generated_docs.html"><strong aria-hidden="true">9.2.</strong> Generic Return Type Inference</a></li></ol></li><li class="chapter-item expanded "><a href="../../../copying/copying.generated_docs.html"><strong aria-hidden="true">10.</strong> Copying Data</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../copying/mutability_coercion/mutability_coercion.generated_docs.html"><strong aria-hidden="true">10.1.</strong> Mutability Coercion on Copy</a></li><li class="chapter-item expanded "><a href="../../../copying/performance/performance.generated_docs.html"><strong aria-hidden="true">10.2.</strong> Performance Optimizations</a></li><li class="chapter-item expanded "><a href="../../../copying/known_bugs/known_bugs.generated_docs.html"><strong aria-hidden="true">10.3.</strong> Known Copy Bugs</a></li></ol></li><li class="chapter-item expanded "><a href="../../../resource_files/resource_files.generated_docs.html"><strong aria-hidden="true">11.</strong> Resource Files</a></li><li class="chapter-item expanded "><a href="../../../module_system/module_system.generated_docs.html"><strong aria-hidden="true">12.</strong> Module System</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../module_system/module_apis/module_apis.generated_docs.html"><strong aria-hidden="true">12.1.</strong> Module APIs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../module_system/module_apis/procedure_signatures/procedure_signatures.generated_docs.html"><strong aria-hidden="true">12.1.1.</strong> Procedure Signatures</a></li><li class="chapter-item expanded "><a href="../../../module_system/module_apis/type_definitions/type_definitions.generated_docs.html"><strong aria-hidden="true">12.1.2.</strong> Type & Alias Definitions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../module_system/module_apis/type_definitions/initializers_and_unwrappers/initializers_and_unwrappers.generated_docs.html"><strong aria-hidden="true">12.1.2.1.</strong> Initializers</a></li><li class="chapter-item expanded "><a href="../../../module_system/module_apis/type_definitions/initializers_and_unwrappers/unwrappers/unwrappers.generated_docs.html"><strong aria-hidden="true">12.1.2.2.</strong> Unwrappers</a></li><li class="chapter-item expanded "><a href="../../../module_system/module_apis/type_definitions/opaque_types/opaque_types.generated_docs.html"><strong aria-hidden="true">12.1.2.3.</strong> Opaque Types</a></li></ol></li><li class="chapter-item expanded "><a href="../../../module_system/module_apis/static_values/static_values.generated_docs.html"><strong aria-hidden="true">12.1.3.</strong> Static Values</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../module_system/module_apis/flags/flags.generated_docs.html"><strong aria-hidden="true">12.1.3.1.</strong> Flags</a></li></ol></li><li class="chapter-item expanded "><a href="../../../module_system/module_apis/http_services/http_services.generated_docs.html"><strong aria-hidden="true">12.1.4.</strong> HTTP Services</a></li></ol></li><li class="chapter-item expanded "><a href="../../../module_system/visibility/visibility.generated_docs.html"><strong aria-hidden="true">12.2.</strong> Visibility</a></li><li class="chapter-item expanded "><a href="../../../module_system/swapping_deps/swapping_deps.generated_docs.html"><strong aria-hidden="true">12.3.</strong> Swapping Dependencies</a></li></ol></li><li class="chapter-item expanded "><a href="../../../concurrency.html"><strong aria-hidden="true">13.</strong> Concurrency</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../graph_procedures/graph_procedures.generated_docs.html"><strong aria-hidden="true">13.1.</strong> Graph Procedures</a></li><li class="chapter-item expanded "><a href="../../../graph_procedures/graph_procedure_composition/graph_procedure_composition.generated_docs.html"><strong aria-hidden="true">13.2.</strong> Graph Procedure Composition</a></li><li class="chapter-item expanded "><a href="../../../graph_procedures/calling_graph_procedures/calling_graph_procedures.generated_docs.html"><strong aria-hidden="true">13.3.</strong> Calling Graph Procedures</a></li><li class="chapter-item expanded "><a href="../../../graph_procedures/conditional_subgraph_execution/conditional_subgraph_execution.generated_docs.html"><strong aria-hidden="true">13.4.</strong> (Advanced) Conditional Subgraph Execution</a></li></ol></li><li class="chapter-item expanded "><a href="../../../fearless_concurrency/fearless_concurrency.html"><strong aria-hidden="true">14.</strong> Fearless Concurrency</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../guaranteed_data_race_free/guaranteed_data_race_free.generated_docs.html"><strong aria-hidden="true">14.1.</strong> Guaranteed Data-Race-Free Concurrency</a></li><li class="chapter-item expanded "><a href="../../../guaranteed_deadlock_free.html"><strong aria-hidden="true">14.2.</strong> Guaranteed Deadlock-Free Concurrency</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../guaranteed_deadlock_free/blocking_procedures/blocking_procedures.generated_docs.html"><strong aria-hidden="true">14.2.1.</strong> Blocking Procedures</a></li><li class="chapter-item expanded "><a href="../../../guaranteed_deadlock_free/re_what_color_is_your_function.generated_docs.html"><strong aria-hidden="true">14.2.2.</strong> Re: "What Color is Your Function?"</a></li><li class="chapter-item expanded "><a href="../../../guaranteed_deadlock_free/re_what_color_is_your_function/blocking_generics.generated_docs.html"><strong aria-hidden="true">14.2.3.</strong> (Advanced) Blocking Generics</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../http_servers/http_servers.generated_docs.html"><strong aria-hidden="true">15.</strong> Basic HTTP Servers</a></li><li class="chapter-item expanded "><a href="../../../json_parsing/json_parsing.generated_docs.html"><strong aria-hidden="true">16.</strong> JSON Parsing</a></li><li class="chapter-item expanded "><a href="../../../metaprogramming/metaprogramming.generated_docs.html"><strong aria-hidden="true">17.</strong> Build Time Metaprogramming</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../metaprogramming/templating/templating.generated_docs.html"><strong aria-hidden="true">17.1.</strong> Source Code Templates</a></li><li class="chapter-item expanded "><a href="../../../metaprogramming/code_reuse/code_reuse.generated_docs.html"><strong aria-hidden="true">17.2.</strong> (Literal) Code Reuse</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../metaprogramming/code_reuse/reusing_module_apis/reusing_module_apis.generated_docs.html"><strong aria-hidden="true">17.2.1.</strong> Reusing Module APIs</a></li><li class="chapter-item expanded "><a href="../../../metaprogramming/code_reuse/reusing_source_code/reusing_source_code.generated_docs.html"><strong aria-hidden="true">17.2.2.</strong> Reusing Source Code</a></li><li class="chapter-item expanded "><a href="../../../metaprogramming/code_reuse/abstract_modules/abstract_modules.generated_docs.html" class="active"><strong aria-hidden="true">17.2.3.</strong> Abstract Modules</a></li><li class="spacer"></li></ol></li></ol></li><li class="chapter-item expanded "><li class="part-title">StdLib</li><li class="chapter-item expanded "><a href="../../../stdlib/default_modules/default_modules.generated_docs.html"><strong aria-hidden="true">18.</strong> Default Modules</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../stdlib/booleans_module.generated_docs.html"><strong aria-hidden="true">18.1.</strong> booleans</a></li><li class="chapter-item expanded "><a href="../../../stdlib/deque_module.generated_docs.html"><strong aria-hidden="true">18.2.</strong> deque</a></li><li class="chapter-item expanded "><a href="../../../stdlib/doubles_module.generated_docs.html"><strong aria-hidden="true">18.3.</strong> doubles</a></li><li class="chapter-item expanded "><a href="../../../stdlib/files_module.generated_docs.html"><strong aria-hidden="true">18.4.</strong> files</a></li><li class="chapter-item expanded "><a href="../../../stdlib/floats_module.generated_docs.html"><strong aria-hidden="true">18.5.</strong> floats</a></li><li class="chapter-item expanded "><a href="../../../stdlib/futures_module.generated_docs.html"><strong aria-hidden="true">18.6.</strong> futures</a></li><li class="chapter-item expanded "><a href="../../../stdlib/fp_module.generated_docs.html"><strong aria-hidden="true">18.7.</strong> fp</a></li><li class="chapter-item expanded "><a href="../../../stdlib/ints_module.generated_docs.html"><strong aria-hidden="true">18.8.</strong> ints</a></li><li class="chapter-item expanded "><a href="../../../stdlib/lists_module.generated_docs.html"><strong aria-hidden="true">18.9.</strong> lists</a></li><li class="chapter-item expanded "><a href="../../../stdlib/longs_module.generated_docs.html"><strong aria-hidden="true">18.10.</strong> longs</a></li><li class="chapter-item expanded "><a href="../../../stdlib/maps_module.generated_docs.html"><strong aria-hidden="true">18.11.</strong> maps</a></li><li class="chapter-item expanded "><a href="../../../stdlib/math_module.generated_docs.html"><strong aria-hidden="true">18.12.</strong> math</a></li><li class="chapter-item expanded "><a href="../../../stdlib/priority_queue_module.generated_docs.html"><strong aria-hidden="true">18.13.</strong> priority_queue</a></li><li class="chapter-item expanded "><a href="../../../stdlib/random_module.generated_docs.html"><strong aria-hidden="true">18.14.</strong> random</a></li><li class="chapter-item expanded "><a href="../../../stdlib/scanner_module.generated_docs.html"><strong aria-hidden="true">18.15.</strong> scanner</a></li><li class="chapter-item expanded "><a href="../../../stdlib/sets_module.generated_docs.html"><strong aria-hidden="true">18.16.</strong> sets</a></li><li class="chapter-item expanded "><a href="../../../stdlib/std_module.generated_docs.html"><strong aria-hidden="true">18.17.</strong> std</a></li><li class="chapter-item expanded "><a href="../../../stdlib/strings_module.generated_docs.html"><strong aria-hidden="true">18.18.</strong> strings</a></li><li class="chapter-item expanded "><a href="../../../stdlib/string_builder_module.generated_docs.html"><strong aria-hidden="true">18.19.</strong> string_builder</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Claro Programming Language (DRAFT)</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/JasonSteving99/claro-lang/" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="abstract-modules"><a class="header" href="#abstract-modules">Abstract Modules</a></h1>
+<p>In the past couple sections we've worked through examples of some fairly complex Build time metaprogramming to generate
+Modules that share some common behaviors between them. Having those low-level Build tools in your back pocket is
+something that may very well come in handy during your Claro development journey. However, in general, it's worth
+acknowledging that there's some inherent complexity in the prior approaches. It's my hope that the community will
+standardize around some well-defined set of Build design patterns that are encoded into well-known, standardized
+interfaces (Bazel Macros/Rules) to abstract away the low-level complexity underneath.</p>
+<p>In this section, I'll try to demonstrate what such a standardized encoding might look like for the design pattern
+demonstrated in the prior sections.</p>
+<h2 id="limitations-of-the-approach-in-the-prior-sections"><a class="header" href="#limitations-of-the-approach-in-the-prior-sections">Limitations of the Approach in the Prior Sections</a></h2>
+<p>The <code>Animal(...)</code> Macro defined in the previous sections was extremely rigid. It encoded exactly one specific code 
+structure. It was arguably a very useful structure, but if we wanted to create an <code>Animal(...)</code> that deviated even
+slightly from the expected structure, you'd either have to go and refactor the Macro definition itself and all usages to
+add support for new behaviors, or you'd just have to fall back to manually defining a Module, losing all Build level
+code sharing that you were trying to achieve with the standardized <code>Animal(...)</code> Macro.</p>
+<p>All that said, the biggest limitation of the approach in the prior sections is that <strong><em>it was bespoke</em></strong>. While all the
+customizability that Build time metaprogramming gives you blows the design space wide open, it also makes it that much
+harder for anyone unfamiliar with the domain to follow what's going on.</p>
+<h2 id="abstracting-away-the-abstract-module-pattern-itself"><a class="header" href="#abstracting-away-the-abstract-module-pattern-itself">Abstracting Away the &quot;Abstract Module&quot; Pattern Itself</a></h2>
+<p>Arguably, the <code>Animal(...)</code> macro from the previous sections could be described as an encoding of an &quot;Abstract Module&quot;
+(in a sense vaguely similar to Java's &quot;Abstract Classes&quot; - minus the object-orientation). &quot;Abstract&quot; in the sense that
+some portions of all &quot;Animal&quot; Modules are known before even knowing the &quot;concrete Animal&quot; Modules that you'll
+specifically build later on. But there's nothing about this concept itself that's unique to &quot;Animals&quot;. All sorts of
+categories of similar Modules can be imagined, and they could potentially <em>all</em> benefit from a similar &quot;Abstract&quot; base
+encoding that later gets specialized for each concrete Module.</p>
+<p>Largely as a <em>draft</em> demonstration of what a standardized encoding of this &quot;Abstract Module&quot; design pattern <em>could</em> look
+like, Claro provides a <code>claro_abstract_module(...)</code> Bazel Macro. Now, the 
+<a href="../reusing_module_apis/reusing_module_apis.generated_docs.html#declaring-a-macro-in-a-bzl-file-to-make-this-factored-out-build-logic-portable"><code>Animal(...)</code> Macro</a> 
+can be auto-generated in a few lines by simply calling the <code>claro_abstract_module(...)</code> Macro.</p>
+<h4 id="fig-1"><a class="header" href="#fig-1"><em>Fig 1:</em></a></h4>
+<hr />
+<pre><code class="language-python"># animal.bzl
+load(
+    &quot;@claro-lang//stdlib/utils/abstract_modules:abstract_module.bzl&quot;,
+    &quot;claro_abstract_module&quot;,
+)
+
+Animal = \
+    claro_abstract_module(
+        name = &quot;Animal&quot;,
+        module_api_file = &quot;animal.claro_module_api&quot;,
+        overridable_srcs = {
+            &quot;AnimalSoundsImpl&quot;: &quot;:default_animal_sounds_impl.claro&quot;,
+            &quot;InternalStateAndConstructor&quot;: &quot;:default_internal_state.claro&quot;,
+            &quot;MakeNoiseImpl&quot;: &quot;:default_make_noise_impl.claro&quot;,
+        },
+        default_deps = {
+            &quot;AnimalSounds&quot;: &quot;:animal_sounds&quot;,
+        },
+        default_exports = [&quot;AnimalSounds&quot;],
+    )
+</code></pre>
+<hr />
+<h2 id="override-flexibility"><a class="header" href="#override-flexibility">Override Flexibility</a></h2>
+<p>On top of being a standardized encoding of this design pattern, &quot;Abstract Modules&quot; provide an additional mechanism for
+various components of the Module to be override-able. In the <code>Animal = claro_abstract_module(...)</code> declaration above,
+the <code>overridable_srcs = {...}</code> arg lists a few different <em>named</em> components that have default implementations provided
+as <code>.claro</code> source files that can be optionally overridden by any concrete <code>Animal(...)</code> usages. For the sake of
+demonstration, the &quot;Abstract Animal Module&quot; has been decomposed into a relatively fine granularity, allowing significant
+customization to downstream users of the Macro.</p>
+<p>So now the <code>Animal(...)</code> macro can be used very similarly as in the previous sections, but with some slightly different
+arguments:</p>
+<h4 id="fig-2"><a class="header" href="#fig-2"><em>Fig 2:</em></a></h4>
+<hr />
+<pre><code class="language-python"># BUILD
+load(&quot;:animal.bzl&quot;, &quot;Animal&quot;)
+
+[
+    Animal(
+        name = animal,
+        api_extensions = [&quot;:{0}_cons.claro_module_api&quot;.format(animal)],
+        override = {
+            &quot;InternalStateAndConstructor&quot;: &quot;:{0}_state_and_cons.claro&quot;.format(animal),
+            &quot;MakeNoiseImpl&quot;: &quot;:{0}_noise.claro&quot;.format(animal),
+        },
+    )
+    for animal in [&quot;dog&quot;, &quot;cat&quot;]
+]
+
+# ...
+</code></pre>
+<hr />
+<p>The first notable detail is that the idea of extending Module APIs is now encoded directly into the &quot;Abstract Module&quot;
+Macros returned by <code>claro_abstract_module(...)</code> in the form of the <code>api_extensions = [...]</code> parameter. So now, we didn't
+need to manually concatenate api files using a Bazel <code>genrule(...)</code> as we 
+<a href="../reusing_module_apis/reusing_module_apis.generated_docs.html#fig-9">did in the prior sections</a>. Then, notice that
+the concrete <code>cat</code> and <code>dog</code> Animal Modules now implicitly inherit the default <code>AnimalSoundsImpl</code> implementation, while
+explicitly overriding <code>InternalStateAndConstructor</code> and <code>MakeNoiseImpl</code> with custom implementations. Now, these Module
+definitions can be used exactly the same as they were when defined using the approach(es) from the prior sections.</p>
+<p>As one final motivating example, to demonstrate something that this <em>new</em> <code>Animal(...)</code> implementation can do that the
+prior implementation(s) couldn't, we can also define a new Animal Module that overrides the default <code>AnimalSounds</code>
+Contract implementation, by overriding <code>AnimalSoundsImpl</code>:</p>
+<h4 id="fig-3"><a class="header" href="#fig-3"><em>Fig 3:</em></a></h4>
+<hr />
+<pre><code class="language-claro"># platypus_animal_sounds_impl.claro
+implement AnimalSounds::AnimalSounds&lt;State&gt; {
+  function makeNoise(state: State) -&gt; string {
+    var name = unwrap(state).name;
+    if (unwrap(unwrap(state).internal).isWearingFedora) { # https://youtu.be/KFssdwb7dF8?si=Omgf1-D3qIBY6jO9
+      var codename = name[0];
+      return &quot;!!!!!!!!!! REDACTED TOP SECRET MESSAGE !!!!!!!!!! - Agent {codename}&quot;;
+    }
+    return &quot;Chirp Chirp - says {name}&quot;;
+  }
+}
+</code></pre>
+<hr />
+<h4 id="fig-4"><a class="header" href="#fig-4"><em>Fig 4:</em></a></h4>
+<hr />
+<pre><code class="language-python"># BUILD
+load(&quot;:animal.bzl&quot;, &quot;Animal&quot;)
+
+# ...
+
+Animal(
+    name = &quot;platypus&quot;,
+    api_extensions = [&quot;:platypus_cons.claro_module_api&quot;],
+    override = {
+        &quot;AnimalSoundsImpl&quot;: &quot;:platypus_animal_sounds_impl.claro&quot;,
+        &quot;InternalStateAndConstructor&quot;: &quot;:platypus_state_and_cons.claro&quot;,
+    },
+)
+</code></pre>
+<hr />
+<p>And now, our demo program can start use the <code>platypus</code> Module just as it was using the <code>dog</code> and <code>cat</code> Modules 
+previously:</p>
+<h4 id="fig-5"><a class="header" href="#fig-5"><em>Fig 5:</em></a></h4>
+<hr />
+<pre><code class="language-python"># BUILD
+load(&quot;@claro-lang//:rules.bzl&quot;, &quot;claro_module&quot;, &quot;claro_binary&quot;)
+
+# ...
+
+claro_binary(
+    name = &quot;animals_example&quot;,
+    main_file = &quot;animals_example.claro&quot;,
+    deps = {
+        &quot;AnimalSounds&quot;: &quot;:animal_sounds&quot;,
+        &quot;Cat&quot;: &quot;:cat&quot;,
+        &quot;Dog&quot;: &quot;:dog&quot;,
+        &quot;Platypus&quot;: &quot;:platypus&quot;,
+    },
+)
+</code></pre>
+<hr />
+<h4 id="fig-6"><a class="header" href="#fig-6"><em>Fig 6:</em></a></h4>
+<hr />
+<pre><code class="language-claro"># animals_example.claro
+var animals: [oneof&lt;Cat::State, Dog::State, Platypus::State&gt;] = [
+    Dog::create(&quot;Milo&quot;, true),
+    Dog::create(&quot;Fido&quot;, false),
+    Cat::create(&quot;Garfield&quot;, &quot;This is worse than Monday morning.&quot;),
+    Platypus::create(&quot;Perry&quot;, false),
+    Platypus::create(&quot;Perry&quot;, true)
+  ];
+
+for (animal in animals) {
+  print(AnimalSounds::AnimalSounds::makeNoise(animal));
+}
+</code></pre>
+<p><em>Output:</em></p>
+<pre><code>[0.002s][warning][perf,memops] Cannot use file /tmp/hsperfdata_runner/6 because it is locked by another process (errno = 11)
+Woof! - says Milo
+Grrrr... - says Fido
+This is worse than Monday morning. - says Garfield
+Chirp Chirp - says Perry
+!!!!!!!!!! REDACTED TOP SECRET MESSAGE !!!!!!!!!! - Agent P
+</code></pre>
+<hr />
+<h2 id="additional-knobs--implementation-details"><a class="header" href="#additional-knobs--implementation-details">Additional Knobs &amp; Implementation Details</a></h2>
+<p>The point of this section is really to <em>demonstrate</em> some possibilities available to all Claro users interested in
+writing Bazel Macros to encode relatively complex design patterns. And, I think we can agree that being able to 
+hand-roll the very concept of <em>inheritance</em> without having to make a single change to the Claro compiler itself is a
+rather powerful capability!</p>
+<p>But to say it once more, this is all meant as a demonstration, rather than encouragement of specific usage of this
+<code>claro_abstract_module(...)</code> Macro. So, we won't dive any further into the implementation details of how this prototype
+works, and we won't even go into the full range of capabilities that this prototype currently supports. However, if
+you're sufficiently interested that you really wanted to know more, feel free to check out 
+<a href="https://github.com/JasonSteving99/claro-lang/blob/main/stdlib/utils/abstract_modules/abstract_module_internal.bzl" target="_blank">the implementation</a>
+yourself! You'll probably learn a lot about Bazel in the process of reading through it, so it could be enlightening.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../metaprogramming/code_reuse/reusing_source_code/reusing_source_code.generated_docs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../stdlib/default_modules/default_modules.generated_docs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../metaprogramming/code_reuse/reusing_source_code/reusing_source_code.generated_docs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../stdlib/default_modules/default_modules.generated_docs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../../mermaid@10.6.1.min.js"></script>
+        <script src="../../../mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>

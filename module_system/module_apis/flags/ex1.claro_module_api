@@ -1,0 +1,4 @@
+# Set this flag on the command line.
+flag env: string;
+
+static SUBJECT: string;

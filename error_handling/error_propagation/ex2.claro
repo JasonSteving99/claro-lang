@@ -1,0 +1,18 @@
+$$atom A
+$$atom B
+$$atom C
+$$
+provider demoErrorPropagation() -> oneof<A, B, std::Error<B>, std::Error<C>> {
+  # When there would be multiple non-error variants, the result type remains a oneof<...>.
+  var firstPotentialErr: oneof<A, B, std::Error<C>> = # ...
+$$    A;
+  var firstTypeDemo: oneof<A, B> ?= firstPotentialErr;
+$$  _ = firstTypeDemo;
+
+  # When there would only be a single non-error variant, the result type is narrowed to a concrete type.
+  var secondPotentialErr: oneof<A, std::Error<B>, std::Error<C>> = # ...
+$$    A;
+  var secondTypeDemo: A ?= secondPotentialErr;
+
+  return secondTypeDemo;
+}

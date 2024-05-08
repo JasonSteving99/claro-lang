@@ -1,0 +1,5 @@
+atom IndexOutOfBounds
+contract RandomAccess<C, E> {
+  function read(collection: C, index: int) -> oneof<E, std::Error<IndexOutOfBounds>>;
+  function write(collection: C, index: int, elem: E) -> oneof<std::OK, std::Error<IndexOutOfBounds>>;
+}

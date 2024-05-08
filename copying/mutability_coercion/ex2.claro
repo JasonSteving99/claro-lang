@@ -1,0 +1,2 @@
+# There's nothing that can possibly be done to make Foo<T> wrap a mutable list.
+newtype Foo<T> : [T]

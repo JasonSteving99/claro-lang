@@ -1,0 +1,8 @@
+# BUILD
+claro_binary(
+    name = "test",
+    main_file = "example.claro",
+    deps = {
+        "Msg": ":hello_world",
+    }
+)

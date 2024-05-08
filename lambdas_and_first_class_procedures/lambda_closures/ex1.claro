@@ -1,0 +1,5 @@
+var i = 0;
+var f = (x: int) -> int {
+    i = x + i; # `i` is captured, and illegally updated.
+    return i;
+};

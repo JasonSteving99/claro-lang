@@ -1,0 +1,12 @@
+{
+  "server_name": "My Server",
+  "port": 8080,
+  "logging": {
+    "filename": "server.log"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "database_name": "my_database"
+  }
+}

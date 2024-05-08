@@ -1,0 +1,6 @@
+var myStruct = mut {name = "Jason", age = 29};  # <-- Omitting optional type annotation.
+print(myStruct);
+
+myStruct.name = "Claro";  # <-- Mutation happens here.
+myStruct.age = 3;         # <-- Mutation happens here.
+print(myStruct);

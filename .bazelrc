@@ -1,0 +1,18 @@
+common --enable_bzlmod
+common --java_runtime_version=remotejdk_11
+build --java_language_version=11
+build --tool_java_language_version=11
+
+################################################################################
+# BEGIN: Flags required for ClaroDocs JS Development.
+################################################################################
+# passes an argument `--skipLibCheck` to *every* spawn of the TypeScript compiler, tsc
+build --@aspect_rules_ts//ts:skipLibCheck=always
+fetch --@aspect_rules_ts//ts:skipLibCheck=always
+query --@aspect_rules_ts//ts:skipLibCheck=always
+
+# Required for rules_js
+build --enable_runfiles
+################################################################################
+# BEGIN: Flags required for ClaroDocs JS Development.
+################################################################################

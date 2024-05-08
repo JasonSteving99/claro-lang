@@ -1,0 +1,10 @@
+var p = Person::getPerson("Jason", 29);
+if (p instanceof Person::Person) {
+  print(p);
+
+  # Now the update must be done via the provided `setAge(...)` function
+  # which first validates the update, and in this case rejects.
+  var updateRes = Person::setAge(p, -1);
+  print(updateRes);
+  print(p);
+}

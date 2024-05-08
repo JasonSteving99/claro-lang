@@ -1,0 +1,5 @@
+var s: string;
+while (input("Should `s` be initialized? (Y/n)") == "Y") {
+    s = input("Enter the value for `s`:");
+}
+print(s);

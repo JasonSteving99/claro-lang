@@ -1,0 +1,21 @@
+newtype UserId : string
+newtype Html : string
+newtype Homepage : struct {banner: Html, basePage: Html}
+alias Offer : string
+
+function renderPage(basePage: Html, maybeUpgradeBanner: Html) -> Homepage {
+  return Homepage({banner = maybeUpgradeBanner, basePage = basePage});
+}
+
+provider getBasePageFromDB() -> future<Html> {
+  return futures::immediateFuture(Html("some html"));
+}
+
+function checkPremiumFromDB(userId: UserId) -> future<boolean> {
+  _ = userId;
+  return futures::immediateFuture(false);
+}
+
+provider getBasicBanner() -> Html {
+  return Html("<div>Basic Banner</div>");
+}

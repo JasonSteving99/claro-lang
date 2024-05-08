@@ -1,0 +1,1 @@
+var add: function<|int, int| -> int> = lambda (lhs, rhs) -> lhs + rhs;

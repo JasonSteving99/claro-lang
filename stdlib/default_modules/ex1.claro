@@ -1,0 +1,4 @@
+$$ var l: mut [int] = mut [];
+lists::add(l, 1);
+lists::add(l, 2);
+$$ print(l);

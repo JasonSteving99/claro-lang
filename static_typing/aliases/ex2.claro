@@ -1,0 +1,11 @@
+alias MPH : double
+alias Hours : double # Arguably you should be using `duration::Duration`.
+alias Miles : double
+
+function timeTraveled(speed: MPH, distanceTraveled: Miles) -> Hours {
+  return distanceTraveled / speed;
+}
+
+var speed: MPH = 15.0;
+var distance: Miles = 60.0;
+print(timeTraveled(speed, distance));

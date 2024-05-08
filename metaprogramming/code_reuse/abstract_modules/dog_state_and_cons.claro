@@ -1,0 +1,8 @@
+newtype InternalState : struct { isHappy: boolean }
+
+function create(name: string, isHappy: boolean) -> State {
+  return State({
+    name = name,
+    internal = InternalState({isHappy = isHappy})
+  });
+}

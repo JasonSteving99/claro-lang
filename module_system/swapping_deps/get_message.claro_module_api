@@ -1,0 +1,2 @@
+# get_message.claro_module_api
+provider getMessage() -> string;

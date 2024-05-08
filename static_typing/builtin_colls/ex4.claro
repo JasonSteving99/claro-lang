@@ -1,0 +1,5 @@
+var l: mut [[int]] = mut [];
+for (i in [1, 2, 3]) {
+  lists::add(l, [i, i]); # <-- Add an immutable list to the mutable list.
+}
+print(l);

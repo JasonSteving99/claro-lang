@@ -1,0 +1,14 @@
+function assertVariant<A, B, Asserted>(o: oneof<A, B>) -> oneof<Asserted, std::Error<std::Nothing>> {
+  if (o instanceof Asserted) {
+    return o;
+  }
+  return std::Error(std::Nothing);
+}
+
+var myOneof: oneof<int, string> = "hello";
+
+var assertedInt = cast(oneof<int, std::Error<std::Nothing>>, assertVariant(myOneof));
+var assertedStr = cast(oneof<string, std::Error<std::Nothing>>, assertVariant(myOneof));
+
+print(assertedInt);
+print(assertedStr);

@@ -1,0 +1,14 @@
+$$atom Red
+$$atom Yellow
+$$atom Green
+$$
+var lightColor: oneof<Red, Yellow, Green> = Green;
+
+var lightColorStr: string;
+match (lightColor) {
+  case _:Red    -> lightColorStr = "red";
+  case _:Yellow -> lightColorStr = "yellow";
+  case _:Green  -> lightColorStr = "green";
+}
+
+print(lightColorStr);

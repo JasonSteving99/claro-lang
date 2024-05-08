@@ -1,0 +1,5 @@
+var s: string = "Hello";
+print(s);
+
+s = "goodbye";
+print(s);

@@ -1,0 +1,10 @@
+# animals_example.claro
+var animals: [oneof<Cat::State, Dog::State>] = [
+    Dog::create("Milo", true),
+    Dog::create("Fido", false),
+    Cat::create("Garfield", "This is worse than Monday morning.")
+  ];
+
+for (animal in animals) {
+  print(AnimalSounds::AnimalSounds::makeNoise(animal));
+}

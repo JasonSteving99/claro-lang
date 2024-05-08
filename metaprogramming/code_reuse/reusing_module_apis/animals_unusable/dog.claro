@@ -1,0 +1,11 @@
+# dog.claro
+newtype InternalState : struct { isHappy: boolean }
+
+implement AnimalSounds::AnimalSounds<State> {
+  function makeNoise(dog: State) -> string {
+    if (unwrap(unwrap(dog).internal).isHappy) {
+      return "Woof!";
+    }
+    return "Grrrr...";
+  }
+}

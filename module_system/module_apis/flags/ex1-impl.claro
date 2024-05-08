@@ -1,0 +1,10 @@
+provider static_SUBJECT() -> string {
+  # `env` here is referring to the flag defined in this module's API.
+  match (env) {
+    case "dev" -> return "DEVS";
+    case "prod" -> return "Users";
+    # If the flag wasn't set, it will default to the empty string.
+    case "" -> return "is anyone out there?";
+    case _ -> return env;
+  }
+}

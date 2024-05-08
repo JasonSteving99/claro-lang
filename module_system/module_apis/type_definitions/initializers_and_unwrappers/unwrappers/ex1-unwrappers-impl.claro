@@ -1,0 +1,10 @@
+
+unwrappers Person {
+  function setAge(p: Person, newAge: int) -> oneof<std::OK, std::Error<InvalidAge>> {
+    if (newAge < 0 or newAge > 100) {
+      return std::Error(InvalidAge);
+    }
+    unwrap(p).age = newAge;
+    return std::OK;
+  }
+}

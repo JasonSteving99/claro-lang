@@ -1,0 +1,8 @@
+claro_binary(
+    name = "some_binary",
+    main_file = "some_file.claro",
+    deps = {
+        # Deps on modules outside the StdLib require an explicit Build dep.
+        "SomeDep": "//path/to/some/dep:module",
+    },
+)

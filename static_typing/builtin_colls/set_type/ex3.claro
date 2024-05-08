@@ -1,0 +1,4 @@
+var s = mut {1, 2};
+print(10 in s);
+_ = sets::add(s, 10);  # <-- Explicitly ignoring output of function call.
+print(10 in s);

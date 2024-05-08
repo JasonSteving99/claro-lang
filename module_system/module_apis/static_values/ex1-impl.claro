@@ -1,0 +1,27 @@
+# ex1-impl.claro
+provider static_SERVER_CONFIG() -> ServerConfig {
+  resources::ConfigJSON
+    |> files::readOrPanic(^)
+    |> var parsedConfig: std::ParsedJson<ServerConfig> = fromJson(^);
+
+  var parsedResult = unwrap(parsedConfig).result;
+  if (parsedResult instanceof ServerConfig) {
+    # Config has correct format and was parsed successfully.
+    return parsedResult;
+  }
+  # ... Invalid Config File Format Handling ...
+$$  # TODO(steving) In the future Claro should support an explicit `Panic("Reason")`.
+$$  # TODO(steving) This server shouldn't even be allowed to actually startup.
+$$  return {
+$$    server_name = "Fake Server",
+$$    port = -1,
+$$    logging = {
+$$      filename = "server.log"
+$$    },
+$$    database = {
+$$      host = "localhost",
+$$      port = -1,
+$$      database_name = "Fake Database"
+$$    }
+$$  };
+}
